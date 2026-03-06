@@ -1322,8 +1322,8 @@ function QuotePDF({ quote, onBack }) {
               <div style={{ fontSize:11 }}>{quote.paymentMethod}</div>
             </div>
           </div>
-          <div style={{ minWidth:200 }}>
-            <table style={{ width:"100%", borderCollapse:"collapse" }}>
+          <div style={{ minWidth:220 }}>
+            <table className="totals-table" style={{ width:"100%", borderCollapse:"collapse" }}>
               <tbody>
                 <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
                   <td style={{ padding:"6px 10px", fontSize:12 }}>Total Neto</td>
@@ -1365,17 +1365,26 @@ function QuotePDF({ quote, onBack }) {
           body * { visibility: hidden; }
           #print-area, #print-area * { visibility: visible; }
           #print-area {
-            position: absolute; left: 0; top: 0;
-            width: 210mm; padding: 16mm;
+            position: fixed; left: 0; top: 0;
+            width: 100%; padding: 12mm 14mm;
             box-sizing: border-box;
+            font-size: 11px;
           }
-          #print-area table { width: 100%; border-collapse: collapse; }
+          #print-area table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+          #print-area table th:nth-child(1) { width: 10%; }
+          #print-area table th:nth-child(2) { width: 36%; }
+          #print-area table th:nth-child(3) { width: 7%; }
+          #print-area table th:nth-child(4) { width: 16%; }
+          #print-area table th:nth-child(5) { width: 10%; }
+          #print-area table th:nth-child(6) { width: 16%; }
           #print-area thead tr { background: #222 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          #print-area thead th { color: white !important; }
+          #print-area thead th { color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           #print-area .quote-box { border: 2px solid #cc0000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           #print-area .quote-box-header { background: #cc0000 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           #print-area .quote-number { color: #cc0000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           #print-area .rut-label { color: #cc0000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          #print-area .totals-table { width: 220px; margin-left: auto; }
+          #print-area .totals-table td { white-space: nowrap; }
           @page { margin: 0; size: A4; }
         }
       `}</style>
