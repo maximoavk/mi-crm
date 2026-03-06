@@ -657,12 +657,631 @@ function ReportsView({ contacts, deals, tasks, isMobile }) {
     </div>
   );
 }
+// ── MAPPERS COTIZACIONES ─────────────────────────────────────────────────────
+const mapProduct = (r) => ({
+  id: r.id, code: r.codigo, name: r.nombre, description: r.descripcion,
+  price: r.precio || 0, unit: r.unidad || "un", category: r.categoria || "",
+  provider: r.proveedor || "", type: r.tipo || "producto",
+});
+const mapProductToDb = (f) => ({
+  codigo: f.code, nombre: f.name, descripcion: f.description,
+  precio: Number(f.price) || 0, unidad: f.unit,
+  categoria: f.category, proveedor: f.provider, tipo: f.type,
+});
+
+const mapQuote = (r) => ({
+  id: r.id, number: r.numero, date: r.fecha, contactId: r.contact_id,
+  clientName: r.nombre_cliente, clientRut: r.rut_cliente,
+  clientCompany: r.razon_social, clientAddress: r.direccion,
+  clientPhone: r.telefono, paymentMethod: r.forma_pago,
+  hasIva: r.aplica_iva, comments: r.comentarios,
+  terms: r.terminos, status: r.estado || "borrador",
+  type: r.tipo || "productos", total: r.total || 0,
+});
+const mapQuoteToDb = (f) => ({
+  numero: f.number, fecha: f.date,
+  contact_id: f.contactId || null,
+  nombre_cliente: f.clientName, rut_cliente: f.clientRut,
+  razon_social: f.clientCompany, direccion: f.clientAddress,
+  telefono: f.clientPhone, forma_pago: f.paymentMethod,
+  aplica_iva: f.hasIva, comentarios: f.comments,
+  terminos: f.terms, estado: f.status, tipo: f.type,
+  total: Number(f.total) || 0,
+});
+
+const mapQuoteLine = (r) => ({
+  id: r.id, quoteId: r.quote_id, productId: r.product_id,
+  code: r.codigo, description: r.descripcion,
+  qty: r.cantidad || 1, unitPrice: r.precio_unitario || 0,
+  discount: r.descuento || 0, lineType: r.tipo_linea || "item",
+  milestone: r.hito || "",
+  subtotal: r.subtotal || 0,
+});
+const mapQuoteLineToDb = (f, quoteId) => ({
+  quote_id: quoteId, product_id: f.productId || null,
+  codigo: f.code, descripcion: f.description,
+  cantidad: Number(f.qty) || 1,
+  precio_unitario: Number(f.unitPrice) || 0,
+  descuento: Number(f.discount) || 0,
+  tipo_linea: f.lineType || "item",
+  hito: f.milestone || "",
+  subtotal: Number(f.subtotal) || 0,
+});
+
+// ── BASE DE DATOS DE PRODUCTOS ───────────────────────────────────────────────
+function ProductsDB({ isMobile }) {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filterType, setFilterType] = useState("todos");
+  const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState({ code:"", name:"", description:"", price:"", unit:"un", category:"", provider:"", type:"producto" });
+  const f = (k,v) => setForm(p=>({...p,[k]:v}));
+
+  useEffect(()=>{ loadProducts(); },[]);
+  const loadProducts = async () => {
+    const { data } = await supabase.from("products").select("*").order("codigo");
+    setProducts((data||[]).map(mapProduct));
+    setLoading(false);
+  };
+
+  const filtered = products.filter(p => {
+    const q = search.toLowerCase();
+    return (filterType==="todos"||p.type===filterType) &&
+      (p.name.toLowerCase().includes(q)||p.code.toLowerCase().includes(q)||(p.description||"").toLowerCase().includes(q));
+  });
+
+  const openNew = () => { setEditingId(null); setForm({ code:"", name:"", description:"", price:"", unit:"un", category:"", provider:"", type:"producto" }); setShowModal(true); };
+  const openEdit = (p) => { setEditingId(p.id); setForm({ code:p.code, name:p.name, description:p.description||"", price:String(p.price), unit:p.unit, category:p.category, provider:p.provider, type:p.type }); setShowModal(true); };
+
+  const save = async () => {
+    if (!form.code||!form.name) return;
+    if (editingId) {
+      const { data } = await supabase.from("products").update(mapProductToDb(form)).eq("id", editingId).select().single();
+      if (data) setProducts(products.map(p=>p.id===editingId?mapProduct(data):p));
+    } else {
+      const { data } = await supabase.from("products").insert(mapProductToDb(form)).select().single();
+      if (data) setProducts([...products, mapProduct(data)]);
+    }
+    setShowModal(false); setEditingId(null);
+  };
+
+  const del = async (id) => {
+    await supabase.from("products").delete().eq("id", id);
+    setProducts(products.filter(p=>p.id!==id));
+  };
+
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:20, flexWrap:"wrap", gap:10 }}>
+        <div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Catálogo</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Base de Productos y Servicios</div>
+        </div>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+          <div style={{ position:"relative" }}>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Código, nombre…" style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 14px 8px 32px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", width:180 }} />
+            <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", fontSize:12, color:COLORS.textMuted }}>🔍</span>
+          </div>
+          {["todos","producto","servicio","proyecto"].map(t=>(
+            <button key={t} onClick={()=>setFilterType(t)} style={{ padding:"7px 12px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:filterType===t?COLORS.accent:COLORS.card, color:filterType===t?COLORS.bg:COLORS.textMuted, border:`1px solid ${filterType===t?COLORS.accent:COLORS.border}` }}>{t.charAt(0).toUpperCase()+t.slice(1)}</button>
+          ))}
+          <AddBtn onClick={openNew} label="Nuevo ítem" />
+        </div>
+      </div>
+
+      {loading ? <Loader /> : (
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12, fontFamily:FONT }}>
+            <thead>
+              <tr style={{ borderBottom:`2px solid ${COLORS.border}` }}>
+                {["Código","Nombre","Descripción","Tipo","Proveedor","Precio Unit.","Unidad",""].map(h=>(
+                  <th key={h} style={{ padding:"10px 12px", textAlign:"left", color:COLORS.textMuted, fontWeight:600, fontSize:10, letterSpacing:"0.08em", textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(p=>(
+                <tr key={p.id} style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                  <td style={{ padding:"10px 12px", color:COLORS.accent, fontWeight:600 }}>{p.code}</td>
+                  <td style={{ padding:"10px 12px", color:COLORS.text, fontWeight:500 }}>{p.name}</td>
+                  <td style={{ padding:"10px 12px", color:COLORS.textMuted, maxWidth:200, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.description}</td>
+                  <td style={{ padding:"10px 12px" }}><Tag label={p.type} color={p.type==="producto"?COLORS.accent:p.type==="servicio"?COLORS.green:COLORS.yellow} /></td>
+                  <td style={{ padding:"10px 12px", color:COLORS.textMuted }}>{p.provider}</td>
+                  <td style={{ padding:"10px 12px", color:COLORS.green, fontWeight:600 }}>{fmt(p.price)}</td>
+                  <td style={{ padding:"10px 12px", color:COLORS.textMuted }}>{p.unit}</td>
+                  <td style={{ padding:"10px 12px" }}>
+                    <div style={{ display:"flex", gap:6 }}>
+                      <button onClick={()=>openEdit(p)} style={{ background:"none", border:`1px solid ${COLORS.accent}44`, borderRadius:4, color:COLORS.accent, cursor:"pointer", fontSize:11, padding:"2px 7px" }}>✏️</button>
+                      <button onClick={()=>del(p.id)} style={{ background:"none", border:`1px solid ${COLORS.red}44`, borderRadius:4, color:COLORS.red, cursor:"pointer", fontSize:11, padding:"2px 7px" }}>✕</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filtered.length===0 && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>Sin productos. ¡Agrega el primero!</div>}
+        </div>
+      )}
+
+      {showModal && (
+        <Modal title={editingId?"Editar Ítem":"Nuevo Ítem"} onClose={()=>setShowModal(false)} onSubmit={save}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+            <Input label="Código *" value={form.code} onChange={e=>f("code",e.target.value)} placeholder="Ej: S07" />
+            <Select label="Tipo" value={form.type} onChange={e=>f("type",e.target.value)}>
+              <option value="producto">Producto</option>
+              <option value="servicio">Servicio</option>
+              <option value="proyecto">Proyecto</option>
+            </Select>
+          </div>
+          <Input label="Nombre *" value={form.name} onChange={e=>f("name",e.target.value)} placeholder="Ej: Mantención programada" />
+          <Input label="Descripción" value={form.description} onChange={e=>f("description",e.target.value)} placeholder="Descripción detallada..." />
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+            <Input label="Precio unitario (CLP)" value={form.price} onChange={e=>f("price",e.target.value)} type="number" placeholder="0" />
+            <Input label="Unidad" value={form.unit} onChange={e=>f("unit",e.target.value)} placeholder="un / hr / m2" />
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+            <Input label="Proveedor" value={form.provider} onChange={e=>f("provider",e.target.value)} placeholder="Ej: Smart" />
+            <Input label="Categoría" value={form.category} onChange={e=>f("category",e.target.value)} placeholder="Ej: CCTV" />
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── COTIZACIONES LIST ────────────────────────────────────────────────────────
+function QuotesView({ contacts, isMobile }) {
+  const [quotes, setQuotes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState("list"); // list | new | detail | pdf
+  const [selectedQuote, setSelectedQuote] = useState(null);
+  const [nextNumber, setNextNumber] = useState(1);
+
+  useEffect(()=>{ loadQuotes(); },[]);
+  const loadQuotes = async () => {
+    const { data } = await supabase.from("cotizaciones").select("*").order("numero", { ascending: false });
+    const mapped = (data||[]).map(mapQuote);
+    setQuotes(mapped);
+    const maxNum = mapped.length > 0 ? Math.max(...mapped.map(q=>q.number||0)) : 0;
+    setNextNumber(maxNum + 1);
+    setLoading(false);
+  };
+
+  const STATUS_QUOTE = {
+    borrador:  { label:"Borrador",  color:COLORS.textMuted },
+    enviada:   { label:"Enviada",   color:COLORS.yellow },
+    aprobada:  { label:"Aprobada",  color:COLORS.green },
+    rechazada: { label:"Rechazada", color:COLORS.red },
+  };
+
+  const updateStatus = async (id, status) => {
+    await supabase.from("cotizaciones").update({ estado: status }).eq("id", id);
+    setQuotes(quotes.map(q=>q.id===id?{...q,status}:q));
+  };
+
+  const del = async (id) => {
+    await supabase.from("cotizaciones").delete().eq("id", id);
+    setQuotes(quotes.filter(q=>q.id!==id));
+  };
+
+  if (view==="new") return <QuoteEditor contacts={contacts} nextNumber={nextNumber} onSave={(q)=>{ setQuotes([q,...quotes]); setNextNumber(n=>n+1); setView("list"); }} onCancel={()=>setView("list")} />;
+  if (view==="detail" && selectedQuote) return <QuoteEditor contacts={contacts} quote={selectedQuote} onSave={(q)=>{ setQuotes(quotes.map(x=>x.id===q.id?q:x)); setView("list"); }} onCancel={()=>setView("list")} />;
+  if (view==="pdf" && selectedQuote) return <QuotePDF quote={selectedQuote} onBack={()=>setView("list")} />;
+
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:20, flexWrap:"wrap", gap:10 }}>
+        <div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Comercial</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Cotizaciones</div>
+        </div>
+        <AddBtn onClick={()=>setView("new")} label="Nueva cotización" />
+      </div>
+
+      {loading ? <Loader /> : (
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {quotes.length===0 && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>Sin cotizaciones aún.</div>}
+          {quotes.map(q=>{
+            const sc = STATUS_QUOTE[q.status]||STATUS_QUOTE.borrador;
+            return (
+              <div key={q.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"16px 20px" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:10 }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
+                      <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.accent, fontWeight:700 }}>N° {q.number}</div>
+                      <Badge color={sc.color}>{sc.label}</Badge>
+                      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{fmtDate(q.date)}</div>
+                    </div>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:600, color:COLORS.text }}>{q.clientCompany||q.clientName}</div>
+                    <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{q.clientName} · RUT: {q.clientRut}</div>
+                  </div>
+                  <div style={{ textAlign:"right" }}>
+                    <div style={{ fontFamily:FONT, fontSize:18, color:COLORS.green, fontWeight:700 }}>{fmt(q.total)}</div>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{q.hasIva?"IVA incluido":"Sin IVA"}</div>
+                  </div>
+                </div>
+                <div style={{ borderTop:`1px solid ${COLORS.border}`, marginTop:12, paddingTop:12, display:"flex", gap:8, flexWrap:"wrap" }}>
+                  <button onClick={()=>{ setSelectedQuote(q); setView("detail"); }} style={{ padding:"5px 12px", borderRadius:5, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>✏️ Editar</button>
+                  <button onClick={()=>{ setSelectedQuote(q); setView("pdf"); }} style={{ padding:"5px 12px", borderRadius:5, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.green}44`, color:COLORS.green }}>📄 Ver PDF</button>
+                  {["enviada","aprobada","rechazada"].map(s=>(
+                    <button key={s} onClick={()=>updateStatus(q.id,s)} style={{ padding:"5px 12px", borderRadius:5, fontFamily:FONT, fontSize:11, cursor:"pointer", background:q.status===s?STATUS_QUOTE[s].color+"22":"transparent", border:`1px solid ${STATUS_QUOTE[s].color}44`, color:STATUS_QUOTE[s].color }}>
+                      {STATUS_QUOTE[s].label}
+                    </button>
+                  ))}
+                  <button onClick={()=>del(q.id)} style={{ padding:"5px 12px", borderRadius:5, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red, marginLeft:"auto" }}>✕</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── QUOTE EDITOR ─────────────────────────────────────────────────────────────
+function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
+  const isEdit = !!quote;
+  const TERMS_DEFAULT = "1- El trabajo se ejecuta posterior a la aceptación de la cotización y coordinación de fecha.\n2- No refiere stock ni fecha de instalación.\n3- Cotización válida por 15 días.\nPagos en transferencia, efectivo o cheque a nombre de Polygonos SPA · RUT: 77.180.437-3";
+
+  const [header, setHeader] = useState(isEdit ? {
+    number: quote.number, date: quote.date,
+    contactId: quote.contactId||"", clientName: quote.clientName||"",
+    clientRut: quote.clientRut||"", clientCompany: quote.clientCompany||"",
+    clientAddress: quote.clientAddress||"", clientPhone: quote.clientPhone||"",
+    paymentMethod: quote.paymentMethod||"Al finalizar",
+    hasIva: quote.hasIva!==false, comments: quote.comments||"",
+    terms: quote.terms||TERMS_DEFAULT, status: quote.status||"borrador",
+    type: quote.type||"productos",
+  } : {
+    number: nextNumber, date: new Date().toISOString().slice(0,10),
+    contactId:"", clientName:"", clientRut:"", clientCompany:"",
+    clientAddress:"", clientPhone:"", paymentMethod:"Al finalizar",
+    hasIva:true, comments:"", terms:TERMS_DEFAULT, status:"borrador", type:"productos",
+  });
+
+  const [lines, setLines] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const hf = (k,v) => setHeader(p=>({...p,[k]:v}));
+
+  useEffect(()=>{
+    supabase.from("products").select("*").order("codigo").then(({data})=>setProducts((data||[]).map(mapProduct)));
+    if (isEdit) {
+      supabase.from("quote_lines").select("*").eq("quote_id", quote.id).order("id").then(({data})=>setLines((data||[]).map(mapQuoteLine)));
+    }
+  },[]);
+
+  // Auto-fill contact data
+  useEffect(()=>{
+    if (header.contactId) {
+      const c = contacts.find(x=>x.id===header.contactId);
+      if (c) hf("clientName", c.name), hf("clientRut", c.rut||""), hf("clientCompany", c.company||""), hf("clientPhone", c.phone||"");
+    }
+  },[header.contactId]);
+
+  const addLine = () => setLines(l=>[...l, { id:"new_"+Date.now(), quoteId:"", productId:"", code:"", description:"", qty:1, unitPrice:0, discount:0, lineType:"item", milestone:"", subtotal:0 }]);
+
+  const updateLine = (idx, key, val) => {
+    setLines(l => l.map((line,i) => {
+      if (i!==idx) return line;
+      const updated = {...line, [key]: val};
+      if (key==="productId") {
+        const p = products.find(x=>x.id===val);
+        if (p) { updated.code=p.code; updated.description=p.name; updated.unitPrice=p.price; }
+      }
+      const price = Number(key==="unitPrice"?val:updated.unitPrice)||0;
+      const qty = Number(key==="qty"?val:updated.qty)||1;
+      const disc = Number(key==="discount"?val:updated.discount)||0;
+      updated.subtotal = price * qty * (1 - disc/100);
+      return updated;
+    }));
+  };
+
+  const removeLine = (idx) => setLines(l=>l.filter((_,i)=>i!==idx));
+
+  const neto = lines.reduce((s,l)=>s+Number(l.subtotal),0);
+  const iva = header.hasIva ? neto * 0.19 : 0;
+  const total = neto + iva;
+
+  const save = async () => {
+    setSaving(true);
+    const quoteData = mapQuoteToDb({...header, total});
+    let savedQuote;
+    if (isEdit) {
+      const { data } = await supabase.from("cotizaciones").update(quoteData).eq("id", quote.id).select().single();
+      savedQuote = data;
+      await supabase.from("quote_lines").delete().eq("quote_id", quote.id);
+    } else {
+      const { data } = await supabase.from("cotizaciones").insert(quoteData).select().single();
+      savedQuote = data;
+    }
+    if (savedQuote && lines.length > 0) {
+      await supabase.from("quote_lines").insert(lines.map(l=>mapQuoteLineToDb(l, savedQuote.id)));
+    }
+    setSaving(false);
+    onSave({ ...mapQuote(savedQuote), lines });
+  };
+
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+        <div>
+          <button onClick={onCancel} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12, marginBottom:4 }}>← Volver</button>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:COLORS.text }}>{isEdit?"Editar":"Nueva"} Cotización N° {header.number}</div>
+        </div>
+        <button onClick={save} disabled={saving} style={{ padding:"10px 24px", background:COLORS.accent, border:"none", borderRadius:7, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+          {saving?"Guardando…":"💾 Guardar"}
+        </button>
+      </div>
+
+      {/* ENCABEZADO */}
+      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20, marginBottom:16 }}>
+        <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Encabezado</div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px,1fr))", gap:12 }}>
+          <Input label="N° Cotización" value={header.number} onChange={e=>hf("number",e.target.value)} type="number" />
+          <Input label="Fecha" value={header.date} onChange={e=>hf("date",e.target.value)} type="date" />
+          <Select label="Tipo" value={header.type} onChange={e=>hf("type",e.target.value)}>
+            <option value="productos">Productos y Servicios</option>
+            <option value="proyecto">Proyecto</option>
+          </Select>
+          <Select label="Estado" value={header.status} onChange={e=>hf("status",e.target.value)}>
+            <option value="borrador">Borrador</option>
+            <option value="enviada">Enviada</option>
+            <option value="aprobada">Aprobada</option>
+            <option value="rechazada">Rechazada</option>
+          </Select>
+        </div>
+      </div>
+
+      {/* CLIENTE */}
+      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20, marginBottom:16 }}>
+        <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Cliente</div>
+        <Select label="Vincular contacto CRM" value={header.contactId} onChange={e=>hf("contactId",e.target.value)}>
+          <option value="">— Seleccionar contacto —</option>
+          {contacts.map(c=><option key={c.id} value={c.id}>{c.name} · {c.company}</option>)}
+        </Select>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px,1fr))", gap:12 }}>
+          <Input label="Nombre cliente" value={header.clientName} onChange={e=>hf("clientName",e.target.value)} />
+          <Input label="RUT" value={header.clientRut} onChange={e=>hf("clientRut",formatRut(e.target.value))} maxLength={12} />
+          <Input label="Razón social" value={header.clientCompany} onChange={e=>hf("clientCompany",e.target.value)} />
+          <Input label="Teléfono" value={header.clientPhone} onChange={e=>hf("clientPhone",e.target.value)} />
+          <Input label="Dirección" value={header.clientAddress} onChange={e=>hf("clientAddress",e.target.value)} />
+          <Select label="Forma de pago" value={header.paymentMethod} onChange={e=>hf("paymentMethod",e.target.value)}>
+            <option>Al finalizar</option>
+            <option>50% anticipo y saldo al finalizar</option>
+            <option>0 a 30 días</option>
+            <option>Contado</option>
+          </Select>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginTop:8 }}>
+          <input type="checkbox" checked={header.hasIva} onChange={e=>hf("hasIva",e.target.checked)} id="iva" style={{ width:16, height:16, cursor:"pointer" }} />
+          <label htmlFor="iva" style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, cursor:"pointer" }}>Aplica IVA (19%)</label>
+        </div>
+      </div>
+
+      {/* LÍNEAS */}
+      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20, marginBottom:16 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+          <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, fontSize:14 }}>
+            {header.type==="proyecto" ? "Ítems del Proyecto" : "Detalle de Productos/Servicios"}
+          </div>
+          <button onClick={addLine} style={{ padding:"6px 14px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>+ Agregar línea</button>
+        </div>
+
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12, fontFamily:FONT }}>
+            <thead>
+              <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                {["Producto/Servicio","Código","Descripción","Cant.","Precio Unit.","Desc.%","Subtotal",""].map(h=>(
+                  <th key={h} style={{ padding:"8px 10px", textAlign:"left", color:COLORS.textMuted, fontSize:10, letterSpacing:"0.07em", textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map((line,idx)=>(
+                <tr key={line.id} style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                  <td style={{ padding:"6px 8px", minWidth:180 }}>
+                    <select value={line.productId} onChange={e=>updateLine(idx,"productId",e.target.value)} style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none" }}>
+                      <option value="">— Seleccionar —</option>
+                      {products.map(p=><option key={p.id} value={p.id}>[{p.code}] {p.name}</option>)}
+                    </select>
+                  </td>
+                  <td style={{ padding:"6px 8px", minWidth:80 }}>
+                    <input value={line.code} onChange={e=>updateLine(idx,"code",e.target.value)} style={{ width:70, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:COLORS.accent, outline:"none" }} />
+                  </td>
+                  <td style={{ padding:"6px 8px", minWidth:200 }}>
+                    <input value={line.description} onChange={e=>updateLine(idx,"description",e.target.value)} style={{ width:200, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none" }} />
+                  </td>
+                  <td style={{ padding:"6px 8px", minWidth:60 }}>
+                    <input value={line.qty} onChange={e=>updateLine(idx,"qty",e.target.value)} type="number" style={{ width:55, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none" }} />
+                  </td>
+                  <td style={{ padding:"6px 8px", minWidth:110 }}>
+                    <input value={line.unitPrice} onChange={e=>updateLine(idx,"unitPrice",e.target.value)} type="number" style={{ width:100, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none" }} />
+                  </td>
+                  <td style={{ padding:"6px 8px", minWidth:60 }}>
+                    <input value={line.discount} onChange={e=>updateLine(idx,"discount",e.target.value)} type="number" style={{ width:50, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none" }} />
+                  </td>
+                  <td style={{ padding:"6px 8px", color:COLORS.green, fontWeight:600, whiteSpace:"nowrap" }}>{fmt(line.subtotal)}</td>
+                  <td style={{ padding:"6px 8px" }}>
+                    <button onClick={()=>removeLine(idx)} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>✕</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {lines.length===0 && <div style={{ textAlign:"center", padding:30, fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin líneas. Haz clic en "+ Agregar línea".</div>}
+        </div>
+
+        {/* TOTALES */}
+        <div style={{ display:"flex", justifyContent:"flex-end", marginTop:16 }}>
+          <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"14px 20px", minWidth:220 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+              <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Total Neto</span>
+              <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.text }}>{fmt(neto)}</span>
+            </div>
+            {header.hasIva && (
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+                <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>IVA (19%)</span>
+                <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.text }}>{fmt(iva)}</span>
+              </div>
+            )}
+            <div style={{ display:"flex", justifyContent:"space-between", borderTop:`1px solid ${COLORS.border}`, paddingTop:8 }}>
+              <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text }}>Total</span>
+              <span style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.green }}>{fmt(total)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* COMENTARIOS Y TÉRMINOS */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:16 }}>
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20 }}>
+          <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:12, fontSize:14 }}>Comentarios</div>
+          <textarea value={header.comments} onChange={e=>hf("comments",e.target.value)} rows={4} placeholder="Notas adicionales..." style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", resize:"vertical", boxSizing:"border-box" }} />
+        </div>
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20 }}>
+          <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:12, fontSize:14 }}>Términos y Condiciones</div>
+          <textarea value={header.terms} onChange={e=>hf("terms",e.target.value)} rows={4} style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", resize:"vertical", boxSizing:"border-box" }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── PDF VIEW ─────────────────────────────────────────────────────────────────
+function QuotePDF({ quote, onBack }) {
+  const [lines, setLines] = useState([]);
+  useEffect(()=>{
+    supabase.from("quote_lines").select("*").eq("quote_id", quote.id).order("id").then(({data})=>setLines((data||[]).map(mapQuoteLine)));
+  },[]);
+
+  const neto = lines.reduce((s,l)=>s+Number(l.subtotal),0);
+  const iva = quote.hasIva ? neto*0.19 : 0;
+  const total = neto + iva;
+
+  return (
+    <div>
+      <div style={{ display:"flex", gap:10, marginBottom:20, alignItems:"center" }}>
+        <button onClick={onBack} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>← Volver</button>
+        <button onClick={()=>window.print()} style={{ padding:"8px 18px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>🖨️ Imprimir / PDF</button>
+      </div>
+
+      {/* DOCUMENTO */}
+      <div id="print-area" style={{ background:"white", color:"#000", padding:"32px 40px", maxWidth:800, margin:"0 auto", borderRadius:8, fontFamily:"Arial, sans-serif", fontSize:12 }}>
+        {/* HEADER */}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:24, borderBottom:"2px solid #e0e0e0", paddingBottom:16 }}>
+          <div>
+            <div style={{ fontSize:22, fontWeight:700, color:"#cc0000", marginBottom:4 }}>Polygonos</div>
+            <div style={{ fontSize:11, color:"#555" }}>Sucursales: Marco Gallo Vergara 536 B, Dpto 411 Torre D</div>
+            <div style={{ fontSize:11, color:"#555" }}>Casa Matriz: Huérfanos, 1055 Oficina 603</div>
+            <div style={{ fontSize:11, color:"#555" }}>Giro: Servicios de Seguridad y Cerrajería</div>
+            <div style={{ fontSize:11, color:"#555" }}>Fono: 9-81334980</div>
+            <div style={{ fontSize:11, color:"#555" }}>eMail: ventas@polygonos.cl</div>
+          </div>
+          <div style={{ textAlign:"right" }}>
+            <div style={{ color:"#cc0000", fontWeight:700, fontSize:13 }}>R.U.T.: 77.180.437-3</div>
+            <div style={{ background:"#cc0000", color:"white", padding:"8px 16px", borderRadius:6, marginTop:8, textAlign:"center" }}>
+              <div style={{ fontSize:11, fontWeight:600 }}>N° Cotización:</div>
+              <div style={{ fontSize:24, fontWeight:700 }}>{quote.number}</div>
+            </div>
+            <div style={{ fontSize:11, color:"#555", marginTop:8 }}>Fecha: {fmtDate(quote.date)}</div>
+          </div>
+        </div>
+
+        {/* CLIENTE */}
+        <div style={{ background:"#f8f8f8", padding:"12px 16px", borderRadius:6, marginBottom:16 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+            <div><span style={{ fontWeight:700 }}>Nombre Cliente: </span>{quote.clientName}</div>
+            <div><span style={{ fontWeight:700 }}>R.U.T.: </span>{quote.clientRut}</div>
+            <div><span style={{ fontWeight:700 }}>Razón Social: </span>{quote.clientCompany}</div>
+            <div><span style={{ fontWeight:700 }}>Teléfono: </span>{quote.clientPhone}</div>
+            {quote.clientAddress && <div style={{ gridColumn:"span 2" }}><span style={{ fontWeight:700 }}>Dirección: </span>{quote.clientAddress}</div>}
+          </div>
+        </div>
+
+        {/* TABLA ITEMS */}
+        <table style={{ width:"100%", borderCollapse:"collapse", marginBottom:16 }}>
+          <thead>
+            <tr style={{ background:"#222", color:"white" }}>
+              {["Código","Descripción","Cant.","Valor Unit.","% Desc.","Sub Total"].map(h=>(
+                <th key={h} style={{ padding:"8px 10px", textAlign:"left", fontSize:11 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map((l,i)=>(
+              <tr key={l.id} style={{ background:i%2===0?"white":"#f9f9f9", borderBottom:"1px solid #e0e0e0" }}>
+                <td style={{ padding:"8px 10px", fontWeight:600, color:"#333" }}>{l.code}</td>
+                <td style={{ padding:"8px 10px" }}>{l.description}</td>
+                <td style={{ padding:"8px 10px", textAlign:"center" }}>{l.qty}</td>
+                <td style={{ padding:"8px 10px" }}>{fmt(l.unitPrice)}</td>
+                <td style={{ padding:"8px 10px", textAlign:"center" }}>{l.discount}%</td>
+                <td style={{ padding:"8px 10px", fontWeight:600 }}>{fmt(l.subtotal)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* TOTALES + COMENTARIOS */}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:20, marginBottom:16 }}>
+          <div>
+            {quote.comments && (
+              <div style={{ marginBottom:10 }}>
+                <div style={{ fontWeight:700, marginBottom:4 }}>Comentarios:</div>
+                <div style={{ fontSize:11, color:"#555", whiteSpace:"pre-wrap" }}>{quote.comments}</div>
+              </div>
+            )}
+            <div style={{ marginBottom:10 }}>
+              <div style={{ fontWeight:700, marginBottom:4 }}>Forma de Pago:</div>
+              <div style={{ fontSize:11 }}>{quote.paymentMethod}</div>
+            </div>
+          </div>
+          <div style={{ minWidth:200 }}>
+            <table style={{ width:"100%", borderCollapse:"collapse" }}>
+              <tbody>
+                <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
+                  <td style={{ padding:"6px 10px", fontSize:12 }}>Total Neto</td>
+                  <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right" }}>{fmt(neto)}</td>
+                </tr>
+                {quote.hasIva && (
+                  <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
+                    <td style={{ padding:"6px 10px", fontSize:12 }}>IVA (19%)</td>
+                    <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right" }}>{fmt(iva)}</td>
+                  </tr>
+                )}
+                <tr style={{ background:"#f0f0f0" }}>
+                  <td style={{ padding:"8px 10px", fontWeight:700 }}>Total</td>
+                  <td style={{ padding:"8px 10px", fontWeight:700, textAlign:"right", fontSize:14 }}>{fmt(total)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* TÉRMINOS */}
+        {quote.terms && (
+          <div style={{ borderTop:"1px solid #e0e0e0", paddingTop:12, fontSize:10, color:"#555" }}>
+            <div style={{ fontWeight:700, marginBottom:4 }}>Términos y Condiciones:</div>
+            <div style={{ whiteSpace:"pre-wrap" }}>{quote.terms}</div>
+          </div>
+        )}
+      </div>
+
+      <style>{`@media print { body > *:not(#print-area) { display:none; } #print-area { margin:0; padding:20px; border-radius:0; } }`}</style>
+    </div>
+  );
+}
 
 // ── MAIN APP ─────────────────────────────────────────────────────────────────
 const NAV = [
   { key:"dashboard", label:"Dashboard", icon:"◈" },
   { key:"contacts",  label:"Contactos", icon:"◎" },
   { key:"pipeline",  label:"Pipeline",  icon:"◧" },
+  { key:"quotes",    label:"Cotizar",   icon:"◑" },
+  { key:"products",  label:"Catálogo",  icon:"◫" },
   { key:"tasks",     label:"Tareas",    icon:"◉" },
   { key:"reports",   label:"Reportes",  icon:"◌" },
 ];
@@ -713,7 +1332,7 @@ export default function CRM() {
       )}
 
       {isMobile && menuOpen && (
-        <div style={{ position:"fixed", top:58, left:0, right:0, background:COLORS.surface, borderBottom:`1px solid ${COLORS.border}`, zIndex:140, padding:"10px" }}>
+        <div style={{ position:"fixed", top:58, left:0, right:0, background:COLORS.surface, borderBottom:`1px solid ${COLORS.border}`, zIndex:140, padding:"10px", maxHeight:"80vh", overflowY:"auto" }}>
           {NAV.map(n=>{
             const active=view===n.key;
             return (
@@ -754,6 +1373,8 @@ export default function CRM() {
         {view==="dashboard" && <Dashboard contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} />}
         {view==="contacts"  && <ContactsView contacts={contacts} setContacts={setContacts} isMobile={isMobile} />}
         {view==="pipeline"  && <PipelineView deals={deals} setDeals={setDeals} contacts={contacts} isMobile={isMobile} />}
+        {view==="quotes"    && <QuotesView contacts={contacts} isMobile={isMobile} />}
+        {view==="products"  && <ProductsDB isMobile={isMobile} />}
         {view==="tasks"     && <TasksView tasks={tasks} setTasks={setTasks} contacts={contacts} isMobile={isMobile} />}
         {view==="reports"   && <ReportsView contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} />}
       </main>
@@ -763,10 +1384,10 @@ export default function CRM() {
           {NAV.map(n=>{
             const active=view===n.key;
             return (
-              <button key={n.key} onClick={()=>navigate(n.key)} style={{ flex:1, padding:"10px 4px 8px", background:"transparent", border:"none", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
-                <span style={{ fontSize:17 }}>{n.icon}</span>
-                <span style={{ fontFamily:FONT, fontSize:9, color:active?COLORS.accent:COLORS.textMuted }}>{n.label}</span>
-                {active && <div style={{ width:4, height:4, borderRadius:"50%", background:COLORS.accent }} />}
+              <button key={n.key} onClick={()=>navigate(n.key)} style={{ flex:1, padding:"8px 2px 6px", background:"transparent", border:"none", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+                <span style={{ fontSize:15 }}>{n.icon}</span>
+                <span style={{ fontFamily:FONT, fontSize:8, color:active?COLORS.accent:COLORS.textMuted }}>{n.label}</span>
+                {active && <div style={{ width:3, height:3, borderRadius:"50%", background:COLORS.accent }} />}
               </button>
             );
           })}
