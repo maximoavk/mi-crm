@@ -746,7 +746,7 @@ const mapQuoteLine = (r) => ({
 });
 const mapQuoteLineToDb = (f, quoteId) => ({
   quote_id: quoteId, product_id: f.productId || null,
-  codigo: f.code, modelo: f.description,
+  codigo: f.code||"", descripcion: f.description||"",
   cantidad: Number(f.qty) || 1,
   precio_unitario: Number(f.unitPrice) || 0,
   descuento: Number(f.discount) || 0,
