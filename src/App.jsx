@@ -1264,11 +1264,11 @@ function QuotePDF({ quote, onBack }) {
           <div style={{ textAlign:"center" }}>
             {/* RUT solo si es Con IVA */}
             {quote.ivaMode==="empresa" && (
-              <div style={{ color:"#cc0000", fontWeight:700, fontSize:13, marginBottom:6 }}>R.U.T.: 77.180.437-3</div>
+              <div className="rut-label" style={{ color:"#cc0000", fontWeight:700, fontSize:13, marginBottom:6 }}>R.U.T.: 77.180.437-3</div>
             )}
-            <div style={{ border:"2px solid #cc0000", textAlign:"center", minWidth:160, padding:"8px 16px" }}>
-              <div style={{ background:"#cc0000", color:"white", fontSize:11, fontWeight:700, letterSpacing:"0.05em", padding:"4px 0", marginBottom:6 }}>N° Cotización:</div>
-              <div style={{ fontSize:32, fontWeight:700, color:"#cc0000", lineHeight:1.1 }}>{quote.number}</div>
+            <div className="quote-box" style={{ border:"2px solid #cc0000", textAlign:"center", minWidth:160, padding:"8px 16px" }}>
+              <div className="quote-box-header" style={{ background:"#cc0000", color:"white", fontSize:11, fontWeight:700, letterSpacing:"0.05em", padding:"4px 0", marginBottom:6 }}>N° Cotización:</div>
+              <div className="quote-number" style={{ fontSize:32, fontWeight:700, color:"#cc0000", lineHeight:1.1 }}>{quote.number}</div>
             </div>
             <div style={{ fontSize:11, color:"#555", marginTop:8 }}>Fecha de Cotización: {fmtDate(quote.date)}</div>
           </div>
@@ -1360,7 +1360,25 @@ function QuotePDF({ quote, onBack }) {
           </div>
       </div>
 
-      <style>{`@media print { body * { visibility: hidden; } #print-area, #print-area * { visibility: visible; } #print-area { position: absolute; left: 0; top: 0; width: 100%; } }`}</style>
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #print-area, #print-area * { visibility: visible; }
+          #print-area {
+            position: absolute; left: 0; top: 0;
+            width: 210mm; padding: 16mm;
+            box-sizing: border-box;
+          }
+          #print-area table { width: 100%; border-collapse: collapse; }
+          #print-area thead tr { background: #222 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          #print-area thead th { color: white !important; }
+          #print-area .quote-box { border: 2px solid #cc0000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          #print-area .quote-box-header { background: #cc0000 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          #print-area .quote-number { color: #cc0000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          #print-area .rut-label { color: #cc0000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          @page { margin: 0; size: A4; }
+        }
+      `}</style>
     </div>
   );
 }
