@@ -1308,46 +1308,46 @@ function QuotePDF({ quote, onBack }) {
           </tbody>
         </table>
 
-        {/* TOTALES + FORMA DE PAGO */}
-        <div style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:20, marginBottom:16, alignItems:"start" }}>
-          <div>
-            {quote.comments && (
-              <div style={{ marginBottom:10 }}>
-                <div style={{ fontWeight:700, marginBottom:4 }}>Comentarios:</div>
-                <div style={{ fontSize:11, color:"#555", whiteSpace:"pre-wrap" }}>{quote.comments}</div>
-              </div>
-            )}
-            <div style={{ marginBottom:4 }}>
-              <span style={{ fontWeight:700 }}>Forma de Pago: </span>
-              <span style={{ fontSize:11 }}>{quote.paymentMethod}</span>
-            </div>
-            {quote.paymentMethod && quote.paymentMethod.includes("50%") && (
-              <div style={{ fontSize:11, color:"#333", marginTop:4, paddingLeft:8, borderLeft:"2px solid #cc0000" }}>
-                <div>Anticipo (50%): <strong>{fmt(total * 0.5)}</strong></div>
-                <div style={{ marginTop:2 }}>Al finalizar (50%): <strong>{fmt(total * 0.5)}</strong></div>
-              </div>
-            )}
-          </div>
-          <div style={{ minWidth:240 }}>
-            <table className="totals-table" style={{ width:"100%", borderCollapse:"collapse" }}>
-              <tbody>
+        {/* TOTALES */}
+        <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
+          <table className="totals-table" style={{ width:260, borderCollapse:"collapse" }}>
+            <tbody>
+              <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
+                <td style={{ padding:"6px 10px", fontSize:12, whiteSpace:"nowrap" }}>Total Neto</td>
+                <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(neto)}</td>
+              </tr>
+              {quote.hasIva && (
                 <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
-                  <td style={{ padding:"6px 10px", fontSize:12, whiteSpace:"nowrap" }}>Total Neto</td>
-                  <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(neto)}</td>
+                  <td style={{ padding:"6px 10px", fontSize:12, whiteSpace:"nowrap" }}>IVA (19%)</td>
+                  <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(iva)}</td>
                 </tr>
-                {quote.hasIva && (
-                  <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
-                    <td style={{ padding:"6px 10px", fontSize:12, whiteSpace:"nowrap" }}>IVA (19%)</td>
-                    <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(iva)}</td>
-                  </tr>
-                )}
-                <tr style={{ background:"#f0f0f0" }}>
-                  <td style={{ padding:"8px 10px", fontWeight:700, whiteSpace:"nowrap" }}>Total</td>
-                  <td style={{ padding:"8px 10px", fontWeight:700, textAlign:"right", fontSize:14, whiteSpace:"nowrap" }}>{fmt(total)}</td>
-                </tr>
-              </tbody>
-            </table>
+              )}
+              <tr style={{ background:"#f0f0f0" }}>
+                <td style={{ padding:"8px 10px", fontWeight:700, whiteSpace:"nowrap" }}>Total</td>
+                <td style={{ padding:"8px 10px", fontWeight:700, textAlign:"right", fontSize:14, whiteSpace:"nowrap" }}>{fmt(total)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* FORMA DE PAGO */}
+        <div style={{ marginBottom:16, borderTop:"1px solid #e0e0e0", paddingTop:10 }}>
+          {quote.comments && (
+            <div style={{ marginBottom:8 }}>
+              <span style={{ fontWeight:700 }}>Comentarios: </span>
+              <span style={{ fontSize:11, color:"#555" }}>{quote.comments}</span>
+            </div>
+          )}
+          <div>
+            <span style={{ fontWeight:700 }}>Forma de Pago: </span>
+            <span style={{ fontSize:11 }}>{quote.paymentMethod}</span>
           </div>
+          {quote.paymentMethod && quote.paymentMethod.includes("50%") && (
+            <div style={{ display:"flex", gap:24, marginTop:6, paddingLeft:12, borderLeft:"3px solid #cc0000" }}>
+              <div style={{ fontSize:11 }}>Anticipo (50%): <strong>{fmt(total * 0.5)}</strong></div>
+              <div style={{ fontSize:11 }}>Al finalizar (50%): <strong>{fmt(total * 0.5)}</strong></div>
+            </div>
+          )}
         </div>
 
         {/* TÉRMINOS */}
