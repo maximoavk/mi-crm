@@ -12,12 +12,14 @@ const mapContact = (r) => ({
   id: r.id, name: r.nombre, company: r.empresa, role: r.cargo,
   email: r.email, phone: r.telefono, rut: r.rut, status: r.estado,
   value: r.valor || 0, lastContact: r.ultimo_contacto,
+  address: { calle: r.calle||"", comuna: r.comuna||"", region: r.region||"" },
 });
 const mapContactToDb = (f) => ({
   nombre: f.name, empresa: f.company, cargo: f.role, email: f.email,
   telefono: f.phone, rut: f.rut, estado: f.status,
   valor: Number(f.value) || 0,
   ultimo_contacto: f.lastContact || new Date().toISOString().slice(0,10),
+  calle: f.address?.calle||"", comuna: f.address?.comuna||"", region: f.address?.region||"",
 });
 
 const mapDeal = (r) => ({
@@ -53,6 +55,47 @@ const COLORS = {
 };
 const FONT = "'DM Mono', 'Courier New', monospace";
 const FONT_DISPLAY = "'Space Grotesk', sans-serif";
+
+// ── CHILE REGIONES Y COMUNAS ─────────────────────────────────────────────────
+const CHILE = {
+  "Arica y Parinacota": ["Arica","Camarones","Putre","General Lagos"],
+  "Tarapacá": ["Iquique","Alto Hospicio","Pozo Almonte","Camiña","Colchane","Huara","Pica"],
+  "Antofagasta": ["Antofagasta","Mejillones","Sierra Gorda","Taltal","Calama","Ollagüe","San Pedro de Atacama","Tocopilla","María Elena"],
+  "Atacama": ["Copiapó","Caldera","Tierra Amarilla","Chañaral","Diego de Almagro","Vallenar","Alto del Carmen","Freirina","Huasco"],
+  "Coquimbo": ["La Serena","Coquimbo","Andacollo","La Higuera","Paiguano","Vicuña","Illapel","Canela","Los Vilos","Salamanca","Ovalle","Combarbalá","Monte Patria","Punitaqui","Río Hurtado"],
+  "Valparaíso": ["Valparaíso","Casablanca","Concón","Juan Fernández","Puchuncaví","Quintero","Viña del Mar","Isla de Pascua","Los Andes","Calle Larga","Rinconada","San Esteban","La Ligua","Cabildo","Papudo","Petorca","Zapallar","Quillota","Calera","Hijuelas","La Cruz","Nogales","San Antonio","Algarrobo","Cartagena","El Quisco","El Tabo","Santo Domingo","San Felipe","Catemu","Llaillay","Panquehue","Putaendo","Santa María","Quilpué","Limache","Olmué","Villa Alemana"],
+  "Región Metropolitana": ["Santiago","Cerrillos","Cerro Navia","Conchalí","El Bosque","Estación Central","Huechuraba","Independencia","La Cisterna","La Florida","La Granja","La Pintana","La Reina","Las Condes","Lo Barnechea","Lo Espejo","Lo Prado","Macul","Maipú","Ñuñoa","Pedro Aguirre Cerda","Peñalolén","Providencia","Pudahuel","Quilicura","Quinta Normal","Recoleta","Renca","San Joaquín","San Miguel","San Ramón","Vitacura","Puente Alto","Pirque","San José de Maipo","Colina","Lampa","Tiltil","San Bernardo","Buin","Calera de Tango","Paine","Melipilla","Alhué","Curacaví","María Pinto","San Pedro","Talagante","El Monte","Isla de Maipo","Padre Hurtado","Peñaflor"],
+  "O'Higgins": ["Rancagua","Codegua","Coinco","Coltauco","Doñihue","Graneros","Las Cabras","Machalí","Malloa","Mostazal","Olivar","Peumo","Pichidegua","Quinta de Tilcoco","Rengo","Requínoa","San Vicente","Pichilemu","La Estrella","Litueche","Marchihue","Navidad","Paredones","San Fernando","Chépica","Chimbarongo","Lolol","Nancagua","Palmilla","Peralillo","Placilla","Pumanque","Santa Cruz"],
+  "Maule": ["Talca","Constitución","Curepto","Empedrado","Maule","Pelarco","Pencahue","Río Claro","San Clemente","San Rafael","Cauquenes","Chanco","Pelluhue","Curicó","Hualañé","Licantén","Molina","Rauco","Romeral","Sagrada Familia","Teno","Vichuquén","Linares","Colbún","Longaví","Parral","Retiro","San Javier","Villa Alegre","Yerbas Buenas"],
+  "Ñuble": ["Chillán","Bulnes","Chillán Viejo","El Carmen","Pemuco","Pinto","Quillón","San Ignacio","Yungay","Coihueco","Ñiquén","San Carlos","San Fabián","San Nicolás","Cobquecura","Coelemu","Ninhue","Portezuelo","Quirihue","Ránquil","Trehuaco"],
+  "Biobío": ["Concepción","Coronel","Chiguayante","Florida","Hualqui","Lota","Penco","San Pedro de la Paz","Santa Juana","Talcahuano","Tomé","Hualpén","Lebu","Arauco","Cañete","Contulmo","Curanilahue","Los Álamos","Tirúa","Los Ángeles","Antuco","Cabrero","Laja","Mulchén","Nacimiento","Negrete","Quilaco","Quilleco","San Rosendo","Santa Bárbara","Tucapel","Yumbel","Alto Biobío"],
+  "La Araucanía": ["Temuco","Carahue","Cunco","Curarrehue","Freire","Galvarino","Gorbea","Lautaro","Loncoche","Melipeuco","Nueva Imperial","Padre las Casas","Perquenco","Pitrufquén","Pucón","Saavedra","teodoro Schmidt","Toltén","Vilcún","Villarrica","Cholchol","Angol","Collipulli","Curacautín","Ercilla","Lonquimay","Los Sauces","Lumaco","Purén","Renaico","Traiguén","Victoria"],
+  "Los Ríos": ["Valdivia","Corral","Futrono","La Unión","Lago Ranco","Lanco","Los Lagos","Máfil","Mariquina","Paillaco","Panguipulli","Río Bueno"],
+  "Los Lagos": ["Puerto Montt","Calbuco","Cochamó","Fresia","Frutillar","Los Muermos","Llanquihue","Maullín","Puerto Varas","Castro","Ancud","Chonchi","Curaco de Vélez","Dalcahue","Puqueldón","Queilén","Quellón","Quemchi","Quinchao","Osorno","Puerto Octay","Purranque","Puyehue","Río Negro","San Juan de la Costa","San Pablo","Chaitén","Futaleufú","Hualaihué","Palena"],
+  "Aysén": ["Coyhaique","Lago Verde","Aysén","Cisnes","Guaitecas","Cochrane","O'Higgins","Tortel","Chile Chico","Río Ibáñez"],
+  "Magallanes": ["Punta Arenas","Laguna Blanca","Río Verde","San Gregorio","Cabo de Hornos","Antártica","Porvenir","Primavera","Timaukel","Natales","Torres del Paine"],
+};
+
+function AddressSelector({ value, onChange }) {
+  const addr = value || { calle:"", comuna:"", region:"" };
+  const comunas = addr.region ? (CHILE[addr.region]||[]).sort() : [];
+  return (
+    <div style={{ marginBottom:14 }}>
+      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Dirección</div>
+      <input value={addr.calle} onChange={e=>onChange({...addr,calle:e.target.value})} placeholder="Calle / Avenida y número" style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box", marginBottom:8 }} />
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+        <select value={addr.region} onChange={e=>onChange({...addr,region:e.target.value,comuna:""})} style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:addr.region?COLORS.text:COLORS.textMuted, outline:"none" }}>
+          <option value="">— Región —</option>
+          {Object.keys(CHILE).map(r=><option key={r} value={r}>{r}</option>)}
+        </select>
+        <select value={addr.comuna} onChange={e=>onChange({...addr,comuna:e.target.value})} style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:addr.comuna?COLORS.text:COLORS.textMuted, outline:"none" }} disabled={!addr.region}>
+          <option value="">— Comuna —</option>
+          {comunas.map(c=><option key={c} value={c}>{c}</option>)}
+        </select>
+      </div>
+    </div>
+  );
+}
 
 const STAGES = [
   { key: "contacto",    label: "Contacto",    color: COLORS.textMuted },
@@ -226,7 +269,7 @@ function ContactsView({ contacts, setContacts, isMobile }) {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name:"", company:"", role:"", email:"", phone:"", rut:"", status:"lead", value:"", lastContact:"" });
+  const [form, setForm] = useState({ name:"", company:"", role:"", email:"", phone:"", rut:"", status:"lead", value:"", lastContact:"", address:{calle:"",comuna:"",region:""} });
   const f = (k,v) => setForm(p=>({...p,[k]:v}));
 
   const filtered = contacts.filter(c => {
@@ -235,8 +278,8 @@ function ContactsView({ contacts, setContacts, isMobile }) {
       (c.name.toLowerCase().includes(q)||c.company.toLowerCase().includes(q)||(c.rut||"").toLowerCase().includes(q));
   });
 
-  const openNew = () => { setEditingId(null); setForm({ name:"", company:"", role:"", email:"", phone:"", rut:"", status:"lead", value:"", lastContact:"" }); setShowModal(true); };
-  const openEdit = (c) => { setEditingId(c.id); setForm({ name:c.name, company:c.company, role:c.role||"", email:c.email||"", phone:c.phone||"", rut:c.rut||"", status:c.status, value:String(c.value||0), lastContact:c.lastContact||"" }); setShowModal(true); };
+  const openNew = () => { setEditingId(null); setForm({ name:"", company:"", role:"", email:"", phone:"", rut:"", status:"lead", value:"", lastContact:"", address:{calle:"",comuna:"",region:""} }); setShowModal(true); };
+  const openEdit = (c) => { setEditingId(c.id); setForm({ name:c.name, company:c.company, role:c.role||"", email:c.email||"", phone:c.phone||"", rut:c.rut||"", status:c.status, value:String(c.value||0), lastContact:c.lastContact||"", address:c.address||{calle:"",comuna:"",region:""} }); setShowModal(true); };
 
   const save = async () => {
     if (!form.name||!form.company) return;
@@ -323,7 +366,7 @@ function ContactsView({ contacts, setContacts, isMobile }) {
           <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.accent, marginBottom:14 }}>{selected.role} — {selected.company}</div>
           <Badge color={(STATUS_CONFIG[selected.status]||STATUS_CONFIG.lead).color}>{(STATUS_CONFIG[selected.status]||STATUS_CONFIG.lead).label}</Badge>
           <div style={{ marginTop:20, display:"flex", flexDirection:"column", gap:10 }}>
-            {[["RUT",selected.rut||"—"],["Email",selected.email],["Teléfono",selected.phone],["Último contacto",fmtDate(selected.lastContact)],["Valor total",fmt(selected.value)]].map(([k,v])=>(
+            {[["RUT",selected.rut||"—"],["Email",selected.email],["Teléfono",selected.phone],["Dirección",[selected.address?.calle,selected.address?.comuna,selected.address?.region].filter(Boolean).join(", ")||"—"],["Último contacto",fmtDate(selected.lastContact)],["Valor total",fmt(selected.value)]].map(([k,v])=>(
               <div key={k} style={{ background:COLORS.card, borderRadius:8, padding:"10px 14px", border:`1px solid ${COLORS.border}` }}>
                 <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:3 }}>{k}</div>
                 <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.text }}>{v||"—"}</div>
@@ -346,6 +389,7 @@ function ContactsView({ contacts, setContacts, isMobile }) {
           </Select>
           <Input label="Valor estimado (CLP)" value={form.value} onChange={e=>f("value",e.target.value)} placeholder="0" type="number" />
           <Input label="Último contacto" value={form.lastContact} onChange={e=>f("lastContact",e.target.value)} type="date" />
+          <AddressSelector value={form.address} onChange={v=>f("address",v)} />
           {saving && <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.accent, textAlign:"center" }}>Guardando…</div>}
         </Modal>
       )}
@@ -659,12 +703,12 @@ function ReportsView({ contacts, deals, tasks, isMobile }) {
 }
 // ── MAPPERS COTIZACIONES ─────────────────────────────────────────────────────
 const mapProduct = (r) => ({
-  id: r.id, code: r.codigo, name: r.nombre, description: r.descripcion,
+  id: r.id, code: r.codigo, name: r.nombre, description: r.modelo,
   price: r.precio || 0, unit: r.unidad || "un", category: r.categoria || "",
   provider: r.proveedor || "", type: r.tipo || "producto",
 });
 const mapProductToDb = (f) => ({
-  codigo: f.code, nombre: f.name, descripcion: f.description,
+  codigo: f.code, nombre: f.name, modelo: f.description,
   precio: Number(f.price) || 0, unidad: f.unit,
   categoria: f.category, proveedor: f.provider, tipo: f.type,
 });
@@ -674,7 +718,7 @@ const mapQuote = (r) => ({
   clientName: r.nombre_cliente, clientRut: r.rut_cliente,
   clientCompany: r.razon_social, clientAddress: r.direccion,
   clientPhone: r.telefono, paymentMethod: r.forma_pago,
-  hasIva: r.aplica_iva, comments: r.comentarios,
+  hasIva: r.aplica_iva, ivaMode: r.iva_modo||"empresa", comments: r.comentarios,
   terms: r.terminos, status: r.estado || "borrador",
   type: r.tipo || "productos", total: r.total || 0,
 });
@@ -684,7 +728,7 @@ const mapQuoteToDb = (f) => ({
   nombre_cliente: f.clientName, rut_cliente: f.clientRut,
   razon_social: f.clientCompany, direccion: f.clientAddress,
   telefono: f.clientPhone, forma_pago: f.paymentMethod,
-  aplica_iva: f.hasIva, comentarios: f.comments,
+  aplica_iva: f.hasIva, iva_modo: f.ivaMode||"empresa", comentarios: f.comments,
   terminos: f.terms, estado: f.status, tipo: f.type,
   total: Number(f.total) || 0,
 });
@@ -699,7 +743,7 @@ const mapQuoteLine = (r) => ({
 });
 const mapQuoteLineToDb = (f, quoteId) => ({
   quote_id: quoteId, product_id: f.productId || null,
-  codigo: f.code, descripcion: f.description,
+  codigo: f.code, modelo: f.description,
   cantidad: Number(f.qty) || 1,
   precio_unitario: Number(f.unitPrice) || 0,
   descuento: Number(f.discount) || 0,
@@ -776,7 +820,7 @@ function ProductsDB({ isMobile }) {
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12, fontFamily:FONT }}>
             <thead>
               <tr style={{ borderBottom:`2px solid ${COLORS.border}` }}>
-                {["Código","Nombre","Descripción","Tipo","Proveedor","Precio Unit.","Unidad",""].map(h=>(
+                {["Código","Nombre","Modelo","Tipo","Proveedor","Precio Unit.","Unidad",""].map(h=>(
                   <th key={h} style={{ padding:"10px 12px", textAlign:"left", color:COLORS.textMuted, fontWeight:600, fontSize:10, letterSpacing:"0.08em", textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
                 ))}
               </tr>
@@ -816,7 +860,7 @@ function ProductsDB({ isMobile }) {
             </Select>
           </div>
           <Input label="Nombre *" value={form.name} onChange={e=>f("name",e.target.value)} placeholder="Ej: Mantención programada" />
-          <Input label="Descripción" value={form.description} onChange={e=>f("description",e.target.value)} placeholder="Descripción detallada..." />
+          <Input label="Modelo" value={form.description} onChange={e=>f("description",e.target.value)} placeholder="Ej: DH-IPC-HDW1230T1" />
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
             <Input label="Precio unitario (CLP)" value={form.price} onChange={e=>f("price",e.target.value)} type="number" placeholder="0" />
             <Input label="Unidad" value={form.unit} onChange={e=>f("unit",e.target.value)} placeholder="un / hr / m2" />
@@ -924,7 +968,12 @@ function QuotesView({ contacts, isMobile }) {
 // ── QUOTE EDITOR ─────────────────────────────────────────────────────────────
 function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
   const isEdit = !!quote;
-  const TERMS_DEFAULT = "1- El trabajo se ejecuta posterior a la aceptación de la cotización y coordinación de fecha.\n2- No refiere stock ni fecha de instalación.\n3- Cotización válida por 15 días.\nPagos en transferencia, efectivo o cheque a nombre de Polygonos SPA · RUT: 77.180.437-3";
+  const TERMS_DEFAULT = "1- El trabajo se ejecuta posterior a la aceptación de la cotización y coordinación de fecha.\n2- No refiere stock ni fecha de instalación.\n3- Cotización válida por 15 días.";
+
+  const BANK_DATA = {
+    empresa: "Polygonos SPA\nRUT: 77.180.437-3\nBanco Santander\nCta. Cte. 99128755\nCorreo: maximo.hudson.blanco@gmail.com",
+    personal: "Maximo Hudson\nRUT: 26074100-4\nBanco Santander\nCta. Cte.: 75 36164 5\nCorreo: maximo.hudson.blanco@gmail.com",
+  };
 
   const [header, setHeader] = useState(isEdit ? {
     number: quote.number, date: quote.date,
@@ -932,14 +981,14 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
     clientRut: quote.clientRut||"", clientCompany: quote.clientCompany||"",
     clientAddress: quote.clientAddress||"", clientPhone: quote.clientPhone||"",
     paymentMethod: quote.paymentMethod||"Al finalizar",
-    hasIva: quote.hasIva!==false, comments: quote.comments||"",
+    hasIva: quote.hasIva!==false, ivaMode: quote.ivaMode||"empresa", comments: quote.comments||"",
     terms: quote.terms||TERMS_DEFAULT, status: quote.status||"borrador",
     type: quote.type||"productos",
   } : {
     number: nextNumber, date: new Date().toISOString().slice(0,10),
     contactId:"", clientName:"", clientRut:"", clientCompany:"",
     clientAddress:"", clientPhone:"", paymentMethod:"Al finalizar",
-    hasIva:true, comments:"", terms:TERMS_DEFAULT, status:"borrador", type:"productos",
+    hasIva:true, ivaMode:"empresa", comments:"", terms:TERMS_DEFAULT, status:"borrador", type:"productos",
   });
 
   const [lines, setLines] = useState([]);
@@ -958,7 +1007,16 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
   useEffect(()=>{
     if (header.contactId) {
       const c = contacts.find(x=>x.id===header.contactId);
-      if (c) hf("clientName", c.name), hf("clientRut", c.rut||""), hf("clientCompany", c.company||""), hf("clientPhone", c.phone||"");
+      if (c) {
+        hf("clientName", c.name);
+        hf("clientRut", c.rut||"");
+        hf("clientCompany", c.company||"");
+        hf("clientPhone", c.phone||"");
+        if (c.address) {
+          const addr = [c.address.calle, c.address.comuna, c.address.region].filter(Boolean).join(", ");
+          hf("clientAddress", addr);
+        }
+      }
     }
   },[header.contactId]);
 
@@ -1056,9 +1114,22 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
             <option>Contado</option>
           </Select>
         </div>
-        <div style={{ display:"flex", alignItems:"center", gap:10, marginTop:8 }}>
-          <input type="checkbox" checked={header.hasIva} onChange={e=>hf("hasIva",e.target.checked)} id="iva" style={{ width:16, height:16, cursor:"pointer" }} />
-          <label htmlFor="iva" style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, cursor:"pointer" }}>Aplica IVA (19%)</label>
+        <div style={{ marginTop:12 }}>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>IVA y Cuenta de Pago</div>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+            {[
+              { value:"empresa",  label:"Con IVA",  sub:"Polygonos SPA · RUT: 77.180.437-3" },
+              { value:"personal", label:"Sin IVA",  sub:"Maximo Hudson · RUT: 26074100-4" },
+            ].map(opt=>{
+              const active = header.ivaMode===opt.value;
+              return (
+                <button key={opt.value} onClick={()=>{ hf("ivaMode",opt.value); hf("hasIva",opt.value==="empresa"); }} style={{ flex:1, minWidth:160, padding:"10px 14px", borderRadius:8, cursor:"pointer", background:active?COLORS.accentDim:COLORS.bg, border:`1px solid ${active?COLORS.accent:COLORS.border}`, textAlign:"left" }}>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:active?COLORS.accent:COLORS.text }}>{opt.label}</div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:2 }}>{opt.sub}</div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -1268,6 +1339,13 @@ function QuotePDF({ quote, onBack }) {
             <div style={{ whiteSpace:"pre-wrap" }}>{quote.terms}</div>
           </div>
         )}
+        <div style={{ borderTop:"1px solid #e0e0e0", marginTop:12, paddingTop:12, fontSize:10, color:"#555" }}>
+            <div style={{ fontWeight:700, marginBottom:4 }}>Datos de Pago:</div>
+            <div style={{ whiteSpace:"pre-wrap" }}>{quote.ivaMode==="personal"
+              ? "Maximo Hudson\nRUT: 26074100-4\nBanco Santander\nCta. Cte.: 75 36164 5\nCorreo: maximo.hudson.blanco@gmail.com"
+              : "Polygonos SPA\nRUT: 77.180.437-3\nBanco Santander\nCta. Cte. 99128755\nCorreo: maximo.hudson.blanco@gmail.com"
+            }</div>
+          </div>
       </div>
 
       <style>{`@media print { body > *:not(#print-area) { display:none; } #print-area { margin:0; padding:20px; border-radius:0; } }`}</style>

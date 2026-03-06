@@ -1,0 +1,100 @@
+codigo,nombre,descripcion ,precio,unidad,categoria,proveedor,tipo
+N32,NVR,NVR4232-4KS3,304518.40,un ,producto,Smartsecure,producto
+N32-E,NVR,NVR4232-4KS3,291200.00,un ,producto,Smartsecure,producto
+H4TB,HDD 4 TB, ST4000VX015,216153.60,un ,producto,Smartsecure,producto
+H6TB,HDD 6 TB,WD60EFFX,351984.00,un ,producto,Smartsecure,producto
+UPS15,UPS 1500 VA,DH-PFM350-900-A,134780.80,un ,producto,Smartsecure,producto
+UPS15,UPS 1500 VA,MR-UF1500,187185.60,un ,producto,Smartsecure,producto
+SW24,Switch 24,DH-CS4228-24GT-240,559280.00,un ,producto,Smartsecure,producto
+SW24,Switch 24,DH-CS4228-24GT-240,384337.60,un ,producto,Smartsecure,producto
+SW8,Switch 8, DH-PFS3010-8ET-65,101764.80,un ,producto,Smartsecure,producto
+SW8,Switch 8,POE208-100MB,58240.00,un ,producto,Smartsecure,producto
+SW4,Switch 4,DH-PFS3006-4ET-36,56126.40,un ,producto,Smartsecure,producto
+SW4,Switch 4,POE204-100MB,37760.00,un ,producto,Smartsecure,producto
+RC20,Router Inalambrico,Archer C20,40588.80,un ,producto,Smartsecure,producto
+RC21,Router Inalambrico,RG-EW1200G PRO ,66400.00,un ,producto,Smartsecure,producto
+UBIM5,Antenas,Loco M5 (par),249584.00,par,producto,Smartsecure,producto
+CPE51,Antenas,WI-CPE511H-KIT,191984.00,un,producto,Smartsecure,producto
+1230T1,Camara Domo, DH-IPC-HDW1230T1-0280B,70497.60,un,producto,Smartsecure,producto
+1430T1,Camara Domo,DH-IPC-HDW1431T1P-A-0280B-S6,83505.60,un,producto,Smartsecure,producto
+1239S1,Cámara Bullet,DH-IPC-HFW1239S1-LED-0280B,70304.00,un,producto,Smartsecure,producto
+2249S,Cámara Bullet,DH-IPC-HFW2249S-S-IL,93227.40,un,producto,Smartsecure,producto
+304020,Gabinete exteriores,Gabinete Mural-304020,60784.00,un,producto,Smartsecure,producto
+604550,Rack Gabinete interior,Gabinete Rack 6U Dahua 600x450x501,150512.00,un,producto,Smartsecure,producto
+534020,Rack Gabinete interior,Gabinete Rack 4U Dahua 530X400X200,97492.80,un,producto,Smartsecure,producto
+534060,Rack Gabinete interior,Gabinete Rack 12U Dahua 530x400x600,163440.00,un,producto,Smartsecure,producto
+PATCH24,Patch panel,Patch panel 24 puertos Cat 6,24800.00,un,producto,Smartsecure,producto
+PATCH24,Patch panel,Patch panel 24 puertos Cat 6,58072.00,un,producto,Smartsecure,producto
+PATCH972,Patch cord,DH-PFM972-6U-2-S,3689.60,un,producto,Smartsecure,producto
+CAT6305,Caja de cable Cat 6 305, DH-PFM923I-6UN-C,216929.60,un,producto,Smartsecure,producto
+CAT6100,Caja de cable Cat 6 100,DH-PFM920I-6UN-C-100,76518.40,un,producto,Smartsecure,producto
+CAN10050,Canaletas troncal 100x50,CANAL100X50,12744.00,un,producto,Smartsecure,producto
+CAE100100,Caja estanca 100x100,Cono 10010070,3920.00,un,producto,Smartsecure,producto
+D10S,Motor Corredera,D10 Standard,1022428.80,un,producto,APACOM,producto
+D10S,Motor Corredera,D10 Standard,1024332.80,un,producto,APACOM,producto
+D10SKIT,Motor Corredera,D10 Standard Kit 1(6 crem y 2 controles),1120000.00,kit,producto,APACOM,producto
+D10SKIT,Motor Corredera,D10 Standard Kit 1(6 crem y 2 controles),1102281.60,kit,producto,APACOM,producto
+D10T,Motor Corredera,D10 Turbo ,1129004.80,un,producto,APACOM,producto
+D10TKIT,Motor Corredera,D10 Turbo (6 crem y 2 controles),1201289.60,kit,producto,APACOM,producto
+D10TKIT,Motor Corredera,D10 Turbo (6 crem y 2 controles),1207003.20,kit,producto,APACOM,producto
+D10TKIT 2,Motor Corredera,"D10  (6 crem, 2 controles 1 par de Photosmart Fotoceldas Inalámbricas)",1220365.50,kit,producto,APACOM,producto
+D6KIT,Motor Corredera,D6  (6 crem y 2 controles),831912.00,kit,producto,APACOM,producto
+D6KIT 2,Motor Corredera,D6  (6 crem y 2 controles),830048.00,kit,producto,APACOM,producto
+D6KIT 3,Motor Corredera,"D6  (6 crem, 2 controles 1 par de Photosmart Fotoceldas Inalámbricas)",925248.00,kit,producto,APACOM,producto
+CRM1MT,Cremalleras,Cremallera Mt 1 mt,12356.80,un,producto,APACOM,producto
+CRM1MT,Cremalleras,Cremallera Mt 1 mt,12356.80,un,producto,APACOM,producto
+CREM1N,Cremalleras,Cremallera Nylon 1 mt,13308.80,un,producto,APACOM,producto
+CREM1N,Cremalleras,Cremallera Nylon 1 mt,13308.80,un,producto,APACOM,producto
+PHSMRT,Fotocelda,Photon Smart (par),95180.80,par,producto,APACOM,producto
+PHSMRT,Fotocelda,Photon Smart (par),95180.80,par,producto,APACOM,producto
+NOVA2,Controles,Control NOVA 2CH,16934.70,un,producto,APACOM,producto
+NOVA2,Controles,Control NOVA 2CH,14260.80,un,producto,APACOM,producto
+WP17,Sistema Apertura,Controlador Wifi WP17,242760.00,un,producto,RW,producto
+BALNC1224,Baliza,Baliza NICE  12-38V,51388.80,un,producto,RW,producto
+BALNC1225,Baliza,Baliza NICE  12-38V,90688.00,un,producto,Prodalam,producto
+KITG4060,Juego de guías,Set de Guias 40x60,26718.40,kit,producto,Prodalam,producto
+GN4060,Guias,Guias Nylon 40x60,12154.80,un,producto,Prodalam,producto
+GN4060,Guias,Guias Nylon 40x60,8633.10,un,producto,Prodalam,producto
+GN40120,Guias,Guias Nylon 40x120,19355.70,un,producto,Prodalam,producto
+FERRV,Ferretería,Ferreterías varias,105000.00,gl,producto,Prodalam,producto
+R100,Ruedas,Ruedas c/ Pasador 100 mm,25714.50,un,producto,Prodalam,producto
+R100,Ruedas,Ruedas c/ Pasador 100 mm,41972.70,un,producto,Prodalam,producto
+28OA,28OA,Dahua DHI-ASF280A-V1,72972.70,un,producto,Prodalam,producto
+280HS,280HS,ZK Teco CM-280HS,77318.80,un,producto,Smartsecure,producto
+CM180H,CM180H,ZK Teco CM-180H Retenedor electromagnético para puertas batientes,59589.20,un,producto,Smartsecure,producto
+TRGPLAS,TRGPLAS,Pulsador de Salida Mecánico Plástico,11840.00,un,producto,Smartsecure,producto
+SOPRET01,SOPRET01,Soporte retenedor tipo L,24762.00,un,producto,Smartsecure,producto
+ASI1201E,ASI1201E,Control Acceso DHI-ASI1201E,143422.50,un,producto,Smartsecure,producto
+ASI1201E-D,ASI1201E-D,Control Acceso ASI1201E-D,121745.00,un,producto,Smartsecure,producto
+PLC12V,PLC12V,Placa controladora 12V ,150000.00,un,producto,Smartsecure,producto
+S802MAX,S802MAX,"Cerradura digital  App TUYA, teclado, huella y tarjeta c Cámara",180000.00,un,producto,Todochapas,producto
+958MAX,958MAX,"Cerradura digital,  App TUYA, teclado, huella y tarjeta c Reconocimiento facial",238000.00,un,producto,Todochapas,producto
+S811,S811,"Cerradura digital básica, App TUYA, teclado, huella y tarjeta",165000.00,un,producto,Todochapas,producto
+ASSABLOY,ASSABLOY,Cerradura Eléctrica Poli Estándar 3010 Color Gris,101574.00,un,producto,Los Pinos,producto
+S01,S01,Instalación de motor (Solo),160000.00,un,servicio,Particular,servicio
+S01CIP,S01CIP,Servicio de recuperación IP de cámara asociada a NVR,58012.00,un,servicio,Particular,servicio
+S02GATOR,S02GATOR,Servicio de recuperación de dispositivo Protegus 2,47600.00,un,servicio,Particular,servicio
+S02,S02,Instalación de motor (Kit),380000.00,un,servicio,Particular,servicio
+S03,S03,Instalación de ruedas (Unidad),47500.00,un,servicio,Particular,servicio
+S04,S04,Instalación de guias,47500.00,un,servicio,Particular,servicio
+S05,S05,Instalación Retenedor,85500.00,un,servicio,Particular,servicio
+S06,S06,Instalación Protegus y config,40000.00,un,servicio,Particular,servicio
+S07,S07,Mantención programada,200000.00,un,servicio,Particular,servicio
+S08,S08,Instalación de chapa Exteriores,100000.00,un,servicio,Particular,servicio
+S08I,S08I,Servicio de instalación y configuración de chapas digitales,98000.00,un,servicio,Particular,servicio
+S09,S09,Servicio de recuperación post colisión Motor Centurion,338000.00,un,servicio,Particular,servicio
+S09F,S09F,Servicio de recuperación estructural ,0.00,un,servicio,Particular,servicio
+S10,S10,Servicio de instalación digitador de acceso,129000.00,un,servicio,Particular,servicio
+S11,S11,Fabricación de perfil 100x100 c/ pintura y polines,271260.50,un,servicio,Particular,servicio
+S13,S13,Servicio de mantenimiento CCTV central.,452100.84,un,proyecto,Particular,servicio
+S14,S14,Servicio de mantenimiento y renovacion/acondicionamiento de central CCTV Fase I,1537142.86,un,proyecto,Particular,servicio
+S15,S15,Servicio de implementación de infraestructura base y plataforma CCTV IP Fase II,7536521.01,un,proyecto,Particular,servicio
+S16,S16,Servicio de instalación CCTV IP en acccesos peatonales a las torres y piscina Fase III,3594201.68,un,proyecto,Particular,servicio
+S17,S17,"Servicio de instalación CCTV en áreas a acceso a la playa, piscina, quincho Fase IV",6024243.70,un,proyecto,Particular,servicio
+S18,S18,Servicio CCTV e Infraestrcutura para exteriores y 2 cámaras en poste.,6263405.04,un,proyecto,Particular,servicio
+S19,S19,Servicio CCTV de instalación Piso 18 (6 cámaras) con bajada de cables por troncal de edificio a NVR piso 1.,5719075.63,un,proyecto,Particular,servicio
+S20,S20,Servicio de instalación nodo de 8 cámaras N1 y N2.,3786344.54,un,proyecto,Particular,servicio
+S21,S21,Servicio de instalación nodo de 8 cámaras N3 y N4.,3605504.20,un,proyecto,Particular,servicio
+S12NVR,S12NVR,Servicio de configuración de CCTV con aplicativo ,80000.00,un,proyecto,Particular,servicio
+SEMT,SEMT,Servicio de instalación de punto eléctrico x mt,20000.00,un,proyecto,Particular,servicio
+PROYECTO,PROYECTO,Proyecto asociado a propuesta (revisar adjuntos),9775850.00,un,proyecto,Particular,servicio
