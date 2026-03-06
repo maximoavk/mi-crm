@@ -706,14 +706,14 @@ function ReportsView({ contacts, deals, tasks, isMobile }) {
 }
 // ── MAPPERS COTIZACIONES ─────────────────────────────────────────────────────
 const mapProduct = (r) => ({
-  id: r.id, code: r.codigo, name: r.nombre, description: r.modelo,
+  id: r.id, code: r.codigo, name: r.nombre, description: r.descripcion||r.modelo||"",
   price: r.precio || 0, unit: r.unidad || "un", category: r.categoria || "",
   provider: r.proveedor || "", type: r.tipo || "producto",
 });
 const mapProductToDb = (f) => ({
-  codigo: f.code, nombre: f.name, modelo: f.description,
-  precio: Number(f.price) || 0, unidad: f.unit,
-  categoria: f.category, proveedor: f.provider, tipo: f.type,
+  codigo: f.code||"", nombre: f.name||"", descripcion: f.description||"",
+  precio: Number(f.price) || 0, unidad: f.unit||"un",
+  categoria: f.category||"", proveedor: f.provider||"", tipo: f.type||"producto",
 });
 
 const mapQuote = (r) => ({
