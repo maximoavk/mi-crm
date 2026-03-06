@@ -1266,9 +1266,9 @@ function QuotePDF({ quote, onBack }) {
             {quote.ivaMode==="empresa" && (
               <div className="rut-label" style={{ color:"#cc0000", fontWeight:700, fontSize:13, marginBottom:6 }}>R.U.T.: 77.180.437-3</div>
             )}
-            <div className="quote-box" style={{ border:"2px solid #cc0000", textAlign:"center", minWidth:160, padding:"8px 16px" }}>
-              <div className="quote-box-header" style={{ background:"#cc0000", color:"white", fontSize:11, fontWeight:700, letterSpacing:"0.05em", padding:"4px 0", marginBottom:6 }}>N° Cotización:</div>
-              <div className="quote-number" style={{ fontSize:32, fontWeight:700, color:"#cc0000", lineHeight:1.1 }}>{quote.number}</div>
+            <div className="quote-box" style={{ border:"2px solid #cc0000", textAlign:"center", minWidth:160, padding:"10px 20px" }}>
+              <div className="quote-number-label" style={{ fontSize:11, fontWeight:700, letterSpacing:"0.05em", color:"#cc0000", marginBottom:4 }}>N° Cotización:</div>
+              <div className="quote-number" style={{ fontSize:36, fontWeight:700, color:"#cc0000", lineHeight:1.1 }}>{quote.number}</div>
             </div>
             <div style={{ fontSize:11, color:"#555", marginTop:8 }}>Fecha de Cotización: {fmtDate(quote.date)}</div>
           </div>
@@ -1308,8 +1308,8 @@ function QuotePDF({ quote, onBack }) {
           </tbody>
         </table>
 
-        {/* TOTALES + COMENTARIOS */}
-        <div style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:20, marginBottom:16 }}>
+        {/* TOTALES + FORMA DE PAGO */}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:20, marginBottom:16, alignItems:"start" }}>
           <div>
             {quote.comments && (
               <div style={{ marginBottom:10 }}>
@@ -1317,27 +1317,33 @@ function QuotePDF({ quote, onBack }) {
                 <div style={{ fontSize:11, color:"#555", whiteSpace:"pre-wrap" }}>{quote.comments}</div>
               </div>
             )}
-            <div style={{ marginBottom:10 }}>
-              <div style={{ fontWeight:700, marginBottom:4 }}>Forma de Pago:</div>
-              <div style={{ fontSize:11 }}>{quote.paymentMethod}</div>
+            <div style={{ marginBottom:4 }}>
+              <span style={{ fontWeight:700 }}>Forma de Pago: </span>
+              <span style={{ fontSize:11 }}>{quote.paymentMethod}</span>
             </div>
+            {quote.paymentMethod && quote.paymentMethod.includes("50%") && (
+              <div style={{ fontSize:11, color:"#333", marginTop:4, paddingLeft:8, borderLeft:"2px solid #cc0000" }}>
+                <div>Anticipo (50%): <strong>{fmt(total * 0.5)}</strong></div>
+                <div style={{ marginTop:2 }}>Al finalizar (50%): <strong>{fmt(total * 0.5)}</strong></div>
+              </div>
+            )}
           </div>
-          <div style={{ minWidth:220 }}>
+          <div style={{ minWidth:240 }}>
             <table className="totals-table" style={{ width:"100%", borderCollapse:"collapse" }}>
               <tbody>
                 <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
-                  <td style={{ padding:"6px 10px", fontSize:12 }}>Total Neto</td>
-                  <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right" }}>{fmt(neto)}</td>
+                  <td style={{ padding:"6px 10px", fontSize:12, whiteSpace:"nowrap" }}>Total Neto</td>
+                  <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(neto)}</td>
                 </tr>
                 {quote.hasIva && (
                   <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
-                    <td style={{ padding:"6px 10px", fontSize:12 }}>IVA (19%)</td>
-                    <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right" }}>{fmt(iva)}</td>
+                    <td style={{ padding:"6px 10px", fontSize:12, whiteSpace:"nowrap" }}>IVA (19%)</td>
+                    <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(iva)}</td>
                   </tr>
                 )}
                 <tr style={{ background:"#f0f0f0" }}>
-                  <td style={{ padding:"8px 10px", fontWeight:700 }}>Total</td>
-                  <td style={{ padding:"8px 10px", fontWeight:700, textAlign:"right", fontSize:14 }}>{fmt(total)}</td>
+                  <td style={{ padding:"8px 10px", fontWeight:700, whiteSpace:"nowrap" }}>Total</td>
+                  <td style={{ padding:"8px 10px", fontWeight:700, textAlign:"right", fontSize:14, whiteSpace:"nowrap" }}>{fmt(total)}</td>
                 </tr>
               </tbody>
             </table>
@@ -1380,7 +1386,7 @@ function QuotePDF({ quote, onBack }) {
           #print-area thead tr { background: #222 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           #print-area thead th { color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           #print-area .quote-box { border: 2px solid #cc0000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          #print-area .quote-box-header { background: #cc0000 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          #print-area .quote-number-label { color: #cc0000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           #print-area .quote-number { color: #cc0000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           #print-area .rut-label { color: #cc0000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           #print-area .totals-table { width: 220px; margin-left: auto; }
