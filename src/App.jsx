@@ -1457,20 +1457,76 @@ function TotBox({ label, value, color, sub }) {
   );
 }
 
-function ItemRow({ item, onChange, onDelete }) {
+function ItemRow({ item, onChange, onDelete, productos }) {
+  const [busqueda, setBusqueda] = useState("");
+  const [showCat, setShowCat] = useState(false);
   const calc = calcItem(item);
   const inp = (k,v) => onChange({ ...item, [k]:v });
   const tieneIVA = CON_IVA.includes(item.tipo);
   const style = { background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"4px 6px", width:"100%" };
   const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
+
+  const resultados = busqueda.length >= 2
+    ? (productos||[]).filter(p => {
+        const q = busqueda.toLowerCase();
+        return (p.name||"").toLowerCase().includes(q) || (p.code||"").toLowerCase().includes(q) || (p.description||"").toLowerCase().includes(q);
+      }).slice(0,6)
+    : [];
+
+  const seleccionarProducto = (p) => {
+    onChange({ ...item, descripcion: p.name||"", modelo: p.description||"", precioPublicado: p.price||0, productId: p.id });
+    setBusqueda(""); setShowCat(false);
+  };
+
   return (
     <tr style={{ borderBottom:`1px solid ${COLORS.border}22` }}>
       <td style={{ padding:"6px 4px", width:55 }}>
         <input style={{...style, textAlign:"center", color:COLORS.accent, fontWeight:600}} value={item.cod||""} onChange={e=>inp("cod",e.target.value)} placeholder="A.1" />
       </td>
-      <td style={{ padding:"6px 4px" }}>
-        <input style={style} value={item.descripcion} onChange={e=>inp("descripcion",e.target.value)} placeholder="Descripción..." />
+
+      {/* Descripción + buscador catálogo */}
+      <td style={{ padding:"6px 4px", position:"relative" }}>
+        <div style={{ display:"flex", gap:4 }}>
+          <input style={{...style, flex:1}} value={item.descripcion} onChange={e=>inp("descripcion",e.target.value)} placeholder="Descripción..." />
+          {tieneIVA && (
+            <button onClick={()=>{ setShowCat(p=>!p); setBusqueda(""); }}
+              style={{ background: showCat ? COLORS.accent : `${COLORS.accent}22`, border:`1px solid ${COLORS.accent}44`, borderRadius:5, color: showCat ? COLORS.bg : COLORS.accent, cursor:"pointer", fontSize:11, padding:"2px 7px", whiteSpace:"nowrap", fontFamily:FONT }}>
+              🔍
+            </button>
+          )}
+        </div>
+        {tieneIVA && showCat && (
+          <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:200, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:7, boxShadow:"0 4px 20px #0008", marginTop:2 }}>
+            <div style={{ padding:"6px 8px", borderBottom:`1px solid ${COLORS.border}22` }}>
+              <input autoFocus value={busqueda} onChange={e=>setBusqueda(e.target.value)}
+                placeholder="Buscar por nombre o código..."
+                style={{...style, fontSize:12, padding:"5px 8px"}} />
+            </div>
+            {busqueda.length < 2 && (
+              <div style={{ padding:"8px 12px", fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Escribe al menos 2 caracteres...</div>
+            )}
+            {resultados.length === 0 && busqueda.length >= 2 && (
+              <div style={{ padding:"8px 12px", fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Sin resultados para "{busqueda}"</div>
+            )}
+            {resultados.map(p => (
+              <div key={p.id} onClick={()=>seleccionarProducto(p)}
+                style={{ padding:"8px 12px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}11`, display:"flex", justifyContent:"space-between", alignItems:"center" }}
+                onMouseEnter={e=>e.currentTarget.style.background=COLORS.card}
+                onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text }}>{p.name}</div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{p.code} · {p.description||""}</div>
+                </div>
+                <div style={{ textAlign:"right" }}>
+                  <div style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:"#ef4444" }}>{fmt(p.price||0)}</div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>c/IVA · neto {fmt((p.price||0)/IVA)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </td>
+
       <td style={{ padding:"6px 4px", width:100 }}>
         {tieneIVA ? (
           <input style={{...style, color:COLORS.textMuted}} value={item.modelo||""} onChange={e=>inp("modelo",e.target.value)} placeholder="Modelo..." />
@@ -1486,12 +1542,10 @@ function ItemRow({ item, onChange, onDelete }) {
       </>) : item.tipo==="Costos Indirectos" ? (<>
         <td style={{ padding:"6px 4px", width:45 }}><input style={style} type="number" value={item.qty} onChange={e=>inp("qty",e.target.value)} /></td>
         <td style={{ padding:"6px 4px", width:90 }}><input style={style} type="number" value={item.costoUnit} onChange={e=>inp("costoUnit",e.target.value)} placeholder="Costo" /></td>
-        <td style={{ padding:"6px 4px" }} />
-        <td style={{ padding:"6px 4px" }} />
-        <td style={{ padding:"6px 4px" }} />
+        <td style={{ padding:"6px 4px" }} /><td style={{ padding:"6px 4px" }} /><td style={{ padding:"6px 4px" }} />
       </>) : (<>
         <td style={{ padding:"6px 4px", width:45 }}><input style={style} type="number" value={item.qty} onChange={e=>inp("qty",e.target.value)} /></td>
-        <td style={{ padding:"6px 4px", width:100 }}><input style={style} type="number" value={item.precioPublicado} onChange={e=>inp("precioPublicado",e.target.value)} placeholder="$ c/IVA" /></td>
+        <td style={{ padding:"6px 4px", width:100 }}><input style={{...style, color:"#ef4444"}} type="number" value={item.precioPublicado} onChange={e=>inp("precioPublicado",e.target.value)} placeholder="$ c/IVA" /></td>
         <td style={{ padding:"6px 4px", width:95, textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, whiteSpace:"nowrap" }}>{fmt(calc.costoNeto)}</td>
         <td style={{ padding:"6px 4px", width:80, textAlign:"right", fontFamily:FONT, fontSize:10, color:"#ef4444", whiteSpace:"nowrap" }}>{fmt(calc.ivaCompra)}</td>
         <td style={{ padding:"6px 4px" }} />
@@ -1511,7 +1565,7 @@ function ItemRow({ item, onChange, onDelete }) {
   );
 }
 
-function FaseBlock({ fase, onChange, onDelete }) {
+function FaseBlock({ fase, onChange, onDelete, productos }) {
   const [collapsed, setCollapsed] = useState(false);
   const calc = calcFase(fase);
   const margenPct = calc.costoNeto > 0 ? (calc.margenTotal/calc.costoNeto*100).toFixed(1) : 0;
@@ -1586,7 +1640,7 @@ function FaseBlock({ fase, onChange, onDelete }) {
                       </thead>
                       <tbody>
                         {grouped[tipo].map(it=>(
-                          <ItemRow key={it.id} item={it} onChange={item=>updateItem(it.id,item)} onDelete={()=>deleteItem(it.id)} />
+                          <ItemRow key={it.id} item={it} onChange={item=>updateItem(it.id,item)} onDelete={()=>deleteItem(it.id)} productos={productos} />
                         ))}
                       </tbody>
                       <tfoot>
@@ -1666,10 +1720,15 @@ function CosteoView({ contacts }) {
   const [page, setPage] = useState("costeo");
   const [rutSearch, setRutSearch] = useState("");
   const [rutMatches, setRutMatches] = useState([]);
+  const [productos, setProductos] = useState([]);
 
   useEffect(()=>{
     const saved = localStorage.getItem("costeo_proyectos");
     if(saved) try { setProyectos(JSON.parse(saved)); } catch{}
+    // Cargar catálogo desde Supabase
+    supabase.from("products").select("*").then(({data})=>{
+      if(data) setProductos(data.map(mapProduct));
+    });
   },[]);
 
   const save = (list) => { setProyectos(list); localStorage.setItem("costeo_proyectos",JSON.stringify(list)); };
@@ -2062,7 +2121,7 @@ function CosteoView({ contacts }) {
 
           {/* Fases */}
           {fasesCalc.map(f=>(
-            <FaseBlock key={f.id} fase={f} onChange={updateFase} onDelete={()=>deleteFase(f.id)} />
+            <FaseBlock key={f.id} fase={f} onChange={updateFase} onDelete={()=>deleteFase(f.id)} productos={productos} />
           ))}
           <button onClick={addFase} style={{ width:"100%", padding:"12px", background:"transparent", border:`1px dashed ${COLORS.border}`, borderRadius:10, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer", marginBottom:16 }}>
             + Agregar Fase
