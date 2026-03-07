@@ -1399,12 +1399,413 @@ function QuotePDF({ quote, onBack }) {
 }
 
 // ── MAIN APP ─────────────────────────────────────────────────────────────────
+// ── COSTEO DE PROYECTOS ──────────────────────────────────────────────────────
+const CAT_TIPOS = ["Equipos","Mano de Obra / HH","Materiales","Costos Indirectos"];
+const CAT_COLOR = { "Equipos":"#3b82f6","Mano de Obra / HH":"#10b981","Materiales":"#f59e0b","Costos Indirectos":"#8b5cf6" };
+
+function newItem(tipo) {
+  const base = { id: Date.now()+Math.random(), tipo, descripcion:"", qty:1, costoUnit:0, margen:30, precioUnit:0 };
+  if(tipo==="Mano de Obra / HH") return { ...base, hh:1, valorHH:15000 };
+  return base;
+}
+function calcItem(it) {
+  let costo = 0;
+  if(it.tipo==="Mano de Obra / HH") costo = (Number(it.hh)||0)*(Number(it.valorHH)||0)*(Number(it.qty)||1);
+  else costo = (Number(it.costoUnit)||0)*(Number(it.qty)||1);
+  const margenPct = Number(it.margen)||0;
+  const margenVal = costo*(margenPct/100);
+  const venta = costo+margenVal;
+  return { ...it, costoTotal: costo, margenTotal: margenVal, ventaTotal: venta };
+}
+function calcFase(fase) {
+  const items = (fase.items||[]).map(calcItem);
+  const costoTotal = items.reduce((s,i)=>s+i.costoTotal,0);
+  const margenTotal = items.reduce((s,i)=>s+i.margenTotal,0);
+  const ventaTotal = items.reduce((s,i)=>s+i.ventaTotal,0);
+  return { ...fase, items, costoTotal, margenTotal, ventaTotal };
+}
+
+function TotBox({ label, value, color, sub }) {
+  return (
+    <div style={{ background:COLORS.card, border:`1px solid ${color}44`, borderRadius:10, padding:"14px 20px", minWidth:160, flex:1 }}>
+      <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:4 }}>{label}</div>
+      <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color }}>${value.toLocaleString("es-CL")}</div>
+      {sub && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:2 }}>{sub}</div>}
+    </div>
+  );
+}
+
+function ItemRow({ item, onChange, onDelete }) {
+  const calc = calcItem(item);
+  const inp = (k,v) => onChange({ ...item, [k]:v });
+  const style = { background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"4px 6px", width:"100%" };
+  return (
+    <tr style={{ borderBottom:`1px solid ${COLORS.border}22` }}>
+      <td style={{ padding:"6px 4px" }}>
+        <input style={style} value={item.descripcion} onChange={e=>inp("descripcion",e.target.value)} placeholder="Descripción..." />
+      </td>
+      {item.tipo==="Mano de Obra / HH" ? (<>
+        <td style={{ padding:"6px 4px", width:60 }}><input style={style} type="number" value={item.hh} onChange={e=>inp("hh",e.target.value)} /></td>
+        <td style={{ padding:"6px 4px", width:90 }}><input style={style} type="number" value={item.valorHH} onChange={e=>inp("valorHH",e.target.value)} /></td>
+        <td style={{ padding:"6px 4px", width:50 }}><input style={style} type="number" value={item.qty} onChange={e=>inp("qty",e.target.value)} /></td>
+      </>) : (<>
+        <td style={{ padding:"6px 4px", width:50 }}><input style={style} type="number" value={item.qty} onChange={e=>inp("qty",e.target.value)} /></td>
+        <td style={{ padding:"6px 4px", width:100 }}><input style={style} type="number" value={item.costoUnit} onChange={e=>inp("costoUnit",e.target.value)} /></td>
+        <td style={{ padding:"6px 4px" }}></td>
+      </>)}
+      <td style={{ padding:"6px 4px", width:60 }}>
+        <input style={{ ...style, color:COLORS.accent }} type="number" value={item.margen} onChange={e=>inp("margen",e.target.value)} />
+      </td>
+      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, whiteSpace:"nowrap" }}>${calc.costoTotal.toLocaleString("es-CL")}</td>
+      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.green, whiteSpace:"nowrap" }}>${calc.margenTotal.toLocaleString("es-CL")}</td>
+      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.text, whiteSpace:"nowrap" }}>${calc.ventaTotal.toLocaleString("es-CL")}</td>
+      <td style={{ padding:"6px 4px", textAlign:"center" }}>
+        <button onClick={onDelete} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>×</button>
+      </td>
+    </tr>
+  );
+}
+
+function FaseBlock({ fase, onChange, onDelete }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const calc = calcFase(fase);
+  const margenPct = calc.costoTotal > 0 ? (calc.margenTotal/calc.costoTotal*100).toFixed(1) : 0;
+
+  const addItem = (tipo) => onChange({ ...fase, items:[...(fase.items||[]), newItem(tipo)] });
+  const updateItem = (id, item) => onChange({ ...fase, items: fase.items.map(i=>i.id===id?item:i) });
+  const deleteItem = (id) => onChange({ ...fase, items: fase.items.filter(i=>i.id!==id) });
+
+  const grouped = CAT_TIPOS.reduce((acc,t)=>{ acc[t]=(fase.items||[]).filter(i=>i.tipo===t); return acc; },{});
+
+  return (
+    <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, marginBottom:16 }}>
+      {/* Header fase */}
+      <div style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 18px", borderBottom:`1px solid ${COLORS.border}` }}>
+        <button onClick={()=>setCollapsed(p=>!p)} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:14 }}>{collapsed?"▶":"▼"}</button>
+        <input value={fase.nombre} onChange={e=>onChange({...fase,nombre:e.target.value})}
+          style={{ background:"transparent", border:"none", color:COLORS.text, fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, flex:1, outline:"none" }}
+          placeholder="Nombre de la fase..." />
+        <div style={{ display:"flex", gap:8 }}>
+          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Costo: <strong style={{color:COLORS.text}}>${calc.costoTotal.toLocaleString("es-CL")}</strong></span>
+          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Margen: <strong style={{color:COLORS.green}}>${calc.margenTotal.toLocaleString("es-CL")} ({margenPct}%)</strong></span>
+          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Venta: <strong style={{color:COLORS.accent}}>${calc.ventaTotal.toLocaleString("es-CL")}</strong></span>
+        </div>
+        <button onClick={onDelete} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:16 }}>×</button>
+      </div>
+
+      {!collapsed && (
+        <div style={{ padding:"16px 18px" }}>
+          {CAT_TIPOS.map(tipo=>(
+            <div key={tipo} style={{ marginBottom:16 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+                <div style={{ width:3, height:16, background:CAT_COLOR[tipo], borderRadius:2 }} />
+                <span style={{ fontFamily:FONT, fontSize:11, fontWeight:600, color:CAT_COLOR[tipo], letterSpacing:"0.08em", textTransform:"uppercase" }}>{tipo}</span>
+                <button onClick={()=>addItem(tipo)} style={{ background:`${CAT_COLOR[tipo]}22`, border:`1px solid ${CAT_COLOR[tipo]}44`, borderRadius:5, color:CAT_COLOR[tipo], cursor:"pointer", fontFamily:FONT, fontSize:10, padding:"2px 8px" }}>+ Agregar</button>
+              </div>
+              {grouped[tipo].length > 0 && (
+                <table style={{ width:"100%", borderCollapse:"collapse" }}>
+                  <thead>
+                    <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                      <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", letterSpacing:"0.06em" }}>DESCRIPCIÓN</th>
+                      {tipo==="Mano de Obra / HH" ? (<>
+                        <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", letterSpacing:"0.06em" }}>HH</th>
+                        <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", letterSpacing:"0.06em" }}>$/HH</th>
+                        <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", letterSpacing:"0.06em" }}>PERS.</th>
+                      </>) : (<>
+                        <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", letterSpacing:"0.06em" }}>QTY</th>
+                        <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", letterSpacing:"0.06em" }}>COSTO UNIT.</th>
+                        <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px" }}></th>
+                      </>)}
+                      <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", letterSpacing:"0.06em" }}>MARGEN%</th>
+                      <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", letterSpacing:"0.06em" }}>COSTO TOTAL</th>
+                      <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.green, padding:"4px", letterSpacing:"0.06em" }}>MARGEN $</th>
+                      <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.text, padding:"4px", letterSpacing:"0.06em" }}>PRECIO VENTA</th>
+                      <th style={{ width:24 }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {grouped[tipo].map(it=>(
+                      <ItemRow key={it.id} item={it} onChange={item=>updateItem(it.id,item)} onDelete={()=>deleteItem(it.id)} />
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ borderTop:`1px solid ${COLORS.border}` }}>
+                      <td colSpan={tipo==="Mano de Obra / HH"?4:3} style={{ padding:"6px 4px", fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Subtotal {tipo}</td>
+                      <td></td>
+                      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.textMuted }}>
+                        ${grouped[tipo].map(calcItem).reduce((s,i)=>s+i.costoTotal,0).toLocaleString("es-CL")}
+                      </td>
+                      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.green }}>
+                        ${grouped[tipo].map(calcItem).reduce((s,i)=>s+i.margenTotal,0).toLocaleString("es-CL")}
+                      </td>
+                      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:700, color:COLORS.accent }}>
+                        ${grouped[tipo].map(calcItem).reduce((s,i)=>s+i.ventaTotal,0).toLocaleString("es-CL")}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PartidaRow({ partida, fases, onChange, onDelete }) {
+  const inp = (k,v) => onChange({...partida,[k]:v});
+  const style = { background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"5px 8px" };
+  const monto = Number(partida.monto)||0;
+  const anticipo = monto*(Number(partida.pctAnticipo)||0)/100;
+  const parcial = monto*(Number(partida.pctParcial)||0)/100;
+  const finalizar = monto*(Number(partida.pctFinalizar)||0)/100;
+  return (
+    <tr style={{ borderBottom:`1px solid ${COLORS.border}22` }}>
+      <td style={{ padding:"8px 6px" }}>
+        <input style={{...style, width:"100%"}} value={partida.concepto} onChange={e=>inp("concepto",e.target.value)} placeholder="Concepto del hito..." />
+      </td>
+      <td style={{ padding:"8px 6px", width:130 }}>
+        <select style={{...style, width:"100%"}} value={partida.faseId||""} onChange={e=>inp("faseId",e.target.value)}>
+          <option value="">— Fase —</option>
+          {fases.map(f=><option key={f.id} value={f.id}>{f.nombre}</option>)}
+        </select>
+      </td>
+      <td style={{ padding:"8px 6px", width:120 }}>
+        <input style={{...style, width:"100%"}} type="number" value={partida.monto} onChange={e=>inp("monto",e.target.value)} placeholder="$" />
+      </td>
+      <td style={{ padding:"8px 6px", width:70 }}>
+        <input style={{...style, width:"100%", color:COLORS.accent}} type="number" value={partida.pctAnticipo} onChange={e=>inp("pctAnticipo",e.target.value)} placeholder="%" />
+      </td>
+      <td style={{ padding:"8px 6px", width:100, fontFamily:FONT, fontSize:11, color:COLORS.accent, textAlign:"right" }}>
+        {anticipo > 0 ? `$${anticipo.toLocaleString("es-CL")}` : "-"}
+      </td>
+      <td style={{ padding:"8px 6px", width:70 }}>
+        <input style={{...style, width:"100%", color:COLORS.green}} type="number" value={partida.pctParcial} onChange={e=>inp("pctParcial",e.target.value)} placeholder="%" />
+      </td>
+      <td style={{ padding:"8px 6px", width:100, fontFamily:FONT, fontSize:11, color:COLORS.green, textAlign:"right" }}>
+        {parcial > 0 ? `$${parcial.toLocaleString("es-CL")}` : "-"}
+      </td>
+      <td style={{ padding:"8px 6px", width:70 }}>
+        <input style={{...style, width:"100%", color:"#f59e0b"}} type="number" value={partida.pctFinalizar} onChange={e=>inp("pctFinalizar",e.target.value)} placeholder="%" />
+      </td>
+      <td style={{ padding:"8px 6px", width:100, fontFamily:FONT, fontSize:11, color:"#f59e0b", textAlign:"right" }}>
+        {finalizar > 0 ? `$${finalizar.toLocaleString("es-CL")}` : "-"}
+      </td>
+      <td style={{ padding:"8px 6px", width:110, fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.text, textAlign:"right" }}>
+        ${monto.toLocaleString("es-CL")}
+      </td>
+      <td style={{ padding:"8px 6px", textAlign:"center" }}>
+        <button onClick={onDelete} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>×</button>
+      </td>
+    </tr>
+  );
+}
+
+function CosteoView({ contacts }) {
+  const [proyectos, setProyectos] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [page, setPage] = useState("costeo"); // costeo | partidas
+
+  useEffect(()=>{
+    const saved = localStorage.getItem("costeo_proyectos");
+    if(saved) try { setProyectos(JSON.parse(saved)); } catch{}
+  },[]);
+
+  const save = (list) => { setProyectos(list); localStorage.setItem("costeo_proyectos",JSON.stringify(list)); };
+
+  const newProyecto = () => {
+    const p = { id: Date.now(), nombre:"Nuevo Proyecto", cliente:"", fecha: new Date().toISOString().slice(0,10), fases:[], partidas:[] };
+    save([p, ...proyectos]);
+    setSelected(p.id);
+  };
+
+  const updateProyecto = (p) => { const list = proyectos.map(x=>x.id===p.id?p:x); save(list); };
+  const deleteProyecto = (id) => { save(proyectos.filter(x=>x.id!==id)); if(selected===id) setSelected(null); };
+
+  const proyecto = proyectos.find(p=>p.id===selected);
+
+  const addFase = () => {
+    const f = { id: Date.now(), nombre:`Fase ${(proyecto.fases||[]).length+1}`, items:[] };
+    updateProyecto({ ...proyecto, fases:[...(proyecto.fases||[]),f] });
+  };
+  const updateFase = (f) => updateProyecto({ ...proyecto, fases: proyecto.fases.map(x=>x.id===f.id?f:x) });
+  const deleteFase = (id) => updateProyecto({ ...proyecto, fases: proyecto.fases.filter(x=>x.id!==id) });
+
+  const addPartida = () => {
+    const p = { id: Date.now(), concepto:"", faseId:"", monto:0, pctAnticipo:50, pctParcial:0, pctFinalizar:50 };
+    updateProyecto({ ...proyecto, partidas:[...(proyecto.partidas||[]),p] });
+  };
+  const updatePartida = (p) => updateProyecto({ ...proyecto, partidas: proyecto.partidas.map(x=>x.id===p.id?p:x) });
+  const deletePartida = (id) => updateProyecto({ ...proyecto, partidas: proyecto.partidas.filter(x=>x.id!==id) });
+
+  // Totales globales
+  const fasesCalc = proyecto ? (proyecto.fases||[]).map(calcFase) : [];
+  const totalCosto = fasesCalc.reduce((s,f)=>s+f.costoTotal,0);
+  const totalMargen = fasesCalc.reduce((s,f)=>s+f.margenTotal,0);
+  const totalVenta = fasesCalc.reduce((s,f)=>s+f.ventaTotal,0);
+  const margenPct = totalCosto > 0 ? (totalMargen/totalCosto*100).toFixed(1) : 0;
+
+  // Totales partidas
+  const partidas = proyecto?.partidas||[];
+  const totalPartidas = partidas.reduce((s,p)=>s+Number(p.monto),0);
+  const totalAnticipo = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctAnticipo)||0)/100),0);
+  const totalParcial = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctParcial)||0)/100),0);
+  const totalFinalizar = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctFinalizar)||0)/100),0);
+
+  // Lista de proyectos
+  if(!selected) return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
+        <div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Costeo</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Proyectos</div>
+        </div>
+        <button onClick={newProyecto} style={{ padding:"10px 20px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>+ Nuevo Proyecto</button>
+      </div>
+      {proyectos.length===0 && <div style={{ textAlign:"center", color:COLORS.textMuted, fontFamily:FONT, padding:60 }}>Sin proyectos. ¡Crea el primero!</div>}
+      <div style={{ display:"grid", gap:12 }}>
+        {proyectos.map(p=>{
+          const fc = (p.fases||[]).map(calcFase);
+          const tv = fc.reduce((s,f)=>s+f.ventaTotal,0);
+          const tc = fc.reduce((s,f)=>s+f.costoTotal,0);
+          const tm = fc.reduce((s,f)=>s+f.margenTotal,0);
+          return (
+            <div key={p.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"16px 20px", display:"flex", alignItems:"center", gap:16, cursor:"pointer" }} onClick={()=>setSelected(p.id)}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>{p.nombre}</div>
+                <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{p.cliente} · {p.fecha}</div>
+              </div>
+              <div style={{ display:"flex", gap:20 }}>
+                <div style={{ textAlign:"right" }}>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>COSTO</div>
+                  <div style={{ fontFamily:FONT, fontSize:13, fontWeight:600, color:COLORS.text }}>${tc.toLocaleString("es-CL")}</div>
+                </div>
+                <div style={{ textAlign:"right" }}>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.green }}>MARGEN</div>
+                  <div style={{ fontFamily:FONT, fontSize:13, fontWeight:600, color:COLORS.green }}>${tm.toLocaleString("es-CL")}</div>
+                </div>
+                <div style={{ textAlign:"right" }}>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent }}>VENTA</div>
+                  <div style={{ fontFamily:FONT, fontSize:13, fontWeight:600, color:COLORS.accent }}>${tv.toLocaleString("es-CL")}</div>
+                </div>
+              </div>
+              <button onClick={e=>{e.stopPropagation();deleteProyecto(p.id);}} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:16 }}>×</button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
+        <button onClick={()=>setSelected(null)} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>← Proyectos</button>
+        <div style={{ flex:1 }}>
+          <input value={proyecto.nombre} onChange={e=>updateProyecto({...proyecto,nombre:e.target.value})}
+            style={{ background:"transparent", border:"none", color:COLORS.text, fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, outline:"none", width:"100%" }} />
+        </div>
+        <input value={proyecto.cliente} onChange={e=>updateProyecto({...proyecto,cliente:e.target.value})}
+          placeholder="Cliente..." style={{ background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:12, padding:"5px 10px" }} />
+        <input type="date" value={proyecto.fecha} onChange={e=>updateProyecto({...proyecto,fecha:e.target.value})}
+          style={{ background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:12, padding:"5px 10px" }} />
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display:"flex", gap:4, marginBottom:20, borderBottom:`1px solid ${COLORS.border}` }}>
+        {["costeo","partidas"].map(t=>(
+          <button key={t} onClick={()=>setPage(t)} style={{ padding:"8px 20px", background:"none", border:"none", borderBottom:page===t?`2px solid ${COLORS.accent}`:"2px solid transparent", color:page===t?COLORS.accent:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:page===t?700:400, cursor:"pointer", marginBottom:-1 }}>
+            {t==="costeo"?"📊 Control de Costos":"💳 Partidas de Pago"}
+          </button>
+        ))}
+      </div>
+
+      {page==="costeo" && (
+        <>
+          {/* Totales globales */}
+          <div style={{ display:"flex", gap:12, marginBottom:24, flexWrap:"wrap" }}>
+            <TotBox label="Total Costos" value={totalCosto} color={COLORS.textMuted} />
+            <TotBox label="Total Margen" value={totalMargen} color={COLORS.green} sub={`${margenPct}% sobre costo`} />
+            <TotBox label="Precio Venta" value={totalVenta} color={COLORS.accent} sub="Costo + Margen" />
+          </div>
+
+          {/* Fases */}
+          {fasesCalc.map(f=>(
+            <FaseBlock key={f.id} fase={f} onChange={updateFase} onDelete={()=>deleteFase(f.id)} />
+          ))}
+          <button onClick={addFase} style={{ width:"100%", padding:"12px", background:"transparent", border:`1px dashed ${COLORS.border}`, borderRadius:10, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer", marginBottom:16 }}>
+            + Agregar Fase
+          </button>
+        </>
+      )}
+
+      {page==="partidas" && (
+        <>
+          {/* Totales partidas */}
+          <div style={{ display:"flex", gap:12, marginBottom:24, flexWrap:"wrap" }}>
+            <TotBox label="Anticipo Total" value={totalAnticipo} color={COLORS.accent} sub={`${totalPartidas>0?(totalAnticipo/totalPartidas*100).toFixed(0):0}% del total`} />
+            <TotBox label="Parciales Total" value={totalParcial} color={COLORS.green} sub={`${totalPartidas>0?(totalParcial/totalPartidas*100).toFixed(0):0}% del total`} />
+            <TotBox label="Al Finalizar Total" value={totalFinalizar} color="#f59e0b" sub={`${totalPartidas>0?(totalFinalizar/totalPartidas*100).toFixed(0):0}% del total`} />
+            <TotBox label="Total Proyecto" value={totalPartidas} color={COLORS.text} />
+          </div>
+
+          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, overflow:"auto" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse", minWidth:900 }}>
+              <thead>
+                <tr style={{ borderBottom:`1px solid ${COLORS.border}`, background:COLORS.surface }}>
+                  <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"10px 8px", letterSpacing:"0.08em" }}>CONCEPTO / HITO</th>
+                  <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"10px 8px", letterSpacing:"0.08em" }}>FASE</th>
+                  <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"10px 8px", letterSpacing:"0.08em" }}>MONTO</th>
+                  <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"10px 8px", letterSpacing:"0.08em" }}>% ANT.</th>
+                  <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"10px 8px", letterSpacing:"0.08em", textAlign:"right" }}>$ ANTICIPO</th>
+                  <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.green, padding:"10px 8px", letterSpacing:"0.08em" }}>% PARC.</th>
+                  <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.green, padding:"10px 8px", letterSpacing:"0.08em", textAlign:"right" }}>$ PARCIAL</th>
+                  <th style={{ fontFamily:FONT, fontSize:10, color:"#f59e0b", padding:"10px 8px", letterSpacing:"0.08em" }}>% FIN.</th>
+                  <th style={{ fontFamily:FONT, fontSize:10, color:"#f59e0b", padding:"10px 8px", letterSpacing:"0.08em", textAlign:"right" }}>$ FINALIZAR</th>
+                  <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.text, padding:"10px 8px", letterSpacing:"0.08em", textAlign:"right" }}>TOTAL HITO</th>
+                  <th style={{ width:30 }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {partidas.map(p=>(
+                  <PartidaRow key={p.id} partida={p} fases={proyecto.fases||[]} onChange={updatePartida} onDelete={()=>deletePartida(p.id)} />
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{ borderTop:`2px solid ${COLORS.border}`, background:COLORS.surface }}>
+                  <td colSpan={2} style={{ padding:"10px 8px", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.text }}>TOTALES</td>
+                  <td style={{ padding:"10px 8px", fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.text }}>${totalPartidas.toLocaleString("es-CL")}</td>
+                  <td></td>
+                  <td style={{ padding:"10px 8px", fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.accent, textAlign:"right" }}>${totalAnticipo.toLocaleString("es-CL")}</td>
+                  <td></td>
+                  <td style={{ padding:"10px 8px", fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.green, textAlign:"right" }}>${totalParcial.toLocaleString("es-CL")}</td>
+                  <td></td>
+                  <td style={{ padding:"10px 8px", fontFamily:FONT, fontSize:12, fontWeight:700, color:"#f59e0b", textAlign:"right" }}>${totalFinalizar.toLocaleString("es-CL")}</td>
+                  <td style={{ padding:"10px 8px", fontFamily:FONT, fontSize:13, fontWeight:700, color:COLORS.accent, textAlign:"right" }}>${totalPartidas.toLocaleString("es-CL")}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <button onClick={addPartida} style={{ width:"100%", marginTop:12, padding:"12px", background:"transparent", border:`1px dashed ${COLORS.border}`, borderRadius:10, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>
+            + Agregar Hito
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 const NAV = [
   { key:"dashboard", label:"Dashboard", icon:"◈" },
   { key:"contacts",  label:"Contactos", icon:"◎" },
   { key:"pipeline",  label:"Pipeline",  icon:"◧" },
   { key:"quotes",    label:"Cotizar",   icon:"◑" },
   { key:"products",  label:"Catálogo",  icon:"◫" },
+  { key:"costeo",    label:"Costeo",    icon:"◐" },
   { key:"tasks",     label:"Tareas",    icon:"◉" },
   { key:"reports",   label:"Reportes",  icon:"◌" },
 ];
@@ -1498,6 +1899,7 @@ export default function CRM() {
         {view==="pipeline"  && <PipelineView deals={deals} setDeals={setDeals} contacts={contacts} isMobile={isMobile} />}
         {view==="quotes"    && <QuotesView contacts={contacts} isMobile={isMobile} />}
         {view==="products"  && <ProductsDB isMobile={isMobile} />}
+        {view==="costeo"    && <CosteoView contacts={contacts} isMobile={isMobile} />}
         {view==="tasks"     && <TasksView tasks={tasks} setTasks={setTasks} contacts={contacts} isMobile={isMobile} />}
         {view==="reports"   && <ReportsView contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} />}
       </main>
