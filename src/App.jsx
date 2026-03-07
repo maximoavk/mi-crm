@@ -1703,19 +1703,271 @@ function CosteoView({ contacts }) {
     </div>
   );
 
+  // RUT search state
+  const [rutSearch, setRutSearch] = useState("");
+  const [rutMatches, setRutMatches] = useState([]);
+
+  const searchRut = (val) => {
+    setRutSearch(val);
+    if(val.length < 3) { setRutMatches([]); return; }
+    const q = val.toLowerCase().replace(/[.\-]/g,"");
+    const found = contacts.filter(c => {
+      const rut = (c.rut||"").toLowerCase().replace(/[.\-]/g,"");
+      const name = (c.name||"").toLowerCase();
+      const company = (c.company||"").toLowerCase();
+      return rut.includes(q) || name.includes(q) || company.includes(q);
+    });
+    setRutMatches(found.slice(0,5));
+  };
+
+  const selectContacto = (c) => {
+    const addr = c.address ? [c.address.calle, c.address.comuna, c.address.region].filter(Boolean).join(", ") : "";
+    updateProyecto({ ...proyecto, clienteNombre:c.name, clienteEmpresa:c.company, clienteRut:c.rut||"", clienteTelefono:c.phone||"", clienteDireccion:addr, clienteId:c.id });
+    setRutSearch(""); setRutMatches([]);
+  };
+
+  // PDF Interno
+  const printInterno = () => {
+    const w = window.open("","_blank");
+    const fases = (proyecto.fases||[]).map(calcFase);
+    const tCosto = fases.reduce((s,f)=>s+f.costoTotal,0);
+    const tMargen = fases.reduce((s,f)=>s+f.margenTotal,0);
+    const tVenta = fases.reduce((s,f)=>s+f.ventaTotal,0);
+    const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
+    const pct = tCosto>0?(tMargen/tCosto*100).toFixed(1):0;
+    const fasesHTML = fases.map(f=>{
+      const rows = (f.items||[]).map(calcItem).map(it=>`
+        <tr>
+          <td style="padding:5px 8px;color:#3b82f6;font-weight:600">${it.cod||""}</td>
+          <td style="padding:5px 8px">${it.descripcion||""}</td>
+          <td style="padding:5px 8px;text-align:center">${it.tipo==="Mano de Obra / HH"?`${it.hh} HH`:it.qty}</td>
+          <td style="padding:5px 8px;text-align:right">${it.tipo==="Mano de Obra / HH"?fmt(it.valorHH):fmt(it.costoUnit)}</td>
+          <td style="padding:5px 8px;text-align:center">${it.margen}%</td>
+          <td style="padding:5px 8px;text-align:right">${fmt(it.costoTotal)}</td>
+          <td style="padding:5px 8px;text-align:right;color:#10b981">${fmt(it.margenTotal)}</td>
+          <td style="padding:5px 8px;text-align:right;font-weight:700">${fmt(it.ventaTotal)}</td>
+        </tr>`).join("");
+      return `
+        <div style="margin-bottom:20px">
+          <div style="background:#1e293b;color:white;padding:8px 12px;font-weight:700;font-size:13px;border-radius:6px 6px 0 0">${f.nombre}</div>
+          <table style="width:100%;border-collapse:collapse;font-size:11px">
+            <thead><tr style="background:#f1f5f9">
+              <th style="padding:6px 8px;text-align:left;width:60px">COD</th>
+              <th style="padding:6px 8px;text-align:left">DESCRIPCIÓN</th>
+              <th style="padding:6px 8px">QTY/HH</th>
+              <th style="padding:6px 8px;text-align:right">COSTO UNIT.</th>
+              <th style="padding:6px 8px">MARGEN%</th>
+              <th style="padding:6px 8px;text-align:right">COSTO TOTAL</th>
+              <th style="padding:6px 8px;text-align:right;color:#10b981">MARGEN $</th>
+              <th style="padding:6px 8px;text-align:right">PRECIO VENTA</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+            <tfoot><tr style="border-top:2px solid #e2e8f0;background:#f8fafc">
+              <td colspan="5" style="padding:6px 8px;font-weight:700;font-size:11px">Subtotal ${f.nombre}</td>
+              <td style="padding:6px 8px;text-align:right;font-weight:700">${fmt(f.costoTotal)}</td>
+              <td style="padding:6px 8px;text-align:right;font-weight:700;color:#10b981">${fmt(f.margenTotal)}</td>
+              <td style="padding:6px 8px;text-align:right;font-weight:700;color:#cc0000">${fmt(f.ventaTotal)}</td>
+            </tfoot>
+          </table>
+        </div>`;
+    }).join("");
+    w.document.write(`<!DOCTYPE html><html><head><title>Costeo Interno - ${proyecto.nombre}</title>
+      <style>body{font-family:Arial,sans-serif;font-size:12px;color:#1e293b;padding:20px} @media print{@page{margin:10mm}}</style>
+      </head><body>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #e2e8f0">
+        <div>
+          <img src="${LOGO_B64}" style="height:50px;margin-bottom:8px;display:block" />
+          <div style="font-size:10px;color:#64748b">Sucursales: Marco Gallo Vergara 536 B, Dpto 411 Torre D</div>
+          <div style="font-size:10px;color:#64748b">Casa Matriz: Huérfanos, 1055 Oficina 603</div>
+          <div style="font-size:10px;color:#64748b">Fono: 9-81334980 · ventas@polygonos.cl</div>
+        </div>
+        <div style="border:2px solid #cc0000;padding:10px 20px;text-align:center">
+          <div style="font-size:10px;font-weight:700;color:#cc0000">COSTEO INTERNO</div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px">${proyecto.fecha||""}</div>
+        </div>
+      </div>
+      <div style="background:#f8fafc;border-radius:8px;padding:12px 16px;margin-bottom:20px">
+        <div style="font-size:15px;font-weight:700;margin-bottom:8px">${proyecto.nombre}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">
+          <div><strong>Cliente:</strong> ${proyecto.clienteNombre||proyecto.cliente||""}</div>
+          <div><strong>Empresa:</strong> ${proyecto.clienteEmpresa||""}</div>
+          <div><strong>RUT:</strong> ${proyecto.clienteRut||""}</div>
+          <div><strong>Teléfono:</strong> ${proyecto.clienteTelefono||""}</div>
+          <div><strong>Dirección:</strong> ${proyecto.clienteDireccion||""}</div>
+        </div>
+      </div>
+      ${fasesHTML}
+      <div style="display:flex;gap:16px;margin-top:20px;padding-top:16px;border-top:2px solid #e2e8f0">
+        <div style="flex:1;border:1px solid #e2e8f0;border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:10px;color:#64748b;margin-bottom:4px">TOTAL COSTOS</div>
+          <div style="font-size:20px;font-weight:700">${fmt(tCosto)}</div>
+        </div>
+        <div style="flex:1;border:1px solid #10b981;border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:10px;color:#10b981;margin-bottom:4px">TOTAL MARGEN</div>
+          <div style="font-size:20px;font-weight:700;color:#10b981">${fmt(tMargen)}</div>
+          <div style="font-size:10px;color:#64748b">${pct}% sobre costo</div>
+        </div>
+        <div style="flex:1;border:1px solid #cc0000;border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:10px;color:#cc0000;margin-bottom:4px">PRECIO VENTA</div>
+          <div style="font-size:20px;font-weight:700;color:#cc0000">${fmt(tVenta)}</div>
+        </div>
+      </div>
+      <script>window.onload=()=>window.print()</script>
+    </body></html>`);
+    w.document.close();
+  };
+
+  // PDF Cliente
+  const printCliente = () => {
+    const w = window.open("","_blank");
+    const fases = (proyecto.fases||[]).map(calcFase);
+    const tVenta = fases.reduce((s,f)=>s+f.ventaTotal,0);
+    const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
+    const partidas = proyecto.partidas||[];
+    const tPartidas = partidas.reduce((s,p)=>s+Number(p.monto),0);
+    const tAnticipo = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctAnticipo)||0)/100),0);
+    const tParcial = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctParcial)||0)/100),0);
+    const tFinalizar = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctFinalizar)||0)/100),0);
+    const fasesHTML = fases.map(f=>{
+      const rows = (f.items||[]).map(calcItem).map(it=>`
+        <tr>
+          <td style="padding:5px 8px;color:#3b82f6;font-weight:600">${it.cod||""}</td>
+          <td style="padding:5px 8px">${it.descripcion||""}</td>
+          <td style="padding:5px 8px;text-align:center">${it.tipo==="Mano de Obra / HH"?`${it.hh} HH`:it.qty}</td>
+          <td style="padding:5px 8px;text-align:right;font-weight:700">${fmt(it.ventaTotal)}</td>
+        </tr>`).join("");
+      return `
+        <div style="margin-bottom:20px">
+          <div style="background:#1e293b;color:white;padding:8px 12px;font-weight:700;font-size:13px;border-radius:6px 6px 0 0">${f.nombre}</div>
+          <table style="width:100%;border-collapse:collapse;font-size:11px">
+            <thead><tr style="background:#f1f5f9">
+              <th style="padding:6px 8px;text-align:left;width:60px">COD</th>
+              <th style="padding:6px 8px;text-align:left">DESCRIPCIÓN</th>
+              <th style="padding:6px 8px">CANT.</th>
+              <th style="padding:6px 8px;text-align:right">PRECIO VENTA</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+            <tfoot><tr style="border-top:2px solid #e2e8f0;background:#f8fafc">
+              <td colspan="3" style="padding:6px 8px;font-weight:700">Subtotal ${f.nombre}</td>
+              <td style="padding:6px 8px;text-align:right;font-weight:700;color:#cc0000">${fmt(f.ventaTotal)}</td>
+            </tfoot>
+          </table>
+        </div>`;
+    }).join("");
+    const partidasHTML = partidas.length>0 ? `
+      <div style="margin-top:24px;padding-top:16px;border-top:2px solid #e2e8f0">
+        <div style="font-size:14px;font-weight:700;margin-bottom:12px">Partidas de Pago</div>
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead><tr style="background:#f1f5f9">
+            <th style="padding:6px 8px;text-align:left">CONCEPTO</th>
+            <th style="padding:6px 8px;text-align:right">MONTO</th>
+            <th style="padding:6px 8px;text-align:right;color:#3b82f6">ANTICIPO</th>
+            <th style="padding:6px 8px;text-align:right;color:#10b981">PARCIAL</th>
+            <th style="padding:6px 8px;text-align:right;color:#f59e0b">AL FINALIZAR</th>
+          </tr></thead>
+          <tbody>${partidas.map(p=>{
+            const m=Number(p.monto); const a=m*(Number(p.pctAnticipo)||0)/100; const pa=m*(Number(p.pctParcial)||0)/100; const fi=m*(Number(p.pctFinalizar)||0)/100;
+            return `<tr style="border-bottom:1px solid #f1f5f9">
+              <td style="padding:5px 8px">${p.concepto||""}</td>
+              <td style="padding:5px 8px;text-align:right;font-weight:600">${fmt(m)}</td>
+              <td style="padding:5px 8px;text-align:right;color:#3b82f6">${a>0?fmt(a):"-"}</td>
+              <td style="padding:5px 8px;text-align:right;color:#10b981">${pa>0?fmt(pa):"-"}</td>
+              <td style="padding:5px 8px;text-align:right;color:#f59e0b">${fi>0?fmt(fi):"-"}</td>
+            </tr>`;}).join("")}
+          </tbody>
+          <tfoot><tr style="border-top:2px solid #e2e8f0;background:#f8fafc;font-weight:700">
+            <td style="padding:6px 8px">TOTAL</td>
+            <td style="padding:6px 8px;text-align:right">${fmt(tPartidas)}</td>
+            <td style="padding:6px 8px;text-align:right;color:#3b82f6">${fmt(tAnticipo)}</td>
+            <td style="padding:6px 8px;text-align:right;color:#10b981">${fmt(tParcial)}</td>
+            <td style="padding:6px 8px;text-align:right;color:#f59e0b">${fmt(tFinalizar)}</td>
+          </tfoot>
+        </table>
+      </div>` : "";
+    w.document.write(`<!DOCTYPE html><html><head><title>Presupuesto - ${proyecto.nombre}</title>
+      <style>body{font-family:Arial,sans-serif;font-size:12px;color:#1e293b;padding:20px} @media print{@page{margin:10mm}}</style>
+      </head><body>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #e2e8f0">
+        <div>
+          <img src="${LOGO_B64}" style="height:50px;margin-bottom:8px;display:block" />
+          <div style="font-size:10px;color:#64748b">Sucursales: Marco Gallo Vergara 536 B, Dpto 411 Torre D</div>
+          <div style="font-size:10px;color:#64748b">Casa Matriz: Huérfanos, 1055 Oficina 603</div>
+          <div style="font-size:10px;color:#64748b">Fono: 9-81334980 · ventas@polygonos.cl</div>
+        </div>
+        <div style="border:2px solid #cc0000;padding:10px 20px;text-align:center">
+          <div style="font-size:10px;font-weight:700;color:#cc0000">PRESUPUESTO</div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px">${proyecto.fecha||""}</div>
+        </div>
+      </div>
+      <div style="background:#f8fafc;border-radius:8px;padding:12px 16px;margin-bottom:20px">
+        <div style="font-size:15px;font-weight:700;margin-bottom:8px">${proyecto.nombre}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">
+          <div><strong>Cliente:</strong> ${proyecto.clienteNombre||proyecto.cliente||""}</div>
+          <div><strong>Empresa:</strong> ${proyecto.clienteEmpresa||""}</div>
+          <div><strong>RUT:</strong> ${proyecto.clienteRut||""}</div>
+          <div><strong>Teléfono:</strong> ${proyecto.clienteTelefono||""}</div>
+          <div><strong>Dirección:</strong> ${proyecto.clienteDireccion||""}</div>
+        </div>
+      </div>
+      ${fasesHTML}
+      <div style="border:2px solid #cc0000;border-radius:8px;padding:12px 20px;text-align:center;margin-top:20px">
+        <div style="font-size:11px;color:#cc0000;font-weight:700;margin-bottom:4px">TOTAL PRESUPUESTO</div>
+        <div style="font-size:26px;font-weight:700;color:#cc0000">${fmt(tVenta)}</div>
+      </div>
+      ${partidasHTML}
+      <script>window.onload=()=>window.print()</script>
+    </body></html>`);
+    w.document.close();
+  };
+
   return (
     <div>
       {/* Header */}
-      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16, flexWrap:"wrap" }}>
         <button onClick={()=>setSelected(null)} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>← Proyectos</button>
         <div style={{ flex:1 }}>
           <input value={proyecto.nombre} onChange={e=>updateProyecto({...proyecto,nombre:e.target.value})}
             style={{ background:"transparent", border:"none", color:COLORS.text, fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, outline:"none", width:"100%" }} />
         </div>
-        <input value={proyecto.cliente} onChange={e=>updateProyecto({...proyecto,cliente:e.target.value})}
-          placeholder="Cliente..." style={{ background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:12, padding:"5px 10px" }} />
         <input type="date" value={proyecto.fecha} onChange={e=>updateProyecto({...proyecto,fecha:e.target.value})}
           style={{ background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:12, padding:"5px 10px" }} />
+        <button onClick={printInterno} style={{ padding:"8px 14px", background:"#1e293b", border:"none", borderRadius:7, color:"white", fontFamily:FONT, fontSize:11, cursor:"pointer" }}>📋 PDF Interno</button>
+        <button onClick={printCliente} style={{ padding:"8px 14px", background:COLORS.accent, border:"none", borderRadius:7, color:COLORS.bg, fontFamily:FONT, fontSize:11, fontWeight:700, cursor:"pointer" }}>📄 PDF Cliente</button>
+      </div>
+
+      {/* Buscador RUT / Cliente */}
+      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"14px 18px", marginBottom:16, position:"relative" }}>
+        {proyecto.clienteNombre ? (
+          <div style={{ display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
+            <div style={{ flex:1 }}>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text }}>{proyecto.clienteNombre}</div>
+              <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{proyecto.clienteEmpresa} · RUT: {proyecto.clienteRut}</div>
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{proyecto.clienteTelefono} · {proyecto.clienteDireccion}</div>
+            </div>
+            <button onClick={()=>updateProyecto({...proyecto,clienteNombre:"",clienteEmpresa:"",clienteRut:"",clienteTelefono:"",clienteDireccion:""})}
+              style={{ background:"none", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:11, padding:"4px 10px" }}>✕ Cambiar</button>
+          </div>
+        ) : (
+          <div>
+            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:6 }}>Buscar Cliente por RUT o Nombre</div>
+            <input value={rutSearch} onChange={e=>searchRut(e.target.value)}
+              placeholder="Ej: 65.066.845-6 o Condominio..."
+              style={{ width:"100%", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:7, color:COLORS.text, fontFamily:FONT, fontSize:13, padding:"8px 12px", boxSizing:"border-box" }} />
+            {rutMatches.length>0 && (
+              <div style={{ position:"absolute", left:18, right:18, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:7, zIndex:50, marginTop:4 }}>
+                {rutMatches.map(c=>(
+                  <div key={c.id} onClick={()=>selectContacto(c)}
+                    style={{ padding:"10px 14px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}22` }}
+                    onMouseEnter={e=>e.currentTarget.style.background=COLORS.card}
+                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text }}>{c.name} · {c.company}</div>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>RUT: {c.rut} · {c.phone}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
