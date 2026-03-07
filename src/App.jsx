@@ -1404,7 +1404,7 @@ const CAT_TIPOS = ["Equipos","Mano de Obra / HH","Materiales","Costos Indirectos
 const CAT_COLOR = { "Equipos":"#3b82f6","Mano de Obra / HH":"#10b981","Materiales":"#f59e0b","Costos Indirectos":"#8b5cf6" };
 
 function newItem(tipo) {
-  const base = { id: Date.now()+Math.random(), tipo, cod:"", descripcion:"", qty:1, costoUnit:0, margen:30, precioUnit:0 };
+  const base = { id: Date.now()+Math.random(), tipo, cod:"", descripcion:"", modelo:"", qty:1, costoUnit:0, margen:30, precioUnit:0 };
   if(tipo==="Mano de Obra / HH") return { ...base, hh:1, valorHH:15000 };
   return base;
 }
@@ -1446,6 +1446,11 @@ function ItemRow({ item, onChange, onDelete }) {
       </td>
       <td style={{ padding:"6px 4px" }}>
         <input style={style} value={item.descripcion} onChange={e=>inp("descripcion",e.target.value)} placeholder="Descripción..." />
+      </td>
+      <td style={{ padding:"6px 4px", width:110 }}>
+        {(item.tipo==="Equipos"||item.tipo==="Materiales") ? (
+          <input style={{...style, color:COLORS.textMuted}} value={item.modelo||""} onChange={e=>inp("modelo",e.target.value)} placeholder="Modelo..." />
+        ) : <span />}
       </td>
       {item.tipo==="Mano de Obra / HH" ? (<>
         <td style={{ padding:"6px 4px", width:60 }}><input style={style} type="number" value={item.hh} onChange={e=>inp("hh",e.target.value)} /></td>
@@ -1511,6 +1516,7 @@ function FaseBlock({ fase, onChange, onDelete }) {
                     <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
                       <th style={{ textAlign:"center", fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", letterSpacing:"0.06em", width:60 }}>COD</th>
                       <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", letterSpacing:"0.06em" }}>DESCRIPCIÓN</th>
+                      <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", letterSpacing:"0.06em", width:110 }}>MODELO</th>
                       {tipo==="Mano de Obra / HH" ? (<>
                         <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", letterSpacing:"0.06em" }}>HH</th>
                         <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", letterSpacing:"0.06em" }}>$/HH</th>
@@ -1534,7 +1540,7 @@ function FaseBlock({ fase, onChange, onDelete }) {
                   </tbody>
                   <tfoot>
                     <tr style={{ borderTop:`1px solid ${COLORS.border}` }}>
-                      <td colSpan={tipo==="Mano de Obra / HH"?5:4} style={{ padding:"6px 4px", fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Subtotal {tipo}</td>
+                      <td colSpan={tipo==="Mano de Obra / HH"?6:5} style={{ padding:"6px 4px", fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Subtotal {tipo}</td>
                       <td></td>
                       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.textMuted }}>
                         ${grouped[tipo].map(calcItem).reduce((s,i)=>s+i.costoTotal,0).toLocaleString("es-CL")}
@@ -1738,6 +1744,7 @@ function CosteoView({ contacts }) {
         <tr>
           <td style="padding:5px 8px;color:#3b82f6;font-weight:600">${it.cod||""}</td>
           <td style="padding:5px 8px">${it.descripcion||""}</td>
+          <td style="padding:5px 8px;color:#94a3b8">${it.modelo||""}</td>
           <td style="padding:5px 8px;text-align:center">${it.tipo==="Mano de Obra / HH"?`${it.hh} HH`:it.qty}</td>
           <td style="padding:5px 8px;text-align:right">${it.tipo==="Mano de Obra / HH"?fmt(it.valorHH):fmt(it.costoUnit)}</td>
           <td style="padding:5px 8px;text-align:center">${it.margen}%</td>
