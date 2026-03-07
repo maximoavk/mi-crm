@@ -1400,29 +1400,51 @@ function QuotePDF({ quote, onBack }) {
 
 // ── MAIN APP ─────────────────────────────────────────────────────────────────
 // ── COSTEO DE PROYECTOS ──────────────────────────────────────────────────────
+const CON_IVA = ["Equipos","Materiales"];
+const IVA = 1.19;
 const CAT_TIPOS = ["Equipos","Mano de Obra / HH","Materiales","Costos Indirectos"];
 const CAT_COLOR = { "Equipos":"#3b82f6","Mano de Obra / HH":"#10b981","Materiales":"#f59e0b","Costos Indirectos":"#8b5cf6" };
 
 function newItem(tipo) {
-  const base = { id: Date.now()+Math.random(), tipo, cod:"", descripcion:"", modelo:"", qty:1, costoUnit:0, margen:30, precioUnit:0 };
+  const base = { id: Date.now()+Math.random(), tipo, cod:"", descripcion:"", modelo:"", qty:1, precioPublicado:0, margen:30 };
   if(tipo==="Mano de Obra / HH") return { ...base, hh:1, valorHH:15000 };
+  if(tipo==="Costos Indirectos") return { ...base, costoUnit:0 };
   return base;
 }
+
 function calcItem(it) {
-  let costo = 0;
-  if(it.tipo==="Mano de Obra / HH") costo = (Number(it.hh)||0)*(Number(it.valorHH)||0)*(Number(it.qty)||1);
-  else costo = (Number(it.costoUnit)||0)*(Number(it.qty)||1);
+  const tieneIVA = CON_IVA.includes(it.tipo);
+  let costoNeto = 0;
+  let precioPublicado = 0;
+
+  if(it.tipo==="Mano de Obra / HH") {
+    costoNeto = (Number(it.hh)||0) * (Number(it.valorHH)||0) * (Number(it.qty)||1);
+    precioPublicado = costoNeto;
+  } else if(it.tipo==="Costos Indirectos") {
+    costoNeto = (Number(it.costoUnit)||0) * (Number(it.qty)||1);
+    precioPublicado = costoNeto;
+  } else {
+    precioPublicado = (Number(it.precioPublicado)||0) * (Number(it.qty)||1);
+    costoNeto = tieneIVA ? precioPublicado / IVA : precioPublicado;
+  }
+
   const margenPct = Number(it.margen)||0;
-  const margenVal = costo*(margenPct/100);
-  const venta = costo+margenVal;
-  return { ...it, costoTotal: costo, margenTotal: margenVal, ventaTotal: venta };
+  const margenVal = costoNeto * (margenPct/100);
+  const ventaNeta = costoNeto + margenVal;
+  const ventaBruta = tieneIVA ? ventaNeta * IVA : ventaNeta;
+  const ivaCompra = tieneIVA ? precioPublicado - (precioPublicado/IVA) : 0;
+  const ivaVenta = tieneIVA ? ventaNeta * (IVA-1) : 0;
+
+  return { ...it, precioPublicadoTotal:precioPublicado, costoNeto, ivaCompra, margenTotal:margenVal, ventaNeta, ivaVenta, ventaBruta };
 }
+
 function calcFase(fase) {
   const items = (fase.items||[]).map(calcItem);
-  const costoTotal = items.reduce((s,i)=>s+i.costoTotal,0);
-  const margenTotal = items.reduce((s,i)=>s+i.margenTotal,0);
-  const ventaTotal = items.reduce((s,i)=>s+i.ventaTotal,0);
-  return { ...fase, items, costoTotal, margenTotal, ventaTotal };
+  const costoNeto     = items.reduce((s,i)=>s+i.costoNeto,0);
+  const margenTotal   = items.reduce((s,i)=>s+i.margenTotal,0);
+  const ventaNeta     = items.reduce((s,i)=>s+i.ventaNeta,0);
+  const ventaBruta    = items.reduce((s,i)=>s+i.ventaBruta,0);
+  return { ...fase, items, costoNeto, margenTotal, ventaNeta, ventaBruta };
 }
 
 function TotBox({ label, value, color, sub }) {
@@ -1438,35 +1460,50 @@ function TotBox({ label, value, color, sub }) {
 function ItemRow({ item, onChange, onDelete }) {
   const calc = calcItem(item);
   const inp = (k,v) => onChange({ ...item, [k]:v });
+  const tieneIVA = CON_IVA.includes(item.tipo);
   const style = { background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"4px 6px", width:"100%" };
+  const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
   return (
     <tr style={{ borderBottom:`1px solid ${COLORS.border}22` }}>
-      <td style={{ padding:"6px 4px", width:60 }}>
+      <td style={{ padding:"6px 4px", width:55 }}>
         <input style={{...style, textAlign:"center", color:COLORS.accent, fontWeight:600}} value={item.cod||""} onChange={e=>inp("cod",e.target.value)} placeholder="A.1" />
       </td>
       <td style={{ padding:"6px 4px" }}>
         <input style={style} value={item.descripcion} onChange={e=>inp("descripcion",e.target.value)} placeholder="Descripción..." />
       </td>
-      <td style={{ padding:"6px 4px", width:110 }}>
-        {(item.tipo==="Equipos"||item.tipo==="Materiales") ? (
+      <td style={{ padding:"6px 4px", width:100 }}>
+        {tieneIVA ? (
           <input style={{...style, color:COLORS.textMuted}} value={item.modelo||""} onChange={e=>inp("modelo",e.target.value)} placeholder="Modelo..." />
         ) : <span />}
       </td>
+
       {item.tipo==="Mano de Obra / HH" ? (<>
-        <td style={{ padding:"6px 4px", width:60 }}><input style={style} type="number" value={item.hh} onChange={e=>inp("hh",e.target.value)} /></td>
-        <td style={{ padding:"6px 4px", width:90 }}><input style={style} type="number" value={item.valorHH} onChange={e=>inp("valorHH",e.target.value)} /></td>
-        <td style={{ padding:"6px 4px", width:50 }}><input style={style} type="number" value={item.qty} onChange={e=>inp("qty",e.target.value)} /></td>
+        <td style={{ padding:"6px 4px", width:55 }}><input style={style} type="number" value={item.hh} onChange={e=>inp("hh",e.target.value)} placeholder="HH" /></td>
+        <td style={{ padding:"6px 4px", width:85 }}><input style={style} type="number" value={item.valorHH} onChange={e=>inp("valorHH",e.target.value)} placeholder="$/HH" /></td>
+        <td style={{ padding:"6px 4px", width:45 }}><input style={style} type="number" value={item.qty} onChange={e=>inp("qty",e.target.value)} /></td>
+        <td style={{ padding:"6px 4px" }} />
+        <td style={{ padding:"6px 4px" }} />
+      </>) : item.tipo==="Costos Indirectos" ? (<>
+        <td style={{ padding:"6px 4px", width:45 }}><input style={style} type="number" value={item.qty} onChange={e=>inp("qty",e.target.value)} /></td>
+        <td style={{ padding:"6px 4px", width:90 }}><input style={style} type="number" value={item.costoUnit} onChange={e=>inp("costoUnit",e.target.value)} placeholder="Costo" /></td>
+        <td style={{ padding:"6px 4px" }} />
+        <td style={{ padding:"6px 4px" }} />
+        <td style={{ padding:"6px 4px" }} />
       </>) : (<>
-        <td style={{ padding:"6px 4px", width:50 }}><input style={style} type="number" value={item.qty} onChange={e=>inp("qty",e.target.value)} /></td>
-        <td style={{ padding:"6px 4px", width:100 }}><input style={style} type="number" value={item.costoUnit} onChange={e=>inp("costoUnit",e.target.value)} /></td>
-        <td style={{ padding:"6px 4px" }}></td>
+        <td style={{ padding:"6px 4px", width:45 }}><input style={style} type="number" value={item.qty} onChange={e=>inp("qty",e.target.value)} /></td>
+        <td style={{ padding:"6px 4px", width:100 }}><input style={style} type="number" value={item.precioPublicado} onChange={e=>inp("precioPublicado",e.target.value)} placeholder="$ c/IVA" /></td>
+        <td style={{ padding:"6px 4px", width:95, textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, whiteSpace:"nowrap" }}>{fmt(calc.costoNeto)}</td>
+        <td style={{ padding:"6px 4px", width:80, textAlign:"right", fontFamily:FONT, fontSize:10, color:"#ef4444", whiteSpace:"nowrap" }}>{fmt(calc.ivaCompra)}</td>
+        <td style={{ padding:"6px 4px" }} />
       </>)}
-      <td style={{ padding:"6px 4px", width:60 }}>
-        <input style={{ ...style, color:COLORS.accent }} type="number" value={item.margen} onChange={e=>inp("margen",e.target.value)} />
+
+      <td style={{ padding:"6px 4px", width:55 }}>
+        <input style={{...style, color:COLORS.accent}} type="number" value={item.margen} onChange={e=>inp("margen",e.target.value)} />
       </td>
-      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, whiteSpace:"nowrap" }}>${calc.costoTotal.toLocaleString("es-CL")}</td>
-      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.green, whiteSpace:"nowrap" }}>${calc.margenTotal.toLocaleString("es-CL")}</td>
-      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.text, whiteSpace:"nowrap" }}>${calc.ventaTotal.toLocaleString("es-CL")}</td>
+      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, whiteSpace:"nowrap" }}>{fmt(calc.costoNeto)}</td>
+      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.green, whiteSpace:"nowrap" }}>{fmt(calc.margenTotal)}</td>
+      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.text, whiteSpace:"nowrap" }}>{fmt(calc.ventaNeta)}</td>
+      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.accent, whiteSpace:"nowrap" }}>{fmt(calc.ventaBruta)}</td>
       <td style={{ padding:"6px 4px", textAlign:"center" }}>
         <button onClick={onDelete} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>×</button>
       </td>
@@ -1477,87 +1514,97 @@ function ItemRow({ item, onChange, onDelete }) {
 function FaseBlock({ fase, onChange, onDelete }) {
   const [collapsed, setCollapsed] = useState(false);
   const calc = calcFase(fase);
-  const margenPct = calc.costoTotal > 0 ? (calc.margenTotal/calc.costoTotal*100).toFixed(1) : 0;
+  const margenPct = calc.costoNeto > 0 ? (calc.margenTotal/calc.costoNeto*100).toFixed(1) : 0;
 
   const addItem = (tipo) => onChange({ ...fase, items:[...(fase.items||[]), newItem(tipo)] });
   const updateItem = (id, item) => onChange({ ...fase, items: fase.items.map(i=>i.id===id?item:i) });
   const deleteItem = (id) => onChange({ ...fase, items: fase.items.filter(i=>i.id!==id) });
-
   const grouped = CAT_TIPOS.reduce((acc,t)=>{ acc[t]=(fase.items||[]).filter(i=>i.tipo===t); return acc; },{});
+  const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
 
   return (
     <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, marginBottom:16 }}>
-      {/* Header fase */}
       <div style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 18px", borderBottom:`1px solid ${COLORS.border}` }}>
         <button onClick={()=>setCollapsed(p=>!p)} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:14 }}>{collapsed?"▶":"▼"}</button>
         <input value={fase.nombre} onChange={e=>onChange({...fase,nombre:e.target.value})}
           style={{ background:"transparent", border:"none", color:COLORS.text, fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, flex:1, outline:"none" }}
           placeholder="Nombre de la fase..." />
-        <div style={{ display:"flex", gap:8 }}>
-          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Costo: <strong style={{color:COLORS.text}}>${calc.costoTotal.toLocaleString("es-CL")}</strong></span>
-          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Margen: <strong style={{color:COLORS.green}}>${calc.margenTotal.toLocaleString("es-CL")} ({margenPct}%)</strong></span>
-          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Venta: <strong style={{color:COLORS.accent}}>${calc.ventaTotal.toLocaleString("es-CL")}</strong></span>
+        <div style={{ display:"flex", gap:14, flexWrap:"wrap" }}>
+          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Costo neto: <strong style={{color:COLORS.text}}>{fmt(calc.costoNeto)}</strong></span>
+          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Margen: <strong style={{color:COLORS.green}}>{fmt(calc.margenTotal)} ({margenPct}%)</strong></span>
+          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Venta neta: <strong style={{color:COLORS.text}}>{fmt(calc.ventaNeta)}</strong></span>
+          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Venta c/IVA: <strong style={{color:COLORS.accent}}>{fmt(calc.ventaBruta)}</strong></span>
         </div>
         <button onClick={onDelete} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:16 }}>×</button>
       </div>
 
       {!collapsed && (
         <div style={{ padding:"16px 18px" }}>
-          {CAT_TIPOS.map(tipo=>(
-            <div key={tipo} style={{ marginBottom:16 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-                <div style={{ width:3, height:16, background:CAT_COLOR[tipo], borderRadius:2 }} />
-                <span style={{ fontFamily:FONT, fontSize:11, fontWeight:600, color:CAT_COLOR[tipo], letterSpacing:"0.08em", textTransform:"uppercase" }}>{tipo}</span>
-                <button onClick={()=>addItem(tipo)} style={{ background:`${CAT_COLOR[tipo]}22`, border:`1px solid ${CAT_COLOR[tipo]}44`, borderRadius:5, color:CAT_COLOR[tipo], cursor:"pointer", fontFamily:FONT, fontSize:10, padding:"2px 8px" }}>+ Agregar</button>
+          {CAT_TIPOS.map(tipo=>{
+            const tieneIVA = CON_IVA.includes(tipo);
+            const calcItems = grouped[tipo].map(calcItem);
+            return (
+              <div key={tipo} style={{ marginBottom:16 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+                  <div style={{ width:3, height:16, background:CAT_COLOR[tipo], borderRadius:2 }} />
+                  <span style={{ fontFamily:FONT, fontSize:11, fontWeight:600, color:CAT_COLOR[tipo], letterSpacing:"0.08em", textTransform:"uppercase" }}>{tipo}</span>
+                  {tieneIVA && <span style={{ fontFamily:FONT, fontSize:10, color:"#ef4444", background:"#ef444422", padding:"1px 6px", borderRadius:4 }}>Precio c/IVA → neto ÷1.19</span>}
+                  <button onClick={()=>addItem(tipo)} style={{ background:`${CAT_COLOR[tipo]}22`, border:`1px solid ${CAT_COLOR[tipo]}44`, borderRadius:5, color:CAT_COLOR[tipo], cursor:"pointer", fontFamily:FONT, fontSize:10, padding:"2px 8px" }}>+ Agregar</button>
+                </div>
+                {grouped[tipo].length > 0 && (
+                  <div style={{ overflowX:"auto" }}>
+                    <table style={{ width:"100%", borderCollapse:"collapse", minWidth:700 }}>
+                      <thead>
+                        <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                          <th style={{ textAlign:"center", fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", width:55 }}>COD</th>
+                          <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px" }}>DESCRIPCIÓN</th>
+                          <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:100 }}>MODELO</th>
+                          {tipo==="Mano de Obra / HH" ? (<>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:55 }}>HH</th>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:85 }}>$/HH</th>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:45 }}>PERS.</th>
+                            <th style={{ padding:"4px", width:95 }} />
+                            <th style={{ padding:"4px", width:80 }} />
+                          </>) : tipo==="Costos Indirectos" ? (<>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:45 }}>QTY</th>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:90 }}>COSTO UNIT.</th>
+                            <th style={{ padding:"4px" }} /><th style={{ padding:"4px" }} /><th style={{ padding:"4px" }} />
+                          </>) : (<>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:45 }}>QTY</th>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:"#ef4444", padding:"4px", width:100 }}>P. BRUTO (c/IVA)</th>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:95, textAlign:"right" }}>NETO (÷1.19)</th>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:"#ef4444", padding:"4px", width:80, textAlign:"right" }}>IVA COMPRA</th>
+                            <th style={{ padding:"4px" }} />
+                          </>)}
+                          <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", width:55 }}>MARGEN%</th>
+                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:95 }}>COSTO NETO</th>
+                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.green, padding:"4px", width:90 }}>MARGEN $</th>
+                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.text, padding:"4px", width:95 }}>VENTA NETA</th>
+                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", width:100 }}>VENTA c/IVA</th>
+                          <th style={{ width:24 }} />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {grouped[tipo].map(it=>(
+                          <ItemRow key={it.id} item={it} onChange={item=>updateItem(it.id,item)} onDelete={()=>deleteItem(it.id)} />
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr style={{ borderTop:`1px solid ${COLORS.border}`, background:COLORS.surface }}>
+                          <td colSpan={8} style={{ padding:"6px 8px", fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Subtotal {tipo}</td>
+                          <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.textMuted }}>{fmt(calcItems.reduce((s,i)=>s+i.costoNeto,0))}</td>
+                          <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.green }}>{fmt(calcItems.reduce((s,i)=>s+i.margenTotal,0))}</td>
+                          <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.text }}>{fmt(calcItems.reduce((s,i)=>s+i.ventaNeta,0))}</td>
+                          <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:700, color:COLORS.accent }}>{fmt(calcItems.reduce((s,i)=>s+i.ventaBruta,0))}</td>
+                          <td />
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                )}
               </div>
-              {grouped[tipo].length > 0 && (
-                <table style={{ width:"100%", borderCollapse:"collapse" }}>
-                  <thead>
-                    <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
-                      <th style={{ textAlign:"center", fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", letterSpacing:"0.06em", width:60 }}>COD</th>
-                      <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", letterSpacing:"0.06em" }}>DESCRIPCIÓN</th>
-                      <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", letterSpacing:"0.06em", width:110 }}>MODELO</th>
-                      {tipo==="Mano de Obra / HH" ? (<>
-                        <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", letterSpacing:"0.06em" }}>HH</th>
-                        <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", letterSpacing:"0.06em" }}>$/HH</th>
-                        <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", letterSpacing:"0.06em" }}>PERS.</th>
-                      </>) : (<>
-                        <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", letterSpacing:"0.06em" }}>QTY</th>
-                        <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", letterSpacing:"0.06em" }}>COSTO UNIT.</th>
-                        <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px" }}></th>
-                      </>)}
-                      <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", letterSpacing:"0.06em" }}>MARGEN%</th>
-                      <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", letterSpacing:"0.06em" }}>COSTO TOTAL</th>
-                      <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.green, padding:"4px", letterSpacing:"0.06em" }}>MARGEN $</th>
-                      <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.text, padding:"4px", letterSpacing:"0.06em" }}>PRECIO VENTA</th>
-                      <th style={{ width:24 }}></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {grouped[tipo].map(it=>(
-                      <ItemRow key={it.id} item={it} onChange={item=>updateItem(it.id,item)} onDelete={()=>deleteItem(it.id)} />
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr style={{ borderTop:`1px solid ${COLORS.border}` }}>
-                      <td colSpan={tipo==="Mano de Obra / HH"?6:5} style={{ padding:"6px 4px", fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Subtotal {tipo}</td>
-                      <td></td>
-                      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.textMuted }}>
-                        ${grouped[tipo].map(calcItem).reduce((s,i)=>s+i.costoTotal,0).toLocaleString("es-CL")}
-                      </td>
-                      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.green }}>
-                        ${grouped[tipo].map(calcItem).reduce((s,i)=>s+i.margenTotal,0).toLocaleString("es-CL")}
-                      </td>
-                      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:700, color:COLORS.accent }}>
-                        ${grouped[tipo].map(calcItem).reduce((s,i)=>s+i.ventaTotal,0).toLocaleString("es-CL")}
-                      </td>
-                      <td></td>
-                    </tr>
-                  </tfoot>
-                </table>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -1654,9 +1701,10 @@ function CosteoView({ contacts }) {
 
   // Totales globales
   const fasesCalc = proyecto ? (proyecto.fases||[]).map(calcFase) : [];
-  const totalCosto = fasesCalc.reduce((s,f)=>s+f.costoTotal,0);
-  const totalMargen = fasesCalc.reduce((s,f)=>s+f.margenTotal,0);
-  const totalVenta = fasesCalc.reduce((s,f)=>s+f.ventaTotal,0);
+  const totalCosto      = fasesCalc.reduce((s,f)=>s+f.costoNeto,0);
+  const totalMargen     = fasesCalc.reduce((s,f)=>s+f.margenTotal,0);
+  const totalVentaNeta  = fasesCalc.reduce((s,f)=>s+f.ventaNeta,0);
+  const totalVentaBruta = fasesCalc.reduce((s,f)=>s+f.ventaBruta,0);
   const margenPct = totalCosto > 0 ? (totalMargen/totalCosto*100).toFixed(1) : 0;
 
   // Totales partidas
@@ -1730,103 +1778,110 @@ function CosteoView({ contacts }) {
     setRutSearch(""); setRutMatches([]);
   };
 
-  // PDF Interno
+  // PDF Interno — muestra todo: bruto, neto, IVA, margen, venta neta y bruta
   const printInterno = () => {
     const w = window.open("","_blank");
     const fases = (proyecto.fases||[]).map(calcFase);
-    const tCosto = fases.reduce((s,f)=>s+f.costoTotal,0);
+    const tCosto = fases.reduce((s,f)=>s+f.costoNeto,0);
     const tMargen = fases.reduce((s,f)=>s+f.margenTotal,0);
-    const tVenta = fases.reduce((s,f)=>s+f.ventaTotal,0);
+    const tVentaNeta = fases.reduce((s,f)=>s+f.ventaNeta,0);
+    const tVentaBruta = fases.reduce((s,f)=>s+f.ventaBruta,0);
     const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
     const pct = tCosto>0?(tMargen/tCosto*100).toFixed(1):0;
     const fasesHTML = fases.map(f=>{
-      const rows = (f.items||[]).map(calcItem).map(it=>`
-        <tr>
-          <td style="padding:5px 8px;color:#3b82f6;font-weight:600">${it.cod||""}</td>
-          <td style="padding:5px 8px">${it.descripcion||""}</td>
-          <td style="padding:5px 8px;color:#94a3b8">${it.modelo||""}</td>
-          <td style="padding:5px 8px;text-align:center">${it.tipo==="Mano de Obra / HH"?`${it.hh} HH`:it.qty}</td>
-          <td style="padding:5px 8px;text-align:right">${it.tipo==="Mano de Obra / HH"?fmt(it.valorHH):fmt(it.costoUnit)}</td>
-          <td style="padding:5px 8px;text-align:center">${it.margen}%</td>
-          <td style="padding:5px 8px;text-align:right">${fmt(it.costoTotal)}</td>
-          <td style="padding:5px 8px;text-align:right;color:#10b981">${fmt(it.margenTotal)}</td>
-          <td style="padding:5px 8px;text-align:right;font-weight:700">${fmt(it.ventaTotal)}</td>
-        </tr>`).join("");
-      return `
-        <div style="margin-bottom:20px">
-          <div style="background:#1e293b;color:white;padding:8px 12px;font-weight:700;font-size:13px;border-radius:6px 6px 0 0">${f.nombre}</div>
-          <table style="width:100%;border-collapse:collapse;font-size:11px">
-            <thead><tr style="background:#f1f5f9">
-              <th style="padding:6px 8px;text-align:left;width:60px">COD</th>
-              <th style="padding:6px 8px;text-align:left">DESCRIPCIÓN</th>
-              <th style="padding:6px 8px">QTY/HH</th>
-              <th style="padding:6px 8px;text-align:right">COSTO UNIT.</th>
-              <th style="padding:6px 8px">MARGEN%</th>
-              <th style="padding:6px 8px;text-align:right">COSTO TOTAL</th>
-              <th style="padding:6px 8px;text-align:right;color:#10b981">MARGEN $</th>
-              <th style="padding:6px 8px;text-align:right">PRECIO VENTA</th>
-            </tr></thead>
-            <tbody>${rows}</tbody>
-            <tfoot><tr style="border-top:2px solid #e2e8f0;background:#f8fafc">
-              <td colspan="5" style="padding:6px 8px;font-weight:700;font-size:11px">Subtotal ${f.nombre}</td>
-              <td style="padding:6px 8px;text-align:right;font-weight:700">${fmt(f.costoTotal)}</td>
-              <td style="padding:6px 8px;text-align:right;font-weight:700;color:#10b981">${fmt(f.margenTotal)}</td>
-              <td style="padding:6px 8px;text-align:right;font-weight:700;color:#cc0000">${fmt(f.ventaTotal)}</td>
-            </tfoot>
-          </table>
-        </div>`;
+      const rows = (f.items||[]).map(calcItem).map(it=>{
+        const tieneIVA = CON_IVA.includes(it.tipo);
+        const precioUnitDisplay = it.tipo==="Mano de Obra / HH" ? fmt(it.valorHH) : it.tipo==="Costos Indirectos" ? fmt(it.costoUnit) : fmt(it.precioPublicado/(Number(it.qty)||1));
+        const netoUnitDisplay = tieneIVA ? fmt(it.costoNeto/(Number(it.qty)||1)) : "-";
+        return `<tr style="border-bottom:1px solid #f1f5f9">
+          <td style="padding:4px 6px;color:#3b82f6;font-weight:600">${it.cod||""}</td>
+          <td style="padding:4px 6px">${it.descripcion||""}</td>
+          <td style="padding:4px 6px;color:#94a3b8">${it.modelo||""}</td>
+          <td style="padding:4px 6px;text-align:center">${it.tipo==="Mano de Obra / HH"?`${it.hh}HH×${it.qty}`:it.qty}</td>
+          <td style="padding:4px 6px;text-align:right;color:${tieneIVA?"#ef4444":"#64748b"}">${precioUnitDisplay}</td>
+          <td style="padding:4px 6px;text-align:right;color:#64748b">${netoUnitDisplay}</td>
+          <td style="padding:4px 6px;text-align:center">${it.margen}%</td>
+          <td style="padding:4px 6px;text-align:right">${fmt(it.costoNeto)}</td>
+          <td style="padding:4px 6px;text-align:right;color:#10b981">${fmt(it.margenTotal)}</td>
+          <td style="padding:4px 6px;text-align:right">${fmt(it.ventaNeta)}</td>
+          <td style="padding:4px 6px;text-align:right;font-weight:700;color:#cc0000">${fmt(it.ventaBruta)}</td>
+        </tr>`;}).join("");
+      return `<div style="margin-bottom:18px">
+        <div style="background:#1e293b;color:white;padding:7px 10px;font-weight:700;font-size:12px;border-radius:5px 5px 0 0">${f.nombre}</div>
+        <table style="width:100%;border-collapse:collapse;font-size:10px">
+          <thead><tr style="background:#f1f5f9">
+            <th style="padding:4px 6px;text-align:left;width:45px">COD</th>
+            <th style="padding:4px 6px;text-align:left">DESCRIPCIÓN</th>
+            <th style="padding:4px 6px;text-align:left">MODELO</th>
+            <th style="padding:4px 6px">QTY</th>
+            <th style="padding:4px 6px;text-align:right;color:#ef4444">P.BRUTO UNIT.</th>
+            <th style="padding:4px 6px;text-align:right">NETO UNIT.</th>
+            <th style="padding:4px 6px">MARG%</th>
+            <th style="padding:4px 6px;text-align:right">COSTO NETO</th>
+            <th style="padding:4px 6px;text-align:right;color:#10b981">MARGEN $</th>
+            <th style="padding:4px 6px;text-align:right">VENTA NETA</th>
+            <th style="padding:4px 6px;text-align:right;color:#cc0000">VENTA c/IVA</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+          <tfoot><tr style="border-top:2px solid #e2e8f0;background:#f8fafc;font-weight:700;font-size:10px">
+            <td colspan="7" style="padding:5px 6px">Subtotal ${f.nombre}</td>
+            <td style="padding:5px 6px;text-align:right">${fmt(f.costoNeto)}</td>
+            <td style="padding:5px 6px;text-align:right;color:#10b981">${fmt(f.margenTotal)}</td>
+            <td style="padding:5px 6px;text-align:right">${fmt(f.ventaNeta)}</td>
+            <td style="padding:5px 6px;text-align:right;color:#cc0000">${fmt(f.ventaBruta)}</td>
+          </tfoot>
+        </table>
+      </div>`;
     }).join("");
     w.document.write(`<!DOCTYPE html><html><head><title>Costeo Interno - ${proyecto.nombre}</title>
-      <style>body{font-family:Arial,sans-serif;font-size:12px;color:#1e293b;padding:20px} @media print{@page{margin:10mm}}</style>
+      <style>body{font-family:Arial,sans-serif;font-size:11px;color:#1e293b;padding:18px} @media print{@page{margin:8mm;size:A4 landscape}}</style>
       </head><body>
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #e2e8f0">
-        <div>
-          <img src="${LOGO_B64}" style="height:50px;margin-bottom:8px;display:block" />
-          <div style="font-size:10px;color:#64748b">Sucursales: Marco Gallo Vergara 536 B, Dpto 411 Torre D</div>
-          <div style="font-size:10px;color:#64748b">Casa Matriz: Huérfanos, 1055 Oficina 603</div>
-          <div style="font-size:10px;color:#64748b">Fono: 9-81334980 · ventas@polygonos.cl</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #e2e8f0">
+        <div><img src="${LOGO_B64}" style="height:45px;margin-bottom:6px;display:block" />
+          <div style="font-size:10px;color:#64748b">RUT: 77.180.437-3 · ventas@polygonos.cl · 9-81334980</div>
         </div>
-        <div style="border:2px solid #cc0000;padding:10px 20px;text-align:center">
-          <div style="font-size:10px;font-weight:700;color:#cc0000">COSTEO INTERNO</div>
-          <div style="font-size:11px;color:#64748b;margin-top:4px">${proyecto.fecha||""}</div>
+        <div style="border:2px solid #1e293b;padding:8px 18px;text-align:center">
+          <div style="font-size:11px;font-weight:700;color:#1e293b">COSTEO INTERNO</div>
+          <div style="font-size:10px;color:#64748b">${proyecto.fecha||""}</div>
         </div>
       </div>
-      <div style="background:#f8fafc;border-radius:8px;padding:12px 16px;margin-bottom:20px">
-        <div style="font-size:15px;font-weight:700;margin-bottom:8px">${proyecto.nombre}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">
-          <div><strong>Cliente:</strong> ${proyecto.clienteNombre||proyecto.cliente||""}</div>
-          <div><strong>Empresa:</strong> ${proyecto.clienteEmpresa||""}</div>
-          <div><strong>RUT:</strong> ${proyecto.clienteRut||""}</div>
-          <div><strong>Teléfono:</strong> ${proyecto.clienteTelefono||""}</div>
-          <div><strong>Dirección:</strong> ${proyecto.clienteDireccion||""}</div>
-        </div>
+      <div style="background:#f8fafc;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:11px">
+        <strong style="font-size:13px">${proyecto.nombre}</strong><br/>
+        <span>Cliente: ${proyecto.clienteNombre||""}</span> &nbsp;|&nbsp;
+        <span>Empresa: ${proyecto.clienteEmpresa||""}</span> &nbsp;|&nbsp;
+        <span>RUT: ${proyecto.clienteRut||""}</span> &nbsp;|&nbsp;
+        <span>Tel: ${proyecto.clienteTelefono||""}</span>
       </div>
       ${fasesHTML}
-      <div style="display:flex;gap:16px;margin-top:20px;padding-top:16px;border-top:2px solid #e2e8f0">
-        <div style="flex:1;border:1px solid #e2e8f0;border-radius:8px;padding:12px;text-align:center">
-          <div style="font-size:10px;color:#64748b;margin-bottom:4px">TOTAL COSTOS</div>
-          <div style="font-size:20px;font-weight:700">${fmt(tCosto)}</div>
+      <div style="display:flex;gap:10px;margin-top:16px;padding-top:12px;border-top:2px solid #e2e8f0">
+        <div style="flex:1;border:1px solid #e2e8f0;border-radius:6px;padding:8px;text-align:center">
+          <div style="font-size:9px;color:#64748b;margin-bottom:2px">COSTO NETO TOTAL</div>
+          <div style="font-size:16px;font-weight:700">${fmt(tCosto)}</div>
         </div>
-        <div style="flex:1;border:1px solid #10b981;border-radius:8px;padding:12px;text-align:center">
-          <div style="font-size:10px;color:#10b981;margin-bottom:4px">TOTAL MARGEN</div>
-          <div style="font-size:20px;font-weight:700;color:#10b981">${fmt(tMargen)}</div>
-          <div style="font-size:10px;color:#64748b">${pct}% sobre costo</div>
+        <div style="flex:1;border:1px solid #10b981;border-radius:6px;padding:8px;text-align:center">
+          <div style="font-size:9px;color:#10b981;margin-bottom:2px">MARGEN TOTAL</div>
+          <div style="font-size:16px;font-weight:700;color:#10b981">${fmt(tMargen)}</div>
+          <div style="font-size:9px;color:#64748b">${pct}% s/costo neto</div>
         </div>
-        <div style="flex:1;border:1px solid #cc0000;border-radius:8px;padding:12px;text-align:center">
-          <div style="font-size:10px;color:#cc0000;margin-bottom:4px">PRECIO VENTA</div>
-          <div style="font-size:20px;font-weight:700;color:#cc0000">${fmt(tVenta)}</div>
+        <div style="flex:1;border:1px solid #94a3b8;border-radius:6px;padding:8px;text-align:center">
+          <div style="font-size:9px;color:#64748b;margin-bottom:2px">VENTA NETA</div>
+          <div style="font-size:16px;font-weight:700">${fmt(tVentaNeta)}</div>
+        </div>
+        <div style="flex:1;border:2px solid #cc0000;border-radius:6px;padding:8px;text-align:center">
+          <div style="font-size:9px;color:#cc0000;margin-bottom:2px">VENTA c/IVA</div>
+          <div style="font-size:16px;font-weight:700;color:#cc0000">${fmt(tVentaBruta)}</div>
         </div>
       </div>
-      <script>window.onload=()=>window.print()</script>
-    </body></html>`);
+      <script>window.onload=()=>window.print()</script></body></html>`);
     w.document.close();
   };
 
-  // PDF Cliente
+  // PDF Cliente — solo venta neta + IVA, sin costos ni márgenes
   const printCliente = () => {
     const w = window.open("","_blank");
     const fases = (proyecto.fases||[]).map(calcFase);
-    const tVenta = fases.reduce((s,f)=>s+f.ventaTotal,0);
+    const tVentaNeta = fases.reduce((s,f)=>s+f.ventaNeta,0);
+    const tVentaBruta = fases.reduce((s,f)=>s+f.ventaBruta,0);
     const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
     const partidas = proyecto.partidas||[];
     const tPartidas = partidas.reduce((s,p)=>s+Number(p.monto),0);
@@ -1834,34 +1889,42 @@ function CosteoView({ contacts }) {
     const tParcial = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctParcial)||0)/100),0);
     const tFinalizar = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctFinalizar)||0)/100),0);
     const fasesHTML = fases.map(f=>{
-      const rows = (f.items||[]).map(calcItem).map(it=>`
-        <tr>
+      const rows = (f.items||[]).map(calcItem).map(it=>{
+        const tieneIVA = CON_IVA.includes(it.tipo);
+        return `<tr style="border-bottom:1px solid #f1f5f9">
           <td style="padding:5px 8px;color:#3b82f6;font-weight:600">${it.cod||""}</td>
           <td style="padding:5px 8px">${it.descripcion||""}</td>
+          <td style="padding:5px 8px;color:#94a3b8">${it.modelo||""}</td>
           <td style="padding:5px 8px;text-align:center">${it.tipo==="Mano de Obra / HH"?`${it.hh} HH`:it.qty}</td>
-          <td style="padding:5px 8px;text-align:right;font-weight:700">${fmt(it.ventaTotal)}</td>
-        </tr>`).join("");
-      return `
-        <div style="margin-bottom:20px">
-          <div style="background:#1e293b;color:white;padding:8px 12px;font-weight:700;font-size:13px;border-radius:6px 6px 0 0">${f.nombre}</div>
-          <table style="width:100%;border-collapse:collapse;font-size:11px">
-            <thead><tr style="background:#f1f5f9">
-              <th style="padding:6px 8px;text-align:left;width:60px">COD</th>
-              <th style="padding:6px 8px;text-align:left">DESCRIPCIÓN</th>
-              <th style="padding:6px 8px">CANT.</th>
-              <th style="padding:6px 8px;text-align:right">PRECIO VENTA</th>
-            </tr></thead>
-            <tbody>${rows}</tbody>
-            <tfoot><tr style="border-top:2px solid #e2e8f0;background:#f8fafc">
-              <td colspan="3" style="padding:6px 8px;font-weight:700">Subtotal ${f.nombre}</td>
-              <td style="padding:6px 8px;text-align:right;font-weight:700;color:#cc0000">${fmt(f.ventaTotal)}</td>
-            </tfoot>
-          </table>
-        </div>`;
+          <td style="padding:5px 8px;text-align:right">${fmt(it.ventaNeta)}</td>
+          <td style="padding:5px 8px;text-align:right;color:#64748b">${tieneIVA?fmt(it.ivaVenta):"-"}</td>
+          <td style="padding:5px 8px;text-align:right;font-weight:700;color:#cc0000">${fmt(it.ventaBruta)}</td>
+        </tr>`;}).join("");
+      return `<div style="margin-bottom:18px">
+        <div style="background:#1e293b;color:white;padding:7px 10px;font-weight:700;font-size:12px;border-radius:5px 5px 0 0">${f.nombre}</div>
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead><tr style="background:#f1f5f9">
+            <th style="padding:5px 8px;text-align:left;width:55px">COD</th>
+            <th style="padding:5px 8px;text-align:left">DESCRIPCIÓN</th>
+            <th style="padding:5px 8px;text-align:left">MODELO</th>
+            <th style="padding:5px 8px">CANT.</th>
+            <th style="padding:5px 8px;text-align:right">NETO</th>
+            <th style="padding:5px 8px;text-align:right;color:#64748b">IVA</th>
+            <th style="padding:5px 8px;text-align:right;color:#cc0000">TOTAL c/IVA</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+          <tfoot><tr style="border-top:2px solid #e2e8f0;background:#f8fafc;font-weight:700">
+            <td colspan="4" style="padding:6px 8px">Subtotal ${f.nombre}</td>
+            <td style="padding:6px 8px;text-align:right">${fmt(f.ventaNeta)}</td>
+            <td style="padding:6px 8px;text-align:right;color:#64748b">${fmt(f.ventaBruta-f.ventaNeta)}</td>
+            <td style="padding:6px 8px;text-align:right;color:#cc0000">${fmt(f.ventaBruta)}</td>
+          </tfoot>
+        </table>
+      </div>`;
     }).join("");
     const partidasHTML = partidas.length>0 ? `
       <div style="margin-top:24px;padding-top:16px;border-top:2px solid #e2e8f0">
-        <div style="font-size:14px;font-weight:700;margin-bottom:12px">Partidas de Pago</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px">Partidas de Pago</div>
         <table style="width:100%;border-collapse:collapse;font-size:11px">
           <thead><tr style="background:#f1f5f9">
             <th style="padding:6px 8px;text-align:left">CONCEPTO</th>
@@ -1871,7 +1934,7 @@ function CosteoView({ contacts }) {
             <th style="padding:6px 8px;text-align:right;color:#f59e0b">AL FINALIZAR</th>
           </tr></thead>
           <tbody>${partidas.map(p=>{
-            const m=Number(p.monto); const a=m*(Number(p.pctAnticipo)||0)/100; const pa=m*(Number(p.pctParcial)||0)/100; const fi=m*(Number(p.pctFinalizar)||0)/100;
+            const m=Number(p.monto),a=m*(Number(p.pctAnticipo)||0)/100,pa=m*(Number(p.pctParcial)||0)/100,fi=m*(Number(p.pctFinalizar)||0)/100;
             return `<tr style="border-bottom:1px solid #f1f5f9">
               <td style="padding:5px 8px">${p.concepto||""}</td>
               <td style="padding:5px 8px;text-align:right;font-weight:600">${fmt(m)}</td>
@@ -1893,35 +1956,38 @@ function CosteoView({ contacts }) {
       <style>body{font-family:Arial,sans-serif;font-size:12px;color:#1e293b;padding:20px} @media print{@page{margin:10mm}}</style>
       </head><body>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #e2e8f0">
-        <div>
-          <img src="${LOGO_B64}" style="height:50px;margin-bottom:8px;display:block" />
-          <div style="font-size:10px;color:#64748b">Sucursales: Marco Gallo Vergara 536 B, Dpto 411 Torre D</div>
-          <div style="font-size:10px;color:#64748b">Casa Matriz: Huérfanos, 1055 Oficina 603</div>
+        <div><img src="${LOGO_B64}" style="height:50px;margin-bottom:8px;display:block" />
+          <div style="font-size:10px;color:#64748b">RUT: 77.180.437-3</div>
           <div style="font-size:10px;color:#64748b">Fono: 9-81334980 · ventas@polygonos.cl</div>
         </div>
         <div style="border:2px solid #cc0000;padding:10px 20px;text-align:center">
-          <div style="font-size:10px;font-weight:700;color:#cc0000">PRESUPUESTO</div>
-          <div style="font-size:11px;color:#64748b;margin-top:4px">${proyecto.fecha||""}</div>
+          <div style="font-size:11px;font-weight:700;color:#cc0000">PRESUPUESTO</div>
+          <div style="font-size:10px;color:#64748b">${proyecto.fecha||""}</div>
         </div>
       </div>
-      <div style="background:#f8fafc;border-radius:8px;padding:12px 16px;margin-bottom:20px">
-        <div style="font-size:15px;font-weight:700;margin-bottom:8px">${proyecto.nombre}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">
-          <div><strong>Cliente:</strong> ${proyecto.clienteNombre||proyecto.cliente||""}</div>
-          <div><strong>Empresa:</strong> ${proyecto.clienteEmpresa||""}</div>
-          <div><strong>RUT:</strong> ${proyecto.clienteRut||""}</div>
-          <div><strong>Teléfono:</strong> ${proyecto.clienteTelefono||""}</div>
-          <div><strong>Dirección:</strong> ${proyecto.clienteDireccion||""}</div>
-        </div>
+      <div style="background:#f8fafc;border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:11px">
+        <strong style="font-size:14px">${proyecto.nombre}</strong><br/>
+        <span>Cliente: ${proyecto.clienteNombre||""}</span> &nbsp;|&nbsp;
+        <span>Empresa: ${proyecto.clienteEmpresa||""}</span> &nbsp;|&nbsp;
+        <span>RUT: ${proyecto.clienteRut||""}</span>
       </div>
       ${fasesHTML}
-      <div style="border:2px solid #cc0000;border-radius:8px;padding:12px 20px;text-align:center;margin-top:20px">
-        <div style="font-size:11px;color:#cc0000;font-weight:700;margin-bottom:4px">TOTAL PRESUPUESTO</div>
-        <div style="font-size:26px;font-weight:700;color:#cc0000">${fmt(tVenta)}</div>
+      <div style="display:flex;gap:12px;margin-top:20px;padding-top:16px;border-top:2px solid #e2e8f0">
+        <div style="flex:1;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:9px;color:#64748b;margin-bottom:3px">TOTAL NETO</div>
+          <div style="font-size:18px;font-weight:700">${fmt(tVentaNeta)}</div>
+        </div>
+        <div style="flex:1;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:9px;color:#64748b;margin-bottom:3px">IVA (19%)</div>
+          <div style="font-size:18px;font-weight:700;color:#64748b">${fmt(tVentaBruta-tVentaNeta)}</div>
+        </div>
+        <div style="flex:1;border:2px solid #cc0000;border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:9px;color:#cc0000;margin-bottom:3px">TOTAL c/IVA</div>
+          <div style="font-size:22px;font-weight:700;color:#cc0000">${fmt(tVentaBruta)}</div>
+        </div>
       </div>
       ${partidasHTML}
-      <script>window.onload=()=>window.print()</script>
-    </body></html>`);
+      <script>window.onload=()=>window.print()</script></body></html>`);
     w.document.close();
   };
 
@@ -1988,9 +2054,10 @@ function CosteoView({ contacts }) {
         <>
           {/* Totales globales */}
           <div style={{ display:"flex", gap:12, marginBottom:24, flexWrap:"wrap" }}>
-            <TotBox label="Total Costos" value={totalCosto} color={COLORS.textMuted} />
-            <TotBox label="Total Margen" value={totalMargen} color={COLORS.green} sub={`${margenPct}% sobre costo`} />
-            <TotBox label="Precio Venta" value={totalVenta} color={COLORS.accent} sub="Costo + Margen" />
+            <TotBox label="Costo Neto Total" value={totalCosto} color={COLORS.textMuted} sub="Sin IVA compra" />
+            <TotBox label="Margen Total" value={totalMargen} color={COLORS.green} sub={`${margenPct}% sobre costo neto`} />
+            <TotBox label="Venta Neta" value={totalVentaNeta} color={COLORS.text} sub="Sin IVA venta" />
+            <TotBox label="Venta c/IVA" value={totalVentaBruta} color={COLORS.accent} sub="Precio al cliente" />
           </div>
 
           {/* Fases */}
