@@ -1610,7 +1610,9 @@ function PartidaRow({ partida, fases, onChange, onDelete }) {
 function CosteoView({ contacts }) {
   const [proyectos, setProyectos] = useState([]);
   const [selected, setSelected] = useState(null);
-  const [page, setPage] = useState("costeo"); // costeo | partidas
+  const [page, setPage] = useState("costeo");
+  const [rutSearch, setRutSearch] = useState("");
+  const [rutMatches, setRutMatches] = useState([]);
 
   useEffect(()=>{
     const saved = localStorage.getItem("costeo_proyectos");
@@ -1702,10 +1704,6 @@ function CosteoView({ contacts }) {
       </div>
     </div>
   );
-
-  // RUT search state
-  const [rutSearch, setRutSearch] = useState("");
-  const [rutMatches, setRutMatches] = useState([]);
 
   const searchRut = (val) => {
     setRutSearch(val);
