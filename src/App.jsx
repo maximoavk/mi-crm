@@ -1406,46 +1406,37 @@ const CAT_TIPOS = ["Equipos","Mano de Obra / HH","Materiales","Costos Indirectos
 const CAT_COLOR = { "Equipos":"#3b82f6","Mano de Obra / HH":"#10b981","Materiales":"#f59e0b","Costos Indirectos":"#8b5cf6" };
 
 function newItem(tipo) {
-  const base = { id: Date.now()+Math.random(), tipo, cod:"", descripcion:"", modelo:"", qty:1, precioPublicado:0, margen:30 };
-  if(tipo==="Mano de Obra / HH") return { ...base, hh:1, valorHH:15000 };
-  if(tipo==="Costos Indirectos") return { ...base, costoUnit:0 };
+  const base = { id: Date.now()+Math.random(), tipo, cod:"", descripcion:"", modelo:"", qty:1, costoUnitNeto:0, margen:30, aplicaIVA: tipo!=="Costos Indirectos" };
+  if(tipo==="Mano de Obra / HH") return { ...base, hh:1, valorHH:15000, aplicaIVA:false };
+  if(tipo==="Costos Indirectos") return { ...base, costoUnit:0, aplicaIVA:false };
   return base;
 }
 
 function calcItem(it) {
-  const tieneIVA = CON_IVA.includes(it.tipo) || (it.tipo==="Mano de Obra / HH" && it.moConIVA);
   let costoNeto = 0;
-  let precioPublicado = 0;
+  if(it.tipo==="Mano de Obra / HH")   costoNeto = (Number(it.hh)||0)*(Number(it.valorHH)||0)*(Number(it.qty)||1);
+  else if(it.tipo==="Costos Indirectos") costoNeto = (Number(it.costoUnit)||0)*(Number(it.qty)||1);
+  else costoNeto = (Number(it.costoUnitNeto)||0)*(Number(it.qty)||1);
 
-  if(it.tipo==="Mano de Obra / HH") {
-    const bruto = (Number(it.hh)||0) * (Number(it.valorHH)||0) * (Number(it.qty)||1);
-    costoNeto = it.moConIVA ? bruto / IVA : bruto;
-    precioPublicado = bruto;
-  } else if(it.tipo==="Costos Indirectos") {
-    costoNeto = (Number(it.costoUnit)||0) * (Number(it.qty)||1);
-    precioPublicado = costoNeto;
-  } else {
-    precioPublicado = (Number(it.precioPublicado)||0) * (Number(it.qty)||1);
-    costoNeto = tieneIVA ? precioPublicado / IVA : precioPublicado;
-  }
-
-  const margenPct = Number(it.margen)||0;
-  const margenVal = costoNeto * (margenPct/100);
-  const ventaNeta = costoNeto + margenVal;
-  const ventaBruta = tieneIVA ? ventaNeta * IVA : ventaNeta;
-  const ivaCompra = tieneIVA ? precioPublicado - (precioPublicado/IVA) : 0;
-  const ivaVenta = tieneIVA ? ventaNeta * (IVA-1) : 0;
-
-  return { ...it, precioPublicadoTotal:precioPublicado, costoNeto, ivaCompra, margenTotal:margenVal, ventaNeta, ivaVenta, ventaBruta };
+  const margenPct  = Number(it.margen)||0;
+  const margenVal  = costoNeto*(margenPct/100);
+  const ventaNeta  = costoNeto+margenVal;
+  const aplicaIVA  = !!it.aplicaIVA;
+  const ivaVenta   = aplicaIVA ? ventaNeta*(IVA-1) : 0;
+  const ventaBruta = ventaNeta+ivaVenta;
+  return { ...it, costoNeto, margenTotal:margenVal, ventaNeta, ivaVenta, ventaBruta };
 }
 
 function calcFase(fase) {
   const items = (fase.items||[]).map(calcItem);
-  const costoNeto     = items.reduce((s,i)=>s+i.costoNeto,0);
-  const margenTotal   = items.reduce((s,i)=>s+i.margenTotal,0);
-  const ventaNeta     = items.reduce((s,i)=>s+i.ventaNeta,0);
-  const ventaBruta    = items.reduce((s,i)=>s+i.ventaBruta,0);
-  return { ...fase, items, costoNeto, margenTotal, ventaNeta, ventaBruta };
+  return {
+    ...fase, items,
+    costoNeto:   items.reduce((s,i)=>s+i.costoNeto,0),
+    margenTotal: items.reduce((s,i)=>s+i.margenTotal,0),
+    ventaNeta:   items.reduce((s,i)=>s+i.ventaNeta,0),
+    ivaTotal:    items.reduce((s,i)=>s+i.ivaVenta,0),
+    ventaBruta:  items.reduce((s,i)=>s+i.ventaBruta,0),
+  };
 }
 
 function TotBox({ label, value, color, sub }) {
@@ -1463,9 +1454,10 @@ function ItemRow({ item, onChange, onDelete, productos }) {
   const [showCat, setShowCat] = useState(false);
   const calc = calcItem(item);
   const inp = (k,v) => onChange({ ...item, [k]:v });
-  const tieneIVA = CON_IVA.includes(item.tipo);
+  const esMO = item.tipo==="Mano de Obra / HH";
+  const esEquipoMat = item.tipo==="Equipos" || item.tipo==="Materiales";
   const style = { background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"4px 6px", width:"100%" };
-  const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
+  const fmt = v => v>0 ? "$"+Math.round(v).toLocaleString("es-CL") : "-";
 
   const resultados = busqueda.length >= 2
     ? (productos||[]).filter(p => {
@@ -1475,12 +1467,15 @@ function ItemRow({ item, onChange, onDelete, productos }) {
     : [];
 
   const seleccionarProducto = (p) => {
-    onChange({ ...item, descripcion: p.name||"", modelo: p.description||"", precioPublicado: p.price||0, productId: p.id });
+    // Precio catálogo viene con IVA → guardamos neto
+    const netoUnit = (p.price||0) / IVA;
+    onChange({ ...item, descripcion: p.name||"", modelo: p.description||"", costoUnitNeto: Math.round(netoUnit), productId: p.id });
     setBusqueda(""); setShowCat(false);
   };
 
   return (
     <tr style={{ borderBottom:`1px solid ${COLORS.border}22` }}>
+      {/* COD */}
       <td style={{ padding:"6px 4px", width:55 }}>
         <input style={{...style, textAlign:"center", color:COLORS.accent, fontWeight:600}} value={item.cod||""} onChange={e=>inp("cod",e.target.value)} placeholder="A.1" />
       </td>
@@ -1489,27 +1484,22 @@ function ItemRow({ item, onChange, onDelete, productos }) {
       <td style={{ padding:"6px 4px", position:"relative" }}>
         <div style={{ display:"flex", gap:4 }}>
           <input style={{...style, flex:1}} value={item.descripcion} onChange={e=>inp("descripcion",e.target.value)} placeholder="Descripción..." />
-          {tieneIVA && (
+          {esEquipoMat && (
             <button onClick={()=>{ setShowCat(p=>!p); setBusqueda(""); }}
-              style={{ background: showCat ? COLORS.accent : `${COLORS.accent}22`, border:`1px solid ${COLORS.accent}44`, borderRadius:5, color: showCat ? COLORS.bg : COLORS.accent, cursor:"pointer", fontSize:11, padding:"2px 7px", whiteSpace:"nowrap", fontFamily:FONT }}>
+              style={{ background: showCat?COLORS.accent:`${COLORS.accent}22`, border:`1px solid ${COLORS.accent}44`, borderRadius:5, color:showCat?COLORS.bg:COLORS.accent, cursor:"pointer", fontSize:11, padding:"2px 7px", whiteSpace:"nowrap", fontFamily:FONT }}>
               🔍
             </button>
           )}
         </div>
-        {tieneIVA && showCat && (
+        {esEquipoMat && showCat && (
           <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:200, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:7, boxShadow:"0 4px 20px #0008", marginTop:2 }}>
             <div style={{ padding:"6px 8px", borderBottom:`1px solid ${COLORS.border}22` }}>
-              <input autoFocus value={busqueda} onChange={e=>setBusqueda(e.target.value)}
-                placeholder="Buscar por nombre o código..."
+              <input autoFocus value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar por nombre o código..."
                 style={{...style, fontSize:12, padding:"5px 8px"}} />
             </div>
-            {busqueda.length < 2 && (
-              <div style={{ padding:"8px 12px", fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Escribe al menos 2 caracteres...</div>
-            )}
-            {resultados.length === 0 && busqueda.length >= 2 && (
-              <div style={{ padding:"8px 12px", fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Sin resultados para "{busqueda}"</div>
-            )}
-            {resultados.map(p => (
+            {busqueda.length < 2 && <div style={{ padding:"8px 12px", fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Escribe al menos 2 caracteres...</div>}
+            {resultados.length===0 && busqueda.length>=2 && <div style={{ padding:"8px 12px", fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Sin resultados</div>}
+            {resultados.map(p=>(
               <div key={p.id} onClick={()=>seleccionarProducto(p)}
                 style={{ padding:"8px 12px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}11`, display:"flex", justifyContent:"space-between", alignItems:"center" }}
                 onMouseEnter={e=>e.currentTarget.style.background=COLORS.card}
@@ -1519,8 +1509,8 @@ function ItemRow({ item, onChange, onDelete, productos }) {
                   <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{p.code} · {p.description||""}</div>
                 </div>
                 <div style={{ textAlign:"right" }}>
-                  <div style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:"#ef4444" }}>{fmt(p.price||0)}</div>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>c/IVA · neto {fmt((p.price||0)/IVA)}</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Neto: <strong style={{color:COLORS.text}}>${Math.round((p.price||0)/IVA).toLocaleString("es-CL")}</strong></div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Bruto: ${Math.round(p.price||0).toLocaleString("es-CL")}</div>
                 </div>
               </div>
             ))}
@@ -1528,36 +1518,49 @@ function ItemRow({ item, onChange, onDelete, productos }) {
         )}
       </td>
 
+      {/* Modelo solo equipos/materiales */}
       <td style={{ padding:"6px 4px", width:100 }}>
-        {tieneIVA ? (
-          <input style={{...style, color:COLORS.textMuted}} value={item.modelo||""} onChange={e=>inp("modelo",e.target.value)} placeholder="Modelo..." />
-        ) : <span />}
+        {esEquipoMat
+          ? <input style={{...style, color:COLORS.textMuted}} value={item.modelo||""} onChange={e=>inp("modelo",e.target.value)} placeholder="Modelo..." />
+          : <span />}
       </td>
 
-      {item.tipo==="Mano de Obra / HH" ? (<>
-        <td style={{ padding:"6px 4px", width:55 }}><input style={style} type="number" value={item.hh} onChange={e=>inp("hh",e.target.value)} placeholder="HH" /></td>
-        <td style={{ padding:"6px 4px", width:85 }}><input style={style} type="number" value={item.valorHH} onChange={e=>inp("valorHH",e.target.value)} placeholder="$/HH" /></td>
-        <td style={{ padding:"6px 4px", width:45 }}><input style={style} type="number" value={item.qty} onChange={e=>inp("qty",e.target.value)} /></td>
-        <td style={{ padding:"6px 4px" }} />
+      {/* Inputs según tipo */}
+      {esMO ? (<>
+        <td style={{ padding:"6px 4px", width:50 }}><input style={style} type="number" value={item.hh} onChange={e=>inp("hh",e.target.value)} placeholder="HH" /></td>
+        <td style={{ padding:"6px 4px", width:90 }}><input style={style} type="number" value={item.valorHH} onChange={e=>inp("valorHH",e.target.value)} placeholder="$/HH neto" /></td>
+        <td style={{ padding:"6px 4px", width:40 }}><input style={style} type="number" value={item.qty} onChange={e=>inp("qty",e.target.value)} /></td>
+        {/* Checkbox IVA por línea MO */}
+        <td style={{ padding:"6px 4px", width:70, textAlign:"center" }}>
+          <label style={{ display:"flex", alignItems:"center", gap:4, cursor:"pointer", justifyContent:"center" }}>
+            <input type="checkbox" checked={!!item.aplicaIVA} onChange={e=>inp("aplicaIVA",e.target.checked)} style={{ cursor:"pointer", accentColor:"#ef4444" }} />
+            <span style={{ fontFamily:FONT, fontSize:10, color: item.aplicaIVA?"#ef4444":COLORS.textMuted }}>IVA</span>
+          </label>
+        </td>
         <td style={{ padding:"6px 4px" }} />
       </>) : item.tipo==="Costos Indirectos" ? (<>
-        <td style={{ padding:"6px 4px", width:45 }}><input style={style} type="number" value={item.qty} onChange={e=>inp("qty",e.target.value)} /></td>
-        <td style={{ padding:"6px 4px", width:90 }}><input style={style} type="number" value={item.costoUnit} onChange={e=>inp("costoUnit",e.target.value)} placeholder="Costo" /></td>
-        <td style={{ padding:"6px 4px" }} /><td style={{ padding:"6px 4px" }} /><td style={{ padding:"6px 4px" }} />
+        <td style={{ padding:"6px 4px", width:40 }}><input style={style} type="number" value={item.qty} onChange={e=>inp("qty",e.target.value)} /></td>
+        <td style={{ padding:"6px 4px", width:95 }}><input style={style} type="number" value={item.costoUnit} onChange={e=>inp("costoUnit",e.target.value)} placeholder="Costo neto" /></td>
+        <td /><td /><td />
       </>) : (<>
-        <td style={{ padding:"6px 4px", width:45 }}><input style={style} type="number" value={item.qty} onChange={e=>inp("qty",e.target.value)} /></td>
-        <td style={{ padding:"6px 4px", width:100 }}><input style={{...style, color:"#ef4444"}} type="number" value={item.precioPublicado} onChange={e=>inp("precioPublicado",e.target.value)} placeholder="$ c/IVA" /></td>
-        <td style={{ padding:"6px 4px", width:95, textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, whiteSpace:"nowrap" }}>{fmt(calc.costoNeto)}</td>
-        <td style={{ padding:"6px 4px", width:80, textAlign:"right", fontFamily:FONT, fontSize:10, color:"#ef4444", whiteSpace:"nowrap" }}>{fmt(calc.ivaCompra)}</td>
-        <td style={{ padding:"6px 4px" }} />
+        <td style={{ padding:"6px 4px", width:40 }}><input style={style} type="number" value={item.qty} onChange={e=>inp("qty",e.target.value)} /></td>
+        <td style={{ padding:"6px 4px", width:100 }}><input style={{...style}} type="number" value={item.costoUnitNeto||0} onChange={e=>inp("costoUnitNeto",e.target.value)} placeholder="Neto unit." /></td>
+        <td /><td /><td />
       </>)}
 
+      {/* Margen % */}
       <td style={{ padding:"6px 4px", width:55 }}>
         <input style={{...style, color:COLORS.accent}} type="number" value={item.margen} onChange={e=>inp("margen",e.target.value)} />
       </td>
+      {/* Costo neto total */}
       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, whiteSpace:"nowrap" }}>{fmt(calc.costoNeto)}</td>
+      {/* Margen $ */}
       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.green, whiteSpace:"nowrap" }}>{fmt(calc.margenTotal)}</td>
+      {/* Venta neta */}
       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.text, whiteSpace:"nowrap" }}>{fmt(calc.ventaNeta)}</td>
+      {/* IVA $ */}
+      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:"#ef4444", whiteSpace:"nowrap" }}>{fmt(calc.ivaVenta)}</td>
+      {/* Venta bruta */}
       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.accent, whiteSpace:"nowrap" }}>{fmt(calc.ventaBruta)}</td>
       <td style={{ padding:"6px 4px", textAlign:"center" }}>
         <button onClick={onDelete} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>×</button>
@@ -1614,7 +1617,7 @@ function FaseBlock({ fase, onChange, onDelete, productos, partidas }) {
                 <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
                   <div style={{ width:3, height:16, background:CAT_COLOR[tipo], borderRadius:2 }} />
                   <span style={{ fontFamily:FONT, fontSize:11, fontWeight:600, color:CAT_COLOR[tipo], letterSpacing:"0.08em", textTransform:"uppercase" }}>{tipo}</span>
-                  {tieneIVA && <span style={{ fontFamily:FONT, fontSize:10, color:"#ef4444", background:"#ef444422", padding:"1px 6px", borderRadius:4 }}>Precio c/IVA → neto ÷1.19</span>}
+                  {tieneIVA && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.text, background:`${COLORS.border}`, padding:"1px 6px", borderRadius:4 }}>Ingresar neto</span>}
                   {esMO && (
                     <label style={{ display:"flex", alignItems:"center", gap:5, cursor:"pointer", fontFamily:FONT, fontSize:11, color: fase.moConIVA ? "#ef4444" : COLORS.textMuted }}>
                       <input type="checkbox" checked={!!fase.moConIVA} onChange={e=>onChange({...fase, moConIVA:e.target.checked})}
@@ -1633,27 +1636,26 @@ function FaseBlock({ fase, onChange, onDelete, productos, partidas }) {
                           <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px" }}>DESCRIPCIÓN</th>
                           <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:100 }}>MODELO</th>
                           {tipo==="Mano de Obra / HH" ? (<>
-                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:55 }}>HH</th>
-                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:85 }}>$/HH</th>
-                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:45 }}>PERS.</th>
-                            <th style={{ padding:"4px", width:95 }} />
-                            <th style={{ padding:"4px", width:80 }} />
+                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:50 }}>HH</th>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:90 }}>$/HH NETO</th>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:40 }}>PERS.</th>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:"#ef4444", padding:"4px", width:70, textAlign:"center" }}>IVA?</th>
+                            <th style={{ padding:"4px" }} />
                           </>) : tipo==="Costos Indirectos" ? (<>
-                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:45 }}>QTY</th>
-                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:90 }}>COSTO UNIT.</th>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:40 }}>QTY</th>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:95 }}>COSTO NETO U.</th>
                             <th style={{ padding:"4px" }} /><th style={{ padding:"4px" }} /><th style={{ padding:"4px" }} />
                           </>) : (<>
-                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:45 }}>QTY</th>
-                            <th style={{ fontFamily:FONT, fontSize:10, color:"#ef4444", padding:"4px", width:100 }}>P. BRUTO (c/IVA)</th>
-                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:95, textAlign:"right" }}>NETO (÷1.19)</th>
-                            <th style={{ fontFamily:FONT, fontSize:10, color:"#ef4444", padding:"4px", width:80, textAlign:"right" }}>IVA COMPRA</th>
-                            <th style={{ padding:"4px" }} />
+                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:40 }}>QTY</th>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.text, padding:"4px", width:100 }}>COSTO NETO U.</th>
+                            <th style={{ padding:"4px" }} /><th style={{ padding:"4px" }} /><th style={{ padding:"4px" }} />
                           </>)}
-                          <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", width:55 }}>MARGEN%</th>
-                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:95 }}>COSTO NETO</th>
-                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.green, padding:"4px", width:90 }}>MARGEN $</th>
-                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.text, padding:"4px", width:95 }}>VENTA NETA</th>
-                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", width:100 }}>VENTA c/IVA</th>
+                          <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", width:55 }}>MARG%</th>
+                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:90 }}>COSTO NETO</th>
+                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.green, padding:"4px", width:85 }}>MARGEN $</th>
+                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.text, padding:"4px", width:90 }}>VENTA NETA</th>
+                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:"#ef4444", padding:"4px", width:80 }}>IVA $</th>
+                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", width:95 }}>VENTA c/IVA</th>
                           <th style={{ width:24 }} />
                         </tr>
                       </thead>
@@ -1662,16 +1664,17 @@ function FaseBlock({ fase, onChange, onDelete, productos, partidas }) {
                           <ItemRow key={it.id} item={esMO ? {...it, moConIVA: fase.moConIVA} : it} onChange={item=>updateItem(it.id, esMO ? {...item, moConIVA: undefined} : item)} onDelete={()=>deleteItem(it.id)} productos={productos} />
                         ))}
                       </tbody>
-                      <tfoot>
-                        <tr style={{ borderTop:`1px solid ${COLORS.border}`, background:COLORS.surface }}>
-                          <td colSpan={8} style={{ padding:"6px 8px", fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Subtotal {tipo}</td>
-                          <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.textMuted }}>{fmt(calcItems.reduce((s,i)=>s+i.costoNeto,0))}</td>
-                          <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.green }}>{fmt(calcItems.reduce((s,i)=>s+i.margenTotal,0))}</td>
-                          <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.text }}>{fmt(calcItems.reduce((s,i)=>s+i.ventaNeta,0))}</td>
-                          <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:700, color:COLORS.accent }}>{fmt(calcItems.reduce((s,i)=>s+i.ventaBruta,0))}</td>
-                          <td />
-                        </tr>
-                      </tfoot>
+                        <tfoot>
+                          <tr style={{ borderTop:`1px solid ${COLORS.border}`, background:COLORS.surface }}>
+                            <td colSpan={8} style={{ padding:"6px 8px", fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Subtotal {tipo}</td>
+                            <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.textMuted }}>${Math.round(calcItems.reduce((s,i)=>s+i.costoNeto,0)).toLocaleString("es-CL")}</td>
+                            <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.green }}>${Math.round(calcItems.reduce((s,i)=>s+i.margenTotal,0)).toLocaleString("es-CL")}</td>
+                            <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.text }}>${Math.round(calcItems.reduce((s,i)=>s+i.ventaNeta,0)).toLocaleString("es-CL")}</td>
+                            <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:"#ef4444" }}>${Math.round(calcItems.reduce((s,i)=>s+i.ivaVenta,0)).toLocaleString("es-CL")}</td>
+                            <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:700, color:COLORS.accent }}>${Math.round(calcItems.reduce((s,i)=>s+i.ventaBruta,0)).toLocaleString("es-CL")}</td>
+                            <td />
+                          </tr>
+                        </tfoot>
                     </table>
                   </div>
                 )}
@@ -1812,6 +1815,7 @@ function CosteoView({ contacts }) {
   const totalCosto      = fasesCalc.reduce((s,f)=>s+f.costoNeto,0);
   const totalMargen     = fasesCalc.reduce((s,f)=>s+f.margenTotal,0);
   const totalVentaNeta  = fasesCalc.reduce((s,f)=>s+f.ventaNeta,0);
+  const totalIVA        = fasesCalc.reduce((s,f)=>s+(f.ivaTotal||0),0);
   const totalVentaBruta = fasesCalc.reduce((s,f)=>s+f.ventaBruta,0);
   const margenPct = totalCosto > 0 ? (totalMargen/totalCosto*100).toFixed(1) : 0;
 
@@ -2162,9 +2166,10 @@ function CosteoView({ contacts }) {
         <>
           {/* Totales globales */}
           <div style={{ display:"flex", gap:12, marginBottom:24, flexWrap:"wrap" }}>
-            <TotBox label="Costo Neto Total" value={totalCosto} color={COLORS.textMuted} sub="Sin IVA compra" />
+            <TotBox label="Costo Neto Total" value={totalCosto} color={COLORS.textMuted} sub="Sin IVA" />
             <TotBox label="Margen Total" value={totalMargen} color={COLORS.green} sub={`${margenPct}% sobre costo neto`} />
-            <TotBox label="Venta Neta" value={totalVentaNeta} color={COLORS.text} sub="Sin IVA venta" />
+            <TotBox label="Venta Neta" value={totalVentaNeta} color={COLORS.text} sub="Costo + Margen" />
+            <TotBox label="IVA Total" value={totalIVA} color="#ef4444" sub="19% s/líneas con IVA" />
             <TotBox label="Venta c/IVA" value={totalVentaBruta} color={COLORS.accent} sub="Precio al cliente" />
           </div>
 
