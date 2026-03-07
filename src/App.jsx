@@ -1404,7 +1404,7 @@ const CAT_TIPOS = ["Equipos","Mano de Obra / HH","Materiales","Costos Indirectos
 const CAT_COLOR = { "Equipos":"#3b82f6","Mano de Obra / HH":"#10b981","Materiales":"#f59e0b","Costos Indirectos":"#8b5cf6" };
 
 function newItem(tipo) {
-  const base = { id: Date.now()+Math.random(), tipo, descripcion:"", qty:1, costoUnit:0, margen:30, precioUnit:0 };
+  const base = { id: Date.now()+Math.random(), tipo, cod:"", descripcion:"", qty:1, costoUnit:0, margen:30, precioUnit:0 };
   if(tipo==="Mano de Obra / HH") return { ...base, hh:1, valorHH:15000 };
   return base;
 }
@@ -1441,6 +1441,9 @@ function ItemRow({ item, onChange, onDelete }) {
   const style = { background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"4px 6px", width:"100%" };
   return (
     <tr style={{ borderBottom:`1px solid ${COLORS.border}22` }}>
+      <td style={{ padding:"6px 4px", width:60 }}>
+        <input style={{...style, textAlign:"center", color:COLORS.accent, fontWeight:600}} value={item.cod||""} onChange={e=>inp("cod",e.target.value)} placeholder="A.1" />
+      </td>
       <td style={{ padding:"6px 4px" }}>
         <input style={style} value={item.descripcion} onChange={e=>inp("descripcion",e.target.value)} placeholder="Descripción..." />
       </td>
@@ -1506,6 +1509,7 @@ function FaseBlock({ fase, onChange, onDelete }) {
                 <table style={{ width:"100%", borderCollapse:"collapse" }}>
                   <thead>
                     <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                      <th style={{ textAlign:"center", fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", letterSpacing:"0.06em", width:60 }}>COD</th>
                       <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", letterSpacing:"0.06em" }}>DESCRIPCIÓN</th>
                       {tipo==="Mano de Obra / HH" ? (<>
                         <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", letterSpacing:"0.06em" }}>HH</th>
@@ -1530,7 +1534,7 @@ function FaseBlock({ fase, onChange, onDelete }) {
                   </tbody>
                   <tfoot>
                     <tr style={{ borderTop:`1px solid ${COLORS.border}` }}>
-                      <td colSpan={tipo==="Mano de Obra / HH"?4:3} style={{ padding:"6px 4px", fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Subtotal {tipo}</td>
+                      <td colSpan={tipo==="Mano de Obra / HH"?5:4} style={{ padding:"6px 4px", fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Subtotal {tipo}</td>
                       <td></td>
                       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.textMuted }}>
                         ${grouped[tipo].map(calcItem).reduce((s,i)=>s+i.costoTotal,0).toLocaleString("es-CL")}
