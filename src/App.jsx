@@ -1413,13 +1413,14 @@ function newItem(tipo) {
 }
 
 function calcItem(it) {
-  const tieneIVA = CON_IVA.includes(it.tipo);
+  const tieneIVA = CON_IVA.includes(it.tipo) || (it.tipo==="Mano de Obra / HH" && it.moConIVA);
   let costoNeto = 0;
   let precioPublicado = 0;
 
   if(it.tipo==="Mano de Obra / HH") {
-    costoNeto = (Number(it.hh)||0) * (Number(it.valorHH)||0) * (Number(it.qty)||1);
-    precioPublicado = costoNeto;
+    const bruto = (Number(it.hh)||0) * (Number(it.valorHH)||0) * (Number(it.qty)||1);
+    costoNeto = it.moConIVA ? bruto / IVA : bruto;
+    precioPublicado = bruto;
   } else if(it.tipo==="Costos Indirectos") {
     costoNeto = (Number(it.costoUnit)||0) * (Number(it.qty)||1);
     precioPublicado = costoNeto;
@@ -1565,7 +1566,7 @@ function ItemRow({ item, onChange, onDelete, productos }) {
   );
 }
 
-function FaseBlock({ fase, onChange, onDelete, productos }) {
+function FaseBlock({ fase, onChange, onDelete, productos, partidas }) {
   const [collapsed, setCollapsed] = useState(false);
   const calc = calcFase(fase);
   const margenPct = calc.costoNeto > 0 ? (calc.margenTotal/calc.costoNeto*100).toFixed(1) : 0;
@@ -1576,8 +1577,18 @@ function FaseBlock({ fase, onChange, onDelete, productos }) {
   const grouped = CAT_TIPOS.reduce((acc,t)=>{ acc[t]=(fase.items||[]).filter(i=>i.tipo===t); return acc; },{});
   const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
 
+  // Barra de progreso: partidas vinculadas a esta fase
+  const partidasFase = (partidas||[]).filter(p=>String(p.faseId)===String(fase.id));
+  const totalCubierto = partidasFase.reduce((s,p)=>s+Number(p.monto),0);
+  const ventaRef = calc.ventaBruta;
+  const pctCubierto = ventaRef > 0 ? Math.min((totalCubierto/ventaRef)*100, 100) : 0;
+  const anticipo = partidasFase.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctAnticipo)||0)/100),0);
+  const parcial  = partidasFase.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctParcial)||0)/100),0);
+  const finalizar= partidasFase.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctFinalizar)||0)/100),0);
+
   return (
     <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, marginBottom:16 }}>
+      {/* Header fase */}
       <div style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 18px", borderBottom:`1px solid ${COLORS.border}` }}>
         <button onClick={()=>setCollapsed(p=>!p)} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:14 }}>{collapsed?"▶":"▼"}</button>
         <input value={fase.nombre} onChange={e=>onChange({...fase,nombre:e.target.value})}
@@ -1596,13 +1607,21 @@ function FaseBlock({ fase, onChange, onDelete, productos }) {
         <div style={{ padding:"16px 18px" }}>
           {CAT_TIPOS.map(tipo=>{
             const tieneIVA = CON_IVA.includes(tipo);
-            const calcItems = grouped[tipo].map(calcItem);
+            const esMO = tipo==="Mano de Obra / HH";
+            const calcItems = grouped[tipo].map(it => esMO ? calcItem({...it, moConIVA: fase.moConIVA}) : calcItem(it));
             return (
               <div key={tipo} style={{ marginBottom:16 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
                   <div style={{ width:3, height:16, background:CAT_COLOR[tipo], borderRadius:2 }} />
                   <span style={{ fontFamily:FONT, fontSize:11, fontWeight:600, color:CAT_COLOR[tipo], letterSpacing:"0.08em", textTransform:"uppercase" }}>{tipo}</span>
                   {tieneIVA && <span style={{ fontFamily:FONT, fontSize:10, color:"#ef4444", background:"#ef444422", padding:"1px 6px", borderRadius:4 }}>Precio c/IVA → neto ÷1.19</span>}
+                  {esMO && (
+                    <label style={{ display:"flex", alignItems:"center", gap:5, cursor:"pointer", fontFamily:FONT, fontSize:11, color: fase.moConIVA ? "#ef4444" : COLORS.textMuted }}>
+                      <input type="checkbox" checked={!!fase.moConIVA} onChange={e=>onChange({...fase, moConIVA:e.target.checked})}
+                        style={{ cursor:"pointer", accentColor:"#ef4444" }} />
+                      Aplica IVA a MO
+                    </label>
+                  )}
                   <button onClick={()=>addItem(tipo)} style={{ background:`${CAT_COLOR[tipo]}22`, border:`1px solid ${CAT_COLOR[tipo]}44`, borderRadius:5, color:CAT_COLOR[tipo], cursor:"pointer", fontFamily:FONT, fontSize:10, padding:"2px 8px" }}>+ Agregar</button>
                 </div>
                 {grouped[tipo].length > 0 && (
@@ -1640,7 +1659,7 @@ function FaseBlock({ fase, onChange, onDelete, productos }) {
                       </thead>
                       <tbody>
                         {grouped[tipo].map(it=>(
-                          <ItemRow key={it.id} item={it} onChange={item=>updateItem(it.id,item)} onDelete={()=>deleteItem(it.id)} productos={productos} />
+                          <ItemRow key={it.id} item={esMO ? {...it, moConIVA: fase.moConIVA} : it} onChange={item=>updateItem(it.id, esMO ? {...item, moConIVA: undefined} : item)} onDelete={()=>deleteItem(it.id)} productos={productos} />
                         ))}
                       </tbody>
                       <tfoot>
@@ -1661,6 +1680,36 @@ function FaseBlock({ fase, onChange, onDelete, productos }) {
           })}
         </div>
       )}
+
+      {/* Barra de progreso de pago */}
+      <div style={{ padding:"12px 18px", borderTop:`1px solid ${COLORS.border}22`, background:COLORS.surface, borderRadius:"0 0 10px 10px" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+          <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase" }}>
+            Cobertura de partidas
+          </span>
+          <span style={{ fontFamily:FONT, fontSize:11, fontWeight:700, color: pctCubierto>=100 ? COLORS.green : pctCubierto>0 ? COLORS.accent : COLORS.textMuted }}>
+            {fmt(totalCubierto)} / {fmt(ventaRef)} ({pctCubierto.toFixed(0)}%)
+          </span>
+        </div>
+        {/* Barra segmentada anticipo / parcial / finalizar */}
+        <div style={{ height:10, background:COLORS.border, borderRadius:6, overflow:"hidden", display:"flex" }}>
+          {anticipo > 0 && <div style={{ width:`${ventaRef>0?(anticipo/ventaRef*100):0}%`, background:COLORS.accent, transition:"width 0.3s" }} title={`Anticipo: ${fmt(anticipo)}`} />}
+          {parcial > 0  && <div style={{ width:`${ventaRef>0?(parcial/ventaRef*100):0}%`, background:COLORS.green, transition:"width 0.3s" }} title={`Parcial: ${fmt(parcial)}`} />}
+          {finalizar > 0 && <div style={{ width:`${ventaRef>0?(finalizar/ventaRef*100):0}%`, background:"#f59e0b", transition:"width 0.3s" }} title={`Al finalizar: ${fmt(finalizar)}`} />}
+        </div>
+        {partidasFase.length > 0 && (
+          <div style={{ display:"flex", gap:14, marginTop:6 }}>
+            {anticipo>0  && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent }}>● Anticipo {fmt(anticipo)}</span>}
+            {parcial>0   && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.green }}>● Parcial {fmt(parcial)}</span>}
+            {finalizar>0 && <span style={{ fontFamily:FONT, fontSize:10, color:"#f59e0b" }}>● Al finalizar {fmt(finalizar)}</span>}
+            {totalCubierto < ventaRef && ventaRef > 0 &&
+              <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.red }}>⚠ Sin cubrir {fmt(ventaRef - totalCubierto)}</span>}
+          </div>
+        )}
+        {partidasFase.length === 0 && (
+          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:4 }}>Sin partidas asignadas a esta fase</div>
+        )}
+      </div>
     </div>
   );
 }
@@ -2121,7 +2170,7 @@ function CosteoView({ contacts }) {
 
           {/* Fases */}
           {fasesCalc.map(f=>(
-            <FaseBlock key={f.id} fase={f} onChange={updateFase} onDelete={()=>deleteFase(f.id)} productos={productos} />
+            <FaseBlock key={f.id} fase={f} onChange={updateFase} onDelete={()=>deleteFase(f.id)} productos={productos} partidas={partidas} />
           ))}
           <button onClick={addFase} style={{ width:"100%", padding:"12px", background:"transparent", border:`1px dashed ${COLORS.border}`, borderRadius:10, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer", marginBottom:16 }}>
             + Agregar Fase
