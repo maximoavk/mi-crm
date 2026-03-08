@@ -535,7 +535,7 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
               </div>
               <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                 {stageDeals.map(d=>{
-                  const isCollapsed=collapsed[d.id];
+  const isCollapsed = collapsed[d.id] !== false; // colapsado por defecto
                   return (
                     <div key={d.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, borderLeft:`3px solid ${stage.color}`, overflow:"hidden" }}>
                       <div style={{ display:"flex", alignItems:"center", gap:8, padding:isCollapsed?"10px 12px":"12px 14px 8px" }}>
@@ -546,6 +546,7 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
                         </div>
                         {isCollapsed && <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.green, fontWeight:700, flexShrink:0 }}>{fmt(d.value)}</div>}
                         <button onClick={()=>openEdit(d)} style={{ background:"none", border:`1px solid ${COLORS.accent}44`, borderRadius:4, color:COLORS.accent, cursor:"pointer", fontSize:11, padding:"2px 6px", flexShrink:0 }}>✏️</button>
+                        <button onClick={()=>del(d.id)} style={{ background:"none", border:`1px solid ${COLORS.red}44`, borderRadius:4, color:COLORS.red, cursor:"pointer", fontSize:13, padding:"2px 6px", flexShrink:0 }}>×</button>
                       </div>
                       {!isCollapsed && (
                         <div style={{ padding:"0 14px 12px" }}>
@@ -2561,7 +2562,7 @@ export default function CRM() {
         <header style={{ background:COLORS.surface, borderBottom:`1px solid ${COLORS.border}`, padding:"12px 18px", display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, zIndex:150 }}>
           <div>
             <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.accent, letterSpacing:"0.18em", textTransform:"uppercase" }}>B2B SALES</div>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>Polygonos SpA</div>
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>Polygonos <span style={{color:COLORS.accent}}>360</span></div>
           </div>
           <button onClick={()=>setMenuOpen(p=>!p)} style={{ background:"none", border:`1px solid ${COLORS.border}`, borderRadius:7, color:COLORS.text, cursor:"pointer", padding:"7px 11px", fontSize:17 }}>{menuOpen?"✕":"☰"}</button>
         </header>
@@ -2584,7 +2585,7 @@ export default function CRM() {
         <aside style={{ width:220, background:COLORS.surface, borderRight:`1px solid ${COLORS.border}`, padding:"28px 0", display:"flex", flexDirection:"column", flexShrink:0 }}>
           <div style={{ padding:"0 24px 28px", borderBottom:`1px solid ${COLORS.border}` }}>
             <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, letterSpacing:"0.18em", textTransform:"uppercase", marginBottom:2 }}>B2B SALES</div>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text }}>Polygonos SpA</div>
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text }}>Polygonos <span style={{color:COLORS.accent}}>360</span></div>
           </div>
           <nav style={{ padding:"20px 12px", flex:1 }}>
             {NAV.map(n=>{
