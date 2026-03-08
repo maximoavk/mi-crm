@@ -1423,16 +1423,21 @@ function QuotePDF({ quote, onBack }) {
 
         {/* TOTALES */}
         <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
-          <table className="totals-table" style={{ width:260, borderCollapse:"collapse" }}>
+          <table className="totals-table" style={{ width:280, borderCollapse:"collapse" }}>
             <tbody>
-              <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
-                <td style={{ padding:"6px 10px", fontSize:12, whiteSpace:"nowrap" }}>Total Neto</td>
-                <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(neto)}</td>
-              </tr>
-              {quote.hasIva && (
+              {quote.hasIva ? (<>
+                <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
+                  <td style={{ padding:"6px 10px", fontSize:12, whiteSpace:"nowrap" }}>Total Neto</td>
+                  <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(neto)}</td>
+                </tr>
                 <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
                   <td style={{ padding:"6px 10px", fontSize:12, whiteSpace:"nowrap" }}>IVA (19%)</td>
                   <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(iva)}</td>
+                </tr>
+              </>) : (
+                <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
+                  <td style={{ padding:"6px 10px", fontSize:11, color:"#555", whiteSpace:"nowrap" }}>Valores incluyen IVA según corresponde</td>
+                  <td style={{ padding:"6px 10px", textAlign:"right" }}></td>
                 </tr>
               )}
               <tr style={{ background:"#f0f0f0" }}>
@@ -1622,7 +1627,7 @@ function ItemRow({ item, onChange, onDelete, productos }) {
     <tr style={{ borderBottom:`1px solid ${COLORS.border}22` }}>
       {/* COD */}
       <td style={{ padding:"6px 4px", width:55 }}>
-        <input style={{...style, textAlign:"center", color:COLORS.accent, fontWeight:600}} value={item.cod||""} onChange={e=>inp("cod",e.target.value)} placeholder="A.1" />
+        <input style={{...style, textAlign:"center", color:COLORS.accent, fontWeight:600}} value={item.cod||""} onChange={e=>inp("cod",e.target.value)} placeholder={`F?-${SAP_PREFIX[item.tipo]||"X"}001`} title={`Código SAP: POL-XXXX-${item.cod||"F?-"+SAP_PREFIX[item.tipo]+"001"} (se completa al generar cotización)`} />
       </td>
 
       {/* Descripción + buscador catálogo */}
@@ -1721,12 +1726,31 @@ function ItemRow({ item, onChange, onDelete, productos }) {
   );
 }
 
-function FaseBlock({ fase, onChange, onDelete, onDuplicate, productos, partidas }) {
+// Prefijo SAP por tipo de recurso
+const SAP_PREFIX = {
+  "Equipos":          "E",
+  "Materiales":       "M",
+  "Mano de Obra / HH":"H",
+  "Costos Indirectos":"I",
+};
+
+// Genera código SAP automático: F{fi+1}-E001
+function genSapCod(tipo, faseIdx, itemsDelTipo) {
+  const prefix = SAP_PREFIX[tipo] || "X";
+  const num = String(itemsDelTipo.length + 1).padStart(3, "0");
+  return `F${faseIdx + 1}-${prefix}${num}`;
+}
+
+function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, partidas }) {
   const [collapsed, setCollapsed] = useState(false);
   const calc = calcFase(fase);
   const margenPct = calc.costoNeto > 0 ? (calc.margenTotal/calc.costoNeto*100).toFixed(1) : 0;
 
-  const addItem = (tipo) => onChange({ ...fase, items:[...(fase.items||[]), newItem(tipo)] });
+  const addItem = (tipo) => {
+    const itemsDelTipo = (fase.items||[]).filter(i=>i.tipo===tipo);
+    const cod = genSapCod(tipo, faseIdx, itemsDelTipo);
+    onChange({ ...fase, items:[...(fase.items||[]), { ...newItem(tipo), cod }] });
+  };
   const updateItem = (id, item) => onChange({ ...fase, items: fase.items.map(i=>i.id===id?item:i) });
   const deleteItem = (id) => onChange({ ...fase, items: fase.items.filter(i=>i.id!==id) });
   const grouped = CAT_TIPOS.reduce((acc,t)=>{ acc[t]=(fase.items||[]).filter(i=>i.tipo===t); return acc; },{});
@@ -2336,13 +2360,48 @@ function CosteoView({ contacts }) {
     const formaPago = partes.length>0 ? partes.join(" · ") : "A convenir";
     const { data: ultimas } = await supabase.from("cotizaciones").select("numero").order("numero",{ascending:false}).limit(1);
     const nextNum = ultimas&&ultimas[0] ? ultimas[0].numero+1 : 1;
-    const codigoProyecto = `Poly ${nextNum} K`;
+    const sapBase = `POL-${String(nextNum).padStart(4,"0")}`;
+    const codigoProyecto = sapBase; // raíz WBS del proyecto
+
+    // ── INDEXAR ÍTEMS AL CATÁLOGO ────────────────────────────────────────────
+    // Para cada ítem de cada fase, upsert en products usando el código SAP como key
+    const itemsParaCatalogo = [];
+    fases.forEach((f, fi) => {
+      (f.items||[]).forEach(it => {
+        const prefix = SAP_PREFIX[it.tipo]||"X";
+        // Si el ítem ya tiene cod con formato F#-X###, lo completa con POL-XXXX-
+        // Si no tiene, genera uno nuevo
+        const codBase = it.cod && it.cod.match(/^F\d+-[A-Z]\d{3}$/)
+          ? it.cod
+          : genSapCod(it.tipo, fi, []);
+        const sapCod = `${sapBase}-${codBase}`;
+        // Solo indexa si tiene descripción
+        if(it.descripcion) {
+          itemsParaCatalogo.push({
+            code: sapCod,
+            name: it.descripcion,
+            description: it.modelo||"",
+            price: Math.round(it.tipo==="Mano de Obra / HH" ? it.valorHH*(IVA) : (it.costoUnitNeto||it.costoUnit||0)*(IVA)),
+            unit: it.tipo==="Mano de Obra / HH" ? "HH" : (it.unit||"un"),
+            category: it.tipo,
+            provider: "",
+            type: "producto",
+          });
+        }
+      });
+    });
+    // Upsert al catálogo (on conflict do update)
+    if(itemsParaCatalogo.length > 0) {
+      await supabase.from("products").upsert(itemsParaCatalogo, { onConflict: "code", ignoreDuplicates: false });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const quoteData = {
       numero:nextNum, fecha:proyecto.fecha||new Date().toISOString().slice(0,10),
       contact_id:proyecto.clienteId||null, nombre_cliente:proyecto.clienteNombre||proyecto.cliente||"",
       rut_cliente:proyecto.clienteRut||"", razon_social:proyecto.clienteEmpresa||"",
       direccion:proyecto.clienteDireccion||"", telefono:proyecto.clienteTelefono||"",
-      forma_pago:formaPago, aplica_iva:true, iva_modo:"empresa",
+      forma_pago:formaPago, aplica_iva:false, iva_modo:"empresa",
       comentarios:`${proyecto.nombre}`,
       terminos:"", estado:"borrador", tipo:"productos", total:Math.round(totalBruto),
     };
@@ -2352,28 +2411,28 @@ function CosteoView({ contacts }) {
     let lineas = [];
     let ordenCounter = 0;
     if(genTipo==="fases") {
-      // Solo una línea por fase con el total de la fase
+      // Línea por fase — precio = ventaBruta (IVA ya incluido por línea en costeo)
       fases.forEach((f,fi)=>{
-        const codigoFase = `${codigoProyecto} F${fi+1}`;
+        const codigoFase = `${sapBase}-F${fi+1}`;
         lineas.push({ quote_id:savedQuote.id, product_id:null,
           codigo:codigoFase, descripcion:f.nombre||`Fase ${fi+1}`,
-          cantidad:1, precio_unitario:Math.round(f.ventaNeta),
+          cantidad:1, precio_unitario:Math.round(f.ventaBruta),
           descuento:0, tipo_linea:"item", hito:"",
-          subtotal:Math.round(f.ventaNeta), orden: ordenCounter++ });
+          subtotal:Math.round(f.ventaBruta), orden: ordenCounter++ });
       });
     } else {
-      // Proyecto total: una sola línea
+      // Proyecto total: una sola línea con ventaBruta total
       lineas.push({ quote_id:savedQuote.id, product_id:null,
         codigo:codigoProyecto, descripcion:proyecto.nombre||"Suministro e instalación",
-        cantidad:1, precio_unitario:Math.round(totalVentaNeta),
+        cantidad:1, precio_unitario:Math.round(totalBruto),
         descuento:0, tipo_linea:"item", hito:"",
-        subtotal:Math.round(totalVentaNeta), orden: ordenCounter++ });
+        subtotal:Math.round(totalBruto), orden: ordenCounter++ });
     }
     // Hitos de pago al final como sección separada
     if(partidas.length>0) {
       lineas = [...lineas, ...partidas.map((p,pi)=>({
         quote_id:savedQuote.id, product_id:null,
-        codigo:`${codigoProyecto} H${pi+1}`,
+        codigo:`${sapBase}-P${String(pi+1).padStart(2,"0")}`,
         descripcion:p.concepto||"Hito de pago", cantidad:1,
         precio_unitario:Number(p.monto)||0, descuento:0, tipo_linea:"hito",
         hito:[
@@ -2532,8 +2591,8 @@ function CosteoView({ contacts }) {
           </div>
 
           {/* Fases */}
-          {fasesCalc.map(f=>(
-            <FaseBlock key={f.id} fase={f} onChange={updateFase} onDelete={()=>deleteFase(f.id)} onDuplicate={()=>duplicateFase(f)} productos={productos} partidas={partidas} />
+          {fasesCalc.map((f,fi)=>(
+            <FaseBlock key={f.id} fase={f} faseIdx={fi} onChange={updateFase} onDelete={()=>deleteFase(f.id)} onDuplicate={()=>duplicateFase(f)} productos={productos} partidas={partidas} />
           ))}
           <button onClick={addFase} style={{ width:"100%", padding:"12px", background:"transparent", border:`1px dashed ${COLORS.border}`, borderRadius:10, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer", marginBottom:16 }}>
             + Agregar Fase
