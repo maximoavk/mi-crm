@@ -835,6 +835,7 @@ const mapQuoteLine = (r) => ({
   discount: r.descuento || 0, lineType: r.tipo_linea || "item",
   milestone: r.hito || "",
   subtotal: r.subtotal || 0,
+  orden: r.orden || 0,
 });
 const mapQuoteLineToDb = (f, quoteId) => ({
   quote_id: quoteId, product_id: f.productId || null,
@@ -845,6 +846,7 @@ const mapQuoteLineToDb = (f, quoteId) => ({
   tipo_linea: f.lineType || "item",
   hito: f.milestone || "",
   subtotal: Number(f.subtotal) || 0,
+  orden: Number(f.orden) || 0,
 });
 
 // ── BASE DE DATOS DE PRODUCTOS ───────────────────────────────────────────────
@@ -1113,7 +1115,7 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
   useEffect(()=>{
     supabase.from("products").select("*").order("codigo").then(({data})=>setProducts((data||[]).map(mapProduct)));
     if (isEdit) {
-      supabase.from("quote_lines").select("*").eq("quote_id", quote.id).order("id").then(({data})=>setLines((data||[]).map(mapQuoteLine)));
+      supabase.from("quote_lines").select("*").eq("quote_id", quote.id).order("orden").then(({data})=>setLines((data||[]).map(mapQuoteLine)));
     }
   },[]);
 
@@ -1340,7 +1342,7 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
 function QuotePDF({ quote, onBack }) {
   const [lines, setLines] = useState([]);
   useEffect(()=>{
-    supabase.from("quote_lines").select("*").eq("quote_id", quote.id).order("id").then(({data})=>setLines((data||[]).map(mapQuoteLine)));
+    supabase.from("quote_lines").select("*").eq("quote_id", quote.id).order("orden").then(({data})=>setLines((data||[]).map(mapQuoteLine)));
   },[]);
 
   const neto = lines.filter(l=>l.lineType!=="hito").reduce((s,l)=>s+Number(l.subtotal),0);
@@ -2322,41 +2324,37 @@ function CosteoView({ contacts }) {
     if(!savedQuote){ setGenSaving(false); return; }
 
     let lineas = [];
+    let ordenCounter = 0;
     if(genTipo==="fases") {
-      // Por fase: línea madre + hijos — precios en NETO (el módulo cotizaciones aplica IVA)
       fases.forEach((f,fi)=>{
         const codigoFase = `${codigoProyecto} F${fi+1}`;
+        // Línea madre de la fase
         lineas.push({ quote_id:savedQuote.id, product_id:null,
-          codigo:codigoFase,
-          descripcion:f.nombre||`Fase ${fi+1}`,
+          codigo:codigoFase, descripcion:f.nombre||`Fase ${fi+1}`,
           cantidad:1, precio_unitario:Math.round(f.ventaNeta),
           descuento:0, tipo_linea:"item", hito:"",
-          subtotal:Math.round(f.ventaNeta) });
-        // Ítems hijos en neto
+          subtotal:Math.round(f.ventaNeta), orden: ordenCounter++ });
+        // Ítems hijos
         (f.items||[]).forEach((it,ii)=>{
           const calc = calcItem(it);
           const letra = String.fromCharCode(65+fi);
           const cantItem = it.tipo==="Mano de Obra / HH" ? (it.hh||1)*(it.qty||1) : (it.qty||1);
           const precioUnitNeto = Math.round(calc.ventaNeta / (cantItem||1));
           lineas.push({ quote_id:savedQuote.id, product_id:it.productId||null,
-            codigo:`${letra}.${ii+1}`,
-            descripcion:it.descripcion||"",
-            cantidad:cantItem,
-            precio_unitario:precioUnitNeto,
+            codigo:`${letra}.${ii+1}`, descripcion:it.descripcion||"",
+            cantidad:cantItem, precio_unitario:precioUnitNeto,
             descuento:0, tipo_linea:"item", hito:codigoFase,
-            subtotal:Math.round(calc.ventaNeta) });
+            subtotal:Math.round(calc.ventaNeta), orden: ordenCounter++ });
         });
       });
     } else {
-      // Proyecto total: una sola línea en neto
       lineas.push({ quote_id:savedQuote.id, product_id:null,
-        codigo:codigoProyecto,
-        descripcion:proyecto.nombre||"Suministro e instalación",
+        codigo:codigoProyecto, descripcion:proyecto.nombre||"Suministro e instalación",
         cantidad:1, precio_unitario:Math.round(totalVentaNeta),
         descuento:0, tipo_linea:"item", hito:"",
-        subtotal:Math.round(totalVentaNeta) });
+        subtotal:Math.round(totalVentaNeta), orden: ordenCounter++ });
     }
-    // Hitos de pago — se guardan como referencia, sin afectar el total
+    // Hitos de pago al final
     if(partidas.length>0) {
       lineas = [...lineas, ...partidas.map((p,pi)=>({
         quote_id:savedQuote.id, product_id:null,
@@ -2364,7 +2362,7 @@ function CosteoView({ contacts }) {
         descripcion:p.concepto||"Hito de pago", cantidad:1,
         precio_unitario:Number(p.monto)||0, descuento:0, tipo_linea:"hito",
         hito:`Anticipo ${p.pctAnticipo||0}% · Parcial ${p.pctParcial||0}% · Finalizar ${p.pctFinalizar||0}%`,
-        subtotal:Number(p.monto)||0,
+        subtotal:Number(p.monto)||0, orden: ordenCounter++,
       }))];
     }
     if(lineas.length>0) await supabase.from("quote_lines").insert(lineas);
