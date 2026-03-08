@@ -1427,11 +1427,15 @@ function QuotePDF({ quote, onBack }) {
   },[]);
 
   const neto = lines.filter(l=>l.lineType!=="hito").reduce((s,l)=>s+Number(l.subtotal),0);
-  // Si aplica_iva: el neto es neto real, IVA se calcula sobre él
-  // Si !aplica_iva (desde costeo): el subtotal ya incluye IVA → extraemos neto e IVA
-  const netoDisplay  = quote.hasIva ? neto : Math.round(neto / 1.19);
-  const ivaDisplay   = quote.hasIva ? Math.round(neto * 0.19) : neto - Math.round(neto / 1.19);
-  const total        = neto + (quote.hasIva ? Math.round(neto * 0.19) : 0);
+  // fromCosteo: aplica_iva=false pero ivaMode=empresa → valores ya incluyen IVA por línea
+  const fromCosteo  = !quote.hasIva && quote.ivaMode === "empresa";
+  // Con IVA normal: desglosar neto + IVA(19%) + total
+  // Sin IVA (personal): mostrar SOLO total neto, sin desglose
+  // Desde costeo: extraer neto e IVA implícitos
+  const netoDisplay = fromCosteo ? Math.round(neto / 1.19) : neto;
+  const ivaDisplay  = fromCosteo ? neto - Math.round(neto / 1.19) : Math.round(neto * 0.19);
+  const total       = fromCosteo ? neto : quote.hasIva ? neto + Math.round(neto * 0.19) : neto;
+  const showIva     = quote.hasIva || fromCosteo; // true → mostrar desglose neto+IVA+total
 
   return (
     <div>
@@ -1509,14 +1513,16 @@ function QuotePDF({ quote, onBack }) {
         <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
           <table className="totals-table" style={{ width:280, borderCollapse:"collapse" }}>
             <tbody>
-              <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
-                <td style={{ padding:"6px 10px", fontSize:12, whiteSpace:"nowrap" }}>Total Neto</td>
-                <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(netoDisplay)}</td>
-              </tr>
-              <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
-                <td style={{ padding:"6px 10px", fontSize:12, whiteSpace:"nowrap" }}>IVA (19%)</td>
-                <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(ivaDisplay)}</td>
-              </tr>
+              {showIva ? (<>
+                <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
+                  <td style={{ padding:"6px 10px", fontSize:12, whiteSpace:"nowrap" }}>Total Neto</td>
+                  <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(netoDisplay)}</td>
+                </tr>
+                <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
+                  <td style={{ padding:"6px 10px", fontSize:12, whiteSpace:"nowrap" }}>IVA (19%)</td>
+                  <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(ivaDisplay)}</td>
+                </tr>
+              </>) : null}
               <tr style={{ background:"#f0f0f0" }}>
                 <td style={{ padding:"8px 10px", fontWeight:700, whiteSpace:"nowrap" }}>Total</td>
                 <td style={{ padding:"8px 10px", fontWeight:700, textAlign:"right", fontSize:14, whiteSpace:"nowrap" }}>{fmt(total)}</td>
