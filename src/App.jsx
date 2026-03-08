@@ -1136,7 +1136,38 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
     }
   },[header.contactId]);
 
-  const addLine = () => setLines(l=>[...l, { id:"new_"+Date.now(), quoteId:"", productId:"", code:"", description:"", qty:1, unitPrice:0, discount:0, lineType:"item", milestone:"", subtotal:0 }]);
+  // Buscador catálogo para líneas del cotizador
+  const [lineSearch, setLineSearch] = useState({});   // idx -> query
+  const [lineMargen, setLineMargen] = useState({});   // idx -> margen%
+  const [lineDropOpen, setLineDropOpen] = useState({}); // idx -> bool
+
+  const searchProductsForLine = (idx, q) => {
+    setLineSearch(s=>({...s,[idx]:q}));
+    setLineDropOpen(s=>({...s,[idx]:true}));
+  };
+
+  const selectProductForLine = (idx, p) => {
+    const margen = Number(lineMargen[idx])||0;
+    const costoNeto = p.aplicaIVA !== false ? Math.round(p.price / 1.19) : p.price;
+    const precioConMargen = margen > 0 ? Math.round(costoNeto * (1 + margen/100)) : costoNeto;
+    setLines(l => l.map((line,i) => {
+      if(i!==idx) return line;
+      const updated = {...line, productId:p.id, code:p.code, description:p.name, unitPrice:precioConMargen};
+      const qty = Number(updated.qty)||1;
+      const disc = Number(updated.discount)||0;
+      updated.subtotal = precioConMargen * qty * (1 - disc/100);
+      return updated;
+    }));
+    setLineSearch(s=>({...s,[idx]:p.name}));
+    setLineDropOpen(s=>({...s,[idx]:false}));
+  };
+
+  const addLine = () => {
+    const idx = lines.length;
+    setLines(l=>[...l, { id:"new_"+Date.now(), quoteId:"", productId:"", code:"", description:"", qty:1, unitPrice:0, discount:0, lineType:"item", milestone:"", subtotal:0 }]);
+    setLineSearch(s=>({...s,[idx]:""}));
+    setLineMargen(s=>({...s,[idx]:0}));
+  };
 
   const updateLine = (idx, key, val) => {
     setLines(l => l.map((line,i) => {
@@ -1268,13 +1299,62 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
               </tr>
             </thead>
             <tbody>
-              {lines.map((line,idx)=>(
+              {lines.map((line,idx)=>{
+                const qSearch = lineSearch[idx]||"";
+                const resultados = qSearch.length>=2
+                  ? products.filter(p=>(p.name||"").toLowerCase().includes(qSearch.toLowerCase())||(p.code||"").toLowerCase().includes(qSearch.toLowerCase())).slice(0,8)
+                  : [];
+                const costoNetoProd = line.productId
+                  ? (() => { const p=products.find(x=>x.id===line.productId); return p ? Math.round((p.price||0)/1.19) : 0; })()
+                  : 0;
+                return (
                 <tr key={line.id} style={{ borderBottom:`1px solid ${COLORS.border}` }}>
-                  <td style={{ padding:"6px 8px", minWidth:180 }}>
-                    <select value={line.productId} onChange={e=>updateLine(idx,"productId",e.target.value)} style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none" }}>
-                      <option value="">— Seleccionar —</option>
-                      {products.map(p=><option key={p.id} value={p.id}>[{p.code}] {p.name}</option>)}
-                    </select>
+                  {/* Buscador de producto */}
+                  <td style={{ padding:"6px 8px", minWidth:200, position:"relative" }}>
+                    <input
+                      value={qSearch}
+                      onChange={e=>searchProductsForLine(idx,e.target.value)}
+                      onFocus={()=>setLineDropOpen(s=>({...s,[idx]:true}))}
+                      placeholder="Buscar producto..."
+                      style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none", boxSizing:"border-box" }}
+                    />
+                    {/* Margen inline debajo del buscador */}
+                    <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:3 }}>
+                      <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>Margen %:</span>
+                      <input type="number" value={lineMargen[idx]||0}
+                        onChange={e=>{
+                          const m = Number(e.target.value)||0;
+                          setLineMargen(s=>({...s,[idx]:m}));
+                          // Recalcular precio si hay producto seleccionado
+                          if(costoNetoProd>0) {
+                            const newPrice = Math.round(costoNetoProd*(1+m/100));
+                            updateLine(idx,"unitPrice",newPrice);
+                          }
+                        }}
+                        style={{ width:48, background:COLORS.bg, border:`1px solid ${COLORS.accent}44`, borderRadius:4, padding:"2px 5px", fontFamily:FONT, fontSize:10, color:COLORS.accent, outline:"none" }}
+                      />
+                      {costoNetoProd>0 && <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>Costo: ${costoNetoProd.toLocaleString("es-CL")}</span>}
+                    </div>
+                    {/* Dropdown resultados */}
+                    {lineDropOpen[idx] && resultados.length>0 && (
+                      <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:300, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:6, boxShadow:"0 4px 20px #0008", marginTop:2 }}>
+                        {resultados.map(p=>(
+                          <div key={p.id} onClick={()=>selectProductForLine(idx,p)}
+                            style={{ padding:"7px 10px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}22`, display:"flex", justifyContent:"space-between", alignItems:"center" }}
+                            onMouseEnter={e=>e.currentTarget.style.background=COLORS.card}
+                            onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                            <div>
+                              <div style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:600, color:COLORS.text }}>{p.name}</div>
+                              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>{p.code} · {p.category||""}</div>
+                            </div>
+                            <div style={{ textAlign:"right" }}>
+                              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Neto: <strong style={{color:COLORS.text}}>${Math.round((p.price||0)/1.19).toLocaleString("es-CL")}</strong></div>
+                              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>Bruto: ${Math.round(p.price||0).toLocaleString("es-CL")}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </td>
                   <td style={{ padding:"6px 8px", minWidth:80 }}>
                     <input value={line.code} onChange={e=>updateLine(idx,"code",e.target.value)} style={{ width:70, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:COLORS.accent, outline:"none" }} />
@@ -1296,7 +1376,8 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
                     <button onClick={()=>removeLine(idx)} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>✕</button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
           {lines.length===0 && <div style={{ textAlign:"center", padding:30, fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin líneas. Haz clic en "+ Agregar línea".</div>}
@@ -1346,8 +1427,11 @@ function QuotePDF({ quote, onBack }) {
   },[]);
 
   const neto = lines.filter(l=>l.lineType!=="hito").reduce((s,l)=>s+Number(l.subtotal),0);
-  const iva = quote.hasIva ? neto*0.19 : 0;
-  const total = neto + iva;
+  // Si aplica_iva: el neto es neto real, IVA se calcula sobre él
+  // Si !aplica_iva (desde costeo): el subtotal ya incluye IVA → extraemos neto e IVA
+  const netoDisplay  = quote.hasIva ? neto : Math.round(neto / 1.19);
+  const ivaDisplay   = quote.hasIva ? Math.round(neto * 0.19) : neto - Math.round(neto / 1.19);
+  const total        = neto + (quote.hasIva ? Math.round(neto * 0.19) : 0);
 
   return (
     <div>
@@ -1425,21 +1509,14 @@ function QuotePDF({ quote, onBack }) {
         <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
           <table className="totals-table" style={{ width:280, borderCollapse:"collapse" }}>
             <tbody>
-              {quote.hasIva ? (<>
-                <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
-                  <td style={{ padding:"6px 10px", fontSize:12, whiteSpace:"nowrap" }}>Total Neto</td>
-                  <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(neto)}</td>
-                </tr>
-                <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
-                  <td style={{ padding:"6px 10px", fontSize:12, whiteSpace:"nowrap" }}>IVA (19%)</td>
-                  <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(iva)}</td>
-                </tr>
-              </>) : (
-                <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
-                  <td style={{ padding:"6px 10px", fontSize:11, color:"#555", whiteSpace:"nowrap" }}>Valores incluyen IVA según corresponde</td>
-                  <td style={{ padding:"6px 10px", textAlign:"right" }}></td>
-                </tr>
-              )}
+              <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
+                <td style={{ padding:"6px 10px", fontSize:12, whiteSpace:"nowrap" }}>Total Neto</td>
+                <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(netoDisplay)}</td>
+              </tr>
+              <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
+                <td style={{ padding:"6px 10px", fontSize:12, whiteSpace:"nowrap" }}>IVA (19%)</td>
+                <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(ivaDisplay)}</td>
+              </tr>
               <tr style={{ background:"#f0f0f0" }}>
                 <td style={{ padding:"8px 10px", fontWeight:700, whiteSpace:"nowrap" }}>Total</td>
                 <td style={{ padding:"8px 10px", fontWeight:700, textAlign:"right", fontSize:14, whiteSpace:"nowrap" }}>{fmt(total)}</td>
@@ -1549,6 +1626,21 @@ const CON_IVA = ["Equipos","Materiales"];
 const IVA = 1.19;
 const CAT_TIPOS = ["Equipos","Mano de Obra / HH","Materiales","Costos Indirectos"];
 const CAT_COLOR = { "Equipos":"#3b82f6","Mano de Obra / HH":"#10b981","Materiales":"#f59e0b","Costos Indirectos":"#8b5cf6" };
+
+// Prefijo SAP por tipo de recurso
+const SAP_PREFIX = {
+  "Equipos":           "E",
+  "Materiales":        "M",
+  "Mano de Obra / HH": "H",
+  "Costos Indirectos": "I",
+};
+
+// Genera código SAP automático: F{fi+1}-E001
+function genSapCod(tipo, faseIdx, itemsDelTipo) {
+  const prefix = SAP_PREFIX[tipo] || "X";
+  const num = String(itemsDelTipo.length + 1).padStart(3, "0");
+  return `F${faseIdx + 1}-${prefix}${num}`;
+}
 
 function newItem(tipo) {
   const base = { id: Date.now()+Math.random(), tipo, cod:"", descripcion:"", modelo:"", qty:1, costoUnitNeto:0, margen:30, aplicaIVA: tipo!=="Costos Indirectos" };
@@ -1726,20 +1818,6 @@ function ItemRow({ item, onChange, onDelete, productos }) {
   );
 }
 
-// Prefijo SAP por tipo de recurso
-const SAP_PREFIX = {
-  "Equipos":          "E",
-  "Materiales":       "M",
-  "Mano de Obra / HH":"H",
-  "Costos Indirectos":"I",
-};
-
-// Genera código SAP automático: F{fi+1}-E001
-function genSapCod(tipo, faseIdx, itemsDelTipo) {
-  const prefix = SAP_PREFIX[tipo] || "X";
-  const num = String(itemsDelTipo.length + 1).padStart(3, "0");
-  return `F${faseIdx + 1}-${prefix}${num}`;
-}
 
 function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, partidas }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -1874,7 +1952,7 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
             <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
               Cubierto: <strong style={{color: pctCubierto>=100?COLORS.green:COLORS.accent}}>{fmt(totalCubierto)} ({pctCubierto.toFixed(0)}%)</strong>
             </span>
-            <span style={{ fontFamily:FONT, fontSize:11, color:"#22d3ee", fontWeight:700 }}>
+            <span style={{ fontFamily:FONT, fontSize:11, color:"#39ff14", fontWeight:700 }}>
               Cobrado: {fmt(totalCobrado)} ({pctCobrado.toFixed(0)}%)
             </span>
           </div>
@@ -1887,14 +1965,14 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
         </div>
         {/* Barra de cobrado efectivo */}
         <div style={{ height:6, background:COLORS.border, borderRadius:6, overflow:"hidden", marginBottom:6 }}>
-          <div style={{ width:`${pctCobrado}%`, background:"#22d3ee", borderRadius:6, transition:"width 0.3s", height:"100%" }} title={`Cobrado: ${fmt(totalCobrado)}`} />
+          <div style={{ width:`${pctCobrado}%`, background:"#39ff14", borderRadius:6, transition:"width 0.3s", height:"100%", boxShadow: pctCobrado>0?"0 0 8px #39ff1488":"none" }} title={`Cobrado: ${fmt(totalCobrado)}`} />
         </div>
         {partidasFase.length > 0 && (
           <div style={{ display:"flex", gap:14, flexWrap:"wrap" }}>
             {anticipo>0   && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent }}>● Anticipo {fmt(anticipo)}</span>}
             {parcial>0    && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.green }}>● Parcial {fmt(parcial)}</span>}
             {finalizar>0  && <span style={{ fontFamily:FONT, fontSize:10, color:"#f59e0b" }}>● Al finalizar {fmt(finalizar)}</span>}
-            {totalCobrado>0 && <span style={{ fontFamily:FONT, fontSize:10, color:"#22d3ee", fontWeight:700 }}>● Cobrado {fmt(totalCobrado)}</span>}
+            {totalCobrado>0 && <span style={{ fontFamily:FONT, fontSize:10, color:"#39ff14", fontWeight:700 }}>● Cobrado {fmt(totalCobrado)}</span>}
             {totalCubierto < ventaRef && ventaRef > 0 &&
               <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.red }}>⚠ Sin cubrir {fmt(ventaRef - totalCubierto)}</span>}
           </div>
