@@ -2326,35 +2326,24 @@ function CosteoView({ contacts }) {
     let lineas = [];
     let ordenCounter = 0;
     if(genTipo==="fases") {
+      // Solo una línea por fase con el total de la fase
       fases.forEach((f,fi)=>{
         const codigoFase = `${codigoProyecto} F${fi+1}`;
-        // Línea madre de la fase
         lineas.push({ quote_id:savedQuote.id, product_id:null,
           codigo:codigoFase, descripcion:f.nombre||`Fase ${fi+1}`,
           cantidad:1, precio_unitario:Math.round(f.ventaNeta),
           descuento:0, tipo_linea:"item", hito:"",
           subtotal:Math.round(f.ventaNeta), orden: ordenCounter++ });
-        // Ítems hijos
-        (f.items||[]).forEach((it,ii)=>{
-          const calc = calcItem(it);
-          const letra = String.fromCharCode(65+fi);
-          const cantItem = it.tipo==="Mano de Obra / HH" ? (it.hh||1)*(it.qty||1) : (it.qty||1);
-          const precioUnitNeto = Math.round(calc.ventaNeta / (cantItem||1));
-          lineas.push({ quote_id:savedQuote.id, product_id:it.productId||null,
-            codigo:`${letra}.${ii+1}`, descripcion:it.descripcion||"",
-            cantidad:cantItem, precio_unitario:precioUnitNeto,
-            descuento:0, tipo_linea:"item", hito:codigoFase,
-            subtotal:Math.round(calc.ventaNeta), orden: ordenCounter++ });
-        });
       });
     } else {
+      // Proyecto total: una sola línea
       lineas.push({ quote_id:savedQuote.id, product_id:null,
         codigo:codigoProyecto, descripcion:proyecto.nombre||"Suministro e instalación",
         cantidad:1, precio_unitario:Math.round(totalVentaNeta),
         descuento:0, tipo_linea:"item", hito:"",
         subtotal:Math.round(totalVentaNeta), orden: ordenCounter++ });
     }
-    // Hitos de pago al final
+    // Hitos de pago al final como sección separada
     if(partidas.length>0) {
       lineas = [...lineas, ...partidas.map((p,pi)=>({
         quote_id:savedQuote.id, product_id:null,
