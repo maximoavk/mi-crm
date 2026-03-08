@@ -1590,8 +1590,10 @@ function FaseBlock({ fase, onChange, onDelete, productos, partidas }) {
   // Barra de progreso: partidas vinculadas a esta fase
   const partidasFase = (partidas||[]).filter(p=>String(p.faseId)===String(fase.id));
   const totalCubierto = partidasFase.reduce((s,p)=>s+Number(p.monto),0);
+  const totalCobrado  = partidasFase.reduce((s,p)=>s+(Number(p.monto)*(Math.min(Number(p.pctAvance)||0,100)/100)),0);
   const ventaRef = calc.ventaBruta;
   const pctCubierto = ventaRef > 0 ? Math.min((totalCubierto/ventaRef)*100, 100) : 0;
+  const pctCobrado  = ventaRef > 0 ? Math.min((totalCobrado/ventaRef)*100, 100) : 0;
   const anticipo = partidasFase.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctAnticipo)||0)/100),0);
   const parcial  = partidasFase.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctParcial)||0)/100),0);
   const finalizar= partidasFase.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctFinalizar)||0)/100),0);
@@ -1698,21 +1700,31 @@ function FaseBlock({ fase, onChange, onDelete, productos, partidas }) {
           <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase" }}>
             Cobertura de partidas
           </span>
-          <span style={{ fontFamily:FONT, fontSize:11, fontWeight:700, color: pctCubierto>=100 ? COLORS.green : pctCubierto>0 ? COLORS.accent : COLORS.textMuted }}>
-            {fmt(totalCubierto)} / {fmt(ventaRef)} ({pctCubierto.toFixed(0)}%)
-          </span>
+          <div style={{ display:"flex", gap:16, alignItems:"center" }}>
+            <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+              Cubierto: <strong style={{color: pctCubierto>=100?COLORS.green:COLORS.accent}}>{fmt(totalCubierto)} ({pctCubierto.toFixed(0)}%)</strong>
+            </span>
+            <span style={{ fontFamily:FONT, fontSize:11, color:"#22d3ee", fontWeight:700 }}>
+              Cobrado: {fmt(totalCobrado)} ({pctCobrado.toFixed(0)}%)
+            </span>
+          </div>
         </div>
-        {/* Barra segmentada anticipo / parcial / finalizar */}
-        <div style={{ height:10, background:COLORS.border, borderRadius:6, overflow:"hidden", display:"flex" }}>
+        {/* Barra de cobertura (partidas definidas) */}
+        <div style={{ height:8, background:COLORS.border, borderRadius:6, overflow:"hidden", display:"flex", marginBottom:4 }}>
           {anticipo > 0 && <div style={{ width:`${ventaRef>0?(anticipo/ventaRef*100):0}%`, background:COLORS.accent, transition:"width 0.3s" }} title={`Anticipo: ${fmt(anticipo)}`} />}
-          {parcial > 0  && <div style={{ width:`${ventaRef>0?(parcial/ventaRef*100):0}%`, background:COLORS.green, transition:"width 0.3s" }} title={`Parcial: ${fmt(parcial)}`} />}
-          {finalizar > 0 && <div style={{ width:`${ventaRef>0?(finalizar/ventaRef*100):0}%`, background:"#f59e0b", transition:"width 0.3s" }} title={`Al finalizar: ${fmt(finalizar)}`} />}
+          {parcial  > 0 && <div style={{ width:`${ventaRef>0?(parcial/ventaRef*100):0}%`, background:COLORS.green, transition:"width 0.3s" }} title={`Parcial: ${fmt(parcial)}`} />}
+          {finalizar> 0 && <div style={{ width:`${ventaRef>0?(finalizar/ventaRef*100):0}%`, background:"#f59e0b", transition:"width 0.3s" }} title={`Al finalizar: ${fmt(finalizar)}`} />}
+        </div>
+        {/* Barra de cobrado efectivo */}
+        <div style={{ height:6, background:COLORS.border, borderRadius:6, overflow:"hidden", marginBottom:6 }}>
+          <div style={{ width:`${pctCobrado}%`, background:"#22d3ee", borderRadius:6, transition:"width 0.3s", height:"100%" }} title={`Cobrado: ${fmt(totalCobrado)}`} />
         </div>
         {partidasFase.length > 0 && (
-          <div style={{ display:"flex", gap:14, marginTop:6 }}>
-            {anticipo>0  && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent }}>● Anticipo {fmt(anticipo)}</span>}
-            {parcial>0   && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.green }}>● Parcial {fmt(parcial)}</span>}
-            {finalizar>0 && <span style={{ fontFamily:FONT, fontSize:10, color:"#f59e0b" }}>● Al finalizar {fmt(finalizar)}</span>}
+          <div style={{ display:"flex", gap:14, flexWrap:"wrap" }}>
+            {anticipo>0   && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent }}>● Anticipo {fmt(anticipo)}</span>}
+            {parcial>0    && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.green }}>● Parcial {fmt(parcial)}</span>}
+            {finalizar>0  && <span style={{ fontFamily:FONT, fontSize:10, color:"#f59e0b" }}>● Al finalizar {fmt(finalizar)}</span>}
+            {totalCobrado>0 && <span style={{ fontFamily:FONT, fontSize:10, color:"#22d3ee", fontWeight:700 }}>● Cobrado {fmt(totalCobrado)}</span>}
             {totalCubierto < ventaRef && ventaRef > 0 &&
               <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.red }}>⚠ Sin cubrir {fmt(ventaRef - totalCubierto)}</span>}
           </div>
@@ -1732,6 +1744,8 @@ function PartidaRow({ partida, fases, onChange, onDelete }) {
   const anticipo = monto*(Number(partida.pctAnticipo)||0)/100;
   const parcial = monto*(Number(partida.pctParcial)||0)/100;
   const finalizar = monto*(Number(partida.pctFinalizar)||0)/100;
+  const avance = Math.min(Math.max(Number(partida.pctAvance)||0, 0), 100);
+  const cobrado = monto * avance / 100;
   return (
     <tr style={{ borderBottom:`1px solid ${COLORS.border}22` }}>
       <td style={{ padding:"8px 6px" }}>
@@ -1766,6 +1780,17 @@ function PartidaRow({ partida, fases, onChange, onDelete }) {
       </td>
       <td style={{ padding:"8px 6px", width:110, fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.text, textAlign:"right" }}>
         ${monto.toLocaleString("es-CL")}
+      </td>
+      {/* % Avance cobrado */}
+      <td style={{ padding:"8px 6px", width:80 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+          <input style={{...style, width:52, color:"#22d3ee", fontWeight:700}} type="number" min={0} max={100}
+            value={partida.pctAvance||0} onChange={e=>inp("pctAvance",e.target.value)} placeholder="%" />
+          <span style={{ fontFamily:FONT, fontSize:10, color:"#22d3ee" }}>%</span>
+        </div>
+      </td>
+      <td style={{ padding:"8px 6px", width:110, fontFamily:FONT, fontSize:11, fontWeight:700, color:"#22d3ee", textAlign:"right" }}>
+        {cobrado > 0 ? `$${Math.round(cobrado).toLocaleString("es-CL")}` : "-"}
       </td>
       <td style={{ padding:"8px 6px", textAlign:"center" }}>
         <button onClick={onDelete} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>×</button>
@@ -1816,7 +1841,7 @@ function CosteoView({ contacts }) {
   const deleteFase = (id) => updateProyecto({ ...proyecto, fases: proyecto.fases.filter(x=>x.id!==id) });
 
   const addPartida = () => {
-    const p = { id: Date.now(), concepto:"", faseId:"", monto:0, pctAnticipo:50, pctParcial:0, pctFinalizar:50 };
+    const p = { id: Date.now(), concepto:"", faseId:"", monto:0, pctAnticipo:50, pctParcial:0, pctFinalizar:50, pctAvance:0 };
     updateProyecto({ ...proyecto, partidas:[...(proyecto.partidas||[]),p] });
   };
   const updatePartida = (p) => updateProyecto({ ...proyecto, partidas: proyecto.partidas.map(x=>x.id===p.id?p:x) });
@@ -2339,6 +2364,8 @@ function CosteoView({ contacts }) {
                   <th style={{ fontFamily:FONT, fontSize:10, color:"#f59e0b", padding:"10px 8px", letterSpacing:"0.08em" }}>% FIN.</th>
                   <th style={{ fontFamily:FONT, fontSize:10, color:"#f59e0b", padding:"10px 8px", letterSpacing:"0.08em", textAlign:"right" }}>$ FINALIZAR</th>
                   <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.text, padding:"10px 8px", letterSpacing:"0.08em", textAlign:"right" }}>TOTAL HITO</th>
+                  <th style={{ fontFamily:FONT, fontSize:10, color:"#22d3ee", padding:"10px 8px", letterSpacing:"0.08em", textAlign:"center" }}>% COBRADO</th>
+                  <th style={{ fontFamily:FONT, fontSize:10, color:"#22d3ee", padding:"10px 8px", letterSpacing:"0.08em", textAlign:"right" }}>$ COBRADO</th>
                   <th style={{ width:30 }}></th>
                 </tr>
               </thead>
@@ -2358,6 +2385,8 @@ function CosteoView({ contacts }) {
                   <td></td>
                   <td style={{ padding:"10px 8px", fontFamily:FONT, fontSize:12, fontWeight:700, color:"#f59e0b", textAlign:"right" }}>${totalFinalizar.toLocaleString("es-CL")}</td>
                   <td style={{ padding:"10px 8px", fontFamily:FONT, fontSize:13, fontWeight:700, color:COLORS.accent, textAlign:"right" }}>${totalPartidas.toLocaleString("es-CL")}</td>
+                  <td></td>
+                  <td style={{ padding:"10px 8px", fontFamily:FONT, fontSize:13, fontWeight:700, color:"#22d3ee", textAlign:"right" }}>${Math.round(partidas.reduce((s,p)=>s+(Number(p.monto)||0)*(Number(p.pctAvance)||0)/100,0)).toLocaleString("es-CL")}</td>
                   <td></td>
                 </tr>
               </tfoot>
