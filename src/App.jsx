@@ -1687,7 +1687,7 @@ function ItemRow({ item, onChange, onDelete, productos }) {
   );
 }
 
-function FaseBlock({ fase, onChange, onDelete, productos, partidas }) {
+function FaseBlock({ fase, onChange, onDelete, onDuplicate, productos, partidas }) {
   const [collapsed, setCollapsed] = useState(false);
   const calc = calcFase(fase);
   const margenPct = calc.costoNeto > 0 ? (calc.margenTotal/calc.costoNeto*100).toFixed(1) : 0;
@@ -1723,6 +1723,7 @@ function FaseBlock({ fase, onChange, onDelete, productos, partidas }) {
           <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Venta neta: <strong style={{color:COLORS.text}}>{fmt(calc.ventaNeta)}</strong></span>
           <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Venta c/IVA: <strong style={{color:COLORS.accent}}>{fmt(calc.ventaBruta)}</strong></span>
         </div>
+        <button onClick={onDuplicate} title="Duplicar fase" style={{ background:"none", border:`1px solid ${COLORS.accent}44`, borderRadius:5, color:COLORS.accent, cursor:"pointer", fontSize:12, padding:"3px 8px" }}>⧉ Duplicar</button>
         <button onClick={onDelete} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:16 }}>×</button>
       </div>
 
@@ -1950,6 +1951,16 @@ function CosteoView({ contacts }) {
   };
   const updateFase = (f) => updateProyecto({ ...proyecto, fases: proyecto.fases.map(x=>x.id===f.id?f:x) });
   const deleteFase = (id) => updateProyecto({ ...proyecto, fases: proyecto.fases.filter(x=>x.id!==id) });
+  const duplicateFase = (fase) => {
+    const newId = Date.now().toString();
+    const copia = {
+      ...fase,
+      id: newId,
+      nombre: `${fase.nombre} (copia)`,
+      items: (fase.items||[]).map(it=>({ ...it, id: Math.random().toString(36).slice(2) }))
+    };
+    updateProyecto({ ...proyecto, fases: [...proyecto.fases, copia] });
+  };
 
   const addPartida = () => {
     const p = { id: Date.now(), concepto:"", faseId:"", monto:0, pctAnticipo:50, pctParcial:0, pctFinalizar:50, pctAvance:0 };
@@ -2050,8 +2061,8 @@ function CosteoView({ contacts }) {
     const pct = tCosto>0?(tMargen/tCosto*100).toFixed(1):0;
     const fasesHTML = fases.map(f=>{
       const rows = (f.items||[]).map(calcItem).map(it=>{
-        const tieneIVA = CON_IVA.includes(it.tipo);
-        const precioUnitDisplay = it.tipo==="Mano de Obra / HH" ? fmt(it.valorHH) : it.tipo==="Costos Indirectos" ? fmt(it.costoUnit) : fmt(it.precioPublicado/(Number(it.qty)||1));
+        const tieneIVA = it.ivaVenta > 0;
+        const precioUnitDisplay = it.tipo==="Mano de Obra / HH" ? fmt(it.valorHH) : it.tipo==="Costos Indirectos" ? fmt(it.costoUnit) : fmt(it.costoUnitNeto||(it.costoNeto/(Number(it.qty)||1)));
         const netoUnitDisplay = tieneIVA ? fmt(it.costoNeto/(Number(it.qty)||1)) : "-";
         return `<tr style="border-bottom:1px solid #f1f5f9">
           <td style="padding:4px 6px;color:#3b82f6;font-weight:600">${it.cod||""}</td>
@@ -2150,12 +2161,13 @@ function CosteoView({ contacts }) {
     const tFinalizar = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctFinalizar)||0)/100),0);
     const fasesHTML = fases.map(f=>{
       const rows = (f.items||[]).map(calcItem).map(it=>{
-        const tieneIVA = CON_IVA.includes(it.tipo);
+        const tieneIVA = it.ivaVenta > 0;
+        const cantLabel = it.tipo==="Mano de Obra / HH" ? `${(it.hh||1)*(it.qty||1)} HH` : it.qty;
         return `<tr style="border-bottom:1px solid #f1f5f9">
           <td style="padding:5px 8px;color:#3b82f6;font-weight:600">${it.cod||""}</td>
           <td style="padding:5px 8px">${it.descripcion||""}</td>
           <td style="padding:5px 8px;color:#94a3b8">${it.modelo||""}</td>
-          <td style="padding:5px 8px;text-align:center">${it.tipo==="Mano de Obra / HH"?`${it.hh} HH`:it.qty}</td>
+          <td style="padding:5px 8px;text-align:center">${cantLabel}</td>
           <td style="padding:5px 8px;text-align:right">${fmt(it.ventaNeta)}</td>
           <td style="padding:5px 8px;text-align:right;color:#64748b">${tieneIVA?fmt(it.ivaVenta):"-"}</td>
           <td style="padding:5px 8px;text-align:right;font-weight:700;color:#cc0000">${fmt(it.ventaBruta)}</td>
@@ -2271,23 +2283,58 @@ function CosteoView({ contacts }) {
     const formaPago = partes.length>0 ? partes.join(" · ") : "A convenir";
     const { data: ultimas } = await supabase.from("cotizaciones").select("numero").order("numero",{ascending:false}).limit(1);
     const nextNum = ultimas&&ultimas[0] ? ultimas[0].numero+1 : 1;
+    const codigoProyecto = `Poly ${nextNum} K`;
     const quoteData = {
       numero:nextNum, fecha:proyecto.fecha||new Date().toISOString().slice(0,10),
       contact_id:proyecto.clienteId||null, nombre_cliente:proyecto.clienteNombre||proyecto.cliente||"",
       rut_cliente:proyecto.clienteRut||"", razon_social:proyecto.clienteEmpresa||"",
       direccion:proyecto.clienteDireccion||"", telefono:proyecto.clienteTelefono||"",
       forma_pago:formaPago, aplica_iva:true, iva_modo:"empresa",
-      comentarios:`Generado desde Costeo: ${proyecto.nombre}`,
+      comentarios:`${proyecto.nombre}`,
       terminos:"", estado:"borrador", tipo:"productos", total:totalBruto,
     };
     const { data: savedQuote } = await supabase.from("cotizaciones").insert(quoteData).select().single();
     if(!savedQuote){ setGenSaving(false); return; }
-    let lineas = genTipo==="fases"
-      ? fases.map((f,i)=>({ quote_id:savedQuote.id, product_id:null, codigo:`F${i+1}`, descripcion:f.nombre||`Fase ${i+1}`, cantidad:1, precio_unitario:Math.round(f.ventaNeta), descuento:0, tipo_linea:"item", hito:"", subtotal:Math.round(f.ventaNeta) }))
-      : [{ quote_id:savedQuote.id, product_id:null, codigo:"P1", descripcion:proyecto.nombre||"Suministro e instalación", cantidad:1, precio_unitario:Math.round(totalVentaNeta), descuento:0, tipo_linea:"item", hito:"", subtotal:Math.round(totalVentaNeta) }];
+
+    let lineas = [];
+    if(genTipo==="fases") {
+      // Por fase: línea madre (código Poly X K - Fase N) + hijos A.1, A.2...
+      fases.forEach((f,fi)=>{
+        const codigoFase = `${codigoProyecto} F${fi+1}`;
+        // Línea madre de la fase (venta c/IVA)
+        lineas.push({ quote_id:savedQuote.id, product_id:null,
+          codigo:codigoFase,
+          descripcion:f.nombre||`Fase ${fi+1}`,
+          cantidad:1, precio_unitario:Math.round(f.ventaBruta),
+          descuento:0, tipo_linea:"item", hito:"",
+          subtotal:Math.round(f.ventaBruta) });
+        // Ítems hijos
+        (f.items||[]).forEach((it,ii)=>{
+          const calc = calcItem(it);
+          const letra = String.fromCharCode(65+fi); // A, B, C...
+          lineas.push({ quote_id:savedQuote.id, product_id:it.productId||null,
+            codigo:`${letra}.${ii+1}`,
+            descripcion:it.descripcion||"",
+            cantidad: it.tipo==="Mano de Obra / HH" ? (it.hh||1)*(it.qty||1) : (it.qty||1),
+            precio_unitario:Math.round(calc.ventaBruta / ((it.tipo==="Mano de Obra / HH"?(it.hh||1)*(it.qty||1):(it.qty||1))||1)),
+            descuento:0, tipo_linea:"item", hito:codigoFase,
+            subtotal:Math.round(calc.ventaBruta) });
+        });
+      });
+    } else {
+      // Proyecto total: una sola línea
+      lineas.push({ quote_id:savedQuote.id, product_id:null,
+        codigo:codigoProyecto,
+        descripcion:proyecto.nombre||"Suministro e instalación",
+        cantidad:1, precio_unitario:Math.round(totalBruto),
+        descuento:0, tipo_linea:"item", hito:"",
+        subtotal:Math.round(totalBruto) });
+    }
+    // Hitos de pago
     if(partidas.length>0) {
-      lineas = [...lineas, ...partidas.map(p=>({
-        quote_id:savedQuote.id, product_id:null, codigo:"",
+      lineas = [...lineas, ...partidas.map((p,pi)=>({
+        quote_id:savedQuote.id, product_id:null,
+        codigo:`${codigoProyecto} H${pi+1}`,
         descripcion:p.concepto||"Hito de pago", cantidad:1,
         precio_unitario:Number(p.monto)||0, descuento:0, tipo_linea:"hito",
         hito:`Anticipo ${p.pctAnticipo||0}% · Parcial ${p.pctParcial||0}% · Finalizar ${p.pctFinalizar||0}%`,
@@ -2443,7 +2490,7 @@ function CosteoView({ contacts }) {
 
           {/* Fases */}
           {fasesCalc.map(f=>(
-            <FaseBlock key={f.id} fase={f} onChange={updateFase} onDelete={()=>deleteFase(f.id)} productos={productos} partidas={partidas} />
+            <FaseBlock key={f.id} fase={f} onChange={updateFase} onDelete={()=>deleteFase(f.id)} onDuplicate={()=>duplicateFase(f)} productos={productos} partidas={partidas} />
           ))}
           <button onClick={addFase} style={{ width:"100%", padding:"12px", background:"transparent", border:`1px dashed ${COLORS.border}`, borderRadius:10, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer", marginBottom:16 }}>
             + Agregar Fase
