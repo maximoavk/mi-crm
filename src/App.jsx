@@ -1569,13 +1569,18 @@ function calcItem(it) {
 
 function calcFase(fase) {
   const items = (fase.items||[]).map(calcItem);
+  const costoNeto   = items.reduce((s,i)=>s+i.costoNeto,0);
+  const margenTotal = items.reduce((s,i)=>s+i.margenTotal,0);
+  const ventaNeta   = items.reduce((s,i)=>s+i.ventaNeta,0);
+  const ivaTotal    = items.reduce((s,i)=>s+i.ivaVenta,0);
+  const ventaBruta  = items.reduce((s,i)=>s+i.ventaBruta,0);
   return {
     ...fase, items,
-    costoNeto:   items.reduce((s,i)=>s+i.costoNeto,0),
-    margenTotal: items.reduce((s,i)=>s+i.margenTotal,0),
-    ventaNeta:   items.reduce((s,i)=>s+i.ventaNeta,0),
-    ivaTotal:    items.reduce((s,i)=>s+i.ivaVenta,0),
-    ventaBruta:  items.reduce((s,i)=>s+i.ventaBruta,0),
+    costoNeto, costoTotal: costoNeto,       // alias para compatibilidad
+    margenTotal,
+    ventaNeta,
+    ivaTotal,
+    ventaBruta, ventaTotal: ventaBruta,     // alias para compatibilidad
   };
 }
 
@@ -2372,9 +2377,9 @@ function CosteoView({ contacts }) {
         descripcion:p.concepto||"Hito de pago", cantidad:1,
         precio_unitario:Number(p.monto)||0, descuento:0, tipo_linea:"hito",
         hito:[
-          p.pctAnticipo>0 ? `${p.pctAnticipo}% Anticipo${p.diasAnticipo>0?` (día 0)`:``}` : null,
-          p.pctParcial>0  ? `${p.pctParcial}% Avance${p.diasParcial>0?` (${p.diasParcial} días)`:``}` : null,
-          p.pctFinalizar>0? `${p.pctFinalizar}% Final${p.diasFinalizar>0?` (${p.diasFinalizar} días)`:``}` : null,
+          p.pctAnticipo>0  ? `${p.pctAnticipo}% Anticipo (día 0)` : null,
+          p.pctParcial>0   ? `${p.pctParcial}% Avance${Number(p.diasParcial)>0 ? ` (${p.diasParcial} días)` : ``}` : null,
+          p.pctFinalizar>0 ? `${p.pctFinalizar}% Final${Number(p.diasFinalizar)>0 ? ` (${p.diasFinalizar} días)` : ``}` : null,
         ].filter(Boolean).join(" · "),
         subtotal:Number(p.monto)||0, orden: ordenCounter++,
       }))];
@@ -2553,11 +2558,11 @@ function CosteoView({ contacts }) {
                   <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"10px 8px", letterSpacing:"0.08em" }}>CONCEPTO / HITO</th>
                   <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"10px 8px", letterSpacing:"0.08em" }}>FASE</th>
                   <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"10px 8px", letterSpacing:"0.08em" }}>MONTO</th>
-                  <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"10px 8px", letterSpacing:"0.08em" }}>% ANT.</th>
+                  <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"10px 8px", letterSpacing:"0.08em" }}>% ANT. / días</th>
                   <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"10px 8px", letterSpacing:"0.08em", textAlign:"right" }}>$ ANTICIPO</th>
-                  <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.green, padding:"10px 8px", letterSpacing:"0.08em" }}>% PARC.</th>
+                  <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.green, padding:"10px 8px", letterSpacing:"0.08em" }}>% PARC. / días</th>
                   <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.green, padding:"10px 8px", letterSpacing:"0.08em", textAlign:"right" }}>$ PARCIAL</th>
-                  <th style={{ fontFamily:FONT, fontSize:10, color:"#f59e0b", padding:"10px 8px", letterSpacing:"0.08em" }}>% FIN.</th>
+                  <th style={{ fontFamily:FONT, fontSize:10, color:"#f59e0b", padding:"10px 8px", letterSpacing:"0.08em" }}>% FIN. / días</th>
                   <th style={{ fontFamily:FONT, fontSize:10, color:"#f59e0b", padding:"10px 8px", letterSpacing:"0.08em", textAlign:"right" }}>$ FINALIZAR</th>
                   <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.text, padding:"10px 8px", letterSpacing:"0.08em", textAlign:"right" }}>TOTAL HITO</th>
                   <th style={{ fontFamily:FONT, fontSize:10, color:"#22d3ee", padding:"10px 8px", letterSpacing:"0.08em", textAlign:"center" }}>% COBRADO</th>
