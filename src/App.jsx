@@ -1229,13 +1229,20 @@ function GanttView({ isMobile }) {
 // ── MAPPERS COTIZACIONES ─────────────────────────────────────────────────────
 const mapProduct = (r) => ({
   id: r.id, code: r.codigo, name: r.nombre, description: r.descripcion||r.modelo||"",
-  price: r.precio || 0, unit: r.unidad || "un", category: r.categoria || "",
+  price: r.precio || 0,           // precio bruto (con IVA)
+  priceNeto: Math.round((r.precio||0) / 1.19), // neto calculado
+  ivaAmt: Math.round((r.precio||0) - (r.precio||0)/1.19), // IVA del costo
+  unit: r.unidad || "un", category: r.categoria || "",
   provider: r.proveedor || "", type: r.tipo || "producto",
+  url: r.url_proveedor || "",
+  updatedAt: r.precio_actualizado || "",
 });
 const mapProductToDb = (f) => ({
   codigo: f.code||"", nombre: f.name||"", descripcion: f.description||"",
   precio: Number(f.price) || 0, unidad: f.unit||"un",
   categoria: f.category||"", proveedor: f.provider||"", tipo: f.type||"producto",
+  url_proveedor: f.url||"",
+  precio_actualizado: f.updatedAt || new Date().toISOString().slice(0,10),
 });
 
 const mapQuote = (r) => ({
@@ -1287,7 +1294,7 @@ function ProductsDB({ isMobile }) {
   const [filterType, setFilterType] = useState("todos");
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({ code:"", name:"", description:"", price:"", unit:"un", category:"", provider:"", type:"producto" });
+  const [form, setForm] = useState({ code:"", name:"", description:"", price:"", unit:"un", category:"", provider:"", type:"producto", url:"", updatedAt:"" });
   const f = (k,v) => setForm(p=>({...p,[k]:v}));
 
   useEffect(()=>{ loadProducts(); },[]);
@@ -1300,11 +1307,11 @@ function ProductsDB({ isMobile }) {
   const filtered = products.filter(p => {
     const q = search.toLowerCase();
     return (filterType==="todos"||p.type===filterType) &&
-      (p.name.toLowerCase().includes(q)||p.code.toLowerCase().includes(q)||(p.description||"").toLowerCase().includes(q));
+      (p.name.toLowerCase().includes(q)||p.code.toLowerCase().includes(q)||(p.description||"").toLowerCase().includes(q)||(p.provider||"").toLowerCase().includes(q));
   });
 
-  const openNew = () => { setEditingId(null); setForm({ code:"", name:"", description:"", price:"", unit:"un", category:"", provider:"", type:"producto" }); setShowModal(true); };
-  const openEdit = (p) => { setEditingId(p.id); setForm({ code:p.code, name:p.name, description:p.description||"", price:String(p.price), unit:p.unit, category:p.category, provider:p.provider, type:p.type }); setShowModal(true); };
+  const openNew = () => { setEditingId(null); setForm({ code:"", name:"", description:"", price:"", unit:"un", category:"", provider:"", type:"producto", url:"", updatedAt:new Date().toISOString().slice(0,10) }); setShowModal(true); };
+  const openEdit = (p) => { setEditingId(p.id); setForm({ code:p.code, name:p.name, description:p.description||"", price:String(p.price), unit:p.unit, category:p.category, provider:p.provider, type:p.type, url:p.url||"", updatedAt:p.updatedAt||"" }); setShowModal(true); };
 
   const save = async () => {
     if (!form.code||!form.name) return;
@@ -1347,29 +1354,50 @@ function ProductsDB({ isMobile }) {
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12, fontFamily:FONT }}>
             <thead>
               <tr style={{ borderBottom:`2px solid ${COLORS.border}` }}>
-                {["Código","Nombre","Modelo","Tipo","Proveedor","Precio Unit.","Unidad",""].map(h=>(
-                  <th key={h} style={{ padding:"10px 12px", textAlign:"left", color:COLORS.textMuted, fontWeight:600, fontSize:10, letterSpacing:"0.08em", textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
+                {["Código","Nombre","Modelo","Tipo","Proveedor","Precio Bruto","Neto","IVA Costo","Actualizado","Link",""].map(h=>(
+                  <th key={h} style={{ padding:"10px 10px", textAlign:"left", color:COLORS.textMuted, fontWeight:600, fontSize:10, letterSpacing:"0.08em", textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {filtered.map(p=>(
+              {filtered.map(p=>{
+                const neto = Math.round(p.price / 1.19);
+                const iva  = p.price - neto;
+                return (
                 <tr key={p.id} style={{ borderBottom:`1px solid ${COLORS.border}` }}>
-                  <td style={{ padding:"10px 12px", color:COLORS.accent, fontWeight:600 }}>{p.code}</td>
-                  <td style={{ padding:"10px 12px", color:COLORS.text, fontWeight:500 }}>{p.name}</td>
-                  <td style={{ padding:"10px 12px", color:COLORS.textMuted, maxWidth:200, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.description}</td>
-                  <td style={{ padding:"10px 12px" }}><Tag label={p.type} color={p.type==="producto"?COLORS.accent:p.type==="servicio"?COLORS.green:COLORS.yellow} /></td>
-                  <td style={{ padding:"10px 12px", color:COLORS.textMuted }}>{p.provider}</td>
-                  <td style={{ padding:"10px 12px", color:COLORS.green, fontWeight:600 }}>{fmt(p.price)}</td>
-                  <td style={{ padding:"10px 12px", color:COLORS.textMuted }}>{p.unit}</td>
-                  <td style={{ padding:"10px 12px" }}>
+                  <td style={{ padding:"8px 10px", color:COLORS.accent, fontWeight:600 }}>{p.code}</td>
+                  <td style={{ padding:"8px 10px", color:COLORS.text, fontWeight:500, minWidth:140 }}>{p.name}</td>
+                  <td style={{ padding:"8px 10px", color:COLORS.textMuted, maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={p.description}>{p.description}</td>
+                  <td style={{ padding:"8px 10px" }}><Tag label={p.type} color={p.type==="producto"?COLORS.accent:p.type==="servicio"?COLORS.green:COLORS.yellow} /></td>
+                  <td style={{ padding:"8px 10px", color:COLORS.textMuted, whiteSpace:"nowrap" }}>{p.provider}</td>
+                  {/* Precio Bruto */}
+                  <td style={{ padding:"8px 10px", color:COLORS.text, fontWeight:700, whiteSpace:"nowrap" }}>{fmt(p.price)}</td>
+                  {/* Neto */}
+                  <td style={{ padding:"8px 10px", color:COLORS.green, fontWeight:600, whiteSpace:"nowrap" }}>{fmt(neto)}</td>
+                  {/* IVA Costo */}
+                  <td style={{ padding:"8px 10px", color:"#ef4444", fontSize:11, whiteSpace:"nowrap" }}>{fmt(iva)}</td>
+                  {/* Actualizado */}
+                  <td style={{ padding:"8px 10px", color:COLORS.textMuted, fontSize:10, whiteSpace:"nowrap" }}>
+                    {p.updatedAt ? new Date(p.updatedAt).toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"2-digit"}) : "—"}
+                  </td>
+                  {/* Link proveedor */}
+                  <td style={{ padding:"8px 10px", textAlign:"center" }}>
+                    {p.url ? (
+                      <a href={p.url} target="_blank" rel="noopener noreferrer"
+                        style={{ padding:"2px 8px", background:`${COLORS.accent}22`, border:`1px solid ${COLORS.accent}44`, borderRadius:4, color:COLORS.accent, textDecoration:"none", fontFamily:FONT, fontSize:10, whiteSpace:"nowrap" }}>
+                        🔗 Link
+                      </a>
+                    ) : <span style={{ color:COLORS.textMuted, fontSize:10 }}>—</span>}
+                  </td>
+                  <td style={{ padding:"8px 10px" }}>
                     <div style={{ display:"flex", gap:6 }}>
                       <button onClick={()=>openEdit(p)} style={{ background:"none", border:`1px solid ${COLORS.accent}44`, borderRadius:4, color:COLORS.accent, cursor:"pointer", fontSize:11, padding:"2px 7px" }}>✏️</button>
                       <button onClick={()=>del(p.id)} style={{ background:"none", border:`1px solid ${COLORS.red}44`, borderRadius:4, color:COLORS.red, cursor:"pointer", fontSize:11, padding:"2px 7px" }}>✕</button>
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
           {filtered.length===0 && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>Sin productos. ¡Agrega el primero!</div>}
@@ -1379,22 +1407,54 @@ function ProductsDB({ isMobile }) {
       {showModal && (
         <Modal title={editingId?"Editar Ítem":"Nuevo Ítem"} onClose={()=>setShowModal(false)} onSubmit={save}>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-            <Input label="Código *" value={form.code} onChange={e=>f("code",e.target.value)} placeholder="Ej: S07" />
+            <Input label="Código *" value={form.code} onChange={e=>f("code",e.target.value)} placeholder="Ej: 1230T1" />
             <Select label="Tipo" value={form.type} onChange={e=>f("type",e.target.value)}>
               <option value="producto">Producto</option>
               <option value="servicio">Servicio</option>
               <option value="proyecto">Proyecto</option>
             </Select>
           </div>
-          <Input label="Nombre *" value={form.name} onChange={e=>f("name",e.target.value)} placeholder="Ej: Mantención programada" />
-          <Input label="Modelo" value={form.description} onChange={e=>f("description",e.target.value)} placeholder="Ej: DH-IPC-HDW1230T1" />
+          <Input label="Nombre *" value={form.name} onChange={e=>f("name",e.target.value)} placeholder="Ej: Cámara Domo 4MP" />
+          <Input label="Modelo / Descripción" value={form.description} onChange={e=>f("description",e.target.value)} placeholder="Ej: DH-IPC-HDW1230T1-0280B" />
+
+          {/* Precio bruto con desglose automático */}
+          <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"12px 14px", marginBottom:4 }}>
+            <Input label="Precio Bruto del Proveedor (CLP c/IVA)" value={form.price} onChange={e=>f("price",e.target.value)} type="number" placeholder="0" />
+            {Number(form.price) > 0 && (
+              <div style={{ display:"flex", gap:16, marginTop:8 }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:2 }}>Neto (÷1.19)</div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.green }}>{fmt(Math.round(Number(form.price)/1.19))}</div>
+                </div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:2 }}>IVA del costo</div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:"#ef4444" }}>{fmt(Number(form.price) - Math.round(Number(form.price)/1.19))}</div>
+                </div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:2 }}>Bruto</div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text }}>{fmt(Number(form.price))}</div>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-            <Input label="Precio unitario (CLP)" value={form.price} onChange={e=>f("price",e.target.value)} type="number" placeholder="0" />
             <Input label="Unidad" value={form.unit} onChange={e=>f("unit",e.target.value)} placeholder="un / hr / m2" />
+            <Input label="Proveedor" value={form.provider} onChange={e=>f("provider",e.target.value)} placeholder="Ej: Smartsecure" />
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-            <Input label="Proveedor" value={form.provider} onChange={e=>f("provider",e.target.value)} placeholder="Ej: Smart" />
             <Input label="Categoría" value={form.category} onChange={e=>f("category",e.target.value)} placeholder="Ej: CCTV" />
+            <Input label="Fecha actualización precio" value={form.updatedAt} onChange={e=>f("updatedAt",e.target.value)} type="date" />
+          </div>
+          {/* URL Proveedor */}
+          <div>
+            <Input label="URL del producto (proveedor)" value={form.url} onChange={e=>f("url",e.target.value)} placeholder="https://smartsecure.cl/producto/..." />
+            {form.url && (
+              <a href={form.url} target="_blank" rel="noopener noreferrer"
+                style={{ display:"inline-block", marginTop:4, fontSize:10, color:COLORS.accent, textDecoration:"none" }}>
+                🔗 Verificar link →
+              </a>
+            )}
           </div>
         </Modal>
       )}
@@ -1775,11 +1835,16 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
                             onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                             <div>
                               <div style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:600, color:COLORS.text }}>{p.name}</div>
-                              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>{p.code} · {p.category||""}</div>
+                              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>{p.code} · {p.provider||""} · {p.category||""}</div>
                             </div>
-                            <div style={{ textAlign:"right" }}>
-                              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Neto: <strong style={{color:COLORS.text}}>${Math.round((p.price||0)/1.19).toLocaleString("es-CL")}</strong></div>
-                              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>Bruto: ${Math.round(p.price||0).toLocaleString("es-CL")}</div>
+                            <div style={{ textAlign:"right", minWidth:120 }}>
+                              <div style={{ fontFamily:FONT, fontSize:11, fontWeight:700, color:COLORS.text }}>{fmt(p.price)}</div>
+                              <div style={{ display:"flex", gap:6, justifyContent:"flex-end" }}>
+                                <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.green }}>Neto: {fmt(Math.round(p.price/1.19))}</span>
+                                <span style={{ fontFamily:FONT, fontSize:9, color:"#ef4444" }}>IVA: {fmt(p.price - Math.round(p.price/1.19))}</span>
+                              </div>
+                              {p.updatedAt && <div style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted }}>Act: {new Date(p.updatedAt).toLocaleDateString("es-CL",{day:"2-digit",month:"short"})}</div>}
+                              {p.url && <a href={p.url} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{ fontFamily:FONT, fontSize:8, color:COLORS.accent, textDecoration:"none" }}>🔗 ver producto</a>}
                             </div>
                           </div>
                         ))}
