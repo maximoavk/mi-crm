@@ -1468,25 +1468,27 @@ function QuotePDF({ quote, onBack }) {
           </div>
         )}
 
-        {/* FORMA DE PAGO */}
-        <div style={{ marginBottom:16, borderTop:"1px solid #e0e0e0", paddingTop:10 }}>
-          {quote.comments && (
-            <div style={{ marginBottom:8 }}>
-              <span style={{ fontWeight:700 }}>Comentarios: </span>
-              <span style={{ fontSize:11, color:"#555" }}>{quote.comments}</span>
+        {/* FORMA DE PAGO — solo si hay hitos, se muestra en Partidas. Si no hay, mostrar el texto */}
+        {lines.filter(l=>l.lineType==="hito").length === 0 && (
+          <div style={{ marginBottom:16, borderTop:"1px solid #e0e0e0", paddingTop:10 }}>
+            {quote.comments && (
+              <div style={{ marginBottom:8 }}>
+                <span style={{ fontWeight:700 }}>Comentarios: </span>
+                <span style={{ fontSize:11, color:"#555" }}>{quote.comments}</span>
+              </div>
+            )}
+            <div>
+              <span style={{ fontWeight:700 }}>Forma de Pago: </span>
+              <span style={{ fontSize:11 }}>{quote.paymentMethod}</span>
             </div>
-          )}
-          <div>
-            <span style={{ fontWeight:700 }}>Forma de Pago: </span>
-            <span style={{ fontSize:11 }}>{quote.paymentMethod}</span>
           </div>
-          {quote.paymentMethod && quote.paymentMethod.includes("50%") && (
-            <div style={{ display:"flex", gap:24, marginTop:6, paddingLeft:12, borderLeft:"3px solid #cc0000" }}>
-              <div style={{ fontSize:11 }}>Anticipo (50%): <strong>{fmt(total * 0.5)}</strong></div>
-              <div style={{ fontSize:11 }}>Al finalizar (50%): <strong>{fmt(total * 0.5)}</strong></div>
-            </div>
-          )}
-        </div>
+        )}
+        {lines.filter(l=>l.lineType==="hito").length > 0 && quote.comments && (
+          <div style={{ marginBottom:12, paddingTop:8, borderTop:"1px solid #e0e0e0" }}>
+            <span style={{ fontWeight:700 }}>Comentarios: </span>
+            <span style={{ fontSize:11, color:"#555" }}>{quote.comments}</span>
+          </div>
+        )}
 
         {/* TÉRMINOS */}
         {quote.terms && (
@@ -1879,6 +1881,7 @@ function FaseBlock({ fase, onChange, onDelete, onDuplicate, productos, partidas 
 function PartidaRow({ partida, fases, onChange, onDelete }) {
   const inp = (k,v) => onChange({...partida,[k]:v});
   const style = { background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"5px 8px" };
+  const styleSmall = { ...style, width:44, padding:"5px 4px", textAlign:"center" };
   const monto = Number(partida.monto)||0;
   const anticipo = monto*(Number(partida.pctAnticipo)||0)/100;
   const parcial = monto*(Number(partida.pctParcial)||0)/100;
@@ -1899,20 +1902,38 @@ function PartidaRow({ partida, fases, onChange, onDelete }) {
       <td style={{ padding:"8px 6px", width:120 }}>
         <input style={{...style, width:"100%"}} type="number" value={partida.monto} onChange={e=>inp("monto",e.target.value)} placeholder="$" />
       </td>
-      <td style={{ padding:"8px 6px", width:70 }}>
-        <input style={{...style, width:"100%", color:COLORS.accent}} type="number" value={partida.pctAnticipo} onChange={e=>inp("pctAnticipo",e.target.value)} placeholder="%" />
+      {/* ANTICIPO */}
+      <td style={{ padding:"8px 6px", width:100 }}>
+        <div style={{ display:"flex", gap:3, alignItems:"center" }}>
+          <input style={{...styleSmall, color:COLORS.accent}} type="number" value={partida.pctAnticipo} onChange={e=>inp("pctAnticipo",e.target.value)} placeholder="%" />
+          <span style={{ color:COLORS.textMuted, fontSize:10 }}>%</span>
+          <input style={{...styleSmall, color:COLORS.textMuted}} type="number" value={partida.diasAnticipo||0} onChange={e=>inp("diasAnticipo",e.target.value)} placeholder="d" title="Días plazo" />
+          <span style={{ color:COLORS.textMuted, fontSize:9 }}>d</span>
+        </div>
       </td>
       <td style={{ padding:"8px 6px", width:100, fontFamily:FONT, fontSize:11, color:COLORS.accent, textAlign:"right" }}>
         {anticipo > 0 ? `$${anticipo.toLocaleString("es-CL")}` : "-"}
       </td>
-      <td style={{ padding:"8px 6px", width:70 }}>
-        <input style={{...style, width:"100%", color:COLORS.green}} type="number" value={partida.pctParcial} onChange={e=>inp("pctParcial",e.target.value)} placeholder="%" />
+      {/* PARCIAL */}
+      <td style={{ padding:"8px 6px", width:100 }}>
+        <div style={{ display:"flex", gap:3, alignItems:"center" }}>
+          <input style={{...styleSmall, color:COLORS.green}} type="number" value={partida.pctParcial} onChange={e=>inp("pctParcial",e.target.value)} placeholder="%" />
+          <span style={{ color:COLORS.textMuted, fontSize:10 }}>%</span>
+          <input style={{...styleSmall, color:COLORS.textMuted}} type="number" value={partida.diasParcial||0} onChange={e=>inp("diasParcial",e.target.value)} placeholder="d" title="Días plazo" />
+          <span style={{ color:COLORS.textMuted, fontSize:9 }}>d</span>
+        </div>
       </td>
       <td style={{ padding:"8px 6px", width:100, fontFamily:FONT, fontSize:11, color:COLORS.green, textAlign:"right" }}>
         {parcial > 0 ? `$${parcial.toLocaleString("es-CL")}` : "-"}
       </td>
-      <td style={{ padding:"8px 6px", width:70 }}>
-        <input style={{...style, width:"100%", color:"#f59e0b"}} type="number" value={partida.pctFinalizar} onChange={e=>inp("pctFinalizar",e.target.value)} placeholder="%" />
+      {/* FINALIZAR */}
+      <td style={{ padding:"8px 6px", width:100 }}>
+        <div style={{ display:"flex", gap:3, alignItems:"center" }}>
+          <input style={{...styleSmall, color:"#f59e0b"}} type="number" value={partida.pctFinalizar} onChange={e=>inp("pctFinalizar",e.target.value)} placeholder="%" />
+          <span style={{ color:COLORS.textMuted, fontSize:10 }}>%</span>
+          <input style={{...styleSmall, color:COLORS.textMuted}} type="number" value={partida.diasFinalizar||0} onChange={e=>inp("diasFinalizar",e.target.value)} placeholder="d" title="Días plazo" />
+          <span style={{ color:COLORS.textMuted, fontSize:9 }}>d</span>
+        </div>
       </td>
       <td style={{ padding:"8px 6px", width:100, fontFamily:FONT, fontSize:11, color:"#f59e0b", textAlign:"right" }}>
         {finalizar > 0 ? `$${finalizar.toLocaleString("es-CL")}` : "-"}
@@ -2350,7 +2371,11 @@ function CosteoView({ contacts }) {
         codigo:`${codigoProyecto} H${pi+1}`,
         descripcion:p.concepto||"Hito de pago", cantidad:1,
         precio_unitario:Number(p.monto)||0, descuento:0, tipo_linea:"hito",
-        hito:`Anticipo ${p.pctAnticipo||0}% · Parcial ${p.pctParcial||0}% · Finalizar ${p.pctFinalizar||0}%`,
+        hito:[
+          p.pctAnticipo>0 ? `${p.pctAnticipo}% Anticipo${p.diasAnticipo>0?` (día 0)`:``}` : null,
+          p.pctParcial>0  ? `${p.pctParcial}% Avance${p.diasParcial>0?` (${p.diasParcial} días)`:``}` : null,
+          p.pctFinalizar>0? `${p.pctFinalizar}% Final${p.diasFinalizar>0?` (${p.diasFinalizar} días)`:``}` : null,
+        ].filter(Boolean).join(" · "),
         subtotal:Number(p.monto)||0, orden: ordenCounter++,
       }))];
     }
