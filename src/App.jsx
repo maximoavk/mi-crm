@@ -1154,7 +1154,7 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
 
   const removeLine = (idx) => setLines(l=>l.filter((_,i)=>i!==idx));
 
-  const neto = lines.reduce((s,l)=>s+Number(l.subtotal),0);
+  const neto = lines.filter(l=>l.lineType!=="hito").reduce((s,l)=>s+Number(l.subtotal),0);
   const iva = header.hasIva ? neto * 0.19 : 0;
   const total = neto + iva;
 
@@ -1343,7 +1343,7 @@ function QuotePDF({ quote, onBack }) {
     supabase.from("quote_lines").select("*").eq("quote_id", quote.id).order("id").then(({data})=>setLines((data||[]).map(mapQuoteLine)));
   },[]);
 
-  const neto = lines.reduce((s,l)=>s+Number(l.subtotal),0);
+  const neto = lines.filter(l=>l.lineType!=="hito").reduce((s,l)=>s+Number(l.subtotal),0);
   const iva = quote.hasIva ? neto*0.19 : 0;
   const total = neto + iva;
 
@@ -1406,7 +1406,7 @@ function QuotePDF({ quote, onBack }) {
             </tr>
           </thead>
           <tbody>
-            {lines.map((l,i)=>(
+            {lines.filter(l=>l.lineType!=="hito").map((l,i)=>(
               <tr key={l.id} style={{ background:i%2===0?"white":"#f9f9f9", borderBottom:"1px solid #e0e0e0" }}>
                 <td style={{ padding:"8px 10px", fontWeight:600, color:"#333" }}>{l.code}</td>
                 <td style={{ padding:"8px 10px" }}>{l.description}</td>
@@ -1440,6 +1440,31 @@ function QuotePDF({ quote, onBack }) {
             </tbody>
           </table>
         </div>
+
+        {/* HITOS DE PAGO */}
+        {lines.filter(l=>l.lineType==="hito").length>0 && (
+          <div style={{ marginBottom:16, borderTop:"2px solid #e0e0e0", paddingTop:10 }}>
+            <div style={{ fontWeight:700, fontSize:12, marginBottom:8 }}>Partidas de Pago</div>
+            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:11 }}>
+              <thead>
+                <tr style={{ background:"#f0f0f0" }}>
+                  <th style={{ padding:"5px 8px", textAlign:"left" }}>Concepto</th>
+                  <th style={{ padding:"5px 8px", textAlign:"right" }}>Monto</th>
+                  <th style={{ padding:"5px 8px", textAlign:"left", color:"#555" }}>Condición</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lines.filter(l=>l.lineType==="hito").map((l,i)=>(
+                  <tr key={l.id} style={{ borderBottom:"1px solid #e0e0e0", background:i%2===0?"white":"#f9f9f9" }}>
+                    <td style={{ padding:"5px 8px" }}>{l.description}</td>
+                    <td style={{ padding:"5px 8px", textAlign:"right", fontWeight:600 }}>{fmt(l.subtotal)}</td>
+                    <td style={{ padding:"5px 8px", color:"#555" }}>{l.milestone}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* FORMA DE PAGO */}
         <div style={{ marginBottom:16, borderTop:"1px solid #e0e0e0", paddingTop:10 }}>
@@ -2291,46 +2316,47 @@ function CosteoView({ contacts }) {
       direccion:proyecto.clienteDireccion||"", telefono:proyecto.clienteTelefono||"",
       forma_pago:formaPago, aplica_iva:true, iva_modo:"empresa",
       comentarios:`${proyecto.nombre}`,
-      terminos:"", estado:"borrador", tipo:"productos", total:totalBruto,
+      terminos:"", estado:"borrador", tipo:"productos", total:Math.round(totalBruto),
     };
     const { data: savedQuote } = await supabase.from("cotizaciones").insert(quoteData).select().single();
     if(!savedQuote){ setGenSaving(false); return; }
 
     let lineas = [];
     if(genTipo==="fases") {
-      // Por fase: línea madre (código Poly X K - Fase N) + hijos A.1, A.2...
+      // Por fase: línea madre + hijos — precios en NETO (el módulo cotizaciones aplica IVA)
       fases.forEach((f,fi)=>{
         const codigoFase = `${codigoProyecto} F${fi+1}`;
-        // Línea madre de la fase (venta c/IVA)
         lineas.push({ quote_id:savedQuote.id, product_id:null,
           codigo:codigoFase,
           descripcion:f.nombre||`Fase ${fi+1}`,
-          cantidad:1, precio_unitario:Math.round(f.ventaBruta),
+          cantidad:1, precio_unitario:Math.round(f.ventaNeta),
           descuento:0, tipo_linea:"item", hito:"",
-          subtotal:Math.round(f.ventaBruta) });
-        // Ítems hijos
+          subtotal:Math.round(f.ventaNeta) });
+        // Ítems hijos en neto
         (f.items||[]).forEach((it,ii)=>{
           const calc = calcItem(it);
-          const letra = String.fromCharCode(65+fi); // A, B, C...
+          const letra = String.fromCharCode(65+fi);
+          const cantItem = it.tipo==="Mano de Obra / HH" ? (it.hh||1)*(it.qty||1) : (it.qty||1);
+          const precioUnitNeto = Math.round(calc.ventaNeta / (cantItem||1));
           lineas.push({ quote_id:savedQuote.id, product_id:it.productId||null,
             codigo:`${letra}.${ii+1}`,
             descripcion:it.descripcion||"",
-            cantidad: it.tipo==="Mano de Obra / HH" ? (it.hh||1)*(it.qty||1) : (it.qty||1),
-            precio_unitario:Math.round(calc.ventaBruta / ((it.tipo==="Mano de Obra / HH"?(it.hh||1)*(it.qty||1):(it.qty||1))||1)),
+            cantidad:cantItem,
+            precio_unitario:precioUnitNeto,
             descuento:0, tipo_linea:"item", hito:codigoFase,
-            subtotal:Math.round(calc.ventaBruta) });
+            subtotal:Math.round(calc.ventaNeta) });
         });
       });
     } else {
-      // Proyecto total: una sola línea
+      // Proyecto total: una sola línea en neto
       lineas.push({ quote_id:savedQuote.id, product_id:null,
         codigo:codigoProyecto,
         descripcion:proyecto.nombre||"Suministro e instalación",
-        cantidad:1, precio_unitario:Math.round(totalBruto),
+        cantidad:1, precio_unitario:Math.round(totalVentaNeta),
         descuento:0, tipo_linea:"item", hito:"",
-        subtotal:Math.round(totalBruto) });
+        subtotal:Math.round(totalVentaNeta) });
     }
-    // Hitos de pago
+    // Hitos de pago — se guardan como referencia, sin afectar el total
     if(partidas.length>0) {
       lineas = [...lineas, ...partidas.map((p,pi)=>({
         quote_id:savedQuote.id, product_id:null,
