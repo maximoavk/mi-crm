@@ -796,6 +796,436 @@ function ReportsView({ contacts, deals, tasks, isMobile }) {
     </div>
   );
 }
+// ── GANTT MODULE ─────────────────────────────────────────────────────────────
+const GANTT_COLORS = {
+  fase:   "#3b82f6",
+  tarea:  "#6366f1",
+  hito:   "#f59e0b",
+  done:   "#39ff14",
+  late:   "#ef4444",
+  warn:   "#f59e0b",
+};
+const TIPO_LABEL  = { F:"Fase", T:"Tarea", H:"Hito" };
+const ROL_OPTS    = ["PM","EXC","COO","DES","MAR","ADM"];
+
+function addDays(dateStr, days) {
+  const d = new Date(dateStr); d.setDate(d.getDate() + days); return d.toISOString().slice(0,10);
+}
+function diffDays(a, b) {
+  return Math.round((new Date(b) - new Date(a)) / 86400000);
+}
+function fmtShort(dateStr) {
+  if(!dateStr) return "";
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("es-CL",{day:"2-digit",month:"short"});
+}
+
+// Genera rango de fechas para el header del calendario
+function buildCalHeader(startDate, days) {
+  const cols = [];
+  for(let i=0; i<days; i++) {
+    const d = new Date(startDate); d.setDate(d.getDate()+i);
+    const dow = ["D","L","M","X","J","V","S"][d.getDay()];
+    const isWeekend = d.getDay()===0||d.getDay()===6;
+    cols.push({ date: d.toISOString().slice(0,10), dow, day: d.getDate(), month: d.getMonth(), isWeekend });
+  }
+  return cols;
+}
+
+function GanttBar({ task, calStart, calDays, cellW, today }) {
+  if(!task.inicio || !task.fin) return null;
+  const offsetDays = diffDays(calStart, task.inicio);
+  const durDays    = Math.max(1, diffDays(task.inicio, task.fin)+1);
+  const left  = offsetDays * cellW;
+  const width = durDays * cellW;
+  if(left + width < 0 || left > calDays * cellW) return null;
+
+  const isHito = task.tipo === "H";
+  const pct    = Math.min(100, Math.max(0, Number(task.pctAvance)||0));
+  const isLate = task.fin < today && pct < 100;
+  const color  = isHito ? GANTT_COLORS.hito : pct===100 ? GANTT_COLORS.done : isLate ? GANTT_COLORS.late : task.tipo==="F" ? GANTT_COLORS.fase : GANTT_COLORS.tarea;
+
+  if(isHito) return (
+    <div style={{ position:"absolute", left: left + cellW/2 - 7, top:"50%", transform:"translateY(-50%) rotate(45deg)",
+      width:14, height:14, background:color, boxShadow:`0 0 6px ${color}88`, zIndex:2 }} title={`${task.nombre} · ${fmtShort(task.fin)}`} />
+  );
+  return (
+    <div style={{ position:"absolute", left, top:4, height:"calc(100% - 8px)", width: Math.max(width-2,4),
+      background:`${color}33`, border:`1.5px solid ${color}`, borderRadius:4, overflow:"hidden", zIndex:2 }}
+      title={`${task.nombre} · ${fmtShort(task.inicio)}→${fmtShort(task.fin)} · ${pct}%`}>
+      <div style={{ width:`${pct}%`, height:"100%", background:`${color}88`, transition:"width 0.3s" }} />
+      {width > 40 && <span style={{ position:"absolute", left:5, top:"50%", transform:"translateY(-50%)", fontSize:9,
+        fontFamily:"monospace", color:"white", fontWeight:700, whiteSpace:"nowrap" }}>{pct}%</span>}
+    </div>
+  );
+}
+
+function GanttView({ isMobile }) {
+  const [cotNum, setCotNum]       = useState("");
+  const [searching, setSearching] = useState(false);
+  const [proyecto, setProyecto]   = useState(null); // { nombre, cotNum }
+  const [tasks, setTasks]         = useState([]);
+  const [saving, setSaving]       = useState(false);
+  const [ganttId, setGanttId]     = useState(null);
+  const [calStart, setCalStart]   = useState(new Date().toISOString().slice(0,10));
+  const [calDays, setCalDays]     = useState(60);
+  const [editRow, setEditRow]     = useState(null); // id de fila en edición inline
+  const cellW = 28;
+  const today = new Date().toISOString().slice(0,10);
+  const calCols = buildCalHeader(calStart, calDays);
+
+  // Agrupar meses para header
+  const months = [];
+  calCols.forEach((c,i) => {
+    const mName = new Date(c.date).toLocaleDateString("es-CL",{month:"short",year:"2-digit"});
+    if(months.length===0 || months[months.length-1].name!==mName)
+      months.push({ name:mName, start:i, count:1 });
+    else months[months.length-1].count++;
+  });
+
+  // Cargar Gantt existente desde Supabase
+  const cargarGantt = async (num) => {
+    setSearching(true);
+    const { data: gantt } = await supabase.from("gantt_proyectos").select("*").eq("numero_cotizacion", Number(num)).single();
+    if(gantt) {
+      setGanttId(gantt.id);
+      setProyecto({ nombre: gantt.nombre, cotNum: num });
+      setCalStart(gantt.fecha_inicio || today);
+      const { data: rows } = await supabase.from("gantt_tareas").select("*").eq("gantt_id", gantt.id).order("orden");
+      setTasks((rows||[]).map(r=>({
+        id: r.id, tipo: r.tipo, nombre: r.nombre, rol: r.rol||"",
+        responsable: r.responsable||"", inicio: r.fecha_inicio, fin: r.fecha_fin,
+        pctPlan: r.pct_plan||0, pctAvance: r.pct_avance||0,
+        hhPresup: r.hh_presup||0, hhReal: r.hh_real||0,
+        depende: r.depende_de||"", orden: r.orden||0, parentId: r.parent_id||null,
+      })));
+    } else {
+      // Nueva: buscar cotización para obtener nombre e importar fases del costeo
+      const { data: cot } = await supabase.from("cotizaciones").select("*").eq("numero", Number(num)).single();
+      if(cot) {
+        setProyecto({ nombre: cot.comentarios||cot.razon_social||`Proyecto Cot. ${num}`, cotNum: num });
+        // Buscar líneas tipo "item" para importar como fases
+        const { data: lines } = await supabase.from("quote_lines").select("*").eq("quote_id", cot.id).eq("tipo_linea","item").order("orden");
+        const imported = (lines||[]).map((l,i)=>({
+          id: `new_${Date.now()}_${i}`, tipo:"F", nombre: l.descripcion||`Fase ${i+1}`,
+          rol:"PM", responsable:"", inicio: today, fin: addDays(today, 14),
+          pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, depende:"", orden:i, parentId:null,
+        }));
+        setTasks(imported);
+        setGanttId(null);
+      } else {
+        alert(`No se encontró la cotización N° ${num}`);
+      }
+    }
+    setSearching(false);
+  };
+
+  const saveGantt = async () => {
+    if(!proyecto) return;
+    setSaving(true);
+    let gId = ganttId;
+    if(!gId) {
+      const { data } = await supabase.from("gantt_proyectos").insert({
+        numero_cotizacion: Number(cotNum), nombre: proyecto.nombre,
+        fecha_inicio: calStart, fecha_fin: addDays(calStart, calDays),
+      }).select().single();
+      gId = data?.id;
+      setGanttId(gId);
+    } else {
+      await supabase.from("gantt_proyectos").update({ nombre: proyecto.nombre, fecha_inicio: calStart }).eq("id", gId);
+    }
+    if(!gId) { setSaving(false); return; }
+    // Borrar y reinsertar tareas
+    await supabase.from("gantt_tareas").delete().eq("gantt_id", gId);
+    const rows = tasks.map((t,i)=>({
+      gantt_id: gId, tipo: t.tipo, nombre: t.nombre, rol: t.rol,
+      responsable: t.responsable, fecha_inicio: t.inicio, fecha_fin: t.fin,
+      pct_plan: Number(t.pctPlan)||0, pct_avance: Number(t.pctAvance)||0,
+      hh_presup: Number(t.hhPresup)||0, hh_real: Number(t.hhReal)||0,
+      depende_de: t.depende||"", orden: i, parent_id: t.parentId||null,
+    }));
+    await supabase.from("gantt_tareas").insert(rows);
+    setSaving(false);
+    alert("✅ Gantt guardada");
+  };
+
+  const addTask = (tipo="T") => {
+    const lastFin = tasks.length ? tasks[tasks.length-1].fin : today;
+    const start   = addDays(lastFin, 1);
+    setTasks(t=>[...t, {
+      id:`new_${Date.now()}`, tipo, nombre: tipo==="H"?"Hito nuevo":tipo==="F"?"Nueva Fase":"Nueva Tarea",
+      rol:"EXC", responsable:"", inicio:start, fin: addDays(start, tipo==="H"?0:5),
+      pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, depende:"", orden:t.length, parentId:null,
+    }]);
+  };
+
+  const updateTask = (id, field, val) => setTasks(t=>t.map(r=>r.id===id?{...r,[field]:val}:r));
+  const deleteTask = (id) => setTasks(t=>t.filter(r=>r.id!==id));
+  const moveTask   = (id, dir) => {
+    const idx = tasks.findIndex(t=>t.id===id);
+    if(idx<0) return;
+    const arr = [...tasks];
+    const swap = idx+dir;
+    if(swap<0||swap>=arr.length) return;
+    [arr[idx],arr[swap]] = [arr[swap],arr[idx]];
+    setTasks(arr);
+  };
+
+  const s = { // input style
+    background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4,
+    color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"3px 6px", outline:"none",
+  };
+
+  return (
+    <div style={{ fontFamily:FONT, color:COLORS.text }}>
+      {/* HEADER */}
+      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20, flexWrap:"wrap" }}>
+        <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>
+          📅 Control de <span style={{color:COLORS.accent}}>Proyecto</span>
+        </div>
+        <div style={{ display:"flex", gap:8, alignItems:"center", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"6px 12px" }}>
+          <span style={{ fontSize:11, color:COLORS.textMuted }}>Cot. N°</span>
+          <input value={cotNum} onChange={e=>setCotNum(e.target.value)} onKeyDown={e=>e.key==="Enter"&&cargarGantt(cotNum)}
+            placeholder="ej: 83" style={{...s, width:60}} />
+          <button onClick={()=>cargarGantt(cotNum)} disabled={searching||!cotNum}
+            style={{ padding:"5px 12px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer", opacity:searching?0.6:1 }}>
+            {searching?"...":"Cargar"}
+          </button>
+        </div>
+        {proyecto && <>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.accent }}>{proyecto.nombre}</div>
+          <div style={{ display:"flex", gap:6, marginLeft:"auto" }}>
+            <button onClick={()=>addTask("F")} style={{ padding:"5px 10px", background:`${GANTT_COLORS.fase}22`, border:`1px solid ${GANTT_COLORS.fase}44`, borderRadius:6, color:GANTT_COLORS.fase, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Fase</button>
+            <button onClick={()=>addTask("T")} style={{ padding:"5px 10px", background:`${GANTT_COLORS.tarea}22`, border:`1px solid ${GANTT_COLORS.tarea}44`, borderRadius:6, color:GANTT_COLORS.tarea, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Tarea</button>
+            <button onClick={()=>addTask("H")} style={{ padding:"5px 10px", background:`${GANTT_COLORS.hito}22`, border:`1px solid ${GANTT_COLORS.hito}44`, borderRadius:6, color:GANTT_COLORS.hito, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Hito</button>
+            <button onClick={saveGantt} disabled={saving} style={{ padding:"5px 14px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer", opacity:saving?0.6:1 }}>
+              {saving?"Guardando...":"💾 Guardar"}
+            </button>
+          </div>
+        </>}
+      </div>
+
+      {!proyecto && (
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:40, textAlign:"center" }}>
+          <div style={{ fontSize:40, marginBottom:12 }}>📅</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, color:COLORS.textMuted }}>Ingresa el número de cotización para cargar o crear un plan de proyecto</div>
+          <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginTop:8 }}>Las fases se importan automáticamente desde el costeo</div>
+        </div>
+      )}
+
+      {proyecto && (
+        <>
+          {/* Controles de vista */}
+          <div style={{ display:"flex", gap:10, marginBottom:12, alignItems:"center", flexWrap:"wrap" }}>
+            <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Inicio calendario:</span>
+            <input type="date" value={calStart} onChange={e=>setCalStart(e.target.value)} style={{...s}} />
+            <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Días vista:</span>
+            {[30,60,90,120].map(d=>(
+              <button key={d} onClick={()=>setCalDays(d)} style={{ padding:"3px 10px", background: calDays===d?COLORS.accent:"transparent", border:`1px solid ${calDays===d?COLORS.accent:COLORS.border}`, borderRadius:5, color: calDays===d?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>{d}d</button>
+            ))}
+            {/* Leyenda */}
+            <div style={{ display:"flex", gap:10, marginLeft:"auto", flexWrap:"wrap" }}>
+              {[["Fase","#3b82f6"],["Tarea","#6366f1"],["Hito","#f59e0b"],["Completado","#39ff14"],["Atrasado","#ef4444"]].map(([l,c])=>(
+                <span key={l} style={{ fontFamily:FONT, fontSize:10, color:c }}>● {l}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* TABLA GANTT */}
+          <div style={{ overflowX:"auto", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10 }}>
+            <table style={{ borderCollapse:"collapse", fontSize:11, fontFamily:FONT }}>
+              <thead>
+                {/* Fila meses */}
+                <tr style={{ background:COLORS.surface }}>
+                  {/* Columnas fijas */}
+                  {[["#",28],["Tipo",44],["Descripción",180],["Rol",50],["Responsable",90],["Inicio",88],["Fin",88],["Plan%",52],["Av.%",52],["HH Pres.",62],["HH Real",62],["Dep.",48],["",52]].map(([h,w])=>(
+                    <th key={h} style={{ padding:"6px 4px", color:COLORS.textMuted, whiteSpace:"nowrap", minWidth:w, maxWidth:w, borderRight:`1px solid ${COLORS.border}`, textAlign:"center", letterSpacing:"0.06em", fontSize:9 }}>{h}</th>
+                  ))}
+                  {/* Meses */}
+                  {months.map((m,i)=>(
+                    <th key={i} colSpan={m.count} style={{ padding:"6px 4px", color:COLORS.accent, borderRight:`1px solid ${COLORS.border}`, textAlign:"center", fontFamily:FONT_DISPLAY, fontSize:10, textTransform:"uppercase", letterSpacing:"0.08em", whiteSpace:"nowrap", minWidth:m.count*cellW }}>
+                      {m.name}
+                    </th>
+                  ))}
+                </tr>
+                {/* Fila días */}
+                <tr style={{ background:COLORS.bg }}>
+                  {/* Columnas fijas vacías */}
+                  {Array(13).fill(0).map((_,i)=>(
+                    <th key={i} style={{ borderRight:`1px solid ${COLORS.border}`, borderBottom:`1px solid ${COLORS.border}` }} />
+                  ))}
+                  {/* Días */}
+                  {calCols.map((c,i)=>(
+                    <th key={i} style={{ width:cellW, minWidth:cellW, maxWidth:cellW, padding:"2px 0", textAlign:"center",
+                      background: c.date===today ? `${COLORS.accent}33` : c.isWeekend ? `${COLORS.border}44` : "transparent",
+                      borderRight:`1px solid ${COLORS.border}22`, borderBottom:`1px solid ${COLORS.border}`,
+                      color: c.date===today ? COLORS.accent : c.isWeekend ? COLORS.textMuted : COLORS.textMuted,
+                      fontSize:9, fontWeight: c.date===today?"700":"400" }}>
+                      <div>{c.dow}</div>
+                      <div>{c.day}</div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {tasks.map((t, idx)=>{
+                  const isFase = t.tipo==="F";
+                  const isHito = t.tipo==="H";
+                  const pct    = Number(t.pctAvance)||0;
+                  const isLate = t.fin < today && pct < 100;
+                  const rowBg  = isFase ? `${GANTT_COLORS.fase}11` : "transparent";
+                  const editing = editRow===t.id;
+
+                  return (
+                    <tr key={t.id} style={{ borderBottom:`1px solid ${COLORS.border}22`, background:rowBg }}
+                      onDoubleClick={()=>setEditRow(editing?null:t.id)}>
+                      {/* Nro */}
+                      <td style={{ padding:"4px 4px", textAlign:"center", color:COLORS.textMuted, fontSize:10, borderRight:`1px solid ${COLORS.border}` }}>
+                        <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
+                          <button onClick={()=>moveTask(t.id,-1)} style={{ background:"none",border:"none",color:COLORS.textMuted,cursor:"pointer",fontSize:8,padding:0,lineHeight:1 }}>▲</button>
+                          <span>{idx+1}</span>
+                          <button onClick={()=>moveTask(t.id,1)} style={{ background:"none",border:"none",color:COLORS.textMuted,cursor:"pointer",fontSize:8,padding:0,lineHeight:1 }}>▼</button>
+                        </div>
+                      </td>
+                      {/* Tipo */}
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                        {editing ? (
+                          <select value={t.tipo} onChange={e=>updateTask(t.id,"tipo",e.target.value)} style={{...s,width:50,padding:"2px 3px"}}>
+                            {Object.entries(TIPO_LABEL).map(([k,v])=><option key={k} value={k}>{v}</option>)}
+                          </select>
+                        ) : (
+                          <span style={{ padding:"2px 6px", borderRadius:4, fontSize:9, fontWeight:700,
+                            background: isFase?`${GANTT_COLORS.fase}22`:isHito?`${GANTT_COLORS.hito}22`:`${GANTT_COLORS.tarea}22`,
+                            color: isFase?GANTT_COLORS.fase:isHito?GANTT_COLORS.hito:GANTT_COLORS.tarea }}>
+                            {TIPO_LABEL[t.tipo]}
+                          </span>
+                        )}
+                      </td>
+                      {/* Descripción */}
+                      <td style={{ padding:"4px 6px", borderRight:`1px solid ${COLORS.border}`, maxWidth:180 }}>
+                        {editing ? (
+                          <input value={t.nombre} onChange={e=>updateTask(t.id,"nombre",e.target.value)} style={{...s,width:170}} />
+                        ) : (
+                          <span style={{ fontWeight:isFase?700:400, color:isFase?COLORS.text:COLORS.textMuted,
+                            paddingLeft: isFase?0:10, fontSize: isFase?12:11, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", display:"block", maxWidth:175 }}>
+                            {!isFase && <span style={{color:COLORS.border,marginRight:4}}>└</span>}{t.nombre}
+                          </span>
+                        )}
+                      </td>
+                      {/* Rol */}
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                        {editing ? (
+                          <select value={t.rol} onChange={e=>updateTask(t.id,"rol",e.target.value)} style={{...s,width:50,padding:"2px 3px"}}>
+                            {ROL_OPTS.map(r=><option key={r} value={r}>{r}</option>)}
+                          </select>
+                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.accent }}>{t.rol}</span>}
+                      </td>
+                      {/* Responsable */}
+                      <td style={{ padding:"4px 4px", borderRight:`1px solid ${COLORS.border}` }}>
+                        {editing ? (
+                          <input value={t.responsable} onChange={e=>updateTask(t.id,"responsable",e.target.value)} style={{...s,width:84}} />
+                        ) : <span style={{ fontSize:10, color:COLORS.textMuted }}>{t.responsable}</span>}
+                      </td>
+                      {/* Inicio */}
+                      <td style={{ padding:"4px 4px", borderRight:`1px solid ${COLORS.border}` }}>
+                        {editing ? (
+                          <input type="date" value={t.inicio} onChange={e=>updateTask(t.id,"inicio",e.target.value)} style={{...s,width:82}} />
+                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.text }}>{fmtShort(t.inicio)}</span>}
+                      </td>
+                      {/* Fin */}
+                      <td style={{ padding:"4px 4px", borderRight:`1px solid ${COLORS.border}` }}>
+                        {editing ? (
+                          <input type="date" value={t.fin} onChange={e=>updateTask(t.id,"fin",e.target.value)} style={{...s,width:82}} />
+                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:isLate?GANTT_COLORS.late:COLORS.text }}>{fmtShort(t.fin)}{isLate&&" ⚠"}</span>}
+                      </td>
+                      {/* Plan % */}
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                        {editing ? (
+                          <input type="number" value={t.pctPlan} onChange={e=>updateTask(t.id,"pctPlan",e.target.value)} style={{...s,width:44}} min={0} max={100} />
+                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.textMuted }}>{t.pctPlan}%</span>}
+                      </td>
+                      {/* Avance % */}
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                        {editing ? (
+                          <input type="number" value={t.pctAvance} onChange={e=>updateTask(t.id,"pctAvance",e.target.value)} style={{...s,width:44,color:COLORS.accent}} min={0} max={100} />
+                        ) : (
+                          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+                            <span style={{ fontFamily:"monospace", fontSize:10, color: pct===100?GANTT_COLORS.done:isLate?GANTT_COLORS.late:COLORS.accent, fontWeight:700 }}>{pct}%</span>
+                            <div style={{ width:40, height:3, background:COLORS.border, borderRadius:2 }}>
+                              <div style={{ width:`${pct}%`, height:"100%", background: pct===100?GANTT_COLORS.done:isLate?GANTT_COLORS.late:COLORS.accent, borderRadius:2 }} />
+                            </div>
+                          </div>
+                        )}
+                      </td>
+                      {/* HH Pres. */}
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                        {editing ? (
+                          <input type="number" value={t.hhPresup} onChange={e=>updateTask(t.id,"hhPresup",e.target.value)} style={{...s,width:54}} />
+                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.textMuted }}>{t.hhPresup>0?t.hhPresup:"-"}</span>}
+                      </td>
+                      {/* HH Real */}
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                        {editing ? (
+                          <input type="number" value={t.hhReal} onChange={e=>updateTask(t.id,"hhReal",e.target.value)} style={{...s,width:54,color:"#39ff14"}} />
+                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color: t.hhReal>t.hhPresup&&t.hhPresup>0?GANTT_COLORS.late:"#39ff14" }}>{t.hhReal>0?t.hhReal:"-"}</span>}
+                      </td>
+                      {/* Dependencia */}
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                        {editing ? (
+                          <input value={t.depende} onChange={e=>updateTask(t.id,"depende",e.target.value)} style={{...s,width:40}} placeholder="#" />
+                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.textMuted }}>{t.depende||"-"}</span>}
+                      </td>
+                      {/* Acciones */}
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                        <div style={{ display:"flex", gap:2, justifyContent:"center" }}>
+                          <button onClick={()=>setEditRow(editing?null:t.id)}
+                            style={{ background:editing?COLORS.accent:"none", border:`1px solid ${editing?COLORS.accent:COLORS.border}`, borderRadius:3, color:editing?COLORS.bg:COLORS.textMuted, cursor:"pointer", fontSize:9, padding:"1px 5px" }}>
+                            {editing?"✓":"✏"}
+                          </button>
+                          <button onClick={()=>deleteTask(t.id)}
+                            style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:12, padding:"0 2px" }}>×</button>
+                        </div>
+                      </td>
+                      {/* Barras Gantt */}
+                      {calCols.map((c,ci)=>(
+                        <td key={ci} style={{ width:cellW, minWidth:cellW, maxWidth:cellW, padding:0, position:"relative", height:32,
+                          background: c.date===today?`${COLORS.accent}18`:c.isWeekend?`${COLORS.border}22`:"transparent",
+                          borderRight:`1px solid ${COLORS.border}11` }}>
+                          {ci===0 && <GanttBar task={t} calStart={calStart} calDays={calDays} cellW={cellW} today={today} />}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* RESUMEN KPIs */}
+          <div style={{ display:"flex", gap:12, marginTop:16, flexWrap:"wrap" }}>
+            {[
+              { label:"Total Tareas", val: tasks.filter(t=>t.tipo==="T").length, color:GANTT_COLORS.tarea },
+              { label:"Completadas", val: tasks.filter(t=>Number(t.pctAvance)===100).length, color:GANTT_COLORS.done },
+              { label:"Atrasadas", val: tasks.filter(t=>t.fin<today&&Number(t.pctAvance)<100).length, color:GANTT_COLORS.late },
+              { label:"HH Presup.", val: tasks.reduce((s,t)=>s+Number(t.hhPresup),0), color:COLORS.textMuted, suffix:"HH" },
+              { label:"HH Real", val: tasks.reduce((s,t)=>s+Number(t.hhReal),0), color:"#39ff14", suffix:"HH" },
+              { label:"Avance Prom.", val: tasks.filter(t=>t.tipo!=="H").length ? Math.round(tasks.filter(t=>t.tipo!=="H").reduce((s,t)=>s+Number(t.pctAvance),0)/tasks.filter(t=>t.tipo!=="H").length) : 0, color:COLORS.accent, suffix:"%" },
+            ].map(k=>(
+              <div key={k.label} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 16px", flex:1, minWidth:100 }}>
+                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:4 }}>{k.label}</div>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:k.color }}>{k.val}{k.suffix||""}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:8 }}>
+            💡 Doble clic en una fila para editar · Enter en el campo cotización para cargar
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── MAPPERS COTIZACIONES ─────────────────────────────────────────────────────
 const mapProduct = (r) => ({
   id: r.id, code: r.codigo, name: r.nombre, description: r.descripcion||r.modelo||"",
@@ -2752,6 +3182,7 @@ const NAV = [
   { key:"quotes",    label:"Cotizar",   icon:"◑" },
   { key:"products",  label:"Catálogo",  icon:"◫" },
   { key:"costeo",    label:"Costeo",    icon:"◐" },
+  { key:"gantt",     label:"Proyectos", icon:"▦" },
   { key:"tasks",     label:"Tareas",    icon:"◉" },
   { key:"reports",   label:"Reportes",  icon:"◌" },
 ];
@@ -2922,6 +3353,7 @@ export default function CRM() {
         {view==="quotes"    && <QuotesView contacts={contacts} isMobile={isMobile} />}
         {view==="products"  && <ProductsDB isMobile={isMobile} />}
         {view==="costeo"    && <CosteoView contacts={contacts} isMobile={isMobile} />}
+        {view==="gantt"     && <GanttView isMobile={isMobile} />}
         {view==="tasks"     && <TasksView tasks={tasks} setTasks={setTasks} contacts={contacts} isMobile={isMobile} />}
         {view==="reports"   && <ReportsView contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} />}
       </main>
