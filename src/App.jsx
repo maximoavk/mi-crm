@@ -882,9 +882,10 @@ function ProductsDB({ isMobile }) {
 function QuotesView({ contacts, isMobile }) {
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState("list"); // list | new | detail | pdf
+  const [view, setView] = useState("list");
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [nextNumber, setNextNumber] = useState(1);
+  const [search, setSearch] = useState("");
 
   useEffect(()=>{ loadQuotes(); },[]);
   const loadQuotes = async () => {
@@ -929,8 +930,26 @@ function QuotesView({ contacts, isMobile }) {
 
       {loading ? <Loader /> : (
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {/* Buscador */}
+          <div style={{ position:"relative", marginBottom:4 }}>
+            <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:COLORS.textMuted, fontSize:14 }}>🔍</span>
+            <input value={search} onChange={e=>setSearch(e.target.value)}
+              placeholder="Buscar por N° cotización, RUT o nombre cliente..."
+              style={{ width:"100%", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 36px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+            {search && <button onClick={()=>setSearch("")} style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:14 }}>✕</button>}
+          </div>
+          {search && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:4 }}>
+            {quotes.filter(q=>{const s=search.toLowerCase(); return String(q.number).includes(s)||(q.clientRut||"").toLowerCase().includes(s)||(q.clientName||"").toLowerCase().includes(s)||(q.clientCompany||"").toLowerCase().includes(s);}).length} resultado(s) para <span style={{color:COLORS.accent}}>"{search}"</span>
+          </div>}
           {quotes.length===0 && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>Sin cotizaciones aún.</div>}
-          {quotes.map(q=>{
+          {quotes.filter(q=>{
+            if(!search) return true;
+            const s = search.toLowerCase();
+            return String(q.number).includes(s) ||
+              (q.clientRut||"").toLowerCase().includes(s) ||
+              (q.clientName||"").toLowerCase().includes(s) ||
+              (q.clientCompany||"").toLowerCase().includes(s);
+          }).map(q=>{
             const sc = STATUS_QUOTE[q.status]||STATUS_QUOTE.borrador;
             return (
               <div key={q.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"16px 20px" }}>
