@@ -1781,6 +1781,10 @@ function CosteoView({ contacts }) {
   const [rutSearch, setRutSearch] = useState("");
   const [rutMatches, setRutMatches] = useState([]);
   const [productos, setProductos] = useState([]);
+  const [genModal, setGenModal] = useState(false);
+  const [genTipo, setGenTipo] = useState("fases");
+  const [genSaving, setGenSaving] = useState(false);
+  const [genDone, setGenDone] = useState(null);
 
   useEffect(()=>{
     const saved = localStorage.getItem("costeo_proyectos");
@@ -2112,11 +2116,6 @@ function CosteoView({ contacts }) {
   };
 
   // ── GENERAR COTIZACIÓN ──────────────────────────────────────────────────────
-  const [genModal, setGenModal] = useState(false);
-  const [genTipo, setGenTipo] = useState("fases");
-  const [genSaving, setGenSaving] = useState(false);
-  const [genDone, setGenDone] = useState(null);
-
   const generarCotizacion = async () => {
     setGenSaving(true);
     const fases = (proyecto.fases||[]).map(calcFase);
