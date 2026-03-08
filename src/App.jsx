@@ -1545,7 +1545,14 @@ function ItemRow({ item, onChange, onDelete, productos }) {
       </>) : (<>
         <td style={{ padding:"6px 4px", width:40 }}><input style={style} type="number" value={item.qty} onChange={e=>inp("qty",e.target.value)} /></td>
         <td style={{ padding:"6px 4px", width:100 }}><input style={{...style}} type="number" value={item.costoUnitNeto||0} onChange={e=>inp("costoUnitNeto",e.target.value)} placeholder="Neto unit." /></td>
-        <td /><td /><td />
+        {/* Checkbox IVA por línea Equipos/Materiales */}
+        <td style={{ padding:"6px 4px", width:70, textAlign:"center" }}>
+          <label style={{ display:"flex", alignItems:"center", gap:4, cursor:"pointer", justifyContent:"center" }}>
+            <input type="checkbox" checked={item.aplicaIVA!==false} onChange={e=>inp("aplicaIVA",e.target.checked)} style={{ cursor:"pointer", accentColor:"#ef4444" }} />
+            <span style={{ fontFamily:FONT, fontSize:10, color: item.aplicaIVA!==false?"#ef4444":COLORS.textMuted }}>IVA</span>
+          </label>
+        </td>
+        <td /><td />
       </>)}
 
       {/* Margen % */}
@@ -1648,7 +1655,8 @@ function FaseBlock({ fase, onChange, onDelete, productos, partidas }) {
                           </>) : (<>
                             <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:40 }}>QTY</th>
                             <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.text, padding:"4px", width:100 }}>COSTO NETO U.</th>
-                            <th style={{ padding:"4px" }} /><th style={{ padding:"4px" }} /><th style={{ padding:"4px" }} />
+                            <th style={{ fontFamily:FONT, fontSize:10, color:"#ef4444", padding:"4px", width:70, textAlign:"center" }}>IVA?</th>
+                            <th style={{ padding:"4px" }} /><th style={{ padding:"4px" }} />
                           </>)}
                           <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", width:55 }}>MARG%</th>
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:90 }}>COSTO NETO</th>
@@ -2103,8 +2111,129 @@ function CosteoView({ contacts }) {
     w.document.close();
   };
 
+  // ── GENERAR COTIZACIÓN ──────────────────────────────────────────────────────
+  const [genModal, setGenModal] = useState(false);
+  const [genTipo, setGenTipo] = useState("fases");
+  const [genSaving, setGenSaving] = useState(false);
+  const [genDone, setGenDone] = useState(null);
+
+  const generarCotizacion = async () => {
+    setGenSaving(true);
+    const fases = (proyecto.fases||[]).map(calcFase);
+    const partidas = proyecto.partidas||[];
+    const totalVentaNeta = fases.reduce((s,f)=>s+f.ventaNeta,0);
+    const totalBruto = fases.reduce((s,f)=>s+f.ventaBruta,0);
+    const totalAnt = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctAnticipo)||0)/100),0);
+    const totalPar = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctParcial)||0)/100),0);
+    const totalFin = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctFinalizar)||0)/100),0);
+    const pctAnt = totalBruto>0?Math.round(totalAnt/totalBruto*100):0;
+    const pctPar = totalBruto>0?Math.round(totalPar/totalBruto*100):0;
+    const pctFin = totalBruto>0?Math.round(totalFin/totalBruto*100):0;
+    const partes = [];
+    if(pctAnt>0) partes.push(`${pctAnt}% Anticipo`);
+    if(pctPar>0) partes.push(`${pctPar}% Avance de obra`);
+    if(pctFin>0) partes.push(`${pctFin}% Al finalizar`);
+    const formaPago = partes.length>0 ? partes.join(" · ") : "A convenir";
+    const { data: ultimas } = await supabase.from("cotizaciones").select("numero").order("numero",{ascending:false}).limit(1);
+    const nextNum = ultimas&&ultimas[0] ? ultimas[0].numero+1 : 1;
+    const quoteData = {
+      numero:nextNum, fecha:proyecto.fecha||new Date().toISOString().slice(0,10),
+      contact_id:proyecto.clienteId||null, nombre_cliente:proyecto.clienteNombre||proyecto.cliente||"",
+      rut_cliente:proyecto.clienteRut||"", razon_social:proyecto.clienteEmpresa||"",
+      direccion:proyecto.clienteDireccion||"", telefono:proyecto.clienteTelefono||"",
+      forma_pago:formaPago, aplica_iva:true, iva_modo:"empresa",
+      comentarios:`Generado desde Costeo: ${proyecto.nombre}`,
+      terminos:"", estado:"borrador", tipo:"productos", total:totalBruto,
+    };
+    const { data: savedQuote } = await supabase.from("cotizaciones").insert(quoteData).select().single();
+    if(!savedQuote){ setGenSaving(false); return; }
+    let lineas = genTipo==="fases"
+      ? fases.map((f,i)=>({ quote_id:savedQuote.id, product_id:null, codigo:`F${i+1}`, descripcion:f.nombre||`Fase ${i+1}`, cantidad:1, precio_unitario:Math.round(f.ventaNeta), descuento:0, tipo_linea:"item", hito:"", subtotal:Math.round(f.ventaNeta) }))
+      : [{ quote_id:savedQuote.id, product_id:null, codigo:"P1", descripcion:proyecto.nombre||"Suministro e instalación", cantidad:1, precio_unitario:Math.round(totalVentaNeta), descuento:0, tipo_linea:"item", hito:"", subtotal:Math.round(totalVentaNeta) }];
+    if(partidas.length>0) {
+      lineas = [...lineas, ...partidas.map(p=>({
+        quote_id:savedQuote.id, product_id:null, codigo:"",
+        descripcion:p.concepto||"Hito de pago", cantidad:1,
+        precio_unitario:Number(p.monto)||0, descuento:0, tipo_linea:"hito",
+        hito:`Anticipo ${p.pctAnticipo||0}% · Parcial ${p.pctParcial||0}% · Finalizar ${p.pctFinalizar||0}%`,
+        subtotal:Number(p.monto)||0,
+      }))];
+    }
+    if(lineas.length>0) await supabase.from("quote_lines").insert(lineas);
+    setGenSaving(false);
+    setGenDone(nextNum);
+  };
+
   return (
     <div>
+      {/* Modal generar cotización */}
+      {genModal && (
+        <div style={{ position:"fixed", inset:0, background:"#000a", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:14, padding:28, width:420, maxWidth:"95vw" }}>
+            {genDone ? (
+              <>
+                <div style={{ textAlign:"center", marginBottom:16 }}>
+                  <div style={{ fontSize:36 }}>✅</div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text, marginTop:8 }}>Cotización #{genDone} creada</div>
+                  <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginTop:4 }}>Ve al módulo Cotizar para revisarla y enviarla</div>
+                </div>
+                <button onClick={()=>{ setGenModal(false); setGenDone(null); }}
+                  style={{ width:"100%", padding:"10px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+                  Cerrar
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text, marginBottom:4 }}>Generar Cotización</div>
+                <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:20 }}>Se creará en borrador con los datos del proyecto.</div>
+                <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:8, fontWeight:600 }}>¿Cómo desglosar las líneas?</div>
+                <div style={{ display:"flex", gap:10, marginBottom:20 }}>
+                  {[["fases","Por fase","Una línea por cada fase"],["total","Proyecto total","Una sola línea con el total"]].map(([val,lab,desc])=>(
+                    <div key={val} onClick={()=>setGenTipo(val)}
+                      style={{ flex:1, border:`2px solid ${genTipo===val?COLORS.accent:COLORS.border}`, borderRadius:9, padding:"12px 10px", cursor:"pointer", background:genTipo===val?`${COLORS.accent}11`:"transparent" }}>
+                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:genTipo===val?COLORS.accent:COLORS.text }}>{lab}</div>
+                      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:3 }}>{desc}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ background:COLORS.card, borderRadius:8, padding:"10px 14px", marginBottom:20 }}>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:6, textTransform:"uppercase", letterSpacing:"0.08em" }}>Vista previa</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}><strong>Cliente:</strong> {proyecto.clienteNombre||proyecto.cliente||"(sin cliente)"}</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}><strong>RUT:</strong> {proyecto.clienteRut||"—"}</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}><strong>Fecha:</strong> {proyecto.fecha}</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text, marginTop:4 }}><strong>Forma de pago:</strong> {(()=>{
+                    const ps=proyecto.partidas||[], tb=fasesCalc.reduce((s,f)=>s+f.ventaBruta,0);
+                    const ant=ps.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctAnticipo)||0)/100),0);
+                    const par=ps.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctParcial)||0)/100),0);
+                    const fin=ps.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctFinalizar)||0)/100),0);
+                    const pts=[];
+                    if(tb>0&&ant>0) pts.push(`${Math.round(ant/tb*100)}% Anticipo`);
+                    if(tb>0&&par>0) pts.push(`${Math.round(par/tb*100)}% Avance`);
+                    if(tb>0&&fin>0) pts.push(`${Math.round(fin/tb*100)}% Al finalizar`);
+                    return pts.length>0?pts.join(" · "):"A convenir";
+                  })()}</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:4 }}>
+                    {genTipo==="fases"
+                      ? `${(proyecto.fases||[]).length} línea(s) por fase + ${(proyecto.partidas||[]).length} hito(s) de pago`
+                      : `1 línea total + ${(proyecto.partidas||[]).length} hito(s) de pago`}
+                  </div>
+                </div>
+                <div style={{ display:"flex", gap:10 }}>
+                  <button onClick={()=>{ setGenModal(false); setGenDone(null); }}
+                    style={{ flex:1, padding:"10px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
+                    Cancelar
+                  </button>
+                  <button onClick={generarCotizacion} disabled={genSaving}
+                    style={{ flex:2, padding:"10px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer", opacity:genSaving?0.6:1 }}>
+                    {genSaving?"Creando...":"✦ Crear Cotización"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16, flexWrap:"wrap" }}>
         <button onClick={()=>setSelected(null)} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>← Proyectos</button>
@@ -2116,6 +2245,10 @@ function CosteoView({ contacts }) {
           style={{ background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:12, padding:"5px 10px" }} />
         <button onClick={printInterno} style={{ padding:"8px 14px", background:"#1e293b", border:"none", borderRadius:7, color:"white", fontFamily:FONT, fontSize:11, cursor:"pointer" }}>📋 PDF Interno</button>
         <button onClick={printCliente} style={{ padding:"8px 14px", background:COLORS.accent, border:"none", borderRadius:7, color:COLORS.bg, fontFamily:FONT, fontSize:11, fontWeight:700, cursor:"pointer" }}>📄 PDF Cliente</button>
+        <button onClick={()=>{ setGenModal(true); setGenDone(null); }}
+          style={{ padding:"8px 16px", background:"#7c3aed", border:"none", borderRadius:7, color:"white", fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer" }}>
+          ✦ Generar Cotización
+        </button>
       </div>
 
       {/* Buscador RUT / Cliente */}
