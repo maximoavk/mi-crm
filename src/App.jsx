@@ -1229,13 +1229,14 @@ function GanttView({ isMobile }) {
 // ── MAPPERS COTIZACIONES ─────────────────────────────────────────────────────
 const mapProduct = (r) => ({
   id: r.id, code: r.codigo, name: r.nombre, description: r.descripcion||r.modelo||"",
-  price: r.precio || 0,           // precio bruto (con IVA)
-  priceNeto: Math.round((r.precio||0) / 1.19), // neto calculado
-  ivaAmt: Math.round((r.precio||0) - (r.precio||0)/1.19), // IVA del costo
+  price: r.precio || 0,
+  priceNeto: Math.round((r.precio||0) / 1.19),
+  ivaAmt: Math.round((r.precio||0) - (r.precio||0)/1.19),
   unit: r.unidad || "un", category: r.categoria || "",
   provider: r.proveedor || "", type: r.tipo || "producto",
   url: r.url_proveedor || "",
   updatedAt: r.precio_actualizado || "",
+  skuProveedor: r.sku_proveedor || "",
 });
 const mapProductToDb = (f) => ({
   codigo: f.code||"", nombre: f.name||"", descripcion: f.description||"",
@@ -1243,6 +1244,7 @@ const mapProductToDb = (f) => ({
   categoria: f.category||"", proveedor: f.provider||"", tipo: f.type||"producto",
   url_proveedor: f.url||"",
   precio_actualizado: f.updatedAt || new Date().toISOString().slice(0,10),
+  sku_proveedor: f.skuProveedor||"",
 });
 
 const mapQuote = (r) => ({
@@ -1294,7 +1296,7 @@ function ProductsDB({ isMobile }) {
   const [filterType, setFilterType] = useState("todos");
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({ code:"", name:"", description:"", price:"", unit:"un", category:"", provider:"", type:"producto", url:"", updatedAt:"" });
+  const [form, setForm] = useState({ code:"", name:"", description:"", price:"", unit:"un", category:"", provider:"", type:"producto", url:"", updatedAt:"", skuProveedor:"" });
   const f = (k,v) => setForm(p=>({...p,[k]:v}));
 
   useEffect(()=>{ loadProducts(); },[]);
@@ -1310,8 +1312,8 @@ function ProductsDB({ isMobile }) {
       (p.name.toLowerCase().includes(q)||p.code.toLowerCase().includes(q)||(p.description||"").toLowerCase().includes(q)||(p.provider||"").toLowerCase().includes(q));
   });
 
-  const openNew = () => { setEditingId(null); setForm({ code:"", name:"", description:"", price:"", unit:"un", category:"", provider:"", type:"producto", url:"", updatedAt:new Date().toISOString().slice(0,10) }); setShowModal(true); };
-  const openEdit = (p) => { setEditingId(p.id); setForm({ code:p.code, name:p.name, description:p.description||"", price:String(p.price), unit:p.unit, category:p.category, provider:p.provider, type:p.type, url:p.url||"", updatedAt:p.updatedAt||"" }); setShowModal(true); };
+  const openNew = () => { setEditingId(null); setForm({ code:"", name:"", description:"", price:"", unit:"un", category:"", provider:"", type:"producto", url:"", updatedAt:new Date().toISOString().slice(0,10), skuProveedor:"" }); setShowModal(true); };
+  const openEdit = (p) => { setEditingId(p.id); setForm({ code:p.code, name:p.name, description:p.description||"", price:String(p.price), unit:p.unit, category:p.category, provider:p.provider, type:p.type, url:p.url||"", updatedAt:p.updatedAt||"", skuProveedor:p.skuProveedor||"" }); setShowModal(true); };
 
   const save = async () => {
     if (!form.code||!form.name) return;
@@ -1354,7 +1356,7 @@ function ProductsDB({ isMobile }) {
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12, fontFamily:FONT }}>
             <thead>
               <tr style={{ borderBottom:`2px solid ${COLORS.border}` }}>
-                {["Código","Nombre","Modelo","Tipo","Proveedor","Precio Bruto","Neto","IVA Costo","Actualizado","Link",""].map(h=>(
+                {["Código","SKU Proveedor","Nombre","Modelo","Tipo","Proveedor","Precio Bruto","Neto","IVA Costo","Actualizado","Link",""].map(h=>(
                   <th key={h} style={{ padding:"10px 10px", textAlign:"left", color:COLORS.textMuted, fontWeight:600, fontSize:10, letterSpacing:"0.08em", textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
                 ))}
               </tr>
@@ -1366,6 +1368,12 @@ function ProductsDB({ isMobile }) {
                 return (
                 <tr key={p.id} style={{ borderBottom:`1px solid ${COLORS.border}` }}>
                   <td style={{ padding:"8px 10px", color:COLORS.accent, fontWeight:600 }}>{p.code}</td>
+                  {/* SKU Proveedor */}
+                  <td style={{ padding:"8px 10px", color:COLORS.textMuted, fontSize:10, fontFamily:"monospace", whiteSpace:"nowrap" }} title={p.skuProveedor}>
+                    {p.skuProveedor ? (
+                      <span style={{ background:`${COLORS.accent}15`, border:`1px solid ${COLORS.accent}33`, borderRadius:3, padding:"1px 5px", color:COLORS.textMuted }}>{p.skuProveedor}</span>
+                    ) : <span style={{ color:"#374151" }}>—</span>}
+                  </td>
                   <td style={{ padding:"8px 10px", color:COLORS.text, fontWeight:500, minWidth:140 }}>{p.name}</td>
                   <td style={{ padding:"8px 10px", color:COLORS.textMuted, maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={p.description}>{p.description}</td>
                   <td style={{ padding:"8px 10px" }}><Tag label={p.type} color={p.type==="producto"?COLORS.accent:p.type==="servicio"?COLORS.green:COLORS.yellow} /></td>
@@ -1415,7 +1423,13 @@ function ProductsDB({ isMobile }) {
             </Select>
           </div>
           <Input label="Nombre *" value={form.name} onChange={e=>f("name",e.target.value)} placeholder="Ej: Cámara Domo 4MP" />
-          <Input label="Modelo / Descripción" value={form.description} onChange={e=>f("description",e.target.value)} placeholder="Ej: DH-IPC-HDW1230T1-0280B" />
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+            <Input label="Modelo / Descripción" value={form.description} onChange={e=>f("description",e.target.value)} placeholder="Ej: Rack 4U Dahua 530x400" />
+            <div>
+              <Input label="SKU Proveedor" value={form.skuProveedor} onChange={e=>f("skuProveedor",e.target.value)} placeholder="Ej: DH-IPC-HDW1230T1-0280B" />
+              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginTop:2, paddingLeft:2 }}>Ref. cruzada — no reemplaza tu código Polygonos</div>
+            </div>
+          </div>
 
           {/* Precio bruto con desglose automático */}
           <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"12px 14px", marginBottom:4 }}>
@@ -1835,7 +1849,7 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
                             onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                             <div>
                               <div style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:600, color:COLORS.text }}>{p.name}</div>
-                              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>{p.code} · {p.provider||""} · {p.category||""}</div>
+                              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>{p.code}{p.skuProveedor ? ` · SKU: ${p.skuProveedor}` : ""} · {p.provider||""} · {p.category||""}</div>
                             </div>
                             <div style={{ textAlign:"right", minWidth:120 }}>
                               <div style={{ fontFamily:FONT, fontSize:11, fontWeight:700, color:COLORS.text }}>{fmt(p.price)}</div>
