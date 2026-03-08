@@ -1315,11 +1315,34 @@ function ProductsDB({ isMobile }) {
   const [form, setForm] = useState({ code:"", name:"", description:"", price:"", unit:"un", category:"", provider:"", type:"producto", url:"", updatedAt:"", skuProveedor:"" });
   const f = (k,v) => setForm(p=>({...p,[k]:v}));
 
-  useEffect(()=>{ loadProducts(); },[]);
+  // ── Suppliers & product_prices ──────────────────────────────────────────────
+  const [suppliers, setSuppliers] = useState([]);
+  const [productPrices, setProductPrices] = useState([]);
+  const [priceForm, setPriceForm] = useState({ supplier_id:"", precio_bruto:"", url:"", sku_proveedor:"", es_preferido:false });
+  const [showPriceForm, setShowPriceForm] = useState(false);
+  const [editingPriceId, setEditingPriceId] = useState(null);
+  const [savingPrice, setSavingPrice] = useState(false);
+
+  useEffect(()=>{ loadProducts(); loadSuppliers(); },[]);
+
   const loadProducts = async () => {
     const { data } = await supabase.from("products").select("*").order("codigo");
     setProducts((data||[]).map(mapProduct));
     setLoading(false);
+  };
+
+  const loadSuppliers = async () => {
+    const { data } = await supabase.from("suppliers").select("*").order("nombre");
+    setSuppliers(data||[]);
+  };
+
+  const loadProductPrices = async (productId) => {
+    const { data } = await supabase
+      .from("product_prices")
+      .select("*, suppliers(id, nombre, rut, email, telefono)")
+      .eq("product_id", productId)
+      .order("es_preferido", { ascending: false });
+    setProductPrices(data||[]);
   };
 
   const filtered = products.filter(p => {
@@ -1329,8 +1352,17 @@ function ProductsDB({ isMobile }) {
       (p.name.toLowerCase().includes(q)||p.code.toLowerCase().includes(q)||(p.description||"").toLowerCase().includes(q)||(p.provider||"").toLowerCase().includes(q));
   });
 
-  const openNew = () => { setEditingId(null); setForm({ code:"", name:"", description:"", price:"", unit:"un", category:"", provider:"", type:"producto", url:"", updatedAt:new Date().toISOString().slice(0,10), skuProveedor:"" }); setShowModal(true); };
-  const openEdit = (p) => { setEditingId(p.id); setForm({ code:p.code, name:p.name, description:p.description||"", price:String(p.price), unit:p.unit, category:p.category, provider:p.provider, type:p.type, url:p.url||"", updatedAt:p.updatedAt||"", skuProveedor:p.skuProveedor||"" }); setShowModal(true); };
+  const openNew = () => {
+    setEditingId(null); setProductPrices([]); setShowPriceForm(false);
+    setForm({ code:"", name:"", description:"", price:"", unit:"un", category:"", provider:"", type:"producto", url:"", updatedAt:new Date().toISOString().slice(0,10), skuProveedor:"" });
+    setShowModal(true);
+  };
+  const openEdit = (p) => {
+    setEditingId(p.id); setShowPriceForm(false);
+    setForm({ code:p.code, name:p.name, description:p.description||"", price:String(p.price), unit:p.unit, category:p.category, provider:p.provider, type:p.type, url:p.url||"", updatedAt:p.updatedAt||"", skuProveedor:p.skuProveedor||"" });
+    loadProductPrices(p.id);
+    setShowModal(true);
+  };
 
   const save = async () => {
     if (!form.code||!form.name) return;
@@ -1339,7 +1371,7 @@ function ProductsDB({ isMobile }) {
       if (data) setProducts(products.map(p=>p.id===editingId?mapProduct(data):p));
     } else {
       const { data } = await supabase.from("products").insert(mapProductToDb(form)).select().single();
-      if (data) setProducts([...products, mapProduct(data)]);
+      if (data) { setProducts([...products, mapProduct(data)]); setEditingId(data.id); }
     }
     setShowModal(false); setEditingId(null);
   };
@@ -1347,6 +1379,46 @@ function ProductsDB({ isMobile }) {
   const del = async (id) => {
     await supabase.from("products").delete().eq("id", id);
     setProducts(products.filter(p=>p.id!==id));
+  };
+
+  const setPreferido = async (priceId) => {
+    if (!editingId) return;
+    await supabase.from("product_prices").update({ es_preferido: false }).eq("product_id", editingId);
+    await supabase.from("product_prices").update({ es_preferido: true }).eq("id", priceId);
+    const chosen = productPrices.find(pp=>pp.id===priceId);
+    if (chosen) {
+      await supabase.from("products").update({ precio: chosen.precio_bruto, proveedor: chosen.suppliers?.nombre||"", url_proveedor: chosen.url||"", sku_proveedor: chosen.sku_proveedor||"", precio_actualizado: chosen.actualizado||new Date().toISOString().slice(0,10) }).eq("id", editingId);
+      f("price", String(chosen.precio_bruto)); f("provider", chosen.suppliers?.nombre||"");
+      f("url", chosen.url||""); f("skuProveedor", chosen.sku_proveedor||"");
+    }
+    await loadProductPrices(editingId); loadProducts();
+  };
+
+  const savePrice = async () => {
+    if (!priceForm.supplier_id || !priceForm.precio_bruto) return;
+    setSavingPrice(true);
+    const dbData = { product_id: editingId, supplier_id: priceForm.supplier_id, precio_bruto: Number(priceForm.precio_bruto), url: priceForm.url||null, sku_proveedor: priceForm.sku_proveedor||null, es_preferido: priceForm.es_preferido||false, actualizado: new Date().toISOString().slice(0,10) };
+    if (editingPriceId) await supabase.from("product_prices").update(dbData).eq("id", editingPriceId);
+    else await supabase.from("product_prices").insert(dbData);
+    if (priceForm.es_preferido) {
+      await supabase.from("product_prices").update({ es_preferido: false }).eq("product_id", editingId).neq("supplier_id", priceForm.supplier_id);
+      const sup = suppliers.find(s=>s.id===priceForm.supplier_id);
+      await supabase.from("products").update({ precio: Number(priceForm.precio_bruto), proveedor: sup?.nombre||"", url_proveedor: priceForm.url||"", sku_proveedor: priceForm.sku_proveedor||"" }).eq("id", editingId);
+      f("price", String(priceForm.precio_bruto)); f("provider", sup?.nombre||"");
+    }
+    await loadProductPrices(editingId); loadProducts();
+    setPriceForm({ supplier_id:"", precio_bruto:"", url:"", sku_proveedor:"", es_preferido:false });
+    setShowPriceForm(false); setEditingPriceId(null); setSavingPrice(false);
+  };
+
+  const openEditPrice = (pp) => {
+    setPriceForm({ supplier_id: pp.supplier_id, precio_bruto: String(pp.precio_bruto), url: pp.url||"", sku_proveedor: pp.sku_proveedor||"", es_preferido: pp.es_preferido||false });
+    setEditingPriceId(pp.id); setShowPriceForm(true);
+  };
+
+  const deletePrice = async (priceId) => {
+    await supabase.from("product_prices").delete().eq("id", priceId);
+    await loadProductPrices(editingId);
   };
 
   return (
@@ -1468,9 +1540,9 @@ function ProductsDB({ isMobile }) {
       )}
 
       {showModal && (
-        <Modal title={editingId?"Editar Ítem":"Nuevo Ítem"} onClose={()=>setShowModal(false)} onSubmit={save}>
+        <Modal title={editingId?"Editar Ítem":"Nuevo Ítem"} onClose={()=>{ setShowModal(false); setEditingId(null); setProductPrices([]); setShowPriceForm(false); }} onSubmit={save}>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-            <Input label="Código *" value={form.code} onChange={e=>f("code",e.target.value)} placeholder="Ej: 1230T1" />
+            <Input label="Código *" value={form.code} onChange={e=>f("code",e.target.value)} placeholder="Ej: ECAM-001" />
             <Select label="Tipo" value={form.type} onChange={e=>f("type",e.target.value)}>
               <option value="producto">Producto</option>
               <option value="servicio">Servicio</option>
@@ -1479,7 +1551,7 @@ function ProductsDB({ isMobile }) {
           </div>
           <Input label="Nombre *" value={form.name} onChange={e=>f("name",e.target.value)} placeholder="Ej: Cámara Domo 4MP" />
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-            <Input label="Modelo / Descripción" value={form.description} onChange={e=>f("description",e.target.value)} placeholder="Ej: Rack 4U Dahua 530x400" />
+            <Input label="Modelo / Descripción" value={form.description} onChange={e=>f("description",e.target.value)} placeholder="Ej: DH-IPC-HDW1230T1" />
             <div>
               <Input label="SKU Proveedor" value={form.skuProveedor} onChange={e=>f("skuProveedor",e.target.value)} placeholder="Ej: DH-IPC-HDW1230T1-0280B" />
               <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginTop:2, paddingLeft:2 }}>Ref. cruzada — no reemplaza tu código Polygonos</div>
@@ -1488,7 +1560,7 @@ function ProductsDB({ isMobile }) {
 
           {/* Precio bruto con desglose automático */}
           <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"12px 14px", marginBottom:4 }}>
-            <Input label="Precio Bruto del Proveedor (CLP c/IVA)" value={form.price} onChange={e=>f("price",e.target.value)} type="number" placeholder="0" />
+            <Input label="Precio Bruto Preferido (CLP c/IVA)" value={form.price} onChange={e=>f("price",e.target.value)} type="number" placeholder="0" />
             {Number(form.price) > 0 && (
               <div style={{ display:"flex", gap:16, marginTop:8 }}>
                 <div style={{ flex:1 }}>
@@ -1509,9 +1581,6 @@ function ProductsDB({ isMobile }) {
 
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
             <Input label="Unidad" value={form.unit} onChange={e=>f("unit",e.target.value)} placeholder="un / hr / m2" />
-            <Input label="Proveedor" value={form.provider} onChange={e=>f("provider",e.target.value)} placeholder="Ej: Smartsecure" />
-          </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
             <div style={{ marginBottom:14 }}>
               <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Categoría</div>
               <select value={form.category} onChange={e=>f("category",e.target.value)}
@@ -1522,18 +1591,126 @@ function ProductsDB({ isMobile }) {
                 ))}
               </select>
             </div>
-            <Input label="Fecha actualización precio" value={form.updatedAt} onChange={e=>f("updatedAt",e.target.value)} type="date" />
           </div>
-          {/* URL Proveedor */}
-          <div>
-            <Input label="URL del producto (proveedor)" value={form.url} onChange={e=>f("url",e.target.value)} placeholder="https://smartsecure.cl/producto/..." />
-            {form.url && (
-              <a href={form.url} target="_blank" rel="noopener noreferrer"
-                style={{ display:"inline-block", marginTop:4, fontSize:10, color:COLORS.accent, textDecoration:"none" }}>
-                🔗 Verificar link →
-              </a>
-            )}
-          </div>
+
+          {/* ── PANEL DE PROVEEDORES Y PRECIOS ─────────────────────────────── */}
+          {editingId && (
+            <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.accent}33`, borderRadius:10, padding:"14px", marginTop:6 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600 }}>
+                  🏪 Precios por Proveedor
+                </div>
+                <button onClick={()=>{ setPriceForm({ supplier_id:"", precio_bruto:"", url:"", sku_proveedor:"", es_preferido:false }); setEditingPriceId(null); setShowPriceForm(p=>!p); }}
+                  style={{ padding:"3px 10px", background:COLORS.accent, border:"none", borderRadius:5, color:COLORS.bg, fontFamily:FONT, fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                  {showPriceForm?"✕ Cancelar":"+ Agregar"}
+                </button>
+              </div>
+
+              {/* Lista de precios existentes */}
+              {productPrices.length > 0 && (
+                <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:showPriceForm?10:0 }}>
+                  {productPrices.map(pp => {
+                    const sup = pp.suppliers || {};
+                    const neto = Math.round((pp.precio_bruto||0)/1.19);
+                    const isPref = pp.es_preferido;
+                    return (
+                      <div key={pp.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 10px", background:isPref?`${COLORS.accent}11`:COLORS.surface, border:`1px solid ${isPref?COLORS.accent+"44":COLORS.border}`, borderRadius:7 }}>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                            <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text }}>{sup.nombre||"—"}</span>
+                            {isPref && <span style={{ fontFamily:FONT, fontSize:9, background:`${COLORS.accent}22`, color:COLORS.accent, border:`1px solid ${COLORS.accent}44`, borderRadius:3, padding:"1px 6px" }}>★ preferido</span>}
+                          </div>
+                          {sup.rut && <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>RUT: {sup.rut}</div>}
+                          {pp.sku_proveedor && <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>SKU: {pp.sku_proveedor}</div>}
+                        </div>
+                        <div style={{ textAlign:"right", minWidth:100 }}>
+                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text }}>{fmt(pp.precio_bruto)}</div>
+                          <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.green }}>Neto: {fmt(neto)}</div>
+                          {pp.url && <a href={pp.url} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{ fontFamily:FONT, fontSize:9, color:COLORS.accent, textDecoration:"none" }}>🔗 link</a>}
+                        </div>
+                        <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                          {!isPref && (
+                            <button onClick={()=>setPreferido(pp.id)} title="Usar como preferido"
+                              style={{ background:"none", border:`1px solid ${COLORS.accent}44`, borderRadius:4, color:COLORS.accent, cursor:"pointer", fontSize:10, padding:"2px 6px" }}>★</button>
+                          )}
+                          <button onClick={()=>openEditPrice(pp)}
+                            style={{ background:"none", border:`1px solid ${COLORS.border}`, borderRadius:4, color:COLORS.textMuted, cursor:"pointer", fontSize:10, padding:"2px 6px" }}>✏️</button>
+                          <button onClick={()=>deletePrice(pp.id)}
+                            style={{ background:"none", border:`1px solid ${COLORS.red}44`, borderRadius:4, color:COLORS.red, cursor:"pointer", fontSize:10, padding:"2px 6px" }}>✕</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {productPrices.length===0 && !showPriceForm && (
+                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textAlign:"center", padding:"10px 0" }}>Sin precios registrados aún</div>
+              )}
+
+              {/* Formulario agregar/editar precio */}
+              {showPriceForm && (
+                <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"12px 14px", marginTop:6 }}>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:10 }}>
+                    {editingPriceId?"Editar precio":"Agregar precio de proveedor"}
+                  </div>
+                  <div style={{ marginBottom:10 }}>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Proveedor *</div>
+                    <select value={priceForm.supplier_id} onChange={e=>setPriceForm(p=>({...p,supplier_id:e.target.value}))}
+                      style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:priceForm.supplier_id?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box" }}>
+                      <option value="">— Seleccionar proveedor —</option>
+                      {suppliers.map(s=><option key={s.id} value={s.id}>{s.nombre}{s.rut?` · ${s.rut}`:""}</option>)}
+                    </select>
+                    {priceForm.supplier_id && (()=>{
+                      const sup = suppliers.find(s=>s.id===priceForm.supplier_id);
+                      return sup ? (
+                        <div style={{ marginTop:5, padding:"6px 10px", background:`${COLORS.accent}08`, border:`1px solid ${COLORS.accent}22`, borderRadius:5, fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
+                          {sup.rut&&<span>RUT: <strong style={{color:COLORS.text}}>{sup.rut}</strong> &nbsp;·&nbsp; </span>}
+                          {sup.email&&<span>{sup.email} &nbsp;·&nbsp; </span>}
+                          {sup.telefono&&<span>{sup.telefono}</span>}
+                        </div>
+                      ) : null;
+                    })()}
+                  </div>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                    <div>
+                      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Precio Bruto (c/IVA) *</div>
+                      <input type="number" value={priceForm.precio_bruto} onChange={e=>setPriceForm(p=>({...p,precio_bruto:e.target.value}))} placeholder="0"
+                        style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+                      {Number(priceForm.precio_bruto)>0 && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.green, marginTop:3 }}>Neto: {fmt(Math.round(Number(priceForm.precio_bruto)/1.19))}</div>}
+                    </div>
+                    <div>
+                      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>SKU Proveedor</div>
+                      <input value={priceForm.sku_proveedor} onChange={e=>setPriceForm(p=>({...p,sku_proveedor:e.target.value}))} placeholder="Ej: DH-IPC-001"
+                        style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+                    </div>
+                  </div>
+                  <div style={{ marginTop:8 }}>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>URL en este proveedor</div>
+                    <input value={priceForm.url} onChange={e=>setPriceForm(p=>({...p,url:e.target.value}))} placeholder="https://smartsecure.cl/producto/..."
+                      style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+                    {priceForm.url&&<a href={priceForm.url} target="_blank" rel="noopener noreferrer" style={{ fontFamily:FONT, fontSize:9, color:COLORS.accent, textDecoration:"none", marginTop:3, display:"inline-block" }}>🔗 Verificar →</a>}
+                  </div>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:10 }}>
+                    <input type="checkbox" id="esPref" checked={priceForm.es_preferido} onChange={e=>setPriceForm(p=>({...p,es_preferido:e.target.checked}))}
+                      style={{ accentColor:COLORS.accent, width:14, height:14, cursor:"pointer" }} />
+                    <label htmlFor="esPref" style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, cursor:"pointer" }}>
+                      ★ Marcar como proveedor preferido (actualiza precio principal)
+                    </label>
+                  </div>
+                  <button onClick={savePrice} disabled={savingPrice}
+                    style={{ width:"100%", marginTop:12, padding:"9px 0", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer", opacity:savingPrice?0.6:1 }}>
+                    {savingPrice?"Guardando…":editingPriceId?"Actualizar precio":"Guardar precio"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {!editingId && (
+            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, background:`${COLORS.accent}08`, border:`1px solid ${COLORS.accent}22`, borderRadius:6, padding:"8px 12px", marginTop:6 }}>
+              💡 Guarda primero el producto para poder agregar precios por proveedor
+            </div>
+          )}
         </Modal>
       )}
     </div>
