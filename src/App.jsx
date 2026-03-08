@@ -29,6 +29,7 @@ const mapDeal = (r) => ({
   id: r.id, title: r.titulo, company: r.empresa, rut: r.rut_empresa,
   value: r.valor || 0, stage: r.etapa, probability: r.probabilidad || 0,
   closeDate: r.fecha_cierre, contactId: r.contact_id,
+  quoteNumber: r.numero_cotizacion ? String(r.numero_cotizacion) : "",
 });
 const mapDealToDb = (f) => ({
   titulo: f.title, empresa: f.company, rut_empresa: f.rut,
@@ -284,6 +285,18 @@ function ContactsView({ contacts, setContacts, isMobile }) {
   const openNew = () => { setEditingId(null); setForm({ name:"", company:"", role:"", email:"", phone:"", rut:"", status:"lead", value:"", lastContact:"", address:{calle:"",comuna:"",region:""} }); setShowModal(true); };
   const openEdit = (c) => { setEditingId(c.id); setForm({ name:c.name, company:c.company, role:c.role||"", email:c.email||"", phone:c.phone||"", rut:c.rut||"", status:c.status, value:String(c.value||0), lastContact:c.lastContact||"", address:c.address||{calle:"",comuna:"",region:""} }); setShowModal(true); };
 
+  const updateStatus = async (c, newStatus) => {
+    await supabase.from("contactos").update({ estado: newStatus }).eq("id", c.id);
+    const updated = { ...c, status: newStatus };
+    setContacts(contacts.map(x => x.id===c.id ? updated : x));
+    if(selected?.id===c.id) setSelected(updated);
+  };
+
+  const STATUS_FLOW = { lead:"prospecto", prospecto:"cliente", cliente:null };
+  const STATUS_BACK = { lead:null, prospecto:"lead", cliente:"prospecto" };
+  const STATUS_NEXT_LABEL = { lead:"→ Prospecto", prospecto:"→ Cliente", cliente:null };
+  const STATUS_BACK_LABEL = { lead:null, prospecto:"← Lead", cliente:"← Prospecto" };
+
   const save = async () => {
     if (!form.name||!form.company) return;
     setSaving(true);
@@ -351,9 +364,24 @@ function ContactsView({ contacts, setContacts, isMobile }) {
                   <Badge color={sc.color}>{sc.label}</Badge>
                 </div>
               </div>
-              <div style={{ borderTop:`1px solid ${COLORS.border}`, paddingTop:10, display:"flex", justifyContent:"space-between" }}>
+              <div style={{ borderTop:`1px solid ${COLORS.border}`, paddingTop:10, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{c.email}</div>
                 <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.green, fontWeight:600 }}>{fmt(c.value)}</div>
+              </div>
+              {/* Botones cambio estado */}
+              <div style={{ display:"flex", gap:6, marginTop:10 }} onClick={e=>e.stopPropagation()}>
+                {STATUS_BACK[c.status] && (
+                  <button onClick={()=>updateStatus(c, STATUS_BACK[c.status])}
+                    style={{ flex:1, padding:"5px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>
+                    {STATUS_BACK_LABEL[c.status]}
+                  </button>
+                )}
+                {STATUS_FLOW[c.status] && (
+                  <button onClick={()=>updateStatus(c, STATUS_FLOW[c.status])}
+                    style={{ flex:2, padding:"5px 0", background:`${(STATUS_CONFIG[STATUS_FLOW[c.status]]||{}).color||COLORS.accent}22`, border:`1px solid ${(STATUS_CONFIG[STATUS_FLOW[c.status]]||{}).color||COLORS.accent}55`, borderRadius:6, color:(STATUS_CONFIG[STATUS_FLOW[c.status]]||{}).color||COLORS.accent, fontFamily:FONT, fontSize:10, fontWeight:700, cursor:"pointer" }}>
+                    {STATUS_NEXT_LABEL[c.status]}
+                  </button>
+                )}
               </div>
             </div>
           );
@@ -368,6 +396,20 @@ function ContactsView({ contacts, setContacts, isMobile }) {
           </div>
           <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.accent, marginBottom:14 }}>{selected.role} — {selected.company}</div>
           <Badge color={(STATUS_CONFIG[selected.status]||STATUS_CONFIG.lead).color}>{(STATUS_CONFIG[selected.status]||STATUS_CONFIG.lead).label}</Badge>
+          <div style={{ display:"flex", gap:8, marginTop:10 }}>
+            {STATUS_BACK[selected.status] && (
+              <button onClick={()=>updateStatus(selected, STATUS_BACK[selected.status])}
+                style={{ flex:1, padding:"7px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:7, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+                {STATUS_BACK_LABEL[selected.status]}
+              </button>
+            )}
+            {STATUS_FLOW[selected.status] && (
+              <button onClick={()=>updateStatus(selected, STATUS_FLOW[selected.status])}
+                style={{ flex:2, padding:"7px 0", background:`${(STATUS_CONFIG[STATUS_FLOW[selected.status]]||{}).color||COLORS.accent}22`, border:`1px solid ${(STATUS_CONFIG[STATUS_FLOW[selected.status]]||{}).color||COLORS.accent}55`, borderRadius:7, color:(STATUS_CONFIG[STATUS_FLOW[selected.status]]||{}).color||COLORS.accent, fontFamily:FONT, fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                {STATUS_NEXT_LABEL[selected.status]}
+              </button>
+            )}
+          </div>
           <div style={{ marginTop:20, display:"flex", flexDirection:"column", gap:10 }}>
             {[["RUT",selected.rut||"—"],["Email",selected.email],["Teléfono",selected.phone],["Dirección",[selected.address?.calle,selected.address?.comuna,selected.address?.region].filter(Boolean).join(", ")||"—"],["Último contacto",fmtDate(selected.lastContact)],["Valor total",fmt(selected.value)]].map(([k,v])=>(
               <div key={k} style={{ background:COLORS.card, borderRadius:8, padding:"10px 14px", border:`1px solid ${COLORS.border}` }}>
@@ -406,25 +448,52 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
   const [editingId, setEditingId] = useState(null);
   const [collapsed, setCollapsed] = useState({});
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title:"", company:"", contactId:"", rut:"", value:"", stage:"contacto", probability:"20", closeDate:"" });
+  const [form, setForm] = useState({ title:"", company:"", contactId:"", rut:"", value:"", stage:"contacto", probability:"20", closeDate:"", quoteNumber:"" });
+  const [quoteBusqueda, setQuoteBusqueda] = useState("");
+  const [quoteFound, setQuoteFound] = useState(null);
+  const [quoteSearching, setQuoteSearching] = useState(false);
   const grouped = useMemo(()=>{ const g={}; STAGES.forEach(s=>{g[s.key]=deals.filter(d=>d.stage===s.key);}); return g; },[deals]);
   const f = (k,v) => setForm(p=>({...p,[k]:v}));
 
-  const openNew = () => { setEditingId(null); setForm({ title:"", company:"", contactId:"", rut:"", value:"", stage:"contacto", probability:"20", closeDate:"" }); setShowModal(true); };
-  const openEdit = (d) => { setEditingId(d.id); setForm({ title:d.title, company:d.company, contactId:d.contactId||"", rut:d.rut||"", value:String(d.value), stage:d.stage, probability:String(d.probability), closeDate:d.closeDate||"" }); setShowModal(true); };
+  const openNew = () => { setEditingId(null); setForm({ title:"", company:"", contactId:"", rut:"", value:"", stage:"contacto", probability:"20", closeDate:"", quoteNumber:"" }); setQuoteFound(null); setQuoteBusqueda(""); setShowModal(true); };
+  const openEdit = (d) => { setEditingId(d.id); setForm({ title:d.title, company:d.company, contactId:d.contactId||"", rut:d.rut||"", value:String(d.value), stage:d.stage, probability:String(d.probability), closeDate:d.closeDate||"", quoteNumber:d.quoteNumber||"" }); setQuoteFound(null); setQuoteBusqueda(""); setShowModal(true); };
   const toggleCollapse = (id) => setCollapsed(p=>({...p,[id]:!p[id]}));
   const allCollapsed = Object.values(collapsed).filter(Boolean).length >= deals.length/2;
   const toggleAll = () => { const n={}; deals.forEach(d=>{n[d.id]=!allCollapsed;}); setCollapsed(n); };
 
+  const buscarCotizacion = async () => {
+    if(!quoteBusqueda) return;
+    setQuoteSearching(true);
+    const { data } = await supabase.from("cotizaciones").select("*").eq("numero", Number(quoteBusqueda)).limit(1);
+    if(data && data[0]) {
+      const q = data[0];
+      setQuoteFound(q);
+      // Autocompletar campos del deal
+      f("quoteNumber", String(q.numero));
+      f("title", q.comentarios || q.nombre_cliente || `Cotización #${q.numero}`);
+      f("company", q.razon_social || q.nombre_cliente || "");
+      f("rut", q.rut_cliente || "");
+      f("value", String(Math.round(q.total || 0)));
+      // Mapear estado cotización → etapa pipeline
+      const estadoMap = { aprobado:"cierre", enviado:"propuesta", enviada:"propuesta", borrador:"contacto", rechazado:"contacto" };
+      f("stage", estadoMap[q.estado] || "propuesta");
+    } else {
+      setQuoteFound(null);
+      alert(`No se encontró la cotización #${quoteBusqueda}`);
+    }
+    setQuoteSearching(false);
+  };
+
   const save = async () => {
     if (!form.title||!form.company) return;
     setSaving(true);
+    const dbData = { ...mapDealToDb(form), numero_cotizacion: form.quoteNumber ? Number(form.quoteNumber) : null };
     if (editingId) {
-      const { data, error } = await supabase.from("deals").update(mapDealToDb(form)).eq("id", editingId).select().single();
-      if (!error) setDeals(deals.map(d=>d.id===editingId?mapDeal(data):d));
+      const { data, error } = await supabase.from("deals").update(dbData).eq("id", editingId).select().single();
+      if (!error) setDeals(deals.map(d=>d.id===editingId?{...mapDeal(data), quoteNumber:form.quoteNumber}:d));
     } else {
-      const { data, error } = await supabase.from("deals").insert(mapDealToDb(form)).select().single();
-      if (!error) setDeals([...deals, mapDeal(data)]);
+      const { data, error } = await supabase.from("deals").insert(dbData).select().single();
+      if (!error) setDeals([...deals, {...mapDeal(data), quoteNumber:form.quoteNumber}]);
     }
     setSaving(false); setShowModal(false); setEditingId(null);
   };
@@ -482,6 +551,7 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
                         <div style={{ padding:"0 14px 12px" }}>
                           <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:d.rut?2:8 }}>{d.company}</div>
                           {d.rut && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, marginBottom:8 }}>RUT: {d.rut}</div>}
+                          {d.quoteNumber && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, background:`${COLORS.accent}11`, border:`1px solid ${COLORS.accent}33`, borderRadius:4, padding:"2px 8px", display:"inline-block", marginBottom:8 }}>📄 Cot. #{d.quoteNumber}</div>}
                           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
                             <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.green, fontWeight:700 }}>{fmt(d.value)}</div>
                             <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{fmtDate(d.closeDate)}</div>
@@ -512,6 +582,27 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
       </div>
       {showModal && (
         <Modal title={editingId?"Editar Deal":"Nuevo Deal"} onClose={()=>setShowModal(false)} onSubmit={save}>
+          {/* Buscador cotización */}
+          <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.accent}33`, borderRadius:8, padding:"12px 14px", marginBottom:8 }}>
+            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>Vincular cotización</div>
+            <div style={{ display:"flex", gap:8 }}>
+              <input value={quoteBusqueda} onChange={e=>setQuoteBusqueda(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&buscarCotizacion()}
+                placeholder="N° cotización..." type="number"
+                style={{ flex:1, background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.text, fontFamily:FONT, fontSize:12, padding:"7px 10px" }} />
+              <button onClick={buscarCotizacion} disabled={quoteSearching}
+                style={{ padding:"7px 14px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT, fontSize:12, fontWeight:700, cursor:"pointer", opacity:quoteSearching?0.6:1 }}>
+                {quoteSearching?"...":"Buscar"}
+              </button>
+            </div>
+            {quoteFound && (
+              <div style={{ marginTop:8, padding:"8px 10px", background:`${COLORS.green}11`, border:`1px solid ${COLORS.green}33`, borderRadius:6 }}>
+                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.green, fontWeight:700 }}>✓ Cotización #{quoteFound.numero} encontrada</div>
+                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:2 }}>{quoteFound.razon_social||quoteFound.nombre_cliente} · ${Math.round(quoteFound.total||0).toLocaleString("es-CL")}</div>
+                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Datos autocargados ↓</div>
+              </div>
+            )}
+          </div>
           <Input label="Título *" value={form.title} onChange={e=>f("title",e.target.value)} placeholder="Ej: CCTV Etapa I" />
           <Input label="Empresa *" value={form.company} onChange={e=>f("company",e.target.value)} placeholder="Ej: AdministARS" />
           <Select label="Contacto" value={form.contactId} onChange={e=>f("contactId",e.target.value)}>
