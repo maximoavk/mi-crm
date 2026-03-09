@@ -3774,10 +3774,9 @@ function PurchaseView({ isMobile }) {
     <table>
       <thead><tr>
         <th>Código</th>
-        <th>Producto</th>
+        <th>Producto / Descripción</th>
         <th>SKU Proveedor</th>
         <th style="text-align:center;">Cant.</th>
-        <th style="text-align:right;">P. Unitario</th>
         <th style="text-align:right;">Neto Unit.</th>
         <th style="text-align:right;">Subtotal Neto</th>
       </tr></thead>
@@ -3785,15 +3784,17 @@ function PurchaseView({ isMobile }) {
       ${(oc.lines||[]).map(l=>{
         const prod    = products.find(p=>p.id===l.product_id)||{};
         const pp      = productPrices.find(p=>p.id===l.supplier_price_id)||{};
-        const bruto   = Number(l.precio_unitario);
-        const netoU   = Math.round(bruto/1.19);
+        const netoU   = Math.round(Number(l.precio_unitario)/1.19);
         const subNeto = netoU * Number(l.cantidad);
+        const desc    = prod.descripcion && prod.descripcion.trim() ? prod.descripcion.trim() : "";
         return `<tr>
           <td class="code">${prod.codigo||"—"}</td>
-          <td>${prod.nombre||"—"}</td>
+          <td>
+            <div style="font-weight:600;color:#1a1a2e;">${prod.nombre||"—"}</div>
+            ${desc?`<div style="font-size:10px;color:#6b7a99;margin-top:2px;">${desc}</div>`:""}
+          </td>
           <td class="sku">${pp.sku_proveedor||"—"}</td>
           <td style="text-align:center;">${l.cantidad}</td>
-          <td class="num">${fmtCLP(bruto)}</td>
           <td class="num" style="color:#2d7d46;">${fmtCLP(netoU)}</td>
           <td class="num" style="font-weight:600;color:#2d7d46;">${fmtCLP(subNeto)}</td>
         </tr>`;
