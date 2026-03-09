@@ -1955,9 +1955,11 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
     const margen = Number(lineMargen[idx])||0;
     const costoNeto = p.aplicaIVA !== false ? Math.round(p.price / 1.19) : p.price;
     const precioConMargen = margen > 0 ? Math.round(costoNeto * (1 + margen/100)) : costoNeto;
+    // Usar descripción del catálogo (modelo/descripción), fallback al nombre
+    const descCatalogo = p.description && p.description.trim() ? p.description.trim() : p.name;
     setLines(l => l.map((line,i) => {
       if(i!==idx) return line;
-      const updated = {...line, productId:p.id, code:p.code, description:p.name, unitPrice:precioConMargen};
+      const updated = {...line, productId:p.id, code:p.code, description:descCatalogo, unitPrice:precioConMargen};
       const qty = Number(updated.qty)||1;
       const disc = Number(updated.discount)||0;
       updated.subtotal = precioConMargen * qty * (1 - disc/100);
@@ -4034,7 +4036,16 @@ function PurchaseView({ isMobile }) {
 
               {lines.map((line, idx)=>{
                 const linePrices = productPrices.filter(pp=>pp.product_id===line.product_id);
-                const subtotal   = Number(line.cantidad||0)*Number(line.precio_unitario||0);
+                const subtotalNeto = Math.round(Number(line.cantidad||0) * Number(line.precio_unitario||0) / 1.19);
+                const subtotalBruto = Number(line.cantidad||0) * Number(line.precio_unitario||0);
+                const prodSelected = products.find(p=>p.id===line.product_id);
+                const ocSearch = line._search||"";
+                const ocResults = ocSearch.length > 1
+                  ? products.filter(p=>
+                      (p.codigo||"").toLowerCase().includes(ocSearch.toLowerCase()) ||
+                      (p.nombre||"").toLowerCase().includes(ocSearch.toLowerCase())
+                    ).slice(0,8)
+                  : [];
                 return (
                   <div key={line._key} style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"12px", marginBottom:8 }}>
                     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
@@ -4042,25 +4053,74 @@ function PurchaseView({ isMobile }) {
                       <button onClick={()=>removeLine(line._key)}
                         style={{ background:"none", border:`1px solid ${COLORS.red}44`, borderRadius:4, color:COLORS.red, cursor:"pointer", fontSize:10, padding:"1px 6px" }}>✕</button>
                     </div>
-                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
-                      <div>
-                        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.06em" }}>Producto</div>
-                        <select value={line.product_id} onChange={e=>onLineProductChange(line._key, e.target.value)}
-                          style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:12, color:line.product_id?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box" }}>
-                          <option value="">— Seleccionar producto —</option>
-                          {products.map(p=><option key={p.id} value={p.id}>{p.codigo} · {p.nombre}</option>)}
-                        </select>
+
+                    {/* Buscador de producto */}
+                    <div style={{ marginBottom:8, position:"relative" }}>
+                      <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.06em" }}>Buscar Producto (código o nombre)</div>
+                      <div style={{ display:"flex", gap:6 }}>
+                        <input
+                          value={ocSearch}
+                          onChange={e=>setLines(p=>p.map(l=>l._key===line._key?{...l,_search:e.target.value}:l))}
+                          placeholder="Ej: ECAM-006 o Aislador..."
+                          style={{ flex:1, background:COLORS.bg, border:`1px solid ${prodSelected?COLORS.accent+"55":COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", boxSizing:"border-box" }}
+                        />
+                        {prodSelected && (
+                          <div style={{ padding:"8px 10px", background:`${COLORS.accent}11`, border:`1px solid ${COLORS.accent}33`, borderRadius:6, fontFamily:FONT, fontSize:11, color:COLORS.accent, whiteSpace:"nowrap" }}>
+                            {prodSelected.codigo}
+                          </div>
+                        )}
                       </div>
-                      <div>
-                        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.06em" }}>Proveedor / Precio</div>
-                        <select value={line.supplier_price_id} onChange={e=>onLinePriceChange(line._key, e.target.value)}
-                          disabled={!line.product_id}
-                          style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:12, color:line.supplier_price_id?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box", opacity:!line.product_id?0.4:1 }}>
-                          <option value="">— Seleccionar proveedor —</option>
-                          {linePrices.map(pp=><option key={pp.id} value={pp.id}>{pp.suppliers?.nombre||"?"} · {fmt(pp.precio_bruto)}{pp.es_preferido?" ★":""}{pp.sku_proveedor?` · ${pp.sku_proveedor}`:""}</option>)}
-                        </select>
-                      </div>
+                      {/* Dropdown resultados */}
+                      {ocResults.length > 0 && (
+                        <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:300, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:6, boxShadow:"0 4px 20px #0008", marginTop:2 }}>
+                          {ocResults.map(p=>{
+                            const pref = productPrices.find(pp=>pp.product_id===p.id && pp.es_preferido) || productPrices.find(pp=>pp.product_id===p.id);
+                            const netoP = pref ? Math.round(pref.precio_bruto/1.19) : 0;
+                            return (
+                              <div key={p.id}
+                                onClick={()=>{
+                                  onLineProductChange(line._key, p.id);
+                                  setLines(prev=>prev.map(l=>l._key===line._key?{...l,_search:`${p.codigo} · ${p.nombre}`}:l));
+                                }}
+                                style={{ padding:"8px 12px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}22`, display:"flex", justifyContent:"space-between", alignItems:"center" }}
+                                onMouseEnter={e=>e.currentTarget.style.background=COLORS.card}
+                                onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                                <div>
+                                  <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                                    <span style={{ fontFamily:FONT, fontSize:11, fontWeight:700, color:COLORS.accent }}>{p.codigo}</span>
+                                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, color:COLORS.text }}>{p.nombre}</span>
+                                  </div>
+                                  <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginTop:2 }}>{p.descripcion||""}{p.categoria?` · ${p.categoria}`:""}</div>
+                                </div>
+                                {pref && (
+                                  <div style={{ textAlign:"right", minWidth:110 }}>
+                                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{pref.suppliers?.nombre||""}</div>
+                                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.green }}>Neto: {fmt(netoP)}</div>
+                                    <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>Bruto: {fmt(pref.precio_bruto)}</div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
+
+                    {/* Selector de proveedor/precio */}
+                    <div style={{ marginBottom:8 }}>
+                      <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.06em" }}>Proveedor / Precio</div>
+                      <select value={line.supplier_price_id} onChange={e=>onLinePriceChange(line._key, e.target.value)}
+                        disabled={!line.product_id}
+                        style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:12, color:line.supplier_price_id?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box", opacity:!line.product_id?0.4:1 }}>
+                        <option value="">— Seleccionar proveedor —</option>
+                        {linePrices.map(pp=>{
+                          const n = Math.round((pp.precio_bruto||0)/1.19);
+                          return <option key={pp.id} value={pp.id}>{pp.suppliers?.nombre||"?"}{pp.es_preferido?" ★":""} · Neto: ${n.toLocaleString("es-CL")} · Bruto: ${(pp.precio_bruto||0).toLocaleString("es-CL")}{pp.sku_proveedor?` · ${pp.sku_proveedor}`:""}</option>;
+                        })}
+                      </select>
+                    </div>
+
+                    {/* Cantidad + precio + subtotal */}
                     <div style={{ display:"grid", gridTemplateColumns:"80px 1fr 1fr", gap:8, alignItems:"end" }}>
                       <div>
                         <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.06em" }}>Cant.</div>
@@ -4068,13 +4128,15 @@ function PurchaseView({ isMobile }) {
                           style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
                       </div>
                       <div>
-                        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.06em" }}>Precio Unit. (bruto)</div>
+                        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.06em" }}>Precio Unit. (bruto c/IVA)</div>
                         <input type="number" value={line.precio_unitario} onChange={e=>updateLine(line._key,"precio_unitario",e.target.value)}
                           style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+                        {Number(line.precio_unitario)>0 && <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.green, marginTop:2 }}>Neto unit.: {fmt(Math.round(Number(line.precio_unitario)/1.19))}</div>}
                       </div>
-                      <div style={{ padding:"8px 12px", background:`${COLORS.green}11`, border:`1px solid ${COLORS.green}33`, borderRadius:6, textAlign:"right" }}>
-                        <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase" }}>Subtotal</div>
-                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.green }}>{fmt(subtotal)}</div>
+                      <div style={{ padding:"8px 12px", background:`${COLORS.green}11`, border:`1px solid ${COLORS.green}33`, borderRadius:6 }}>
+                        <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase" }}>Subtotal neto</div>
+                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.green }}>{fmt(subtotalNeto)}</div>
+                        <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>Bruto: {fmt(subtotalBruto)}</div>
                       </div>
                     </div>
                   </div>
@@ -4083,16 +4145,20 @@ function PurchaseView({ isMobile }) {
 
               {/* Total del formulario */}
               {lines.length > 0 && (()=>{
-                const tot  = lines.reduce((s,l)=>s+Number(l.cantidad||0)*Number(l.precio_unitario||0),0);
-                const net  = Math.round(tot/1.19);
+                const totBruto = lines.reduce((s,l)=>s+Number(l.cantidad||0)*Number(l.precio_unitario||0),0);
+                const totNeto  = Math.round(totBruto/1.19);
+                const totIva   = totBruto - totNeto;
                 return (
                   <div style={{ display:"flex", justifyContent:"flex-end", marginTop:10 }}>
-                    <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 16px", minWidth:200 }}>
-                      <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:3 }}>
-                        <span>Neto</span><span style={{color:COLORS.green}}>{fmt(net)}</span>
+                    <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"12px 16px", minWidth:220 }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:4 }}>
+                        <span>Neto</span><span style={{color:COLORS.green}}>{fmt(totNeto)}</span>
                       </div>
-                      <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text, borderTop:`1px solid ${COLORS.border}`, paddingTop:6, marginTop:3 }}>
-                        <span>Total</span><span style={{color:COLORS.accent}}>{fmt(tot)}</span>
+                      <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:6 }}>
+                        <span>IVA (19%)</span><span style={{color:"#ef4444"}}>{fmt(totIva)}</span>
+                      </div>
+                      <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text, borderTop:`1px solid ${COLORS.border}`, paddingTop:6 }}>
+                        <span>Total Bruto</span><span style={{color:COLORS.accent}}>{fmt(totBruto)}</span>
                       </div>
                     </div>
                   </div>
