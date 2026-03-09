@@ -3578,8 +3578,22 @@ function PurchaseView({ isMobile }) {
   const [editingOC, setEditingOC]   = useState(null);
   const [filterEstado, setFilterEstado] = useState("TODOS");
 
+  // Shipments
+  const [shipments, setShipments] = useState([]);
+  const SHIP_ESTADOS = [
+    { key:"GENERADA",    color:"#6b7a99", icon:"📋" },
+    { key:"EN_TRANSITO", color:"#A855F7", icon:"🚚" },
+    { key:"ENTREGADA",   color:"#10b981", icon:"✅" },
+    { key:"DEVUELTA",    color:"#ef4444", icon:"↩️" },
+  ];
+  const COURIERS_LIST = [
+    { key:"Starken",       url:"https://www.starken.cl/seguimiento?codigo=", color:"#E63946" },
+    { key:"Blue Express",  url:"https://www.blueexpress.com/seguimiento?guia=", color:"#1D6FA4" },
+    { key:"Chile Express", url:"https://www.chilexpress.cl/seguimiento/",      color:"#FF6B00" },
+  ];
+
   // Modal despacho
-  const emptyDespacho = { nombre:"", rut:"", telefono:"", correo:"", courier:"Starken", tipo:"sucursal", sucursal:"", direccion:"", comuna:"", ciudad:"" };
+  const emptyDespacho = { nombre:"", rut:"", telefono:"", correo:"", courier:"Starken", tipo:"sucursal", sucursal:"", direccion:"", comuna:"", ciudad:"", tracking_code:"", notas_despacho:"" };
   const [showDespachoModal, setShowDespachoModal] = useState(false);
   const [despachoOC, setDespachoOC]               = useState(null);
   const [despachoForm, setDespachoForm]           = useState(emptyDespacho);
@@ -3621,6 +3635,18 @@ function PurchaseView({ isMobile }) {
     setSuppliers(suppR.data||[]);
     setProducts(prodsR.data||[]);
     setProductPrices(ppR.data||[]);
+    // Cargar shipments
+    const allOcIds = (ocsR.data||[]).map(o=>o.id);
+    if (allOcIds.length > 0) {
+      const { data: shipsData } = await supabase
+        .from("shipments")
+        .select("*")
+        .in("purchase_order_id", allOcIds)
+        .order("created_at", { ascending:false });
+      setShipments(shipsData||[]);
+    } else {
+      setShipments([]);
+    }
     setLoading(false);
   };
 
@@ -3989,6 +4015,96 @@ function PurchaseView({ isMobile }) {
                     </div>
                   )}
 
+                  {/* ── Historial de Despachos ── */}
+                  {(()=>{
+                    const ocShips = shipments.filter(s=>s.purchase_order_id===oc.id);
+                    if (ocShips.length === 0) return null;
+                    return (
+                      <div style={{ marginBottom:14, background:COLORS.bg, border:`1px solid ${COLORS.accent}33`, borderRadius:10, padding:"12px 14px" }}>
+                        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600, marginBottom:10 }}>
+                          📦 Despachos ({ocShips.length})
+                        </div>
+                        {ocShips.map(ship=>{
+                          const sEst = SHIP_ESTADOS.find(e=>e.key===ship.estado)||SHIP_ESTADOS[0];
+                          const courierInfo = COURIERS_LIST.find(c=>c.key===ship.courier);
+                          return (
+                            <div key={ship.id} style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 12px", marginBottom:8 }}>
+                              {/* Fila superior */}
+                              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                                  <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text }}>{ship.numero_guia}</span>
+                                  <span style={{ fontFamily:FONT, fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:10, background:`${courierInfo?.color||"#6b7a99"}22`, color:courierInfo?.color||"#6b7a99", border:`1px solid ${courierInfo?.color||"#6b7a99"}44` }}>
+                                    {ship.courier}
+                                  </span>
+                                  <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
+                                    {ship.tipo==="sucursal"?"📍 Sucursal":"🏠 Domicilio"}
+                                  </span>
+                                </div>
+                                {/* Selector estado inline */}
+                                <div style={{ display:"flex", gap:4 }}>
+                                  {SHIP_ESTADOS.map(se=>(
+                                    <button key={se.key} onClick={async()=>{
+                                      await supabase.from("shipments").update({ estado:se.key }).eq("id",ship.id);
+                                      setShipments(prev=>prev.map(s=>s.id===ship.id?{...s,estado:se.key}:s));
+                                    }}
+                                    style={{ padding:"3px 8px", borderRadius:6, cursor:"pointer", fontFamily:FONT, fontSize:9, fontWeight:700,
+                                      background: ship.estado===se.key ? `${se.color}33` : "transparent",
+                                      border: `1px solid ${ship.estado===se.key ? se.color : COLORS.border}`,
+                                      color: ship.estado===se.key ? se.color : COLORS.textMuted }}>
+                                      {se.icon} {se.key.replace("_"," ")}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              {/* Destinatario + dirección */}
+                              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"4px 16px", marginBottom:6 }}>
+                                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>
+                                  <span style={{ color:COLORS.textMuted }}>Dest: </span>{ship.destinatario_nombre||"—"}
+                                  {ship.destinatario_rut && <span style={{ color:COLORS.textMuted }}> · {ship.destinatario_rut}</span>}
+                                </div>
+                                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>
+                                  <span style={{ color:COLORS.textMuted }}>📍 </span>
+                                  {[ship.sucursal||ship.direccion, ship.comuna, ship.ciudad].filter(Boolean).join(", ")||"—"}
+                                </div>
+                                {ship.destinatario_tel && (
+                                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>📞 {ship.destinatario_tel}</div>
+                                )}
+                                {ship.destinatario_correo && (
+                                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>✉️ {ship.destinatario_correo}</div>
+                                )}
+                              </div>
+                              {/* Tracking */}
+                              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                                <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Tracking:</span>
+                                {ship.tracking_code ? (
+                                  <a href={`${courierInfo?.url||""}${ship.tracking_code}`} target="_blank" rel="noopener noreferrer"
+                                    style={{ fontFamily:FONT, fontSize:11, fontWeight:700, color:courierInfo?.color||COLORS.accent, textDecoration:"none", padding:"2px 8px", background:`${courierInfo?.color||COLORS.accent}11`, borderRadius:4, border:`1px solid ${courierInfo?.color||COLORS.accent}33` }}>
+                                    🔗 {ship.tracking_code}
+                                  </a>
+                                ) : (
+                                  <input
+                                    placeholder="Ingresar código de seguimiento..."
+                                    onBlur={async e=>{
+                                      const val = e.target.value.trim();
+                                      if (!val) return;
+                                      await supabase.from("shipments").update({ tracking_code:val }).eq("id",ship.id);
+                                      setShipments(prev=>prev.map(s=>s.id===ship.id?{...s,tracking_code:val}:s));
+                                    }}
+                                    style={{ flex:1, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"3px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none" }}
+                                  />
+                                )}
+                                <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginLeft:"auto" }}>
+                                  {new Date(ship.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}
+                                </span>
+                              </div>
+                              {ship.notas && <div style={{ marginTop:5, fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>📝 {ship.notas}</div>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+
                   {/* Acciones */}
                   <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
                     <button onClick={()=>generatePDF(oc)}
@@ -4218,13 +4334,32 @@ function PurchaseView({ isMobile }) {
         const sup = despachoOC.suppliers||{};
         const fmtCLP = n => new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(n);
 
-        const COURIERS = [
-          { key:"Starken",       url:"https://www.starken.cl",       color:"#E63946" },
-          { key:"Blue Express",  url:"https://www.blueexpress.com",  color:"#1D6FA4" },
-          { key:"Chile Express", url:"https://www.chilexpress.cl",   color:"#FF6B00" },
-        ];
+        const COURIERS = COURIERS_LIST;
 
         const generateDespachoDoc = async () => {
+          // Generar número de guía correlativo GD-XXX
+          const numGuia = "GD-" + String(shipments.length + 1).padStart(3,"0");
+
+          // Guardar en Supabase
+          const { data: savedShip } = await supabase.from("shipments").insert({
+            purchase_order_id:   despachoOC.id,
+            numero_guia:         numGuia,
+            courier:             despachoForm.courier,
+            tipo:                despachoForm.tipo,
+            destinatario_nombre: despachoForm.nombre,
+            destinatario_rut:    despachoForm.rut,
+            destinatario_tel:    despachoForm.telefono,
+            destinatario_correo: despachoForm.correo,
+            direccion:           despachoForm.direccion,
+            comuna:              despachoForm.comuna,
+            ciudad:              despachoForm.ciudad,
+            sucursal:            despachoForm.sucursal,
+            tracking_code:       despachoForm.tracking_code||null,
+            notas:               despachoForm.notas_despacho||null,
+            estado:              "GENERADA",
+          }).select().single();
+          if (savedShip) setShipments(prev=>[savedShip, ...prev]);
+
           // Avanzar OC a ENVIADA si aún está en CONFIRMADA o PENDIENTE
           if(["PENDIENTE","CONFIRMADA"].includes(despachoOC.estado)) {
             await supabase.from("purchase_orders").update({ estado:"ENVIADA", updated_at:new Date().toISOString() }).eq("id", despachoOC.id);
