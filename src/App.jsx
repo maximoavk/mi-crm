@@ -3578,6 +3578,13 @@ function PurchaseView({ isMobile }) {
   const [editingOC, setEditingOC]   = useState(null);
   const [filterEstado, setFilterEstado] = useState("TODOS");
 
+  // Modal despacho
+  const emptyDespacho = { nombre:"", rut:"", telefono:"", correo:"", courier:"Starken", tipo:"sucursal", sucursal:"", direccion:"", comuna:"", ciudad:"" };
+  const [showDespachoModal, setShowDespachoModal] = useState(false);
+  const [despachoOC, setDespachoOC]               = useState(null);
+  const [despachoForm, setDespachoForm]           = useState(emptyDespacho);
+  const df = (k,v) => setDespachoForm(p=>({...p,[k]:v}));
+
   // Formulario OC
   const emptyOC = { cotizacion_id:"", supplier_id:"", estado:"PENDIENTE", notas:"" };
   const [ocForm, setOcForm]   = useState(emptyOC);
@@ -3988,6 +3995,10 @@ function PurchaseView({ isMobile }) {
                       style={{ padding:"7px 14px", background:`${COLORS.purple}22`, border:`1px solid ${COLORS.purple}44`, borderRadius:6, color:COLORS.purple, fontFamily:FONT, fontSize:11, cursor:"pointer", fontWeight:600 }}>
                       📄 PDF
                     </button>
+                    <button onClick={()=>{ setDespachoOC(oc); setDespachoForm(emptyDespacho); setShowDespachoModal(true); }}
+                      style={{ padding:"7px 14px", background:`${COLORS.yellow}22`, border:`1px solid ${COLORS.yellow}44`, borderRadius:6, color:COLORS.yellow, fontFamily:FONT, fontSize:11, cursor:"pointer", fontWeight:600 }}>
+                      📦 Despacho
+                    </button>
                     <button onClick={()=>openEdit(oc)}
                       style={{ padding:"7px 14px", background:`${COLORS.accent}22`, border:`1px solid ${COLORS.accent}44`, borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer", fontWeight:600 }}>
                       ✏️ Editar
@@ -4201,6 +4212,227 @@ function PurchaseView({ isMobile }) {
           </div>
         </div>
       )}
+
+      {/* ── MODAL DESPACHO ───────────────────────────────────────────── */}
+      {showDespachoModal && despachoOC && (() => {
+        const sup = despachoOC.suppliers||{};
+        const fmtCLP = n => new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(n);
+
+        const COURIERS = [
+          { key:"Starken",       url:"https://www.starken.cl",       color:"#E63946" },
+          { key:"Blue Express",  url:"https://www.blueexpress.com",  color:"#1D6FA4" },
+          { key:"Chile Express", url:"https://www.chilexpress.cl",   color:"#FF6B00" },
+        ];
+
+        const generateDespachoDoc = async () => {
+          // Avanzar OC a ENVIADA si aún está en CONFIRMADA o PENDIENTE
+          if(["PENDIENTE","CONFIRMADA"].includes(despachoOC.estado)) {
+            await supabase.from("purchase_orders").update({ estado:"ENVIADA", updated_at:new Date().toISOString() }).eq("id", despachoOC.id);
+            setOcs(prev=>prev.map(o=>o.id===despachoOC.id?{...o,estado:"ENVIADA"}:o));
+          }
+          const courier = COURIERS.find(c=>c.key===despachoForm.courier)||COURIERS[0];
+          const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+          <style>
+            @page { size: A4 portrait; margin:0; }
+            @media print { body{ -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+            *{margin:0;padding:0;box-sizing:border-box;}
+            body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a2e;padding:36px 44px;}
+            .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px;padding-bottom:18px;border-bottom:3px solid #00C2FF;}
+            .logo img{height:48px;object-fit:contain;}
+            .doc-title{text-align:right;}
+            .doc-title h1{font-size:22px;font-weight:800;color:#1a1a2e;}
+            .doc-title .ref{font-size:12px;color:#6b7a99;margin-top:4px;}
+            .section{background:#f4f6fb;border-radius:8px;padding:16px 20px;margin-bottom:20px;border-left:4px solid #00C2FF;}
+            .section-title{font-size:9px;color:#6b7a99;letter-spacing:0.12em;text-transform:uppercase;font-weight:700;margin-bottom:12px;}
+            .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;}
+            .field{margin-bottom:10px;}
+            .field label{display:block;font-size:10px;color:#6b7a99;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin-bottom:3px;}
+            .field .val{font-size:14px;color:#1a1a2e;font-weight:600;padding:8px 12px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;min-height:34px;}
+            .courier-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:20px;font-weight:700;font-size:13px;color:#fff;background:${courier.color};}
+            .items-table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:12px;}
+            .items-table thead tr{background:#0A0C10;}
+            .items-table th{color:#fff;padding:8px 10px;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;text-align:left;}
+            .items-table td{padding:8px 10px;border-bottom:1px solid #e8ecf4;}
+            .items-table tbody tr:nth-child(even) td{background:#f9fafc;}
+            td.code{font-family:monospace;color:#00C2FF;font-weight:700;}
+            .footer{margin-top:28px;padding-top:14px;border-top:1px solid #e8ecf4;font-size:10px;color:#9aa5b4;text-align:center;line-height:1.8;}
+            .dashed-box{border:2px dashed #cbd5e0;border-radius:8px;padding:20px;margin-bottom:20px;text-align:center;}
+            .dashed-box .big{font-size:32px;font-weight:900;letter-spacing:2px;color:#1a1a2e;}
+            .dashed-box .sub{font-size:11px;color:#6b7a99;margin-top:4px;}
+          </style></head><body>
+
+          <div class="header">
+            <div class="logo"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos"/></div>
+            <div class="doc-title">
+              <h1>Guía de Despacho</h1>
+              <div class="ref">Ref. ${despachoOC.numero_oc} · ${new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"})}</div>
+            </div>
+          </div>
+
+          <!-- Número grande para etiqueta -->
+          <div class="dashed-box">
+            <div class="big">${despachoOC.numero_oc}</div>
+            <div class="sub">Cortar y pegar en el bulto</div>
+          </div>
+
+          <div class="grid2">
+            <!-- Destinatario -->
+            <div class="section">
+              <div class="section-title">📦 Datos para Despachar</div>
+              <div class="field"><label>Nombre y Apellido</label><div class="val">${despachoForm.nombre||"—"}</div></div>
+              <div class="field"><label>RUT</label><div class="val">${despachoForm.rut||"—"}</div></div>
+              <div class="field"><label>Teléfono</label><div class="val">${despachoForm.telefono||"—"}</div></div>
+              <div class="field"><label>Correo</label><div class="val">${despachoForm.correo||"—"}</div></div>
+            </div>
+            <!-- Courier y dirección -->
+            <div class="section">
+              <div class="section-title">🚚 Courier y Destino</div>
+              <div class="field"><label>Courier</label><div class="val"><span class="courier-badge">${despachoForm.courier}</span></div></div>
+              <div class="field"><label>Modalidad</label><div class="val">${despachoForm.tipo==="sucursal"?"Retiro en Sucursal":"Envío a Domicilio"}</div></div>
+              ${despachoForm.tipo==="sucursal"?`<div class="field"><label>Sucursal</label><div class="val">${despachoForm.sucursal||"—"}</div></div>`:""}
+              <div class="field"><label>Dirección Completa</label><div class="val">${despachoForm.direccion||"—"}, ${despachoForm.comuna||"—"}, ${despachoForm.ciudad||"—"}</div></div>
+            </div>
+          </div>
+
+          <!-- Remitente -->
+          <div class="section" style="border-left-color:#6b7a99;">
+            <div class="section-title">↩️ Remitente (Polygonos SPA)</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+              <div class="field"><label>Proveedor</label><div class="val">${sup.nombre||"—"}</div></div>
+              <div class="field"><label>RUT Proveedor</label><div class="val">${sup.rut||"—"}</div></div>
+              <div class="field"><label>OC Referencia</label><div class="val">${despachoOC.numero_oc}</div></div>
+            </div>
+            ${despachoForm.notas_despacho?`<div class="field"><label>Notas despacho</label><div class="val">${despachoForm.notas_despacho}</div></div>`:""}
+          </div>
+
+          <!-- Tabla de ítems -->
+          <table class="items-table">
+            <thead><tr>
+              <th>Código</th><th>Producto</th><th>SKU Prov.</th><th style="text-align:center">Cant.</th>
+            </tr></thead>
+            <tbody>
+              ${(despachoOC.lines||[]).map(l=>{
+                const prod = products.find(p=>p.id===l.product_id)||{};
+                const pp   = productPrices.find(p=>p.id===l.supplier_price_id)||{};
+                return `<tr>
+                  <td class="code">${prod.codigo||"—"}</td>
+                  <td>${prod.nombre||"—"}</td>
+                  <td style="font-family:monospace;font-size:10px;color:#6b7a99;">${pp.sku_proveedor||"—"}</td>
+                  <td style="text-align:center;font-weight:700;">${l.cantidad}</td>
+                </tr>`;
+              }).join("")}
+            </tbody>
+          </table>
+
+          <div class="footer">
+            Polygonos SPA &nbsp;·&nbsp; RUT 77.180.437-3 &nbsp;·&nbsp; maximo.hudson.blanco@gmail.com<br>
+            Documento generado el ${new Date().toLocaleString("es-CL")}
+          </div>
+          </body></html>`;
+
+          const win = window.open("","_blank");
+          win.document.write(html);
+          win.document.close();
+          setTimeout(()=>win.print(), 600);
+          setShowDespachoModal(false);
+        };
+
+        const inp = (label, key, placeholder="", opts={}) => (
+          <div style={{ marginBottom:12 }}>
+            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5, fontWeight:600 }}>{label}</div>
+            <input value={despachoForm[key]} onChange={e=>df(key,e.target.value)} placeholder={placeholder}
+              style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box", ...opts }} />
+          </div>
+        );
+
+        return (
+          <div style={{ position:"fixed", inset:0, background:"#0009", zIndex:600, display:"flex", alignItems:"center", justifyContent:"center" }} onClick={()=>setShowDespachoModal(false)}>
+            <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:14, padding:28, width:"min(640px,95vw)", maxHeight:"92vh", overflowY:"auto", boxShadow:"0 20px 60px #0009" }} onClick={e=>e.stopPropagation()}>
+
+              {/* Header modal */}
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+                <div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:17, fontWeight:700, color:COLORS.text }}>📦 Guía de Despacho</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:3 }}>{despachoOC.numero_oc} · {sup.nombre||"Proveedor"}</div>
+                </div>
+                <button onClick={()=>setShowDespachoModal(false)} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:18 }}>✕</button>
+              </div>
+
+              {/* Sección destinatario */}
+              <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.accent}33`, borderRadius:10, padding:"14px 16px", marginBottom:16 }}>
+                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600, marginBottom:12 }}>📋 Datos para Despachar</div>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 16px" }}>
+                  {inp("Nombre y Apellido","nombre","Ej: Juan Pérez")}
+                  {inp("RUT","rut","Ej: 12.345.678-9")}
+                  {inp("Teléfono","telefono","Ej: 9 1234 5678")}
+                  {inp("Correo","correo","Ej: juan@correo.cl")}
+                </div>
+              </div>
+
+              {/* Courier */}
+              <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"14px 16px", marginBottom:16 }}>
+                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600, marginBottom:12 }}>🚚 Courier</div>
+                <div style={{ display:"flex", gap:8, marginBottom:14 }}>
+                  {COURIERS.map(c=>(
+                    <button key={c.key} onClick={()=>df("courier",c.key)}
+                      style={{ flex:1, padding:"9px 8px", borderRadius:8, cursor:"pointer", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700,
+                        background: despachoForm.courier===c.key ? c.color : COLORS.surface,
+                        border: `2px solid ${despachoForm.courier===c.key ? c.color : COLORS.border}`,
+                        color: despachoForm.courier===c.key ? "#fff" : COLORS.textMuted }}>
+                      {c.key}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Tipo envío */}
+                <div style={{ display:"flex", gap:8, marginBottom:14 }}>
+                  {[{k:"sucursal",l:"📍 Sucursal"},{k:"domicilio",l:"🏠 Domicilio"}].map(opt=>(
+                    <button key={opt.k} onClick={()=>df("tipo",opt.k)}
+                      style={{ flex:1, padding:"8px 0", borderRadius:7, cursor:"pointer", fontFamily:FONT, fontSize:12, fontWeight:600,
+                        background: despachoForm.tipo===opt.k ? `${COLORS.accent}22` : COLORS.surface,
+                        border: `1px solid ${despachoForm.tipo===opt.k ? COLORS.accent : COLORS.border}`,
+                        color: despachoForm.tipo===opt.k ? COLORS.accent : COLORS.textMuted }}>
+                      {opt.l}
+                    </button>
+                  ))}
+                </div>
+
+                {despachoForm.tipo==="sucursal" && inp("Sucursal","sucursal","Ej: Sucursal La Serena Centro")}
+                {inp("Dirección","direccion","Ej: Av. Pacífico 510")}
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 16px" }}>
+                  {inp("Comuna","comuna","Ej: La Serena")}
+                  {inp("Ciudad","ciudad","Ej: La Serena")}
+                </div>
+              </div>
+
+              {/* Notas despacho */}
+              <div style={{ marginBottom:18 }}>
+                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5, fontWeight:600 }}>Notas (opcional)</div>
+                <textarea value={despachoForm.notas_despacho||""} onChange={e=>df("notas_despacho",e.target.value)}
+                  placeholder="Instrucciones especiales de entrega..."
+                  rows={2} style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", resize:"vertical", boxSizing:"border-box" }} />
+              </div>
+
+              {/* Info: estado cambiará a ENVIADA */}
+              {["PENDIENTE","CONFIRMADA"].includes(despachoOC.estado) && (
+                <div style={{ marginBottom:16, padding:"8px 12px", background:`${COLORS.yellow}11`, border:`1px solid ${COLORS.yellow}33`, borderRadius:6, fontFamily:FONT, fontSize:11, color:COLORS.yellow }}>
+                  ⚡ Al generar la guía, la OC cambiará automáticamente a <strong>ENVIADA</strong>
+                </div>
+              )}
+
+              {/* Botones */}
+              <div style={{ display:"flex", gap:10 }}>
+                <button onClick={()=>setShowDespachoModal(false)}
+                  style={{ flex:1, padding:"10px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>Cancelar</button>
+                <button onClick={generateDespachoDoc}
+                  style={{ flex:2, padding:"10px 0", background:COLORS.yellow, border:"none", borderRadius:6, color:"#0A0C10", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+                  📄 Generar Guía e Imprimir
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
