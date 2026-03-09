@@ -3714,39 +3714,48 @@ function PurchaseView({ isMobile }) {
     const neto  = Math.round(total/1.19);
     const iva   = total-neto;
 
+    const fmtCLP = (n) => new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(n);
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
     <style>
+      @page { size: A4 portrait; margin: 0; }
+      @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
       *{margin:0;padding:0;box-sizing:border-box;}
-      body{font-family:'Segoe UI',sans-serif;background:#fff;color:#1a1a2e;padding:40px;}
-      .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #00C2FF;}
-      .logo{font-size:22px;font-weight:800;color:#00C2FF;letter-spacing:-0.5px;}
-      .oc-num{font-size:28px;font-weight:800;color:#1a1a2e;}
-      .badge{display:inline-block;padding:4px 12px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:0.1em;background:${estado.color}22;color:${estado.color};border:1px solid ${estado.color}44;}
-      .grid2{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px;}
-      .block{background:#f8f9ff;border-radius:8px;padding:16px;}
-      .block-title{font-size:10px;color:#6b7a99;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;font-weight:600;}
-      .block p{font-size:13px;color:#1a1a2e;margin-bottom:4px;}
-      .block strong{color:#00C2FF;}
-      table{width:100%;border-collapse:collapse;margin-bottom:24px;}
-      th{background:#0A0C10;color:#fff;padding:10px 12px;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;text-align:left;}
-      td{padding:10px 12px;font-size:13px;border-bottom:1px solid #e8ecf4;}
-      tr:hover td{background:#f8f9ff;}
-      .totales{max-width:280px;margin-left:auto;background:#f8f9ff;border-radius:8px;padding:16px;}
-      .tot-row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;}
-      .tot-total{display:flex;justify-content:space-between;padding:10px 0 0;font-size:15px;font-weight:800;border-top:2px solid #00C2FF;margin-top:8px;color:#00C2FF;}
-      .footer{margin-top:32px;padding-top:16px;border-top:1px solid #e8ecf4;font-size:11px;color:#6b7a99;text-align:center;}
+      body{font-family:'Segoe UI',Arial,sans-serif;background:#fff;color:#1a1a2e;padding:36px 44px;max-width:210mm;}
+      .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px;padding-bottom:18px;border-bottom:3px solid #00C2FF;}
+      .logo img{height:52px;object-fit:contain;}
+      .oc-num{font-size:26px;font-weight:800;color:#1a1a2e;text-align:right;}
+      .badge{display:inline-block;padding:4px 12px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:0.1em;background:${estado.color}18;color:${estado.color};border:1px solid ${estado.color}55;}
+      .meta{font-size:11px;color:#6b7a99;margin-top:4px;text-align:right;}
+      .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;}
+      .block{background:#f4f6fb;border-radius:8px;padding:14px 16px;border-left:3px solid #00C2FF;}
+      .block-title{font-size:9px;color:#6b7a99;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:8px;font-weight:700;}
+      .block p{font-size:13px;color:#1a1a2e;margin-bottom:3px;line-height:1.5;}
+      .block strong{color:#0a0c10;font-weight:700;}
+      table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:12px;}
+      thead tr{background:#0A0C10;}
+      th{color:#fff;padding:9px 11px;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;text-align:left;font-weight:600;}
+      td{padding:9px 11px;border-bottom:1px solid #e8ecf4;color:#1a1a2e;}
+      tbody tr:nth-child(even) td{background:#f9fafc;}
+      td.num{text-align:right;}
+      td.code{font-family:'Courier New',monospace;color:#00C2FF;font-weight:700;font-size:11px;}
+      td.sku{font-family:'Courier New',monospace;color:#6b7a99;font-size:10px;}
+      .totales{max-width:260px;margin-left:auto;background:#f4f6fb;border-radius:8px;padding:14px 16px;}
+      .tot-row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#4a5568;}
+      .tot-iva{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#e53e3e;}
+      .tot-total{display:flex;justify-content:space-between;padding:10px 0 0;font-size:16px;font-weight:800;border-top:2px solid #00C2FF;margin-top:8px;color:#00C2FF;}
+      .footer{margin-top:28px;padding-top:14px;border-top:1px solid #e8ecf4;font-size:10px;color:#9aa5b4;text-align:center;line-height:1.8;}
     </style></head><body>
     <div class="header">
-      <div>
-        <div class="logo">POLYGONOS 360</div>
-        <div style="font-size:11px;color:#6b7a99;margin-top:4px;">Sistema de Gestión B2B</div>
+      <div class="logo">
+        <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos" />
       </div>
-      <div style="text-align:right;">
+      <div>
         <div class="oc-num">${oc.numero_oc}</div>
-        <div style="margin-top:6px;"><span class="badge">${estado.icon} ${oc.estado}</span></div>
-        <div style="font-size:11px;color:#6b7a99;margin-top:6px;">Emitida: ${new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"})}</div>
+        <div style="margin-top:5px;text-align:right;"><span class="badge">${estado.icon} ${oc.estado}</span></div>
+        <div class="meta">Emitida: ${new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"})}</div>
       </div>
     </div>
+
     <div class="grid2">
       <div class="block">
         <div class="block-title">Proveedor</div>
@@ -3757,38 +3766,51 @@ function PurchaseView({ isMobile }) {
       </div>
       <div class="block">
         <div class="block-title">Referencia</div>
-        ${cot.numero?`<p>Cotización: <strong>#${cot.numero}</strong></p>`:""}
-        ${cot.nombre_cliente?`<p>Cliente: ${cot.nombre_cliente}</p>`:""}
-        ${oc.notas?`<p style="margin-top:8px;font-size:12px;color:#6b7a99;">${oc.notas}</p>`:""}
+        ${cot.numero?`<p>N° Cotización: <strong>#${cot.numero}</strong></p>`:"<p style='color:#9aa5b4'>Sin cotización asociada</p>"}
+        ${oc.notas?`<p style="margin-top:6px;font-size:12px;color:#6b7a99;">📝 ${oc.notas}</p>`:""}
       </div>
     </div>
+
     <table>
       <thead><tr>
-        <th>Código</th><th>Producto</th><th>SKU Proveedor</th><th style="text-align:center">Cant.</th>
-        <th style="text-align:right">P. Unitario</th><th style="text-align:right">Subtotal</th>
+        <th>Código</th>
+        <th>Producto</th>
+        <th>SKU Proveedor</th>
+        <th style="text-align:center;">Cant.</th>
+        <th style="text-align:right;">P. Unitario</th>
+        <th style="text-align:right;">Neto Unit.</th>
+        <th style="text-align:right;">Subtotal Neto</th>
       </tr></thead>
       <tbody>
       ${(oc.lines||[]).map(l=>{
-        const prod = products.find(p=>p.id===l.product_id)||{};
-        const pp   = productPrices.find(p=>p.id===l.supplier_price_id)||{};
-        const sub  = Number(l.precio_unitario)*Number(l.cantidad);
+        const prod    = products.find(p=>p.id===l.product_id)||{};
+        const pp      = productPrices.find(p=>p.id===l.supplier_price_id)||{};
+        const bruto   = Number(l.precio_unitario);
+        const netoU   = Math.round(bruto/1.19);
+        const subNeto = netoU * Number(l.cantidad);
         return `<tr>
-          <td style="font-family:monospace;color:#00C2FF;font-weight:600;">${prod.codigo||"—"}</td>
+          <td class="code">${prod.codigo||"—"}</td>
           <td>${prod.nombre||"—"}</td>
-          <td style="font-family:monospace;font-size:11px;color:#6b7a99;">${pp.sku_proveedor||"—"}</td>
+          <td class="sku">${pp.sku_proveedor||"—"}</td>
           <td style="text-align:center;">${l.cantidad}</td>
-          <td style="text-align:right;">${new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(l.precio_unitario)}</td>
-          <td style="text-align:right;font-weight:600;">${new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(sub)}</td>
+          <td class="num">${fmtCLP(bruto)}</td>
+          <td class="num" style="color:#2d7d46;">${fmtCLP(netoU)}</td>
+          <td class="num" style="font-weight:600;color:#2d7d46;">${fmtCLP(subNeto)}</td>
         </tr>`;
       }).join("")}
       </tbody>
     </table>
+
     <div class="totales">
-      <div class="tot-row"><span>Neto</span><span>${new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(neto)}</span></div>
-      <div class="tot-row"><span>IVA (19%)</span><span>${new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(iva)}</span></div>
-      <div class="tot-total"><span>TOTAL</span><span>${new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(total)}</span></div>
+      <div class="tot-row"><span>Neto</span><span>${fmtCLP(neto)}</span></div>
+      <div class="tot-iva"><span>IVA (19%)</span><span>${fmtCLP(iva)}</span></div>
+      <div class="tot-total"><span>TOTAL</span><span>${fmtCLP(total)}</span></div>
     </div>
-    <div class="footer">Polygonos SPA · RUT 77.180.437-3 · maximo.hudson.blanco@gmail.com · Documento generado el ${new Date().toLocaleString("es-CL")}</div>
+
+    <div class="footer">
+      Polygonos SPA &nbsp;·&nbsp; RUT 77.180.437-3 &nbsp;·&nbsp; maximo.hudson.blanco@gmail.com<br>
+      Documento generado el ${new Date().toLocaleString("es-CL")}
+    </div>
     </body></html>`;
 
     const win = window.open("","_blank");
