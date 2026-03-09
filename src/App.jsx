@@ -4376,103 +4376,170 @@ function PurchaseView({ isMobile }) {
             setOcs(prev=>prev.map(o=>o.id===despachoOC.id?{...o,estado:"ENVIADA"}:o));
           }
           const courier = COURIERS.find(c=>c.key===despachoForm.courier)||COURIERS[0];
+          const cotRef = despachoOC.cotizaciones;
           const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
           <style>
-            @page { size: A4 portrait; margin:0; }
+            @page { size: A4 portrait; margin: 10mm; }
             @media print { body{ -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
             *{margin:0;padding:0;box-sizing:border-box;}
-            body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a2e;padding:36px 44px;}
-            .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px;padding-bottom:18px;border-bottom:3px solid #00C2FF;}
-            .logo img{height:48px;object-fit:contain;}
-            .doc-title{text-align:right;}
-            .doc-title h1{font-size:22px;font-weight:800;color:#1a1a2e;}
-            .doc-title .ref{font-size:12px;color:#6b7a99;margin-top:4px;}
-            .section{background:#f4f6fb;border-radius:8px;padding:16px 20px;margin-bottom:20px;border-left:4px solid #00C2FF;}
-            .section-title{font-size:9px;color:#6b7a99;letter-spacing:0.12em;text-transform:uppercase;font-weight:700;margin-bottom:12px;}
-            .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;}
-            .field{margin-bottom:10px;}
-            .field label{display:block;font-size:10px;color:#6b7a99;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin-bottom:3px;}
-            .field .val{font-size:14px;color:#1a1a2e;font-weight:600;padding:8px 12px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;min-height:34px;}
-            .courier-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:20px;font-weight:700;font-size:13px;color:#fff;background:${courier.color};}
-            .items-table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:12px;}
-            .items-table thead tr{background:#0A0C10;}
-            .items-table th{color:#fff;padding:8px 10px;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;text-align:left;}
-            .items-table td{padding:8px 10px;border-bottom:1px solid #e8ecf4;}
-            .items-table tbody tr:nth-child(even) td{background:#f9fafc;}
-            td.code{font-family:monospace;color:#00C2FF;font-weight:700;}
-            .footer{margin-top:28px;padding-top:14px;border-top:1px solid #e8ecf4;font-size:10px;color:#9aa5b4;text-align:center;line-height:1.8;}
-            .dashed-box{border:2px dashed #cbd5e0;border-radius:8px;padding:20px;margin-bottom:20px;text-align:center;}
-            .dashed-box .big{font-size:32px;font-weight:900;letter-spacing:2px;color:#1a1a2e;}
-            .dashed-box .sub{font-size:11px;color:#6b7a99;margin-top:4px;}
+            body{ font-family:'Segoe UI',Arial,sans-serif; color:#1a1a2e; background:#fff; }
+
+            /* Grilla de etiquetas: 2 columnas x N filas en A4 */
+            .page { display:grid; grid-template-columns:1fr 1fr; gap:6mm; }
+
+            /* Cada etiqueta: 10x10cm con borde de tijera */
+            .label {
+              width:95mm; height:95mm;
+              border: 2px dashed #b0b8cc;
+              border-radius:4mm;
+              padding:5mm;
+              position:relative;
+              overflow:hidden;
+              page-break-inside: avoid;
+            }
+
+            /* Tijera en esquina superior izquierda */
+            .label::before {
+              content:'✂';
+              position:absolute;
+              top:-1mm; left:1mm;
+              font-size:14px;
+              color:#b0b8cc;
+              line-height:1;
+            }
+
+            /* Header de la etiqueta */
+            .lbl-header {
+              display:flex;
+              justify-content:space-between;
+              align-items:center;
+              border-bottom:1.5px solid #00C2FF;
+              padding-bottom:3mm;
+              margin-bottom:3mm;
+            }
+            .lbl-header img { height:28px; object-fit:contain; }
+            .lbl-oc { font-size:16px; font-weight:900; color:#1a1a2e; letter-spacing:1px; }
+            .lbl-date { font-size:8px; color:#6b7a99; margin-top:1px; text-align:right; }
+
+            /* Courier badge */
+            .courier-pill {
+              display:inline-block;
+              padding:2px 8px;
+              border-radius:10px;
+              font-size:9px;
+              font-weight:800;
+              color:#fff;
+              background:${courier.color};
+              letter-spacing:0.05em;
+            }
+            .modality { font-size:8px; color:#6b7a99; margin-left:4px; }
+
+            /* Bloques de datos */
+            .row { display:flex; gap:3mm; margin-bottom:2mm; }
+            .block { flex:1; }
+            .block-title { font-size:7px; color:#6b7a99; text-transform:uppercase; letter-spacing:0.1em; font-weight:700; margin-bottom:1mm; }
+            .block-val { font-size:10px; font-weight:700; color:#1a1a2e; line-height:1.3; }
+            .block-val.small { font-size:9px; font-weight:600; }
+            .block-val.muted { color:#4a5568; font-weight:600; }
+
+            /* Separador */
+            .sep { border:none; border-top:1px dashed #dde3ef; margin:2mm 0; }
+
+            /* Tabla ítems */
+            .items { width:100%; border-collapse:collapse; margin-top:2mm; }
+            .items th { font-size:7px; color:#6b7a99; text-transform:uppercase; text-align:left; padding:1mm 1.5mm; border-bottom:1px solid #e2e8f0; }
+            .items td { font-size:8px; padding:1mm 1.5mm; border-bottom:1px solid #f0f4f8; }
+            .items td.code { font-family:monospace; color:#00C2FF; font-weight:700; }
+            .items td.qty { text-align:center; font-weight:800; color:#1a1a2e; }
+
+            /* Footer mini */
+            .lbl-footer { position:absolute; bottom:3mm; left:5mm; right:5mm; font-size:7px; color:#b0b8cc; text-align:center; border-top:1px solid #f0f4f8; padding-top:1.5mm; }
           </style></head><body>
 
-          <div class="header">
-            <div class="logo"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos"/></div>
-            <div class="doc-title">
-              <h1>Guía de Despacho</h1>
-              <div class="ref">Ref. ${despachoOC.numero_oc} · ${new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"})}</div>
+          <div class="page">
+          ${[0,1].map(()=>`
+            <div class="label">
+              <!-- Cabecera -->
+              <div class="lbl-header">
+                <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos"/>
+                <div>
+                  <div class="lbl-oc">${despachoOC.numero_oc}</div>
+                  <div class="lbl-date">${new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}</div>
+                </div>
+              </div>
+
+              <!-- Courier + modalidad -->
+              <div style="margin-bottom:2.5mm;">
+                <span class="courier-pill">${despachoForm.courier}</span>
+                <span class="modality">${despachoForm.tipo==="sucursal"?"📍 Sucursal":"🏠 Domicilio"}</span>
+              </div>
+
+              <!-- Destinatario + dirección -->
+              <div class="row">
+                <div class="block">
+                  <div class="block-title">Destinatario</div>
+                  <div class="block-val">${despachoForm.nombre||"—"}</div>
+                  <div class="block-val muted small">${despachoForm.rut||""}</div>
+                </div>
+                <div class="block">
+                  <div class="block-title">Contacto</div>
+                  <div class="block-val small">${despachoForm.telefono||"—"}</div>
+                  <div class="block-val muted small" style="font-size:8px">${despachoForm.correo||""}</div>
+                </div>
+              </div>
+
+              <hr class="sep"/>
+
+              <!-- Dirección -->
+              <div style="margin-bottom:2mm;">
+                <div class="block-title">Dirección de entrega</div>
+                <div class="block-val small">
+                  ${despachoForm.tipo==="sucursal" && despachoForm.sucursal ? despachoForm.sucursal+"<br/>" : ""}
+                  ${despachoForm.direccion||"—"}<br/>
+                  ${[despachoForm.comuna, despachoForm.ciudad].filter(Boolean).join(", ")||""}
+                </div>
+              </div>
+
+              <hr class="sep"/>
+
+              <!-- Referencias -->
+              <div class="row">
+                <div class="block">
+                  <div class="block-title">Proveedor (Remitente)</div>
+                  <div class="block-val small">${sup.nombre||"—"}</div>
+                  <div class="block-val muted small">${sup.rut||""}</div>
+                </div>
+                <div class="block">
+                  <div class="block-title">Referencias</div>
+                  <div class="block-val small">OC: ${despachoOC.numero_oc}</div>
+                  ${cotRef?.numero ? `<div class="block-val muted small">COT: #${cotRef.numero}</div>` : ""}
+                </div>
+              </div>
+
+              <!-- Ítems -->
+              <table class="items">
+                <thead><tr>
+                  <th>Cód.</th><th>Producto</th><th>SKU</th><th style="text-align:center">Cant.</th>
+                </tr></thead>
+                <tbody>
+                ${(despachoOC.lines||[]).map(l=>{
+                  const prod = products.find(p=>p.id===l.product_id)||{};
+                  const pp   = productPrices.find(p=>p.id===l.supplier_price_id)||{};
+                  return `<tr>
+                    <td class="code">${prod.codigo||"—"}</td>
+                    <td>${prod.nombre||"—"}</td>
+                    <td style="font-family:monospace;font-size:7px;color:#6b7a99;">${pp.sku_proveedor||"—"}</td>
+                    <td class="qty">${l.cantidad}</td>
+                  </tr>`;
+                }).join("")}
+                </tbody>
+              </table>
+
+              <div class="lbl-footer">Polygonos SPA · RUT 77.180.437-3 · ${new Date().toLocaleString("es-CL")}</div>
             </div>
+          `).join("")}
           </div>
 
-          <!-- Número grande para etiqueta -->
-          <div class="dashed-box">
-            <div class="big">${despachoOC.numero_oc}</div>
-            <div class="sub">Cortar y pegar en el bulto</div>
-          </div>
-
-          <div class="grid2">
-            <!-- Destinatario -->
-            <div class="section">
-              <div class="section-title">📦 Datos para Despachar</div>
-              <div class="field"><label>Nombre y Apellido</label><div class="val">${despachoForm.nombre||"—"}</div></div>
-              <div class="field"><label>RUT</label><div class="val">${despachoForm.rut||"—"}</div></div>
-              <div class="field"><label>Teléfono</label><div class="val">${despachoForm.telefono||"—"}</div></div>
-              <div class="field"><label>Correo</label><div class="val">${despachoForm.correo||"—"}</div></div>
-            </div>
-            <!-- Courier y dirección -->
-            <div class="section">
-              <div class="section-title">🚚 Courier y Destino</div>
-              <div class="field"><label>Courier</label><div class="val"><span class="courier-badge">${despachoForm.courier}</span></div></div>
-              <div class="field"><label>Modalidad</label><div class="val">${despachoForm.tipo==="sucursal"?"Retiro en Sucursal":"Envío a Domicilio"}</div></div>
-              ${despachoForm.tipo==="sucursal"?`<div class="field"><label>Sucursal</label><div class="val">${despachoForm.sucursal||"—"}</div></div>`:""}
-              <div class="field"><label>Dirección Completa</label><div class="val">${despachoForm.direccion||"—"}, ${despachoForm.comuna||"—"}, ${despachoForm.ciudad||"—"}</div></div>
-            </div>
-          </div>
-
-          <!-- Remitente -->
-          <div class="section" style="border-left-color:#6b7a99;">
-            <div class="section-title">↩️ Remitente (Polygonos SPA)</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
-              <div class="field"><label>Proveedor</label><div class="val">${sup.nombre||"—"}</div></div>
-              <div class="field"><label>RUT Proveedor</label><div class="val">${sup.rut||"—"}</div></div>
-              <div class="field"><label>OC Referencia</label><div class="val">${despachoOC.numero_oc}</div></div>
-            </div>
-            ${despachoForm.notas_despacho?`<div class="field"><label>Notas despacho</label><div class="val">${despachoForm.notas_despacho}</div></div>`:""}
-          </div>
-
-          <!-- Tabla de ítems -->
-          <table class="items-table">
-            <thead><tr>
-              <th>Código</th><th>Producto</th><th>SKU Prov.</th><th style="text-align:center">Cant.</th>
-            </tr></thead>
-            <tbody>
-              ${(despachoOC.lines||[]).map(l=>{
-                const prod = products.find(p=>p.id===l.product_id)||{};
-                const pp   = productPrices.find(p=>p.id===l.supplier_price_id)||{};
-                return `<tr>
-                  <td class="code">${prod.codigo||"—"}</td>
-                  <td>${prod.nombre||"—"}</td>
-                  <td style="font-family:monospace;font-size:10px;color:#6b7a99;">${pp.sku_proveedor||"—"}</td>
-                  <td style="text-align:center;font-weight:700;">${l.cantidad}</td>
-                </tr>`;
-              }).join("")}
-            </tbody>
-          </table>
-
-          <div class="footer">
-            Polygonos SPA &nbsp;·&nbsp; RUT 77.180.437-3 &nbsp;·&nbsp; maximo.hudson.blanco@gmail.com<br>
-            Documento generado el ${new Date().toLocaleString("es-CL")}
-          </div>
           </body></html>`;
 
           const win = window.open("","_blank");
