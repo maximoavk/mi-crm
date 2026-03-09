@@ -3593,11 +3593,31 @@ function PurchaseView({ isMobile }) {
   ];
 
   // Modal despacho
-  const emptyDespacho = { nombre:"", rut:"", telefono:"", correo:"", courier:"Starken", tipo:"sucursal", sucursal:"", direccion:"", comuna:"", ciudad:"", tracking_code:"", notas_despacho:"" };
+  const emptyDespacho = { nombre:"", rut:"", telefono:"", correo:"", courier:"Starken", tipo:"sucursal", sucursal:"", direccion:"", region:"", comuna:"", ciudad:"", tracking_code:"", notas_despacho:"", num_cotizacion:"" };
   const [showDespachoModal, setShowDespachoModal] = useState(false);
   const [despachoOC, setDespachoOC]               = useState(null);
   const [despachoForm, setDespachoForm]           = useState(emptyDespacho);
   const df = (k,v) => setDespachoForm(p=>({...p,[k]:v}));
+
+  // Geografía Chile
+  const CHILE_GEO = {
+    "Arica y Parinacota":    { ciudades:["Arica","Putre"], comunas:["Arica","Camarones","General Lagos","Putre"] },
+    "Tarapacá":              { ciudades:["Iquique","Alto Hospicio"], comunas:["Iquique","Alto Hospicio","Camiña","Colchane","Huara","Pica","Pozo Almonte"] },
+    "Antofagasta":           { ciudades:["Antofagasta","Calama","Tocopilla"], comunas:["Antofagasta","Calama","Mejillones","Ollagüe","San Pedro de Atacama","Sierra Gorda","Taltal","Tocopilla","María Elena"] },
+    "Atacama":               { ciudades:["Copiapó","Vallenar","Chañaral"], comunas:["Alto del Carmen","Caldera","Chañaral","Copiapó","Diego de Almagro","Freirina","Huasco","Tierra Amarilla","Vallenar"] },
+    "Coquimbo":              { ciudades:["La Serena","Coquimbo","Ovalle","Illapel"], comunas:["Andacollo","Canela","Combarbalá","Coquimbo","Illapel","La Higuera","La Serena","Los Vilos","Monte Patria","Ovalle","Paiguano","Punitaqui","Río Hurtado","Salamanca","Vicuña"] },
+    "Valparaíso":            { ciudades:["Valparaíso","Viña del Mar","Quilpué","San Antonio"], comunas:["Algarrobo","Cabildo","Calera","Cartagena","Casablanca","Catemu","Concón","El Quisco","El Tabo","Hijuelas","Isla de Pascua","Juan Fernández","La Cruz","La Ligua","Limache","Llaillay","Los Andes","Nogales","Olmué","Panquehue","Papudo","Petorca","Puchuncaví","Putaendo","Quillota","Quilpué","Quintero","Rinconada","San Antonio","San Esteban","San Felipe","Santa María","Santo Domingo","Valparaíso","Villa Alemana","Viña del Mar","Zapallar"] },
+    "Metropolitana":         { ciudades:["Santiago","Puente Alto","Maipú","La Florida"], comunas:["Alhué","Buin","Calera de Tango","Cerrillos","Cerro Navia","Colina","Conchalí","Curacaví","El Bosque","El Monte","Estación Central","Huechuraba","Independencia","Isla de Maipo","La Cisterna","La Florida","La Granja","La Pintana","La Reina","Lampa","Las Condes","Lo Barnechea","Lo Espejo","Lo Prado","Lonquén","Macul","Maipú","María Pinto","Melipilla","Miraflores","Ñuñoa","Padre Hurtado","Paine","Pedro Aguirre Cerda","Peñaflor","Peñalolén","Pirque","Providencia","Pudahuel","Puente Alto","Quilicura","Quinta Normal","Recoleta","Renca","San Bernardo","San Joaquín","San José de Maipo","San Miguel","San Pedro","San Ramón","Santiago","Talagante","Tiltil","Vitacura"] },
+    "O'Higgins":             { ciudades:["Rancagua","San Fernando","Pichilemu"], comunas:["Chimbarongo","Chépica","Codegua","Coinco","Coltauco","Doñihue","Graneros","La Estrella","Las Cabras","Litueche","Lolol","Machalí","Malloa","Marchihue","Mostazal","Nancagua","Navidad","Olivar","Palmilla","Paredones","Peralillo","Peumo","Pichidegua","Pichilemu","Placilla","Pumanque","Rancagua","Rengo","Requínoa","San Fernando","San Francisco de Mostazal","San Vicente","Santa Cruz"] },
+    "Maule":                 { ciudades:["Talca","Curicó","Linares","Constitución"], comunas:["Cauquenes","Chanco","Colbún","Constitución","Curepto","Curicó","Empedrado","Hualañé","Licantén","Linares","Longaví","Maule","Molina","Parral","Pelarco","Pelluhue","Pencahue","Rauco","Retiro","Romeral","Sagrada Familia","San Clemente","San Javier","San Rafael","Talca","Teno","Vichuquén","Villa Alegre","Yerbas Buenas"] },
+    "Ñuble":                 { ciudades:["Chillán","San Carlos","Bulnes"], comunas:["Bulnes","Chillán","Chillán Viejo","Cobquecura","Coelemu","Coihueco","El Carmen","Ninhue","Ñiquén","Pemuco","Pinto","Portezuelo","Quillón","Quirihue","Ránquil","San Carlos","San Fabián","San Ignacio","San Nicolás","Treguaco","Yungay"] },
+    "Biobío":                { ciudades:["Concepción","Talcahuano","Los Ángeles","Chillán"], comunas:["Alto Biobío","Antuco","Arauco","Cañete","Cabrero","Chiguayante","Concepción","Contulmo","Coronel","Curanilahue","Florida","Hualpén","Hualqui","Laja","Lebu","Los Ángeles","Los Álamos","Lota","Mulchén","Nacimiento","Negrete","Penco","Quilaco","Quilleco","San Pedro de la Paz","San Rosendo","Santa Bárbara","Santibáñez","Talcahuano","Tirúa","Tomé","Tucapel","Yumbel"] },
+    "La Araucanía":          { ciudades:["Temuco","Villarrica","Pucón","Angol"], comunas:["Angol","Carahue","Cholchol","Collipulli","Cunco","Curacautín","Curarrehue","Ercilla","Freire","Galvarino","Gorbea","Lautaro","Loncoche","Lonquimay","Los Sauces","Lumaco","Melipeuco","Nueva Imperial","Padre las Casas","Perquenco","Pitrufquén","Pucón","Purén","Renaico","Saavedra","Temuco","Teodoro Schmidt","Toltén","Traiguén","Victoria","Vilcún","Villarrica"] },
+    "Los Ríos":              { ciudades:["Valdivia","La Unión","Los Lagos"], comunas:["Corral","Futrono","La Unión","Lago Ranco","Lanco","Los Lagos","Máfil","Mariquina","Paillaco","Panguipulli","Río Bueno","Valdivia"] },
+    "Los Lagos":             { ciudades:["Puerto Montt","Osorno","Castro","Puerto Varas"], comunas:["Ancud","Calbuco","Castro","Chaitén","Chonchi","Cochamó","Curaco de Vélez","Dalcahue","Fresia","Frutillar","Futaleufú","Hualaihué","Llanquihue","Los Muermos","Maullín","Osorno","Palena","Puerto Montt","Puerto Octay","Puerto Varas","Puqueldón","Purranque","Puyehue","Queilén","Quellón","Quemchi","Quinchao","Río Negro","San Juan de la Costa","San Pablo"] },
+    "Aysén":                 { ciudades:["Coyhaique","Puerto Aysén","Cochrane"], comunas:["Aysén","Chile Chico","Cisnes","Cochrane","Coyhaique","Guaitecas","Lago Verde","O'Higgins","Río Ibáñez","Tortel"] },
+    "Magallanes":            { ciudades:["Punta Arenas","Puerto Natales","Porvenir"], comunas:["Antártica","Cabo de Hornos","Laguna Blanca","Natales","Porvenir","Primavera","Punta Arenas","Río Verde","San Gregorio","Timaukel","Torres del Paine"] },
+  };
 
   // Formulario OC
   const emptyOC = { cotizacion_id:"", supplier_id:"", estado:"PENDIENTE", notas:"" };
@@ -4102,7 +4122,80 @@ function PurchaseView({ isMobile }) {
                                 </span>
                               </div>
                               {ship.notas && <div style={{ marginTop:5, fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>📝 {ship.notas}</div>}
-                            </div>
+                              {/* Acciones de la guía */}
+                              <div style={{ display:"flex", gap:6, marginTop:8, justifyContent:"flex-end" }}>
+                                <button onClick={()=>{
+                                  // Regenerar PDF con los datos guardados en el shipment
+                                  const cInfo = COURIERS_LIST.find(c=>c.key===ship.courier)||COURIERS_LIST[0];
+                                  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+                                  <style>
+                                    @page{size:A4 portrait;margin:8mm;}
+                                    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+                                    *{margin:0;padding:0;box-sizing:border-box;}
+                                    body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a2e;}
+                                    .page{display:flex;flex-direction:column;gap:6mm;}
+                                    .label{width:148mm;min-height:95mm;border:2px dashed #b0b8cc;border-radius:4mm;padding:5mm 6mm;position:relative;page-break-inside:avoid;}
+                                    .label::before{content:'✂';position:absolute;top:-2mm;left:1mm;font-size:15px;color:#b0b8cc;}
+                                    .hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #00C2FF;padding-bottom:3mm;margin-bottom:3.5mm;}
+                                    .hdr img{height:34px;object-fit:contain;}
+                                    .oc{font-size:20px;font-weight:900;color:#1a1a2e;letter-spacing:1.5px;}
+                                    .dt{font-size:8px;color:#6b7a99;text-align:right;margin-top:1px;}
+                                    .pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:800;color:#fff;background:${cInfo.color};}
+                                    .mod{font-size:9px;color:#6b7a99;margin-left:5px;}
+                                    .r2{display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:2.5mm;}
+                                    .r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3mm;margin-bottom:2.5mm;}
+                                    .bt{font-size:7px;color:#6b7a99;text-transform:uppercase;letter-spacing:0.1em;font-weight:700;margin-bottom:1mm;}
+                                    .bv{font-size:10px;font-weight:700;color:#1a1a2e;line-height:1.4;}
+                                    .bvsm{font-size:9px;font-weight:600;color:#1a1a2e;}
+                                    .bvmt{font-size:9px;font-weight:600;color:#4a5568;}
+                                    .sep{border:none;border-top:1px dashed #dde3ef;margin:2.5mm 0;}
+                                    table{width:100%;border-collapse:collapse;margin-top:2mm;}
+                                    thead tr{background:#0A0C10;}
+                                    th{color:#fff;font-size:7.5px;text-transform:uppercase;padding:1.5mm 2mm;text-align:left;}
+                                    td{font-size:9px;padding:1.5mm 2mm;border-bottom:1px solid #f0f4f8;}
+                                    td.code{font-family:monospace;color:#00C2FF;font-weight:700;}
+                                    td.qty{text-align:center;font-weight:800;}
+                                    tr:nth-child(even) td{background:#f9fafc;}
+                                    .ft{margin-top:3mm;padding-top:2mm;border-top:1px solid #e8ecf4;font-size:7.5px;color:#b0b8cc;text-align:center;}
+                                  </style></head><body><div class="page">
+                                  ${[0,1].map(()=>`<div class="label">
+                                    <div class="hdr">
+                                      <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos"/>
+                                      <div><div class="oc">${oc.numero_oc}</div><div class="dt">${ship.numero_guia} · ${new Date(ship.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}</div></div>
+                                    </div>
+                                    <div style="margin-bottom:3mm;"><span class="pill">${ship.courier}</span><span class="mod">${ship.tipo==="sucursal"?"📍 Sucursal":"🏠 Domicilio"}</span></div>
+                                    <div class="r2">
+                                      <div><div class="bt">Destinatario</div><div class="bv">${ship.destinatario_nombre||"—"}</div><div class="bvmt">${ship.destinatario_rut||""}</div></div>
+                                      <div><div class="bt">Contacto</div><div class="bvsm">${ship.destinatario_tel||"—"}</div><div class="bvmt" style="font-size:8px">${ship.destinatario_correo||""}</div></div>
+                                    </div>
+                                    <hr class="sep"/>
+                                    <div style="margin-bottom:2.5mm;"><div class="bt">Dirección</div><div class="bvsm">${ship.sucursal||ship.direccion||"—"}, ${[ship.comuna,ship.ciudad].filter(Boolean).join(", ")||""}</div></div>
+                                    <hr class="sep"/>
+                                    <div class="r3">
+                                      <div><div class="bt">Remitente</div><div class="bvsm">${sup.nombre||"—"}</div><div class="bvmt">${sup.rut||""}</div></div>
+                                      <div><div class="bt">OC</div><div class="bv">${oc.numero_oc}</div></div>
+                                      <div><div class="bt">Cot. Proveedor</div><div class="bvsm">${ship.notas||"—"}</div></div>
+                                    </div>
+                                    <table><thead><tr><th>Código</th><th>Producto</th><th>SKU</th><th style="text-align:center">Cant.</th></tr></thead><tbody>
+                                    ${(oc.lines||[]).map(l=>{const prod=products.find(p=>p.id===l.product_id)||{};const pp=productPrices.find(p=>p.id===l.supplier_price_id)||{};return`<tr><td class="code">${prod.codigo||"—"}</td><td>${prod.nombre||"—"}</td><td style="font-family:monospace;font-size:8px;color:#6b7a99">${pp.sku_proveedor||"—"}</td><td class="qty">${l.cantidad}</td></tr>`;}).join("")}
+                                    </tbody></table>
+                                    <div class="ft">Polygonos SPA · RUT 77.180.437-3 · ${new Date().toLocaleString("es-CL")}</div>
+                                  </div>`).join("")}
+                                  </div></body></html>`;
+                                  const w = window.open("","_blank"); w.document.write(html); w.document.close(); setTimeout(()=>w.print(),600);
+                                }}
+                                  style={{ padding:"4px 10px", background:`${COLORS.purple}22`, border:`1px solid ${COLORS.purple}44`, borderRadius:5, color:COLORS.purple, fontFamily:FONT, fontSize:10, cursor:"pointer", fontWeight:600 }}>
+                                  📄 PDF Guía
+                                </button>
+                                <button onClick={async()=>{
+                                  if (!confirm(`¿Eliminar guía ${ship.numero_guia}?`)) return;
+                                  await supabase.from("shipments").delete().eq("id",ship.id);
+                                  setShipments(prev=>prev.filter(s=>s.id!==ship.id));
+                                }}
+                                  style={{ padding:"4px 10px", background:`${COLORS.red}22`, border:`1px solid ${COLORS.red}44`, borderRadius:5, color:COLORS.red, fontFamily:FONT, fontSize:10, cursor:"pointer", fontWeight:600 }}>
+                                  🗑️ Eliminar
+                                </button>
+                              </div>
                           );
                         })}
                       </div>
@@ -4379,87 +4472,85 @@ function PurchaseView({ isMobile }) {
           const cotRef = despachoOC.cotizaciones;
           const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
           <style>
-            @page { size: A4 portrait; margin: 10mm; }
+            @page { size: A4 portrait; margin: 8mm; }
             @media print { body{ -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
             *{margin:0;padding:0;box-sizing:border-box;}
             body{ font-family:'Segoe UI',Arial,sans-serif; color:#1a1a2e; background:#fff; }
 
-            /* Grilla de etiquetas: 2 columnas x N filas en A4 */
-            .page { display:grid; grid-template-columns:1fr 1fr; gap:6mm; }
+            /* Grilla: 1 columna (etiqueta 15x10 ocupa el ancho) */
+            .page { display:flex; flex-direction:column; gap:6mm; align-items:flex-start; }
 
-            /* Cada etiqueta: 10x10cm con borde de tijera */
+            /* Etiqueta 15cm alto x 10cm ancho */
             .label {
-              width:95mm; height:95mm;
+              width:148mm;
+              min-height:95mm;
               border: 2px dashed #b0b8cc;
               border-radius:4mm;
-              padding:5mm;
+              padding:5mm 6mm;
               position:relative;
-              overflow:hidden;
               page-break-inside: avoid;
             }
 
-            /* Tijera en esquina superior izquierda */
+            /* Tijera esquina sup-izq */
             .label::before {
               content:'✂';
               position:absolute;
-              top:-1mm; left:1mm;
-              font-size:14px;
+              top:-2mm; left:1mm;
+              font-size:15px;
               color:#b0b8cc;
               line-height:1;
             }
 
-            /* Header de la etiqueta */
+            /* Header */
             .lbl-header {
               display:flex;
               justify-content:space-between;
               align-items:center;
-              border-bottom:1.5px solid #00C2FF;
+              border-bottom:2px solid #00C2FF;
               padding-bottom:3mm;
-              margin-bottom:3mm;
+              margin-bottom:3.5mm;
             }
-            .lbl-header img { height:28px; object-fit:contain; }
-            .lbl-oc { font-size:16px; font-weight:900; color:#1a1a2e; letter-spacing:1px; }
+            .lbl-header img { height:34px; object-fit:contain; }
+            .lbl-oc { font-size:20px; font-weight:900; color:#1a1a2e; letter-spacing:1.5px; }
             .lbl-date { font-size:8px; color:#6b7a99; margin-top:1px; text-align:right; }
 
-            /* Courier badge */
+            /* Courier */
             .courier-pill {
               display:inline-block;
-              padding:2px 8px;
+              padding:2px 9px;
               border-radius:10px;
-              font-size:9px;
+              font-size:10px;
               font-weight:800;
               color:#fff;
               background:${courier.color};
               letter-spacing:0.05em;
             }
-            .modality { font-size:8px; color:#6b7a99; margin-left:4px; }
+            .modality { font-size:9px; color:#6b7a99; margin-left:5px; }
 
-            /* Bloques de datos */
-            .row { display:flex; gap:3mm; margin-bottom:2mm; }
-            .block { flex:1; }
+            /* Grid de datos 3 columnas */
+            .row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:3mm; margin-bottom:2.5mm; }
+            .row2 { display:grid; grid-template-columns:1fr 1fr; gap:3mm; margin-bottom:2.5mm; }
             .block-title { font-size:7px; color:#6b7a99; text-transform:uppercase; letter-spacing:0.1em; font-weight:700; margin-bottom:1mm; }
-            .block-val { font-size:10px; font-weight:700; color:#1a1a2e; line-height:1.3; }
-            .block-val.small { font-size:9px; font-weight:600; }
+            .block-val { font-size:10px; font-weight:700; color:#1a1a2e; line-height:1.4; }
+            .block-val.sm { font-size:9px; font-weight:600; }
             .block-val.muted { color:#4a5568; font-weight:600; }
 
-            /* Separador */
-            .sep { border:none; border-top:1px dashed #dde3ef; margin:2mm 0; }
+            .sep { border:none; border-top:1px dashed #dde3ef; margin:2.5mm 0; }
 
             /* Tabla ítems */
             .items { width:100%; border-collapse:collapse; margin-top:2mm; }
-            .items th { font-size:7px; color:#6b7a99; text-transform:uppercase; text-align:left; padding:1mm 1.5mm; border-bottom:1px solid #e2e8f0; }
-            .items td { font-size:8px; padding:1mm 1.5mm; border-bottom:1px solid #f0f4f8; }
+            .items th { font-size:7.5px; color:#fff; background:#0A0C10; text-transform:uppercase; text-align:left; padding:1.5mm 2mm; }
+            .items td { font-size:9px; padding:1.5mm 2mm; border-bottom:1px solid #f0f4f8; }
             .items td.code { font-family:monospace; color:#00C2FF; font-weight:700; }
-            .items td.qty { text-align:center; font-weight:800; color:#1a1a2e; }
+            .items td.qty { text-align:center; font-weight:800; }
+            .items tbody tr:nth-child(even) td { background:#f9fafc; }
 
-            /* Footer mini */
-            .lbl-footer { position:absolute; bottom:3mm; left:5mm; right:5mm; font-size:7px; color:#b0b8cc; text-align:center; border-top:1px solid #f0f4f8; padding-top:1.5mm; }
+            .lbl-footer { margin-top:3mm; padding-top:2mm; border-top:1px solid #e8ecf4; font-size:7.5px; color:#b0b8cc; text-align:center; }
           </style></head><body>
 
           <div class="page">
           ${[0,1].map(()=>`
             <div class="label">
-              <!-- Cabecera -->
               <div class="lbl-header">
                 <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos"/>
                 <div>
@@ -4468,58 +4559,56 @@ function PurchaseView({ isMobile }) {
                 </div>
               </div>
 
-              <!-- Courier + modalidad -->
-              <div style="margin-bottom:2.5mm;">
+              <div style="margin-bottom:3mm;">
                 <span class="courier-pill">${despachoForm.courier}</span>
                 <span class="modality">${despachoForm.tipo==="sucursal"?"📍 Sucursal":"🏠 Domicilio"}</span>
               </div>
 
-              <!-- Destinatario + dirección -->
-              <div class="row">
-                <div class="block">
+              <div class="row2">
+                <div>
                   <div class="block-title">Destinatario</div>
                   <div class="block-val">${despachoForm.nombre||"—"}</div>
-                  <div class="block-val muted small">${despachoForm.rut||""}</div>
+                  <div class="block-val muted sm">${despachoForm.rut||""}</div>
                 </div>
-                <div class="block">
+                <div>
                   <div class="block-title">Contacto</div>
-                  <div class="block-val small">${despachoForm.telefono||"—"}</div>
-                  <div class="block-val muted small" style="font-size:8px">${despachoForm.correo||""}</div>
+                  <div class="block-val sm">${despachoForm.telefono||"—"}</div>
+                  <div class="block-val muted" style="font-size:8px;">${despachoForm.correo||""}</div>
                 </div>
               </div>
 
               <hr class="sep"/>
 
-              <!-- Dirección -->
-              <div style="margin-bottom:2mm;">
+              <div style="margin-bottom:2.5mm;">
                 <div class="block-title">Dirección de entrega</div>
-                <div class="block-val small">
-                  ${despachoForm.tipo==="sucursal" && despachoForm.sucursal ? despachoForm.sucursal+"<br/>" : ""}
-                  ${despachoForm.direccion||"—"}<br/>
-                  ${[despachoForm.comuna, despachoForm.ciudad].filter(Boolean).join(", ")||""}
+                <div class="block-val sm">
+                  ${despachoForm.tipo==="sucursal" && despachoForm.sucursal ? "<strong>"+despachoForm.sucursal+"</strong> · " : ""}${despachoForm.direccion||"—"}<br/>
+                  ${[despachoForm.comuna, despachoForm.ciudad, despachoForm.region].filter(Boolean).join(", ")||""}
                 </div>
               </div>
 
               <hr class="sep"/>
 
-              <!-- Referencias -->
-              <div class="row">
-                <div class="block">
-                  <div class="block-title">Proveedor (Remitente)</div>
-                  <div class="block-val small">${sup.nombre||"—"}</div>
-                  <div class="block-val muted small">${sup.rut||""}</div>
+              <div class="row3">
+                <div>
+                  <div class="block-title">Remitente</div>
+                  <div class="block-val sm">${sup.nombre||"—"}</div>
+                  <div class="block-val muted sm">${sup.rut||""}</div>
                 </div>
-                <div class="block">
-                  <div class="block-title">Referencias</div>
-                  <div class="block-val small">OC: ${despachoOC.numero_oc}</div>
-                  ${cotRef?.numero ? `<div class="block-val muted small">COT: #${cotRef.numero}</div>` : ""}
+                <div>
+                  <div class="block-title">OC Referencia</div>
+                  <div class="block-val">${despachoOC.numero_oc}</div>
+                  ${cotRef?.numero ? `<div class="block-val muted sm">COT #${cotRef.numero}</div>` : ""}
+                </div>
+                <div>
+                  <div class="block-title">Cot. Proveedor</div>
+                  <div class="block-val sm">${despachoForm.num_cotizacion||"—"}</div>
                 </div>
               </div>
 
-              <!-- Ítems -->
               <table class="items">
                 <thead><tr>
-                  <th>Cód.</th><th>Producto</th><th>SKU</th><th style="text-align:center">Cant.</th>
+                  <th>Código</th><th>Producto</th><th>SKU Proveedor</th><th style="text-align:center">Cant.</th>
                 </tr></thead>
                 <tbody>
                 ${(despachoOC.lines||[]).map(l=>{
@@ -4528,18 +4617,17 @@ function PurchaseView({ isMobile }) {
                   return `<tr>
                     <td class="code">${prod.codigo||"—"}</td>
                     <td>${prod.nombre||"—"}</td>
-                    <td style="font-family:monospace;font-size:7px;color:#6b7a99;">${pp.sku_proveedor||"—"}</td>
+                    <td style="font-family:monospace;font-size:8px;color:#6b7a99;">${pp.sku_proveedor||"—"}</td>
                     <td class="qty">${l.cantidad}</td>
                   </tr>`;
                 }).join("")}
                 </tbody>
               </table>
 
-              <div class="lbl-footer">Polygonos SPA · RUT 77.180.437-3 · ${new Date().toLocaleString("es-CL")}</div>
+              <div class="lbl-footer">Polygonos SPA · RUT 77.180.437-3 · maximo.hudson.blanco@gmail.com · ${new Date().toLocaleString("es-CL")}</div>
             </div>
           `).join("")}
           </div>
-
           </body></html>`;
 
           const win = window.open("","_blank");
@@ -4610,11 +4698,47 @@ function PurchaseView({ isMobile }) {
                 </div>
 
                 {despachoForm.tipo==="sucursal" && inp("Sucursal","sucursal","Ej: Sucursal La Serena Centro")}
-                {inp("Dirección","direccion","Ej: Av. Pacífico 510")}
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 16px" }}>
-                  {inp("Comuna","comuna","Ej: La Serena")}
-                  {inp("Ciudad","ciudad","Ej: La Serena")}
+                {inp("Dirección (calle y número)","direccion","Ej: Av. Pacífico 510")}
+
+                {/* Región */}
+                <div style={{ marginBottom:12 }}>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5, fontWeight:600 }}>Región</div>
+                  <select value={despachoForm.region} onChange={e=>{ df("region",e.target.value); df("ciudad",""); df("comuna",""); }}
+                    style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:despachoForm.region?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box" }}>
+                    <option value="">— Seleccionar región —</option>
+                    {Object.keys(CHILE_GEO).map(r=><option key={r} value={r}>{r}</option>)}
+                  </select>
                 </div>
+
+                {/* Ciudad y Comuna */}
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 16px" }}>
+                  <div style={{ marginBottom:12 }}>
+                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5, fontWeight:600 }}>Ciudad</div>
+                    <select value={despachoForm.ciudad} onChange={e=>df("ciudad",e.target.value)}
+                      disabled={!despachoForm.region}
+                      style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:despachoForm.ciudad?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box", opacity:!despachoForm.region?0.4:1 }}>
+                      <option value="">— Ciudad —</option>
+                      {(CHILE_GEO[despachoForm.region]?.ciudades||[]).map(c=><option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ marginBottom:12 }}>
+                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5, fontWeight:600 }}>Comuna</div>
+                    <select value={despachoForm.comuna} onChange={e=>df("comuna",e.target.value)}
+                      disabled={!despachoForm.region}
+                      style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:despachoForm.comuna?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box", opacity:!despachoForm.region?0.4:1 }}>
+                      <option value="">— Comuna —</option>
+                      {(CHILE_GEO[despachoForm.region]?.comunas||[]).map(c=><option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* N° Cotización manual */}
+              <div style={{ marginBottom:16 }}>
+                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5, fontWeight:600 }}>N° Cotización del Proveedor (manual)</div>
+                <input value={despachoForm.num_cotizacion||""} onChange={e=>df("num_cotizacion",e.target.value)}
+                  placeholder="Ej: COT-2026-001 o vacío"
+                  style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
               </div>
 
               {/* Notas despacho */}
