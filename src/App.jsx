@@ -3662,7 +3662,8 @@ function PurchaseView({ isMobile }) {
   const openEdit = (oc) => {
     setEditingOC(oc);
     setOcForm({ cotizacion_id: oc.cotizacion_id||"", supplier_id: oc.supplier_id||"", estado: oc.estado||"PENDIENTE", notas: oc.notas||"" });
-    setLines((oc.lines||[]).map(l=>({ ...l, _key: l.id })));
+    // precio_unitario en BD está en bruto → convertir a neto para el formulario
+    setLines((oc.lines||[]).map(l=>({ ...l, _key: l.id, precio_unitario: Math.round((Number(l.precio_unitario)||0)/1.19) })));
     setShowModal(true);
   };
 
@@ -3673,17 +3674,19 @@ function PurchaseView({ isMobile }) {
   const onLineProductChange = (key, productId) => {
     const prices = productPrices.filter(pp=>pp.product_id===productId);
     const pref   = prices.find(pp=>pp.es_preferido) || prices[0];
+    const netoUnit = pref ? Math.round((pref.precio_bruto||0)/1.19) : 0;
     setLines(p=>p.map(l=>l._key===key ? {
       ...l,
       product_id: productId,
       supplier_price_id: pref?.id||"",
-      precio_unitario: pref?.precio_bruto||0,
+      precio_unitario: netoUnit,
     } : l));
   };
 
   const onLinePriceChange = (key, priceId) => {
     const pp = productPrices.find(p=>p.id===priceId);
-    setLines(p=>p.map(l=>l._key===key ? { ...l, supplier_price_id:priceId, precio_unitario:pp?.precio_bruto||l.precio_unitario } : l));
+    const netoUnit = pp ? Math.round((pp.precio_bruto||0)/1.19) : 0;
+    setLines(p=>p.map(l=>l._key===key ? { ...l, supplier_price_id:priceId, precio_unitario:netoUnit||l.precio_unitario } : l));
   };
 
   const getNextNumOC = () => {
@@ -3719,7 +3722,7 @@ function PurchaseView({ isMobile }) {
         product_id:        l.product_id,
         supplier_price_id: l.supplier_price_id||null,
         cantidad:          Number(l.cantidad),
-        precio_unitario:   Number(l.precio_unitario),
+        precio_unitario:   Math.round(Number(l.precio_unitario) * 1.19), // guardar bruto en BD
       }));
       await supabase.from("purchase_order_lines").insert(linesDb);
       setShowModal(false); setEditingOC(null);
@@ -3968,8 +3971,8 @@ function PurchaseView({ isMobile }) {
                     <table style={{ width:"100%", borderCollapse:"collapse", fontFamily:FONT, fontSize:12 }}>
                       <thead>
                         <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
-                          {["Código","Producto","SKU Prov.","Cant.","P. Unit","Subtotal"].map(h=>(
-                            <th key={h} style={{ padding:"6px 10px", fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", textAlign:h==="Cant."||h==="P. Unit"||h==="Subtotal"?"right":"left", whiteSpace:"nowrap" }}>{h}</th>
+                          {["Código","Producto","SKU Prov.","Cant.","Neto Unit.","Subtotal Neto"].map(h=>(
+                            <th key={h} style={{ padding:"6px 10px", fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", textAlign:h==="Cant."||h==="Neto Unit."||h==="Subtotal Neto"?"right":"left", whiteSpace:"nowrap" }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -3977,14 +3980,15 @@ function PurchaseView({ isMobile }) {
                         {(oc.lines||[]).map((l,i)=>{
                           const prod = products.find(p=>p.id===l.product_id)||{};
                           const pp   = productPrices.find(p=>p.id===l.supplier_price_id)||{};
-                          const sub  = Number(l.precio_unitario)*Number(l.cantidad);
+                          const netoU = Math.round(Number(l.precio_unitario)/1.19);
+                          const sub  = netoU * Number(l.cantidad);
                           return (
                             <tr key={i} style={{ borderBottom:`1px solid ${COLORS.border}22` }}>
                               <td style={{ padding:"7px 10px", color:COLORS.accent, fontWeight:600, whiteSpace:"nowrap" }}>{prod.codigo||"—"}</td>
                               <td style={{ padding:"7px 10px", color:COLORS.text }}>{prod.nombre||"—"}</td>
                               <td style={{ padding:"7px 10px", color:COLORS.textMuted, fontSize:10, fontFamily:FONT }}>{pp.sku_proveedor||"—"}</td>
                               <td style={{ padding:"7px 10px", color:COLORS.text, textAlign:"right" }}>{l.cantidad}</td>
-                              <td style={{ padding:"7px 10px", color:COLORS.text, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(l.precio_unitario)}</td>
+                              <td style={{ padding:"7px 10px", color:COLORS.green, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(netoU)}</td>
                               <td style={{ padding:"7px 10px", color:COLORS.green, fontWeight:700, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(sub)}</td>
                             </tr>
                           );
@@ -4186,8 +4190,9 @@ function PurchaseView({ isMobile }) {
 
               {lines.map((line, idx)=>{
                 const linePrices = productPrices.filter(pp=>pp.product_id===line.product_id);
-                const subtotalNeto = Math.round(Number(line.cantidad||0) * Number(line.precio_unitario||0) / 1.19);
-                const subtotalBruto = Number(line.cantidad||0) * Number(line.precio_unitario||0);
+                // precio_unitario ahora es NETO
+                const subtotalNeto = Number(line.cantidad||0) * Number(line.precio_unitario||0);
+                const subtotalBruto = Math.round(subtotalNeto * 1.19);
                 const prodSelected = products.find(p=>p.id===line.product_id);
                 const ocSearch = line._search||"";
                 const ocResults = ocSearch.length > 1
@@ -4270,7 +4275,7 @@ function PurchaseView({ isMobile }) {
                       </select>
                     </div>
 
-                    {/* Cantidad + precio + subtotal */}
+                    {/* Cantidad + precio neto editable + bruto calculado */}
                     <div style={{ display:"grid", gridTemplateColumns:"80px 1fr 1fr", gap:8, alignItems:"end" }}>
                       <div>
                         <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.06em" }}>Cant.</div>
@@ -4278,15 +4283,19 @@ function PurchaseView({ isMobile }) {
                           style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
                       </div>
                       <div>
-                        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.06em" }}>Precio Unit. (bruto c/IVA)</div>
+                        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.green, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.06em", fontWeight:600 }}>Precio Neto Unit. ✎</div>
                         <input type="number" value={line.precio_unitario} onChange={e=>updateLine(line._key,"precio_unitario",e.target.value)}
-                          style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
-                        {Number(line.precio_unitario)>0 && <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.green, marginTop:2 }}>Neto unit.: {fmt(Math.round(Number(line.precio_unitario)/1.19))}</div>}
+                          style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.green}55`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:COLORS.green, outline:"none", boxSizing:"border-box", fontWeight:600 }} />
+                        {Number(line.precio_unitario)>0 && (
+                          <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginTop:2 }}>
+                            Bruto unit.: {fmt(Math.round(Number(line.precio_unitario)*1.19))}
+                          </div>
+                        )}
                       </div>
                       <div style={{ padding:"8px 12px", background:`${COLORS.green}11`, border:`1px solid ${COLORS.green}33`, borderRadius:6 }}>
-                        <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase" }}>Subtotal neto</div>
+                        <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase" }}>Subtotal Neto</div>
                         <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.green }}>{fmt(subtotalNeto)}</div>
-                        <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>Bruto: {fmt(subtotalBruto)}</div>
+                        <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginTop:2 }}>Bruto: {fmt(Math.round(subtotalNeto*1.19))}</div>
                       </div>
                     </div>
                   </div>
@@ -4295,9 +4304,10 @@ function PurchaseView({ isMobile }) {
 
               {/* Total del formulario */}
               {lines.length > 0 && (()=>{
-                const totBruto = lines.reduce((s,l)=>s+Number(l.cantidad||0)*Number(l.precio_unitario||0),0);
-                const totNeto  = Math.round(totBruto/1.19);
-                const totIva   = totBruto - totNeto;
+                // precio_unitario es NETO
+                const totNeto  = lines.reduce((s,l)=>s+Number(l.cantidad||0)*Number(l.precio_unitario||0),0);
+                const totIva   = Math.round(totNeto*0.19);
+                const totBruto = totNeto + totIva;
                 return (
                   <div style={{ display:"flex", justifyContent:"flex-end", marginTop:10 }}>
                     <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"12px 16px", minWidth:220 }}>
