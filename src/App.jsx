@@ -3555,12 +3555,575 @@ function CosteoView({ contacts }) {
   );
 }
 
+// ── MÓDULO DE COMPRAS ────────────────────────────────────────────────────────
+const OC_ESTADOS = [
+  { key:"PENDIENTE",  color:"#FFB800", icon:"⏳" },
+  { key:"CONFIRMADA", color:"#00C2FF", icon:"✅" },
+  { key:"ENVIADA",    color:"#A855F7", icon:"🚚" },
+  { key:"RECIBIDA",   color:"#00E5A0", icon:"📦" },
+  { key:"PAGADA",     color:"#10b981", icon:"💰" },
+];
+
+function PurchaseView({ isMobile }) {
+  const [ocs, setOcs]               = useState([]);
+  const [quotes, setQuotes]         = useState([]);
+  const [suppliers, setSuppliers]   = useState([]);
+  const [products, setProducts]     = useState([]);
+  const [productPrices, setProductPrices] = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [expanded, setExpanded]     = useState({});
+  const [showModal, setShowModal]   = useState(false);
+  const [editingOC, setEditingOC]   = useState(null);
+  const [filterEstado, setFilterEstado] = useState("TODOS");
+
+  // Formulario OC
+  const emptyOC = { cotizacion_id:"", supplier_id:"", estado:"PENDIENTE", notas:"" };
+  const [ocForm, setOcForm]   = useState(emptyOC);
+  const [lines, setLines]     = useState([]);
+  const [savingOC, setSavingOC] = useState(false);
+
+  useEffect(()=>{ loadAll(); },[]);
+
+  const loadAll = async () => {
+    setLoading(true);
+    const [ocsR, quotesR, suppR, prodsR, ppR] = await Promise.all([
+      supabase.from("purchase_orders").select("*, suppliers(id,nombre,rut,email,telefono), cotizaciones(id,numero,nombre_cliente)").order("created_at", { ascending:false }),
+      supabase.from("cotizaciones").select("id,numero,nombre_cliente,razon_social,total").order("numero", { ascending:false }),
+      supabase.from("suppliers").select("*").order("nombre"),
+      supabase.from("products").select("id,codigo,nombre,descripcion,unidad,categoria").order("codigo"),
+      supabase.from("product_prices").select("*, suppliers(id,nombre)").order("es_preferido", { ascending:false }),
+    ]);
+    // Cargar líneas de cada OC
+    const ocIds = (ocsR.data||[]).map(o=>o.id);
+    let linesMap = {};
+    if (ocIds.length > 0) {
+      const { data: linesData } = await supabase
+        .from("purchase_order_lines")
+        .select("*, products(id,codigo,nombre,unidad)")
+        .in("purchase_order_id", ocIds);
+      (linesData||[]).forEach(l => {
+        if (!linesMap[l.purchase_order_id]) linesMap[l.purchase_order_id] = [];
+        linesMap[l.purchase_order_id].push(l);
+      });
+    }
+    const ocsWithLines = (ocsR.data||[]).map(o=>({ ...o, lines: linesMap[o.id]||[] }));
+    setOcs(ocsWithLines);
+    setQuotes(quotesR.data||[]);
+    setSuppliers(suppR.data||[]);
+    setProducts(prodsR.data||[]);
+    setProductPrices(ppR.data||[]);
+    setLoading(false);
+  };
+
+  const toggleExpand = (id) => setExpanded(p=>({ ...p, [id]: !p[id] }));
+
+  const openNew = () => {
+    setEditingOC(null);
+    setOcForm(emptyOC);
+    setLines([{ product_id:"", supplier_price_id:"", cantidad:1, precio_unitario:0, _key: Date.now() }]);
+    setShowModal(true);
+  };
+
+  const openEdit = (oc) => {
+    setEditingOC(oc);
+    setOcForm({ cotizacion_id: oc.cotizacion_id||"", supplier_id: oc.supplier_id||"", estado: oc.estado||"PENDIENTE", notas: oc.notas||"" });
+    setLines((oc.lines||[]).map(l=>({ ...l, _key: l.id })));
+    setShowModal(true);
+  };
+
+  const addLine = () => setLines(p=>[...p, { product_id:"", supplier_price_id:"", cantidad:1, precio_unitario:0, _key: Date.now() }]);
+  const removeLine = (key) => setLines(p=>p.filter(l=>l._key!==key));
+  const updateLine = (key, field, val) => setLines(p=>p.map(l=>l._key===key ? { ...l, [field]:val } : l));
+
+  const onLineProductChange = (key, productId) => {
+    const prices = productPrices.filter(pp=>pp.product_id===productId);
+    const pref   = prices.find(pp=>pp.es_preferido) || prices[0];
+    setLines(p=>p.map(l=>l._key===key ? {
+      ...l,
+      product_id: productId,
+      supplier_price_id: pref?.id||"",
+      precio_unitario: pref?.precio_bruto||0,
+    } : l));
+  };
+
+  const onLinePriceChange = (key, priceId) => {
+    const pp = productPrices.find(p=>p.id===priceId);
+    setLines(p=>p.map(l=>l._key===key ? { ...l, supplier_price_id:priceId, precio_unitario:pp?.precio_bruto||l.precio_unitario } : l));
+  };
+
+  const getNextNumOC = () => {
+    if (ocs.length===0) return "OC-001";
+    const nums = ocs.map(o=>parseInt((o.numero_oc||"OC-000").split("-")[1]||0)).filter(n=>!isNaN(n));
+    const next = Math.max(0,...nums)+1;
+    return `OC-${String(next).padStart(3,"0")}`;
+  };
+
+  const saveOC = async () => {
+    if (!ocForm.supplier_id) return;
+    const validLines = lines.filter(l=>l.product_id && l.cantidad>0 && l.precio_unitario>0);
+    if (validLines.length===0) return;
+    setSavingOC(true);
+    try {
+      let ocId = editingOC?.id;
+      const ocData = {
+        supplier_id:    ocForm.supplier_id||null,
+        cotizacion_id:  ocForm.cotizacion_id||null,
+        estado:         ocForm.estado,
+        notas:          ocForm.notas||null,
+        updated_at:     new Date().toISOString(),
+      };
+      if (editingOC) {
+        await supabase.from("purchase_orders").update(ocData).eq("id", ocId);
+        await supabase.from("purchase_order_lines").delete().eq("purchase_order_id", ocId);
+      } else {
+        const { data } = await supabase.from("purchase_orders").insert({ ...ocData, numero_oc: getNextNumOC() }).select().single();
+        ocId = data.id;
+      }
+      const linesDb = validLines.map(l=>({
+        purchase_order_id: ocId,
+        product_id:        l.product_id,
+        supplier_price_id: l.supplier_price_id||null,
+        cantidad:          Number(l.cantidad),
+        precio_unitario:   Number(l.precio_unitario),
+      }));
+      await supabase.from("purchase_order_lines").insert(linesDb);
+      setShowModal(false); setEditingOC(null);
+      await loadAll();
+    } finally { setSavingOC(false); }
+  };
+
+  const changeEstado = async (ocId, estado) => {
+    await supabase.from("purchase_orders").update({ estado, updated_at: new Date().toISOString() }).eq("id", ocId);
+    setOcs(p=>p.map(o=>o.id===ocId?{...o,estado}:o));
+  };
+
+  const deleteOC = async (ocId) => {
+    if (!confirm("¿Eliminar esta orden de compra?")) return;
+    await supabase.from("purchase_order_lines").delete().eq("purchase_order_id", ocId);
+    await supabase.from("purchase_orders").delete().eq("id", ocId);
+    setOcs(p=>p.filter(o=>o.id!==ocId));
+  };
+
+  const generatePDF = (oc) => {
+    const sup = oc.suppliers||{};
+    const cot = oc.cotizaciones||{};
+    const estado = OC_ESTADOS.find(e=>e.key===oc.estado)||OC_ESTADOS[0];
+    const total = (oc.lines||[]).reduce((s,l)=>s+Number(l.precio_unitario)*Number(l.cantidad),0);
+    const neto  = Math.round(total/1.19);
+    const iva   = total-neto;
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+    <style>
+      *{margin:0;padding:0;box-sizing:border-box;}
+      body{font-family:'Segoe UI',sans-serif;background:#fff;color:#1a1a2e;padding:40px;}
+      .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #00C2FF;}
+      .logo{font-size:22px;font-weight:800;color:#00C2FF;letter-spacing:-0.5px;}
+      .oc-num{font-size:28px;font-weight:800;color:#1a1a2e;}
+      .badge{display:inline-block;padding:4px 12px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:0.1em;background:${estado.color}22;color:${estado.color};border:1px solid ${estado.color}44;}
+      .grid2{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px;}
+      .block{background:#f8f9ff;border-radius:8px;padding:16px;}
+      .block-title{font-size:10px;color:#6b7a99;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;font-weight:600;}
+      .block p{font-size:13px;color:#1a1a2e;margin-bottom:4px;}
+      .block strong{color:#00C2FF;}
+      table{width:100%;border-collapse:collapse;margin-bottom:24px;}
+      th{background:#0A0C10;color:#fff;padding:10px 12px;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;text-align:left;}
+      td{padding:10px 12px;font-size:13px;border-bottom:1px solid #e8ecf4;}
+      tr:hover td{background:#f8f9ff;}
+      .totales{max-width:280px;margin-left:auto;background:#f8f9ff;border-radius:8px;padding:16px;}
+      .tot-row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;}
+      .tot-total{display:flex;justify-content:space-between;padding:10px 0 0;font-size:15px;font-weight:800;border-top:2px solid #00C2FF;margin-top:8px;color:#00C2FF;}
+      .footer{margin-top:32px;padding-top:16px;border-top:1px solid #e8ecf4;font-size:11px;color:#6b7a99;text-align:center;}
+    </style></head><body>
+    <div class="header">
+      <div>
+        <div class="logo">POLYGONOS 360</div>
+        <div style="font-size:11px;color:#6b7a99;margin-top:4px;">Sistema de Gestión B2B</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="oc-num">${oc.numero_oc}</div>
+        <div style="margin-top:6px;"><span class="badge">${estado.icon} ${oc.estado}</span></div>
+        <div style="font-size:11px;color:#6b7a99;margin-top:6px;">Emitida: ${new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"})}</div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="block">
+        <div class="block-title">Proveedor</div>
+        <p><strong>${sup.nombre||"—"}</strong></p>
+        ${sup.rut?`<p>RUT: ${sup.rut}</p>`:""}
+        ${sup.email?`<p>${sup.email}</p>`:""}
+        ${sup.telefono?`<p>${sup.telefono}</p>`:""}
+      </div>
+      <div class="block">
+        <div class="block-title">Referencia</div>
+        ${cot.numero?`<p>Cotización: <strong>#${cot.numero}</strong></p>`:""}
+        ${cot.nombre_cliente?`<p>Cliente: ${cot.nombre_cliente}</p>`:""}
+        ${oc.notas?`<p style="margin-top:8px;font-size:12px;color:#6b7a99;">${oc.notas}</p>`:""}
+      </div>
+    </div>
+    <table>
+      <thead><tr>
+        <th>Código</th><th>Producto</th><th>SKU Proveedor</th><th style="text-align:center">Cant.</th>
+        <th style="text-align:right">P. Unitario</th><th style="text-align:right">Subtotal</th>
+      </tr></thead>
+      <tbody>
+      ${(oc.lines||[]).map(l=>{
+        const prod = products.find(p=>p.id===l.product_id)||{};
+        const pp   = productPrices.find(p=>p.id===l.supplier_price_id)||{};
+        const sub  = Number(l.precio_unitario)*Number(l.cantidad);
+        return `<tr>
+          <td style="font-family:monospace;color:#00C2FF;font-weight:600;">${prod.codigo||"—"}</td>
+          <td>${prod.nombre||"—"}</td>
+          <td style="font-family:monospace;font-size:11px;color:#6b7a99;">${pp.sku_proveedor||"—"}</td>
+          <td style="text-align:center;">${l.cantidad}</td>
+          <td style="text-align:right;">${new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(l.precio_unitario)}</td>
+          <td style="text-align:right;font-weight:600;">${new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(sub)}</td>
+        </tr>`;
+      }).join("")}
+      </tbody>
+    </table>
+    <div class="totales">
+      <div class="tot-row"><span>Neto</span><span>${new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(neto)}</span></div>
+      <div class="tot-row"><span>IVA (19%)</span><span>${new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(iva)}</span></div>
+      <div class="tot-total"><span>TOTAL</span><span>${new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(total)}</span></div>
+    </div>
+    <div class="footer">Polygonos SPA · RUT 77.180.437-3 · maximo.hudson.blanco@gmail.com · Documento generado el ${new Date().toLocaleString("es-CL")}</div>
+    </body></html>`;
+
+    const win = window.open("","_blank");
+    win.document.write(html);
+    win.document.close();
+    setTimeout(()=>win.print(), 600);
+  };
+
+  const ocsFiltradas = filterEstado==="TODOS" ? ocs : ocs.filter(o=>o.estado===filterEstado);
+  const totalPorEstado = (est) => ocs.filter(o=>o.estado===est).reduce((s,o)=>{
+    return s + (o.lines||[]).reduce((t,l)=>t+Number(l.precio_unitario)*Number(l.cantidad),0);
+  },0);
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:20, flexWrap:"wrap", gap:10 }}>
+        <div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Órdenes de Compra</div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:3 }}>{ocs.length} OC · {ocsFiltradas.length} mostradas</div>
+        </div>
+        <AddBtn onClick={openNew} label="Nueva OC" />
+      </div>
+
+      {/* Filtros de estado */}
+      <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap" }}>
+        <button onClick={()=>setFilterEstado("TODOS")}
+          style={{ padding:"5px 14px", borderRadius:6, border:`1px solid ${filterEstado==="TODOS"?COLORS.accent:COLORS.border}`, background:filterEstado==="TODOS"?`${COLORS.accent}22`:"transparent", color:filterEstado==="TODOS"?COLORS.accent:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+          Todas ({ocs.length})
+        </button>
+        {OC_ESTADOS.map(e=>{
+          const cnt = ocs.filter(o=>o.estado===e.key).length;
+          const active = filterEstado===e.key;
+          return (
+            <button key={e.key} onClick={()=>setFilterEstado(e.key)}
+              style={{ padding:"5px 14px", borderRadius:6, border:`1px solid ${active?e.color:COLORS.border}`, background:active?`${e.color}22`:"transparent", color:active?e.color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer", display:"flex", alignItems:"center", gap:5 }}>
+              {e.icon} {e.key} ({cnt})
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Stats rápidas */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:10, marginBottom:24 }}>
+        {OC_ESTADOS.map(e=>(
+          <div key={e.key} style={{ padding:"12px 16px", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8 }}>
+            <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:4 }}>{e.icon} {e.key}</div>
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:e.color }}>{fmt(totalPorEstado(e.key))}</div>
+            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{ocs.filter(o=>o.estado===e.key).length} órdenes</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Lista de OCs como tarjetas */}
+      {loading && <Loader />}
+      {!loading && ocsFiltradas.length===0 && (
+        <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>
+          {filterEstado==="TODOS" ? "Sin órdenes de compra. ¡Crea la primera!" : `Sin OC en estado ${filterEstado}`}
+        </div>
+      )}
+
+      <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+        {ocsFiltradas.map(oc=>{
+          const sup    = oc.suppliers||{};
+          const cot    = oc.cotizaciones||{};
+          const estado = OC_ESTADOS.find(e=>e.key===oc.estado)||OC_ESTADOS[0];
+          const total  = (oc.lines||[]).reduce((s,l)=>s+Number(l.precio_unitario)*Number(l.cantidad),0);
+          const neto   = Math.round(total/1.19);
+          const isExp  = expanded[oc.id];
+
+          return (
+            <div key={oc.id} style={{ background:COLORS.card, border:`1px solid ${isExp?estado.color+"55":COLORS.border}`, borderRadius:10, overflow:"hidden", transition:"border 0.2s" }}>
+              {/* Cabecera replegada */}
+              <div style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 18px", cursor:"pointer" }} onClick={()=>toggleExpand(oc.id)}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.accent }}>{oc.numero_oc}</span>
+                    {cot.numero && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>· COT #{cot.numero}</span>}
+                    <span style={{ padding:"2px 8px", borderRadius:4, fontSize:10, fontFamily:FONT, fontWeight:700, letterSpacing:"0.08em", background:`${estado.color}22`, color:estado.color, border:`1px solid ${estado.color}44` }}>
+                      {estado.icon} {oc.estado}
+                    </span>
+                  </div>
+                  <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, marginTop:4 }}>
+                    {sup.nombre||"Sin proveedor"}
+                    {cot.nombre_cliente && <span style={{ color:COLORS.textMuted }}> · {cot.nombre_cliente}</span>}
+                  </div>
+                </div>
+                <div style={{ textAlign:"right", minWidth:120 }}>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>{fmt(total)}</div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.green }}>Neto: {fmt(neto)}</div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{(oc.lines||[]).length} ítems</div>
+                </div>
+                <div style={{ color:COLORS.textMuted, fontSize:14, transition:"transform 0.2s", transform:isExp?"rotate(180deg)":"rotate(0deg)" }}>▼</div>
+              </div>
+
+              {/* Detalle expandido */}
+              {isExp && (
+                <div style={{ borderTop:`1px solid ${COLORS.border}`, padding:"16px 18px" }}>
+                  {/* Cambio de estado */}
+                  <div style={{ display:"flex", gap:6, marginBottom:14, flexWrap:"wrap" }}>
+                    <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, alignSelf:"center", marginRight:4 }}>Estado:</span>
+                    {OC_ESTADOS.map(e=>(
+                      <button key={e.key} onClick={()=>changeEstado(oc.id,e.key)}
+                        style={{ padding:"3px 10px", borderRadius:5, border:`1px solid ${oc.estado===e.key?e.color:COLORS.border}`, background:oc.estado===e.key?`${e.color}22`:"transparent", color:oc.estado===e.key?e.color:COLORS.textMuted, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>
+                        {e.icon} {e.key}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Info proveedor */}
+                  {(sup.rut||sup.email||sup.telefono) && (
+                    <div style={{ marginBottom:12, padding:"8px 12px", background:COLORS.surface, borderRadius:6, fontFamily:FONT, fontSize:11, color:COLORS.textMuted, display:"flex", gap:16, flexWrap:"wrap" }}>
+                      {sup.rut&&<span>RUT: <strong style={{color:COLORS.text}}>{sup.rut}</strong></span>}
+                      {sup.email&&<span>✉ {sup.email}</span>}
+                      {sup.telefono&&<span>📞 {sup.telefono}</span>}
+                    </div>
+                  )}
+
+                  {/* Tabla de líneas */}
+                  <div style={{ overflowX:"auto", marginBottom:14 }}>
+                    <table style={{ width:"100%", borderCollapse:"collapse", fontFamily:FONT, fontSize:12 }}>
+                      <thead>
+                        <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                          {["Código","Producto","SKU Prov.","Cant.","P. Unit","Subtotal"].map(h=>(
+                            <th key={h} style={{ padding:"6px 10px", fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", textAlign:h==="Cant."||h==="P. Unit"||h==="Subtotal"?"right":"left", whiteSpace:"nowrap" }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(oc.lines||[]).map((l,i)=>{
+                          const prod = products.find(p=>p.id===l.product_id)||{};
+                          const pp   = productPrices.find(p=>p.id===l.supplier_price_id)||{};
+                          const sub  = Number(l.precio_unitario)*Number(l.cantidad);
+                          return (
+                            <tr key={i} style={{ borderBottom:`1px solid ${COLORS.border}22` }}>
+                              <td style={{ padding:"7px 10px", color:COLORS.accent, fontWeight:600, whiteSpace:"nowrap" }}>{prod.codigo||"—"}</td>
+                              <td style={{ padding:"7px 10px", color:COLORS.text }}>{prod.nombre||"—"}</td>
+                              <td style={{ padding:"7px 10px", color:COLORS.textMuted, fontSize:10, fontFamily:FONT }}>{pp.sku_proveedor||"—"}</td>
+                              <td style={{ padding:"7px 10px", color:COLORS.text, textAlign:"right" }}>{l.cantidad}</td>
+                              <td style={{ padding:"7px 10px", color:COLORS.text, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(l.precio_unitario)}</td>
+                              <td style={{ padding:"7px 10px", color:COLORS.green, fontWeight:700, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(sub)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Totales */}
+                  <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:14 }}>
+                    <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"12px 16px", minWidth:220 }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:4 }}>
+                        <span>Neto</span><span style={{color:COLORS.green}}>{fmt(neto)}</span>
+                      </div>
+                      <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:8 }}>
+                        <span>IVA (19%)</span><span style={{color:"#ef4444"}}>{fmt(total-neto)}</span>
+                      </div>
+                      <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text, borderTop:`1px solid ${COLORS.border}`, paddingTop:8 }}>
+                        <span>Total</span><span style={{color:COLORS.accent}}>{fmt(total)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Notas */}
+                  {oc.notas && (
+                    <div style={{ marginBottom:14, padding:"8px 12px", background:`${COLORS.yellow}11`, border:`1px solid ${COLORS.yellow}33`, borderRadius:6, fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                      📝 {oc.notas}
+                    </div>
+                  )}
+
+                  {/* Acciones */}
+                  <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+                    <button onClick={()=>generatePDF(oc)}
+                      style={{ padding:"7px 14px", background:`${COLORS.purple}22`, border:`1px solid ${COLORS.purple}44`, borderRadius:6, color:COLORS.purple, fontFamily:FONT, fontSize:11, cursor:"pointer", fontWeight:600 }}>
+                      📄 PDF
+                    </button>
+                    <button onClick={()=>openEdit(oc)}
+                      style={{ padding:"7px 14px", background:`${COLORS.accent}22`, border:`1px solid ${COLORS.accent}44`, borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer", fontWeight:600 }}>
+                      ✏️ Editar
+                    </button>
+                    <button onClick={()=>deleteOC(oc.id)}
+                      style={{ padding:"7px 14px", background:`${COLORS.red}22`, border:`1px solid ${COLORS.red}44`, borderRadius:6, color:COLORS.red, fontFamily:FONT, fontSize:11, cursor:"pointer", fontWeight:600 }}>
+                      🗑️ Eliminar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Modal Nueva / Editar OC */}
+      {showModal && (
+        <div style={{ position:"fixed", inset:0, background:"#000C", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+          <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:24, width:"100%", maxWidth:680, maxHeight:"90vh", overflowY:"auto" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text }}>
+                {editingOC ? `Editar ${editingOC.numero_oc}` : `Nueva OC · ${getNextNumOC()}`}
+              </div>
+              <button onClick={()=>setShowModal(false)} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:18 }}>✕</button>
+            </div>
+
+            {/* Cabecera OC */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
+              <div>
+                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Proveedor *</div>
+                <select value={ocForm.supplier_id} onChange={e=>setOcForm(p=>({...p,supplier_id:e.target.value}))}
+                  style={{ width:"100%", background:COLORS.bg, border:`1px solid ${ocForm.supplier_id?COLORS.accent+"55":COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:ocForm.supplier_id?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box" }}>
+                  <option value="">— Seleccionar —</option>
+                  {suppliers.map(s=><option key={s.id} value={s.id}>{s.nombre}{s.rut?` · ${s.rut}`:""}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Cotización referencia</div>
+                <select value={ocForm.cotizacion_id} onChange={e=>setOcForm(p=>({...p,cotizacion_id:e.target.value}))}
+                  style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:ocForm.cotizacion_id?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box" }}>
+                  <option value="">— Sin cotización —</option>
+                  {quotes.map(q=><option key={q.id} value={q.id}>#{q.numero} · {q.nombre_cliente||q.razon_social||"Sin nombre"}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
+              <div>
+                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Estado</div>
+                <select value={ocForm.estado} onChange={e=>setOcForm(p=>({...p,estado:e.target.value}))}
+                  style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }}>
+                  {OC_ESTADOS.map(e=><option key={e.key} value={e.key}>{e.icon} {e.key}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Notas</div>
+                <input value={ocForm.notas} onChange={e=>setOcForm(p=>({...p,notas:e.target.value}))} placeholder="Observaciones opcionales..."
+                  style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+              </div>
+            </div>
+
+            {/* Líneas de productos */}
+            <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.accent}33`, borderRadius:10, padding:14, marginBottom:14 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600 }}>📦 Ítems de la OC</div>
+                <button onClick={addLine}
+                  style={{ padding:"3px 10px", background:COLORS.accent, border:"none", borderRadius:5, color:COLORS.bg, fontFamily:FONT, fontSize:11, fontWeight:700, cursor:"pointer" }}>+ Línea</button>
+              </div>
+
+              {lines.map((line, idx)=>{
+                const linePrices = productPrices.filter(pp=>pp.product_id===line.product_id);
+                const subtotal   = Number(line.cantidad||0)*Number(line.precio_unitario||0);
+                return (
+                  <div key={line._key} style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"12px", marginBottom:8 }}>
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                      <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Ítem {idx+1}</span>
+                      <button onClick={()=>removeLine(line._key)}
+                        style={{ background:"none", border:`1px solid ${COLORS.red}44`, borderRadius:4, color:COLORS.red, cursor:"pointer", fontSize:10, padding:"1px 6px" }}>✕</button>
+                    </div>
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
+                      <div>
+                        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.06em" }}>Producto</div>
+                        <select value={line.product_id} onChange={e=>onLineProductChange(line._key, e.target.value)}
+                          style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:12, color:line.product_id?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box" }}>
+                          <option value="">— Seleccionar producto —</option>
+                          {products.map(p=><option key={p.id} value={p.id}>{p.codigo} · {p.nombre}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.06em" }}>Proveedor / Precio</div>
+                        <select value={line.supplier_price_id} onChange={e=>onLinePriceChange(line._key, e.target.value)}
+                          disabled={!line.product_id}
+                          style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:12, color:line.supplier_price_id?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box", opacity:!line.product_id?0.4:1 }}>
+                          <option value="">— Seleccionar proveedor —</option>
+                          {linePrices.map(pp=><option key={pp.id} value={pp.id}>{pp.suppliers?.nombre||"?"} · {fmt(pp.precio_bruto)}{pp.es_preferido?" ★":""}{pp.sku_proveedor?` · ${pp.sku_proveedor}`:""}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div style={{ display:"grid", gridTemplateColumns:"80px 1fr 1fr", gap:8, alignItems:"end" }}>
+                      <div>
+                        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.06em" }}>Cant.</div>
+                        <input type="number" min="1" value={line.cantidad} onChange={e=>updateLine(line._key,"cantidad",e.target.value)}
+                          style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+                      </div>
+                      <div>
+                        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.06em" }}>Precio Unit. (bruto)</div>
+                        <input type="number" value={line.precio_unitario} onChange={e=>updateLine(line._key,"precio_unitario",e.target.value)}
+                          style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+                      </div>
+                      <div style={{ padding:"8px 12px", background:`${COLORS.green}11`, border:`1px solid ${COLORS.green}33`, borderRadius:6, textAlign:"right" }}>
+                        <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase" }}>Subtotal</div>
+                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.green }}>{fmt(subtotal)}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Total del formulario */}
+              {lines.length > 0 && (()=>{
+                const tot  = lines.reduce((s,l)=>s+Number(l.cantidad||0)*Number(l.precio_unitario||0),0);
+                const net  = Math.round(tot/1.19);
+                return (
+                  <div style={{ display:"flex", justifyContent:"flex-end", marginTop:10 }}>
+                    <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 16px", minWidth:200 }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:3 }}>
+                        <span>Neto</span><span style={{color:COLORS.green}}>{fmt(net)}</span>
+                      </div>
+                      <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text, borderTop:`1px solid ${COLORS.border}`, paddingTop:6, marginTop:3 }}>
+                        <span>Total</span><span style={{color:COLORS.accent}}>{fmt(tot)}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Botones */}
+            <div style={{ display:"flex", gap:10 }}>
+              <button onClick={()=>setShowModal(false)}
+                style={{ flex:1, padding:"10px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>Cancelar</button>
+              <button onClick={saveOC} disabled={savingOC}
+                style={{ flex:2, padding:"10px 0", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer", opacity:savingOC?0.6:1 }}>
+                {savingOC?"Guardando…": editingOC?"Actualizar OC":"Crear OC"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── NAV ──────────────────────────────────────────────────────────────────────
 const NAV = [
   { key:"dashboard", label:"Dashboard", icon:"◈" },
   { key:"contacts",  label:"Contactos", icon:"◎" },
   { key:"pipeline",  label:"Pipeline",  icon:"◧" },
   { key:"quotes",    label:"Cotizar",   icon:"◑" },
   { key:"products",  label:"Catálogo",  icon:"◫" },
+  { key:"purchase",  label:"Compras",   icon:"◆" },
   { key:"costeo",    label:"Costeo",    icon:"◐" },
   { key:"gantt",     label:"Proyectos", icon:"▦" },
   { key:"tasks",     label:"Tareas",    icon:"◉" },
@@ -3732,6 +4295,7 @@ export default function CRM() {
         {view==="pipeline"  && <PipelineView deals={deals} setDeals={setDeals} contacts={contacts} isMobile={isMobile} />}
         {view==="quotes"    && <QuotesView contacts={contacts} isMobile={isMobile} />}
         {view==="products"  && <ProductsDB isMobile={isMobile} />}
+        {view==="purchase"  && <PurchaseView isMobile={isMobile} />}
         {view==="costeo"    && <CosteoView contacts={contacts} isMobile={isMobile} />}
         {view==="gantt"     && <GanttView isMobile={isMobile} />}
         {view==="tasks"     && <TasksView tasks={tasks} setTasks={setTasks} contacts={contacts} isMobile={isMobile} />}
