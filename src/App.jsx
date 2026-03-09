@@ -4053,8 +4053,9 @@ function PurchaseView({ isMobile }) {
                           const courierInfo = COURIERS_LIST.find(c=>c.key===ship.courier);
                           return (
                             <div key={ship.id} style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 12px", marginBottom:8 }}>
-                              {/* Fila superior */}
-                              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+
+                              {/* ── Fila superior: número guía + courier + acciones ── */}
+                              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
                                 <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                                   <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text }}>{ship.numero_guia}</span>
                                   <span style={{ fontFamily:FONT, fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:10, background:`${courierInfo?.color||"#6b7a99"}22`, color:courierInfo?.color||"#6b7a99", border:`1px solid ${courierInfo?.color||"#6b7a99"}44` }}>
@@ -4063,24 +4064,48 @@ function PurchaseView({ isMobile }) {
                                   <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
                                     {ship.tipo==="sucursal"?"📍 Sucursal":"🏠 Domicilio"}
                                   </span>
+                                  <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>
+                                    {new Date(ship.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}
+                                  </span>
                                 </div>
-                                {/* Selector estado inline */}
-                                <div style={{ display:"flex", gap:4 }}>
-                                  {SHIP_ESTADOS.map(se=>(
-                                    <button key={se.key} onClick={async()=>{
-                                      await supabase.from("shipments").update({ estado:se.key }).eq("id",ship.id);
-                                      setShipments(prev=>prev.map(s=>s.id===ship.id?{...s,estado:se.key}:s));
-                                    }}
-                                    style={{ padding:"3px 8px", borderRadius:6, cursor:"pointer", fontFamily:FONT, fontSize:9, fontWeight:700,
-                                      background: ship.estado===se.key ? `${se.color}33` : "transparent",
-                                      border: `1px solid ${ship.estado===se.key ? se.color : COLORS.border}`,
-                                      color: ship.estado===se.key ? se.color : COLORS.textMuted }}>
-                                      {se.icon} {se.key.replace("_"," ")}
-                                    </button>
-                                  ))}
+                                {/* Botones acción en cabecera */}
+                                <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+                                  <button onClick={()=>{
+                                    const cInfo = COURIERS_LIST.find(c=>c.key===ship.courier)||COURIERS_LIST[0];
+                                    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>@page{size:A4 portrait;margin:8mm;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a2e;}.page{display:flex;flex-direction:column;gap:6mm;}.label{width:148mm;min-height:95mm;border:2px dashed #b0b8cc;border-radius:4mm;padding:5mm 6mm;position:relative;page-break-inside:avoid;}.label::before{content:'✂';position:absolute;top:-2mm;left:1mm;font-size:15px;color:#b0b8cc;}.hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #00C2FF;padding-bottom:3mm;margin-bottom:3.5mm;}.hdr img{height:34px;object-fit:contain;}.oc{font-size:20px;font-weight:900;color:#1a1a2e;letter-spacing:1.5px;}.dt{font-size:8px;color:#6b7a99;text-align:right;margin-top:1px;}.pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:800;color:#fff;background:${cInfo.color};}.mod{font-size:9px;color:#6b7a99;margin-left:5px;}.r2{display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:2.5mm;}.r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3mm;margin-bottom:2.5mm;}.bt{font-size:7px;color:#6b7a99;text-transform:uppercase;letter-spacing:0.1em;font-weight:700;margin-bottom:1mm;}.bv{font-size:10px;font-weight:700;color:#1a1a2e;line-height:1.4;}.bvsm{font-size:9px;font-weight:600;color:#1a1a2e;}.bvmt{font-size:9px;font-weight:600;color:#4a5568;}.sep{border:none;border-top:1px dashed #dde3ef;margin:2.5mm 0;}table{width:100%;border-collapse:collapse;margin-top:2mm;}thead tr{background:#0A0C10;}th{color:#fff;font-size:7.5px;text-transform:uppercase;padding:1.5mm 2mm;text-align:left;}td{font-size:9px;padding:1.5mm 2mm;border-bottom:1px solid #f0f4f8;}td.code{font-family:monospace;color:#00C2FF;font-weight:700;}td.qty{text-align:center;font-weight:800;}tr:nth-child(even) td{background:#f9fafc;}.ft{margin-top:3mm;padding-top:2mm;border-top:1px solid #e8ecf4;font-size:7.5px;color:#b0b8cc;text-align:center;}</style></head><body><div class="page">${[0,1].map(()=>`<div class="label"><div class="hdr"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos"/><div><div class="oc">${oc.numero_oc}</div><div class="dt">${ship.numero_guia} · ${new Date(ship.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}</div></div></div><div style="margin-bottom:3mm;"><span class="pill">${ship.courier}</span><span class="mod">${ship.tipo==="sucursal"?"📍 Sucursal":"🏠 Domicilio"}</span></div><div class="r2"><div><div class="bt">Destinatario</div><div class="bv">${ship.destinatario_nombre||"—"}</div><div class="bvmt">${ship.destinatario_rut||""}</div></div><div><div class="bt">Contacto</div><div class="bvsm">${ship.destinatario_tel||"—"}</div><div class="bvmt" style="font-size:8px">${ship.destinatario_correo||""}</div></div></div><hr class="sep"/><div style="margin-bottom:2.5mm;"><div class="bt">Dirección</div><div class="bvsm">${[ship.sucursal,ship.direccion].filter(Boolean).join(" · ")||"—"}, ${[ship.comuna,ship.ciudad].filter(Boolean).join(", ")||""}</div></div><hr class="sep"/><div class="r3"><div><div class="bt">Remitente</div><div class="bvsm">${sup.nombre||"—"}</div><div class="bvmt">${sup.rut||""}</div></div><div><div class="bt">OC</div><div class="bv">${oc.numero_oc}</div>${oc.cotizaciones?.numero?`<div class="bvmt">COT #${oc.cotizaciones.numero}</div>`:""}</div><div><div class="bt">Cot. Proveedor</div><div class="bvsm">${ship.notas||"—"}</div></div></div><table><thead><tr><th>Código</th><th>Producto</th><th>SKU</th><th style="text-align:center">Cant.</th></tr></thead><tbody>${(oc.lines||[]).map(l=>{const prod=products.find(p=>p.id===l.product_id)||{};const pp=productPrices.find(p=>p.id===l.supplier_price_id)||{};return`<tr><td class="code">${prod.codigo||"—"}</td><td>${prod.nombre||"—"}</td><td style="font-family:monospace;font-size:8px;color:#6b7a99">${pp.sku_proveedor||"—"}</td><td class="qty">${l.cantidad}</td></tr>`;}).join("")}</tbody></table><div class="ft">Polygonos SPA · RUT 77.180.437-3 · ${new Date().toLocaleString("es-CL")}</div></div>`).join("")}</div></body></html>`;
+                                    const w = window.open("","_blank"); w.document.write(html); w.document.close(); setTimeout(()=>w.print(),600);
+                                  }}
+                                    style={{ padding:"3px 10px", background:`${COLORS.purple}22`, border:`1px solid ${COLORS.purple}44`, borderRadius:5, color:COLORS.purple, fontFamily:FONT, fontSize:10, cursor:"pointer", fontWeight:600 }}>
+                                    📄 PDF
+                                  </button>
+                                  <button onClick={async()=>{
+                                    if (!confirm(`¿Eliminar guía ${ship.numero_guia}?`)) return;
+                                    await supabase.from("shipments").delete().eq("id",ship.id);
+                                    setShipments(prev=>prev.filter(s=>s.id!==ship.id));
+                                  }}
+                                    style={{ padding:"3px 8px", background:`${COLORS.red}22`, border:`1px solid ${COLORS.red}44`, borderRadius:5, color:COLORS.red, fontFamily:FONT, fontSize:12, cursor:"pointer", fontWeight:700, lineHeight:1 }}>
+                                    ✕
+                                  </button>
                                 </div>
                               </div>
-                              {/* Destinatario + dirección */}
+
+                              {/* ── Estados ── */}
+                              <div style={{ display:"flex", gap:4, marginBottom:8, flexWrap:"wrap" }}>
+                                {SHIP_ESTADOS.map(se=>(
+                                  <button key={se.key} onClick={async()=>{
+                                    await supabase.from("shipments").update({ estado:se.key }).eq("id",ship.id);
+                                    setShipments(prev=>prev.map(s=>s.id===ship.id?{...s,estado:se.key}:s));
+                                  }}
+                                  style={{ padding:"3px 8px", borderRadius:6, cursor:"pointer", fontFamily:FONT, fontSize:9, fontWeight:700,
+                                    background: ship.estado===se.key ? `${se.color}33` : "transparent",
+                                    border: `1px solid ${ship.estado===se.key ? se.color : COLORS.border}`,
+                                    color: ship.estado===se.key ? se.color : COLORS.textMuted }}>
+                                    {se.icon} {se.key.replace("_"," ")}
+                                  </button>
+                                ))}
+                              </div>
+
+                              {/* ── Destinatario + dirección ── */}
                               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"4px 16px", marginBottom:6 }}>
                                 <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>
                                   <span style={{ color:COLORS.textMuted }}>Dest: </span>{ship.destinatario_nombre||"—"}
@@ -4090,14 +4115,11 @@ function PurchaseView({ isMobile }) {
                                   <span style={{ color:COLORS.textMuted }}>📍 </span>
                                   {[ship.sucursal||ship.direccion, ship.comuna, ship.ciudad].filter(Boolean).join(", ")||"—"}
                                 </div>
-                                {ship.destinatario_tel && (
-                                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>📞 {ship.destinatario_tel}</div>
-                                )}
-                                {ship.destinatario_correo && (
-                                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>✉️ {ship.destinatario_correo}</div>
-                                )}
+                                {ship.destinatario_tel && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>📞 {ship.destinatario_tel}</div>}
+                                {ship.destinatario_correo && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>✉️ {ship.destinatario_correo}</div>}
                               </div>
-                              {/* Tracking */}
+
+                              {/* ── Tracking ── */}
                               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                                 <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Tracking:</span>
                                 {ship.tracking_code ? (
@@ -4106,8 +4128,7 @@ function PurchaseView({ isMobile }) {
                                     🔗 {ship.tracking_code}
                                   </a>
                                 ) : (
-                                  <input
-                                    placeholder="Ingresar código de seguimiento..."
+                                  <input placeholder="Ingresar código de seguimiento..."
                                     onBlur={async e=>{
                                       const val = e.target.value.trim();
                                       if (!val) return;
@@ -4117,85 +4138,9 @@ function PurchaseView({ isMobile }) {
                                     style={{ flex:1, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"3px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none" }}
                                   />
                                 )}
-                                <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginLeft:"auto" }}>
-                                  {new Date(ship.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}
-                                </span>
                               </div>
-                              {ship.notas && <div style={{ marginTop:5, fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>📝 {ship.notas}</div>}
-                              {/* Acciones de la guía */}
-                              <div style={{ display:"flex", gap:6, marginTop:8, justifyContent:"flex-end" }}>
-                                <button onClick={()=>{
-                                  // Regenerar PDF con los datos guardados en el shipment
-                                  const cInfo = COURIERS_LIST.find(c=>c.key===ship.courier)||COURIERS_LIST[0];
-                                  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-                                  <style>
-                                    @page{size:A4 portrait;margin:8mm;}
-                                    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
-                                    *{margin:0;padding:0;box-sizing:border-box;}
-                                    body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a2e;}
-                                    .page{display:flex;flex-direction:column;gap:6mm;}
-                                    .label{width:148mm;min-height:95mm;border:2px dashed #b0b8cc;border-radius:4mm;padding:5mm 6mm;position:relative;page-break-inside:avoid;}
-                                    .label::before{content:'✂';position:absolute;top:-2mm;left:1mm;font-size:15px;color:#b0b8cc;}
-                                    .hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #00C2FF;padding-bottom:3mm;margin-bottom:3.5mm;}
-                                    .hdr img{height:34px;object-fit:contain;}
-                                    .oc{font-size:20px;font-weight:900;color:#1a1a2e;letter-spacing:1.5px;}
-                                    .dt{font-size:8px;color:#6b7a99;text-align:right;margin-top:1px;}
-                                    .pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:800;color:#fff;background:${cInfo.color};}
-                                    .mod{font-size:9px;color:#6b7a99;margin-left:5px;}
-                                    .r2{display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:2.5mm;}
-                                    .r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3mm;margin-bottom:2.5mm;}
-                                    .bt{font-size:7px;color:#6b7a99;text-transform:uppercase;letter-spacing:0.1em;font-weight:700;margin-bottom:1mm;}
-                                    .bv{font-size:10px;font-weight:700;color:#1a1a2e;line-height:1.4;}
-                                    .bvsm{font-size:9px;font-weight:600;color:#1a1a2e;}
-                                    .bvmt{font-size:9px;font-weight:600;color:#4a5568;}
-                                    .sep{border:none;border-top:1px dashed #dde3ef;margin:2.5mm 0;}
-                                    table{width:100%;border-collapse:collapse;margin-top:2mm;}
-                                    thead tr{background:#0A0C10;}
-                                    th{color:#fff;font-size:7.5px;text-transform:uppercase;padding:1.5mm 2mm;text-align:left;}
-                                    td{font-size:9px;padding:1.5mm 2mm;border-bottom:1px solid #f0f4f8;}
-                                    td.code{font-family:monospace;color:#00C2FF;font-weight:700;}
-                                    td.qty{text-align:center;font-weight:800;}
-                                    tr:nth-child(even) td{background:#f9fafc;}
-                                    .ft{margin-top:3mm;padding-top:2mm;border-top:1px solid #e8ecf4;font-size:7.5px;color:#b0b8cc;text-align:center;}
-                                  </style></head><body><div class="page">
-                                  ${[0,1].map(()=>`<div class="label">
-                                    <div class="hdr">
-                                      <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos"/>
-                                      <div><div class="oc">${oc.numero_oc}</div><div class="dt">${ship.numero_guia} · ${new Date(ship.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}</div></div>
-                                    </div>
-                                    <div style="margin-bottom:3mm;"><span class="pill">${ship.courier}</span><span class="mod">${ship.tipo==="sucursal"?"📍 Sucursal":"🏠 Domicilio"}</span></div>
-                                    <div class="r2">
-                                      <div><div class="bt">Destinatario</div><div class="bv">${ship.destinatario_nombre||"—"}</div><div class="bvmt">${ship.destinatario_rut||""}</div></div>
-                                      <div><div class="bt">Contacto</div><div class="bvsm">${ship.destinatario_tel||"—"}</div><div class="bvmt" style="font-size:8px">${ship.destinatario_correo||""}</div></div>
-                                    </div>
-                                    <hr class="sep"/>
-                                    <div style="margin-bottom:2.5mm;"><div class="bt">Dirección</div><div class="bvsm">${ship.sucursal||ship.direccion||"—"}, ${[ship.comuna,ship.ciudad].filter(Boolean).join(", ")||""}</div></div>
-                                    <hr class="sep"/>
-                                    <div class="r3">
-                                      <div><div class="bt">Remitente</div><div class="bvsm">${sup.nombre||"—"}</div><div class="bvmt">${sup.rut||""}</div></div>
-                                      <div><div class="bt">OC</div><div class="bv">${oc.numero_oc}</div></div>
-                                      <div><div class="bt">Cot. Proveedor</div><div class="bvsm">${ship.notas||"—"}</div></div>
-                                    </div>
-                                    <table><thead><tr><th>Código</th><th>Producto</th><th>SKU</th><th style="text-align:center">Cant.</th></tr></thead><tbody>
-                                    ${(oc.lines||[]).map(l=>{const prod=products.find(p=>p.id===l.product_id)||{};const pp=productPrices.find(p=>p.id===l.supplier_price_id)||{};return`<tr><td class="code">${prod.codigo||"—"}</td><td>${prod.nombre||"—"}</td><td style="font-family:monospace;font-size:8px;color:#6b7a99">${pp.sku_proveedor||"—"}</td><td class="qty">${l.cantidad}</td></tr>`;}).join("")}
-                                    </tbody></table>
-                                    <div class="ft">Polygonos SPA · RUT 77.180.437-3 · ${new Date().toLocaleString("es-CL")}</div>
-                                  </div>`).join("")}
-                                  </div></body></html>`;
-                                  const w = window.open("","_blank"); w.document.write(html); w.document.close(); setTimeout(()=>w.print(),600);
-                                }}
-                                  style={{ padding:"4px 10px", background:`${COLORS.purple}22`, border:`1px solid ${COLORS.purple}44`, borderRadius:5, color:COLORS.purple, fontFamily:FONT, fontSize:10, cursor:"pointer", fontWeight:600 }}>
-                                  📄 PDF Guía
-                                </button>
-                                <button onClick={async()=>{
-                                  if (!confirm(`¿Eliminar guía ${ship.numero_guia}?`)) return;
-                                  await supabase.from("shipments").delete().eq("id",ship.id);
-                                  setShipments(prev=>prev.filter(s=>s.id!==ship.id));
-                                }}
-                                  style={{ padding:"4px 10px", background:`${COLORS.red}22`, border:`1px solid ${COLORS.red}44`, borderRadius:5, color:COLORS.red, fontFamily:FONT, fontSize:10, cursor:"pointer", fontWeight:600 }}>
-                                  🗑️ Eliminar
-                                </button>
-                              </div>
+                              {ship.notas && <div style={{ marginTop:5, fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>📝 Cot. Prov: {ship.notas}</div>}
+                            </div>
                           );
                         })}
                       </div>
