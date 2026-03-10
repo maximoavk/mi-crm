@@ -2033,6 +2033,14 @@ function PrestacionModal({ quotes, existing, onClose, onSaved }) {
     return s+Math.round(p*(1-d/100)*qty);
   },0);
 
+  // Total cotización completa (todas las líneas, incluyendo las no seleccionadas)
+  const cotTotal = allLinesRaw.reduce((s,l)=>{
+    const qty=Number(l.qty||l.quantity||l.cantidad||1);
+    const p=Number(l.unitPrice||l.precio_unitario||0);
+    const d=Number(l.discount||l.descuento||0);
+    return s+Math.round(p*(1-d/100)*qty);
+  },0);
+
   const txTotal   = transacciones.reduce((s,t)=>s+Number(t.monto||0),0);
   const totalMonto = txTotal > 0 ? txTotal : lineTotal;
   const firstQ    = selQuotes[0]||quotes[0];
@@ -2150,21 +2158,33 @@ function PrestacionModal({ quotes, existing, onClose, onSaved }) {
     </div>
     ${(()=>{
       const saldo = totalMonto - txTotal;
-      const pctAvance = totalMonto>0 ? Math.min((txTotal/totalMonto)*100,100) : 0;
-      const barWidth = Math.round(pctAvance);
+      // Barra 1: % pagado sobre líneas seleccionadas
+      const pct1 = totalMonto>0 ? Math.min((txTotal/totalMonto)*100,100) : 0;
+      // Barra 2: % líneas seleccionadas sobre total cotización
+      const pct2 = cotTotal>0 ? Math.min((lineTotal/cotTotal)*100,100) : 0;
+      // Barra 3: % pagado sobre total cotización completa
+      const pct3 = cotTotal>0 ? Math.min((txTotal/cotTotal)*100,100) : 0;
+      const barRow = (label, pct, color, ref) =>
+        `<tr>
+          <td style="font-size:9px;color:#666;padding:3px 0;white-space:nowrap;padding-right:10px">${label}</td>
+          <td style="width:100%;padding:3px 0">
+            <div style="height:7px;background:#eee;border-radius:99px;overflow:hidden">
+              <div style="height:100%;width:${pct.toFixed(1)}%;background:${color};border-radius:99px"></div>
+            </div>
+          </td>
+          <td style="font-size:9px;font-weight:bold;color:${color.includes('gradient')?'#555':color};padding:3px 0;padding-left:8px;white-space:nowrap">${pct.toFixed(1)}%</td>
+          <td style="font-size:9px;color:#888;padding:3px 0;padding-left:6px;white-space:nowrap">${ref}</td>
+        </tr>`;
       return `<div style="margin-top:5mm;padding:8px 10px;border:1.5px solid ${saldo<=0?'#1a8a1a':'#b85c00'};border-radius:4px;clear:both">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
           <span style="font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.07em;color:#555">Estado de pago</span>
           <span style="font-size:11px;font-weight:bold;color:${saldo<=0?'#1a8a1a':'#b85c00'}">${saldo<=0?"✓ Pagado completo":"Saldo pendiente: $"+saldo.toLocaleString("es-CL")}</span>
         </div>
-        <div style="height:8px;background:#eee;border-radius:99px;overflow:hidden;margin-bottom:4px">
-          <div style="height:100%;width:${barWidth}%;background:${saldo<=0?'#1a8a1a':'#e07b00'};border-radius:99px"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:9px;color:#888">
-          <span>Pagado: $${txTotal.toLocaleString("es-CL")}</span>
-          <span>${pctAvance.toFixed(1)}% del total</span>
-          <span>Total: $${totalMonto.toLocaleString("es-CL")}</span>
-        </div>
+        <table style="width:100%;border-collapse:collapse">
+          ${barRow("Pagado / líneas selec.", pct1, saldo<=0?"#1a8a1a":"#e07b00", "$"+txTotal.toLocaleString("es-CL")+" de $"+totalMonto.toLocaleString("es-CL"))}
+          ${barRow("Líneas selec. / total COT", pct2, "#2954EC", "$"+lineTotal.toLocaleString("es-CL")+" de $"+cotTotal.toLocaleString("es-CL"))}
+          ${barRow("Pagado / total COT", pct3, "#8b5cf6", "$"+txTotal.toLocaleString("es-CL")+" de $"+cotTotal.toLocaleString("es-CL"))}
+        </table>
       </div>`;
     })()}
     <div class="foot">Documento interno de gestión · Generado el ${new Date().toLocaleDateString("es-CL")} · ${numero}</div>
@@ -2299,7 +2319,18 @@ function PrestacionModal({ quotes, existing, onClose, onSaved }) {
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {transacciones.map((tx,i)=>{
-              const pct = lineTotal>0&&Number(tx.monto)>0 ? ((Number(tx.monto)/lineTotal)*100).toFixed(1) : null;
+              const monto = Number(tx.monto||0);
+              const pct1 = lineTotal>0&&monto>0 ? (monto/lineTotal)*100 : 0;   // % sobre líneas seleccionadas
+              const pct2 = cotTotal>0&&monto>0  ? (monto/cotTotal)*100  : 0;   // % sobre total cotización completa
+              const Bar = ({pct, color, label}) => (
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, width:130, flexShrink:0 }}>{label}</span>
+                  <div style={{ height:4, flex:1, background:COLORS.border, borderRadius:99, overflow:"hidden" }}>
+                    <div style={{ height:"100%", width:`${Math.min(pct,100)}%`, background:color, borderRadius:99, transition:"width 0.3s" }} />
+                  </div>
+                  <span style={{ fontFamily:FONT, fontSize:10, color, flexShrink:0, minWidth:38, textAlign:"right" }}>{pct.toFixed(1)}%</span>
+                </div>
+              );
               return (
                 <div key={tx.id} style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 12px" }}>
                   <div style={{ display:"grid", gridTemplateColumns:"140px 1fr 130px auto", gap:8, alignItems:"center" }}>
@@ -2315,12 +2346,10 @@ function PrestacionModal({ quotes, existing, onClose, onSaved }) {
                       <button onClick={()=>removeTx(tx.id)} style={{ background:"transparent", border:"none", color:COLORS.red, cursor:"pointer", fontSize:16, padding:"0 4px" }}>✕</button>
                     )}
                   </div>
-                  {pct && (
-                    <div style={{ marginTop:6, display:"flex", gap:12 }}>
-                      <div style={{ height:4, flex:1, background:COLORS.border, borderRadius:99, overflow:"hidden" }}>
-                        <div style={{ height:"100%", width:`${Math.min(pct,100)}%`, background:`linear-gradient(90deg,${COLORS.accent},${COLORS.green})`, borderRadius:99 }} />
-                      </div>
-                      <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, flexShrink:0 }}>{pct}%</span>
+                  {monto>0 && (
+                    <div style={{ marginTop:8, display:"flex", flexDirection:"column", gap:5 }}>
+                      <Bar pct={pct1} color={`linear-gradient(90deg,${COLORS.accent},${COLORS.green})`} label="% sobre líneas selec." />
+                      <Bar pct={pct2} color={`linear-gradient(90deg,${COLORS.secondary},${COLORS.accent})`} label="% sobre total COT" />
                     </div>
                   )}
                 </div>
