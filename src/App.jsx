@@ -2145,10 +2145,11 @@ function PrestacionesView({ isMobile }) {
     if(allMapped.length>0){
       const { data: linesData } = await supabase.from("quote_lines")
         .select("*").in("quote_id", allMapped.map(q=>q.id))
-        .eq("tipo_linea","item").order("orden");
+        .order("orden");
+      // All lines (items + hitos), only price items for subtotals
       const byQ=(linesData||[]).reduce((acc,l)=>{ if(!acc[l.quote_id])acc[l.quote_id]=[]; acc[l.quote_id].push(mapQuoteLine(l)); return acc; },{});
-      setQuotes(sinIva.map(q=>({...q,lines:byQ[q.id]||[]})));
-      setPfQuotes(conIva.map(q=>({...q,lines:byQ[q.id]||[]})));
+      setQuotes(sinIva.map(q=>({...q,lines:(byQ[q.id]||[]).filter(l=>l.lineType!=="hito")})));
+      setPfQuotes(conIva.map(q=>({...q,lines:(byQ[q.id]||[]).filter(l=>l.lineType!=="hito")})));
     } else { setQuotes([]); setPfQuotes([]); }
     setLoading(false);
   };
@@ -2557,19 +2558,42 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
                 <button onClick={()=>setSelectedLineKeys([])} style={{fontFamily:FONT,fontSize:10,color:selectedLineKeys!==null&&selectedLineKeys.length===0?COLORS.red:COLORS.textMuted,background:"transparent",border:"none",cursor:"pointer",textDecoration:"underline"}}>Ninguna</button>
               </div>
             </div>
-            {allLinesRaw.map((l,i)=>{const isSel=selectedLineKeys===null||selectedLineKeys.includes(l._key);const sub=lsub(l);const subNeto=lsubNeto(l);return(
-              <label key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",borderBottom:i<allLinesRaw.length-1?`1px solid ${COLORS.border}`:"none",cursor:"pointer",background:isSel?"transparent":`${COLORS.border}33`}}>
-                <input type="checkbox" checked={isSel} onChange={()=>toggleLine(l._key)} style={{accentColor:COLORS.green,width:14,height:14,flexShrink:0}} />
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontFamily:FONT_DISPLAY,fontSize:12,color:isSel?COLORS.text:COLORS.textMuted,fontWeight:isSel?600:400}}>{l.description||l.descripcion||"—"}</div>
-                  <div style={{fontFamily:FONT,fontSize:10,color:COLORS.textMuted}}>{l.code||l.codigo||""}</div>
-                </div>
-                <div style={{textAlign:"right",flexShrink:0}}>
-                  {isPF && <div style={{fontFamily:FONT,fontSize:9,color:COLORS.textMuted}}>Neto: {fmt(subNeto)}</div>}
-                  <div style={{fontFamily:FONT_DISPLAY,fontSize:12,fontWeight:700,color:isSel?COLORS.green:COLORS.textMuted}}>{fmt(sub)}{isPF?" c/IVA":""}</div>
-                </div>
-              </label>
-            );})}
+            {allLinesRaw.map((l,i)=>{
+              const isSel=selectedLineKeys===null||selectedLineKeys.includes(l._key);
+              const sub=lsub(l);const subNeto=lsubNeto(l);
+              const qty=Number(l.qty||l.quantity||l.cantidad||1);
+              const unitNeto=Number(l.unitPrice||l.precio_unitario||0);
+              const disc=Number(l.discount||l.descuento||0);
+              return(
+                <label key={i} style={{display:"flex",alignItems:"center",gap:0,borderBottom:i<allLinesRaw.length-1?`1px solid ${COLORS.border}`:"none",cursor:"pointer",background:isSel?"transparent":`${COLORS.red}08`}}>
+                  {/* Número ítem */}
+                  <div style={{width:36,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",alignSelf:"stretch",borderRight:`1px solid ${COLORS.border}`,background:isSel?`${AC}11`:`${COLORS.border}22`}}>
+                    <span style={{fontFamily:FONT_DISPLAY,fontSize:11,fontWeight:700,color:isSel?AC:COLORS.textDim}}>#{i+1}</span>
+                  </div>
+                  {/* Checkbox */}
+                  <div style={{padding:"10px 10px",flexShrink:0}}>
+                    <input type="checkbox" checked={isSel} onChange={()=>toggleLine(l._key)} style={{accentColor:AC,width:14,height:14,display:"block"}} />
+                  </div>
+                  {/* Descripción + código */}
+                  <div style={{flex:1,minWidth:0,padding:"10px 4px"}}>
+                    <div style={{fontFamily:FONT_DISPLAY,fontSize:12,color:isSel?COLORS.text:COLORS.textMuted,fontWeight:isSel?600:400,lineHeight:1.3}}>{l.description||l.descripcion||"—"}</div>
+                    <div style={{display:"flex",gap:10,marginTop:2,flexWrap:"wrap"}}>
+                      {(l.code||l.codigo) && <span style={{fontFamily:FONT,fontSize:9,color:COLORS.accent}}>{l.code||l.codigo}</span>}
+                      <span style={{fontFamily:FONT,fontSize:9,color:COLORS.textMuted}}>{qty} UN{disc>0?` · ${disc}% desc.`:""}</span>
+                      {selQuotes.length>1 && <span style={{fontFamily:FONT,fontSize:9,color:COLORS.textMuted,fontStyle:"italic"}}>COT °{l.quoteNum}</span>}
+                    </div>
+                  </div>
+                  {/* Precios */}
+                  <div style={{textAlign:"right",flexShrink:0,padding:"10px 14px"}}>
+                    <div style={{fontFamily:FONT,fontSize:9,color:COLORS.textMuted,marginBottom:1}}>
+                      {fmt(unitNeto)} × {qty}{disc>0?` −${disc}%`:""}
+                    </div>
+                    {isPF && <div style={{fontFamily:FONT,fontSize:9,color:COLORS.textMuted}}>Neto: {fmt(subNeto)}</div>}
+                    <div style={{fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,color:isSel?COLORS.green:COLORS.textMuted}}>{fmt(sub)}{isPF?" c/IVA":""}</div>
+                  </div>
+                </label>
+              );
+            })}
             <div style={{padding:"8px 14px",borderTop:`1px solid ${COLORS.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <span style={{fontFamily:FONT,fontSize:11,color:COLORS.textMuted}}>{allLines.length} de {allLinesRaw.length} líneas</span>
               <div style={{textAlign:"right"}}>
