@@ -2200,14 +2200,12 @@ function PrestacionesView({ isMobile }) {
         </div>
       </div>
 
-      {/* Aviso PF */}
+      {/* Info PF */}
       {!isCP && (
-        <div style={{ marginBottom:16, padding:"10px 16px", background:`${COLORS.red}12`, border:`1px solid ${COLORS.red}44`, borderRadius:10, display:"flex", alignItems:"center", gap:10 }}>
-          <span style={{ fontSize:18 }}>⚠️</span>
-          <div>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.red }}>DOCUMENTO NO VÁLIDO COMO DOCUMENTO LEGAL</div>
-            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Las pre-facturas son documentos internos de gestión. No tienen validez tributaria ante el SII.</div>
-          </div>
+        <div style={{ marginBottom:16, padding:"7px 14px", borderLeft:`3px solid ${COLORS.secondary}`, background:`${COLORS.secondary}08` }}>
+          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+            Sistema de Pre-Facturación · Polygonos SpA · Documento interno de gestión, no válido como documento legal ni tributariamente ante el SII.
+          </span>
         </div>
       )}
 
@@ -2383,10 +2381,9 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
     const ivaTotal   = isPF ? lineTotal - netoTotal : 0;
 
     const pfWarning  = isPF ? `
-      <div style="margin-bottom:6mm;padding:5px 10px;border:2.5px solid #dc2626;border-radius:4px;background:#fef2f2;text-align:center;">
-        <span style="font-size:11px;font-weight:900;color:#dc2626;letter-spacing:.1em;text-transform:uppercase;">
-          ⚠ DOCUMENTO NO VÁLIDO COMO DOCUMENTO LEGAL — SOLO USO INTERNO
-        </span>
+      <div style="margin-bottom:5mm;padding:3px 0 4px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:baseline;">
+        <span style="font-size:9px;color:#94a3b8;letter-spacing:.05em;font-family:'Courier New',monospace;">Sistema de Pre-Facturación Interna · Polygonos SpA · RUT 77.180.437-3</span>
+        <span style="font-size:9px;color:#94a3b8;font-family:'Courier New',monospace;">${new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"})} · ${form.responsable||"mhudson"}</span>
       </div>` : "";
 
     const clientBlock = isPF ? `
@@ -2439,13 +2436,14 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
     </div>
     <div class="cf"></div>
     <div class="stitle">${isPF?"Sistema de emisión — CON IVA":"Sistema de emisión"}</div>
-    <table class="it"><thead><tr><th>Lín.</th><th>Servicio</th><th>Descripción</th><th class="c">Ctd.</th><th class="r">Precio neto</th><th class="r">${isPF?"Total c/IVA":"Valor neto"}</th></tr></thead>
+    <table class="it"><thead><tr><th>Lín.</th><th>Servicio</th><th>Descripción</th><th class="c">Ctd.</th><th class="r">P. Unit. Neto</th><th class="r">Subtotal Neto</th></tr></thead>
     <tbody>
     ${allLines.map((l,i)=>{
       const qty=Number(l.qty||l.quantity||l.cantidad||1);
+      const unitNeto=Number(l.unitPrice||l.precio_unitario||0);
+      const disc=Number(l.discount||l.descuento||0);
       const neto=lsubNeto(l);
-      const display=isPF?Math.round(neto*1.19):neto;
-      return `<tr><td>${i+1}</td><td style="font-size:9px">${l.code||l.codigo||"—"}</td><td>${l.description||l.descripcion||"—"}</td><td class="c">${qty}</td><td class="r">${neto.toLocaleString("es-CL")}</td><td class="r">${display.toLocaleString("es-CL")}</td></tr>`;
+      return `<tr><td>${i+1}</td><td style="font-size:9px">${l.code||l.codigo||"—"}</td><td>${l.description||l.descripcion||"—"}</td><td class="c">${qty}</td><td class="r">${Math.round(unitNeto*(1-disc/100)).toLocaleString("es-CL")}</td><td class="r">${neto.toLocaleString("es-CL")}</td></tr>`;
     }).join("")}
     ${ivaRow}
     <tr style="font-weight:bold;background:#f5f5f5;border-top:2px solid #1a1a1a"><td colspan="4"></td><td style="padding:5px 6px;font-size:12px;text-align:right;">TOTAL</td><td style="padding:5px 6px;font-size:13px;font-weight:900;text-align:right;">$${lineTotal.toLocaleString("es-CL")}</td></tr>
@@ -2468,7 +2466,7 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
       <div class="br" style="margin-bottom:5px"><div class="bl"><span>Pagado / líneas seleccionadas</span><span>${pct1.toFixed(1)}%</span></div><div class="bt"><div style="height:100%;width:${pct1.toFixed(1)}%;background:${saldo<=0?"#1a8a1a":"#e07b00"};border-radius:99px"></div></div></div>
       <div class="br"><div class="bl"><span>Saldo pendiente / total COT</span><span>${pct2.toFixed(1)}%</span></div><div class="bt"><div style="height:100%;width:${pct2.toFixed(1)}%;background:#b85c00;border-radius:99px"></div></div></div>
     </div>
-    <div class="foot">Documento interno de gestión${isPF?" · NO VÁLIDO COMO DOCUMENTO LEGAL":""} · Generado el ${new Date().toLocaleDateString("es-CL")} · ${numero}</div>
+    <div class="foot">${isPF?`Polygonos SpA · RUT 77.180.437-3 · Sistema de Pre-Facturación Interna · No válido como documento legal · Emitido por ${form.responsable||"mhudson"} el ${new Date().toLocaleDateString("es-CL")} · ${numero}`:`Polygonos SpA · RUT 77.180.437-3 · Documento interno de gestión · Generado el ${new Date().toLocaleDateString("es-CL")} · ${numero}`}</div>
     <script>window.onload=()=>window.print();</script></body></html>`;
     const w=window.open("","_blank");w.document.write(html);w.document.close();
   };
@@ -2516,10 +2514,10 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
           <button onClick={onClose} style={{background:"transparent",border:"none",color:COLORS.textMuted,fontSize:20,cursor:"pointer"}}>✕</button>
         </div>
 
-        {/* Aviso legal PF */}
+        {/* Info sistema PF */}
         {isPF && !isReprint && (
-          <div style={{marginBottom:16,padding:"8px 14px",background:`${COLORS.red}12`,border:`1px solid ${COLORS.red}44`,borderRadius:8,fontFamily:FONT,fontSize:11,color:COLORS.red}}>
-            ⚠️ <strong>NO VÁLIDO COMO DOCUMENTO LEGAL.</strong> La pre-factura es un documento interno de gestión sin validez tributaria.
+          <div style={{marginBottom:14,padding:"5px 12px",borderLeft:`3px solid ${COLORS.secondary}`,background:`${COLORS.secondary}08`}}>
+            <span style={{fontFamily:FONT,fontSize:11,color:COLORS.textMuted}}>Sistema de Pre-Facturación Interna · No válido como documento legal</span>
           </div>
         )}
 
