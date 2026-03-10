@@ -3608,7 +3608,7 @@ function PurchaseView({ isMobile }) {
   ];
 
   // Modal despacho
-  const emptyDespacho = { nombre:"", rut:"", telefono:"", correo:"", courier:"Starken", tipo:"sucursal", sucursal:"", direccion:"", region:"", comuna:"", ciudad:"", tracking_code:"", notas_despacho:"", num_cotizacion:"" };
+  const emptyDespacho = { nombre:"", rut:"", telefono:"", correo:"", courier:"Starken", tipo:"sucursal", sucursal:"", direccion:"", region:"", comuna:"", ciudad:"", tracking_code:"", notas_despacho:"", num_cotizacion:"", costo_despacho:"", aplica_iva_despacho:false };
   const [showDespachoModal, setShowDespachoModal] = useState(false);
   const [despachoOC, setDespachoOC]               = useState(null);
   const [despachoForm, setDespachoForm]           = useState(emptyDespacho);
@@ -4033,19 +4033,54 @@ function PurchaseView({ isMobile }) {
                   </div>
 
                   {/* Totales */}
-                  <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:14 }}>
-                    <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"12px 16px", minWidth:220 }}>
-                      <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:4 }}>
-                        <span>Neto</span><span style={{color:COLORS.green}}>{fmt(neto)}</span>
+                  {(()=>{
+                    const ocShipsFC = shipments.filter(s=>s.purchase_order_id===oc.id && Number(s.costo_despacho)>0);
+                    const fleteNeto = ocShipsFC.reduce((s,sh)=>s+Number(sh.costo_despacho||0),0);
+                    const fleteIva  = ocShipsFC.reduce((s,sh)=>s+(sh.aplica_iva_despacho?Math.round(Number(sh.costo_despacho||0)*0.19):0),0);
+                    const fleteTot  = fleteNeto + fleteIva;
+                    const costoReal = total + fleteTot;
+                    return (
+                      <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:14 }}>
+                        <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"12px 16px", minWidth:240 }}>
+                          <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:4 }}>
+                            <span>Neto productos</span><span style={{color:COLORS.green}}>{fmt(neto)}</span>
+                          </div>
+                          <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:8 }}>
+                            <span>IVA (19%)</span><span style={{color:"#ef4444"}}>{fmt(total-neto)}</span>
+                          </div>
+                          <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text, borderTop:`1px solid ${COLORS.border}`, paddingTop:8, marginBottom:fleteTot>0?8:0 }}>
+                            <span>Total OC</span><span style={{color:COLORS.accent}}>{fmt(total)}</span>
+                          </div>
+                          {fleteTot > 0 && (<>
+                            <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:3 }}>
+                              <span>Flete neto</span><span style={{color:COLORS.yellow}}>{fmt(fleteNeto)}</span>
+                            </div>
+                            {fleteIva > 0 && (
+                              <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:3 }}>
+                                <span>IVA flete</span><span style={{color:"#ef4444"}}>{fmt(fleteIva)}</span>
+                              </div>
+                            )}
+                            <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.yellow, borderTop:`1px solid ${COLORS.yellow}33`, paddingTop:8, marginTop:4 }}>
+                              <span>🚚 Costo real total</span><span>{fmt(costoReal)}</span>
+                            </div>
+                            <div style={{ marginTop:10, paddingTop:8, borderTop:`1px solid ${COLORS.border}` }}>
+                              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Flete distribuido por ítem</div>
+                              {(oc.purchase_order_items||[]).map((it,i)=>{
+                                const subIt = Number(it.cantidad||0)*Number(it.precio_unitario_neto||0);
+                                const pct   = neto > 0 ? subIt/neto : 0;
+                                return (
+                                  <div key={i} style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                                    <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{it.codigo||`Ítem ${i+1}`}</span>
+                                    <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.yellow }}>+{fmt(Math.round(fleteTot*pct))}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </>)}
+                        </div>
                       </div>
-                      <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:8 }}>
-                        <span>IVA (19%)</span><span style={{color:"#ef4444"}}>{fmt(total-neto)}</span>
-                      </div>
-                      <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text, borderTop:`1px solid ${COLORS.border}`, paddingTop:8 }}>
-                        <span>Total</span><span style={{color:COLORS.accent}}>{fmt(total)}</span>
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
                   {/* Notas */}
                   {oc.notas && (
@@ -4419,6 +4454,8 @@ function PurchaseView({ isMobile }) {
             sucursal:            despachoForm.sucursal,
             tracking_code:       despachoForm.tracking_code||null,
             notas:               despachoForm.notas_despacho||null,
+            costo_despacho:      despachoForm.costo_despacho ? Number(despachoForm.costo_despacho) : null,
+            aplica_iva_despacho: !!despachoForm.aplica_iva_despacho,
             estado:              "GENERADA",
           }).select().single();
           if (savedShip) setShipments(prev=>[savedShip, ...prev]);
@@ -4699,6 +4736,65 @@ function PurchaseView({ isMobile }) {
                 <input value={despachoForm.num_cotizacion||""} onChange={e=>df("num_cotizacion",e.target.value)}
                   placeholder="Ej: COT-2026-001 o vacío"
                   style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+              </div>
+
+              {/* Costo de despacho */}
+              <div style={{ marginBottom:16, padding:"14px 16px", background:`${COLORS.yellow}08`, border:`1px solid ${COLORS.yellow}30`, borderRadius:10 }}>
+                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.yellow, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10, fontWeight:700 }}>💰 Costo de despacho / flete</div>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:10, alignItems:"center" }}>
+                  <input type="number" min="0"
+                    value={despachoForm.costo_despacho||""}
+                    onChange={e=>df("costo_despacho", e.target.value)}
+                    placeholder="Ej: 15000"
+                    style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+                  <label style={{ display:"flex", alignItems:"center", gap:7, cursor:"pointer", whiteSpace:"nowrap" }}>
+                    <input type="checkbox"
+                      checked={!!despachoForm.aplica_iva_despacho}
+                      onChange={e=>df("aplica_iva_despacho", e.target.checked)}
+                      style={{ width:15, height:15, accentColor:COLORS.yellow, cursor:"pointer" }} />
+                    <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>+ IVA (19%)</span>
+                  </label>
+                </div>
+                {Number(despachoForm.costo_despacho) > 0 && (() => {
+                  const neto   = Number(despachoForm.costo_despacho);
+                  const iva    = despachoForm.aplica_iva_despacho ? Math.round(neto * 0.19) : 0;
+                  const tflete = neto + iva;
+                  const ocItems = despachoOC.purchase_order_items||[];
+                  const totalOC = ocItems.reduce((s,it)=>s+Number(it.cantidad||0)*Number(it.precio_unitario_neto||0),0);
+                  return (
+                    <div style={{ marginTop:10, paddingTop:10, borderTop:`1px solid ${COLORS.yellow}22` }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                        <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Flete neto</span>
+                        <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{fmt(neto)}</span>
+                      </div>
+                      {iva > 0 && (
+                        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>IVA flete (19%)</span>
+                          <span style={{ fontFamily:FONT, fontSize:11, color:"#ef4444" }}>{fmt(iva)}</span>
+                        </div>
+                      )}
+                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom: totalOC>0?10:0 }}>
+                        <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.yellow }}>Total flete</span>
+                        <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.yellow }}>{fmt(tflete)}</span>
+                      </div>
+                      {totalOC > 0 && (
+                        <div style={{ padding:"8px 10px", background:COLORS.bg, borderRadius:6, border:`1px solid ${COLORS.border}` }}>
+                          <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginBottom:6, textTransform:"uppercase", letterSpacing:"0.06em" }}>Distribución proporcional por ítem</div>
+                          {ocItems.map((it,i)=>{
+                            const subIt = Number(it.cantidad||0)*Number(it.precio_unitario_neto||0);
+                            const pct   = totalOC > 0 ? subIt/totalOC : 0;
+                            return (
+                              <div key={i} style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                                <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{it.codigo||`Ítem ${i+1}`}</span>
+                                <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.yellow }}>+{fmt(Math.round(tflete*pct))}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Notas despacho */}
