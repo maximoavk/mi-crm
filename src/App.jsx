@@ -203,74 +203,234 @@ const Loader = () => (
 );
 
 // ── DASHBOARD ───────────────────────────────────────────────────────────────
+// KPI icon map
+const KPI_ICONS = {
+  revenue: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
+    </svg>
+  ),
+  pipeline: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+    </svg>
+  ),
+  clients: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+  ),
+  tasks: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+    </svg>
+  ),
+};
+
 function Dashboard({ contacts, deals, tasks, isMobile }) {
-  const totalRevenue = deals.filter(d=>d.stage==="cerrado").reduce((s,d)=>s+Number(d.value),0);
-  const pipeline = deals.filter(d=>d.stage!=="cerrado").reduce((s,d)=>s+Number(d.value)*Number(d.probability)/100,0);
-  const pendingTasks = tasks.filter(t=>!t.done).length;
-  const overdueTasks = tasks.filter(t=>!t.done&&isOverdue(t.dueDate)).length;
-  const stageData = STAGES.map(s=>({ ...s, count:deals.filter(d=>d.stage===s.key).length, value:deals.filter(d=>d.stage===s.key).reduce((a,d)=>a+Number(d.value),0) }));
-  const maxVal = Math.max(...stageData.map(s=>s.value),1);
-  const recentTasks = tasks.filter(t=>!t.done).sort((a,b)=>(a.dueDate||"").localeCompare(b.dueDate||"")).slice(0,4);
+  const totalRevenue   = deals.filter(d=>d.stage==="cerrado").reduce((s,d)=>s+Number(d.value),0);
+  const pipeline       = deals.filter(d=>d.stage!=="cerrado").reduce((s,d)=>s+Number(d.value)*Number(d.probability)/100,0);
+  const pendingTasks   = tasks.filter(t=>!t.done).length;
+  const overdueTasks   = tasks.filter(t=>!t.done&&isOverdue(t.dueDate)).length;
+  const activeClients  = contacts.filter(c=>c.status==="cliente").length;
+  const stageData      = STAGES.map(s=>({ ...s, count:deals.filter(d=>d.stage===s.key).length, value:deals.filter(d=>d.stage===s.key).reduce((a,d)=>a+Number(d.value),0) }));
+  const maxVal         = Math.max(...stageData.map(s=>s.value),1);
+  const recentTasks    = tasks.filter(t=>!t.done).sort((a,b)=>(a.dueDate||"").localeCompare(b.dueDate||"")).slice(0,5);
+  const topDeals       = deals.filter(d=>d.stage!=="cerrado").sort((a,b)=>Number(b.value)-Number(a.value)).slice(0,5);
+
+  // card styles
+  const card = {
+    background: COLORS.card,
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: 12,
+    padding: 24,
+  };
+  const cardHeader = {
+    fontFamily: FONT_DISPLAY,
+    fontSize: 13,
+    fontWeight: 600,
+    color: COLORS.text,
+    letterSpacing: "-0.01em",
+    marginBottom: 20,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  };
+  const divider = { borderBottom: `1px solid ${COLORS.border}` };
+
+  const kpis = [
+    { label:"Ingresos cerrados", value: fmt(totalRevenue), sub:"acumulado", color: COLORS.green,  icon: KPI_ICONS.revenue  },
+    { label:"Pipeline esperado",  value: fmt(pipeline),     sub:"ponderado", color: COLORS.accent, icon: KPI_ICONS.pipeline },
+    { label:"Clientes activos",   value: activeClients,     sub:`de ${contacts.length} contactos`, color: COLORS.text, icon: KPI_ICONS.clients },
+    { label:"Tareas pendientes",  value: pendingTasks,      sub: overdueTasks>0 ? `${overdueTasks} vencida${overdueTasks>1?"s":""}` : "al día", color: overdueTasks>0?COLORS.red:COLORS.text, icon: KPI_ICONS.tasks },
+  ];
 
   return (
-    <div>
-      <div style={{ marginBottom:24 }}>
-        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Vista general</div>
-        <div style={{ fontFamily:FONT_DISPLAY, fontSize:24, fontWeight:700, color:COLORS.text }}>Dashboard B2B</div>
-      </div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20 }}>
-        <Stat label="Ingresos cerrados" value={fmt(totalRevenue)} sub="acumulado" color={COLORS.green} />
-        <Stat label="Pipeline esperado" value={fmt(pipeline)} sub="ponderado" color={COLORS.accent} />
-        <Stat label="Clientes activos" value={contacts.filter(c=>c.status==="cliente").length} color={COLORS.text} />
-        <Stat label="Tareas pendientes" value={pendingTasks} sub={overdueTasks>0?`${overdueTasks} vencida(s)`:"al día"} color={overdueTasks>0?COLORS.red:COLORS.text} />
-      </div>
-      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:16, marginBottom:16 }}>
-        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20 }}>
-          <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Embudo de ventas</div>
-          {stageData.map(s=>(
-            <div key={s.key} style={{ marginBottom:12 }}>
-              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
-                <span style={{ fontFamily:FONT, fontSize:11, color:s.color }}>{s.label}</span>
-                <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{s.count} · {fmt(s.value)}</span>
-              </div>
-              <div style={{ height:5, background:COLORS.border, borderRadius:3 }}>
-                <div style={{ height:5, borderRadius:3, background:s.color, width:`${(s.value/maxVal)*100}%` }} />
-              </div>
-            </div>
-          ))}
+    <div style={{ maxWidth: 1100 }}>
+
+      {/* ── Header ── */}
+      <div style={{ marginBottom: 32, paddingBottom: 24, borderBottom: `1px solid ${COLORS.border}` }}>
+        <div style={{ fontFamily: FONT, fontSize: 10, color: COLORS.textMuted, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 8 }}>
+          Vista general
         </div>
-        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20 }}>
-          <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Próximas tareas</div>
-          {recentTasks.length===0 && <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.textMuted }}>Sin tareas pendientes 🎉</div>}
-          {recentTasks.map(t=>(
-            <div key={t.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 0", borderBottom:`1px solid ${COLORS.border}` }}>
-              <span style={{ fontSize:15 }}>{TYPE_ICONS[t.type]||"✅"}</span>
-              <div style={{ flex:1 }}>
-                <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text }}>{t.title}</div>
-                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{t.company}</div>
-              </div>
-              <div style={{ fontFamily:FONT, fontSize:11, color:isOverdue(t.dueDate)?COLORS.red:COLORS.textMuted }}>{fmtDate(t.dueDate)}</div>
-            </div>
-          ))}
+        <div style={{ display:"flex", alignItems:"baseline", gap: 12 }}>
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: isMobile?22:28, fontWeight: 700, color: COLORS.text, letterSpacing: "-0.02em", lineHeight:1 }}>
+            Dashboard
+          </div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: isMobile?22:28, fontWeight: 700, color: COLORS.accent, letterSpacing: "-0.02em", lineHeight:1 }}>
+            B2B
+          </div>
+        </div>
+        <div style={{ fontFamily: FONT, fontSize: 12, color: COLORS.textMuted, marginTop: 8 }}>
+          {new Date().toLocaleDateString("es-CL", { weekday:"long", year:"numeric", month:"long", day:"numeric" })}
         </div>
       </div>
-      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20 }}>
-        <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Deals activos — mayor valor</div>
-        {deals.filter(d=>d.stage!=="cerrado").length===0 && <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.textMuted }}>Sin deals activos.</div>}
-        {deals.filter(d=>d.stage!=="cerrado").sort((a,b)=>Number(b.value)-Number(a.value)).slice(0,5).map(d=>{
-          const stage=STAGES.find(s=>s.key===d.stage);
-          return (
-            <div key={d.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0", borderBottom:`1px solid ${COLORS.border}`, flexWrap:"wrap" }}>
-              <div style={{ flex:1, minWidth:120 }}>
-                <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text }}>{d.title}</div>
-                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{d.company}</div>
+
+      {/* ── KPI Grid ── */}
+      <div style={{ display:"grid", gridTemplateColumns: isMobile?"1fr 1fr":"repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
+        {kpis.map((k,i) => (
+          <div key={i} style={{ ...card, padding:"20px 20px 18px", position:"relative", overflow:"hidden" }}>
+            {/* subtle top accent line */}
+            <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background:`linear-gradient(90deg, ${k.color}88 0%, transparent 100%)`, borderRadius:"12px 12px 0 0" }} />
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
+              <div style={{ fontFamily: FONT, fontSize: 10, color: COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase", lineHeight:1.4 }}>
+                {k.label}
               </div>
-              <Badge color={stage.color}>{stage.label}</Badge>
-              <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.accent, fontWeight:700 }}>{fmt(d.value)}</div>
+              <div style={{ color: k.color, opacity: 0.7 }}>
+                {k.icon}
+              </div>
             </div>
-          );
-        })}
+            <div style={{ fontFamily: FONT_DISPLAY, fontSize: isMobile?18:22, fontWeight: 700, color: k.color, letterSpacing:"-0.02em", lineHeight:1, marginBottom: 6 }}>
+              {k.value}
+            </div>
+            <div style={{ fontFamily: FONT, fontSize: 10, color: COLORS.textMuted }}>
+              {k.sub}
+            </div>
+          </div>
+        ))}
       </div>
+
+      {/* ── Mid Row: Embudo + Tareas ── */}
+      <div style={{ display:"grid", gridTemplateColumns: isMobile?"1fr":"1fr 1fr", gap:16, marginBottom:16 }}>
+
+        {/* Embudo */}
+        <div style={card}>
+          <div style={cardHeader}>
+            <span>Embudo de ventas</span>
+            <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, fontWeight:400 }}>
+              {deals.length} deal{deals.length!==1?"s":""}
+            </span>
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+            {stageData.map(s => {
+              const pct = Math.round((s.value/maxVal)*100);
+              return (
+                <div key={s.key}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:7 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+                      <div style={{ width:6, height:6, borderRadius:"50%", background:s.color, flexShrink:0 }} />
+                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:500, color: s.count>0?COLORS.text:COLORS.textMuted }}>
+                        {s.label}
+                      </span>
+                    </div>
+                    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                      <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
+                        {s.count} deal{s.count!==1?"s":""}
+                      </span>
+                      <span style={{ fontFamily:FONT, fontSize:11, fontWeight:600, color: s.count>0?s.color:COLORS.textDim, minWidth:72, textAlign:"right" }}>
+                        {fmt(s.value)}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ height:4, background:COLORS.border, borderRadius:4, overflow:"hidden" }}>
+                    <div style={{ height:"100%", width:`${pct}%`, borderRadius:4, background: s.count>0?s.color:COLORS.textDim, transition:"width 0.6s cubic-bezier(.4,0,.2,1)" }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Tareas */}
+        <div style={card}>
+          <div style={cardHeader}>
+            <span>Próximas tareas</span>
+            {pendingTasks > 0 && (
+              <span style={{ fontFamily:FONT, fontSize:10, background: overdueTasks>0?`${COLORS.red}18`:`${COLORS.accent}18`, color: overdueTasks>0?COLORS.red:COLORS.accent, border:`1px solid ${overdueTasks>0?COLORS.red:COLORS.accent}33`, borderRadius:20, padding:"2px 9px", fontWeight:600 }}>
+                {pendingTasks} pendiente{pendingTasks!==1?"s":""}
+              </span>
+            )}
+          </div>
+          {recentTasks.length === 0 ? (
+            <div style={{ textAlign:"center", padding:"28px 0" }}>
+              <div style={{ fontSize:28, marginBottom:8 }}>🎉</div>
+              <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin tareas pendientes</div>
+            </div>
+          ) : (
+            <div>
+              {recentTasks.map((t,i) => (
+                <div key={t.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 0", ...(i<recentTasks.length-1?divider:{}) }}>
+                  <div style={{ width:28, height:28, borderRadius:7, background:`${COLORS.accent}14`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:13 }}>
+                    {TYPE_ICONS[t.type]||"✓"}
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:500, color:COLORS.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.title}</div>
+                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:1 }}>{t.company}</div>
+                  </div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color: isOverdue(t.dueDate)?COLORS.red:COLORS.textMuted, flexShrink:0, background: isOverdue(t.dueDate)?`${COLORS.red}12`:"transparent", padding:"2px 7px", borderRadius:5, border: isOverdue(t.dueDate)?`1px solid ${COLORS.red}33`:"none" }}>
+                    {fmtDate(t.dueDate)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Deals activos ── */}
+      <div style={card}>
+        <div style={cardHeader}>
+          <span>Deals activos — mayor valor</span>
+          <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, fontWeight:400 }}>
+            Top {Math.min(topDeals.length,5)}
+          </span>
+        </div>
+        {topDeals.length === 0 ? (
+          <div style={{ textAlign:"center", padding:"24px 0", fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>
+            Sin deals activos aún.
+          </div>
+        ) : (
+          <div>
+            {/* header row */}
+            <div style={{ display:"flex", alignItems:"center", gap:12, padding:"0 0 10px", borderBottom:`1px solid ${COLORS.border}`, marginBottom:2 }}>
+              <div style={{ flex:1, fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase" }}>Proyecto</div>
+              <div style={{ width:90, fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase" }}>Etapa</div>
+              <div style={{ width:100, fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase", textAlign:"right" }}>Valor</div>
+            </div>
+            {topDeals.map((d,i) => {
+              const stage = STAGES.find(s=>s.key===d.stage)||STAGES[0];
+              return (
+                <div key={d.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 0", ...(i<topDeals.length-1?divider:{}) }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:500, color:COLORS.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{d.title}</div>
+                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:2 }}>{d.company}</div>
+                  </div>
+                  <div style={{ width:90 }}>
+                    <span style={{ fontFamily:FONT, fontSize:10, fontWeight:600, color:stage.color, background:`${stage.color}14`, border:`1px solid ${stage.color}30`, borderRadius:5, padding:"3px 8px", whiteSpace:"nowrap" }}>
+                      {stage.label}
+                    </span>
+                  </div>
+                  <div style={{ width:100, fontFamily:FONT, fontSize:13, fontWeight:700, color:COLORS.accent, textAlign:"right", letterSpacing:"-0.01em" }}>
+                    {fmt(d.value)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
     </div>
   );
 }
