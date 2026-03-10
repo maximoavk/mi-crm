@@ -2175,30 +2175,33 @@ function PrestacionModal({ quotes, existing, onClose, onSaved }) {
 
   const saveAndPrint = async () => {
     setSaving(true);
-    const { count } = await supabase.from("comprobantes_pago").select("*",{count:"exact",head:true});
-    const numero = "CP-" + String((count||0)+1).padStart(4,"0");
-    const txsValidos = transacciones.filter(t=>t.codigo&&t.monto);
-    const { data } = await supabase.from("comprobantes_pago").insert({
-      numero,
-      fecha_pago:       form.fecha_pago||null,
-      periodo_desde:    form.periodo_desde||null,
-      periodo_hasta:    form.periodo_hasta||null,
-      codigo_operacion: txsValidos.map(t=>t.codigo).join(", ")||null,
-      monto_pagado:     totalMonto||null,
-      responsable:      form.responsable||null,
-      contact_id:       firstQ?.contactId||null,
-      quote_ids:        selectedQuoteIds,
-      notas:            form.notas||null,
-      transacciones:    txsValidos,
-      estado:           "emitido",
-    }).select().single();
-    setSaving(false);
-    if(data) { onSaved(data); doPrint(numero); }
+    try {
+      const { count } = await supabase.from("comprobantes_pago").select("*",{count:"exact",head:true});
+      const numero = "CP-" + String((count||0)+1).padStart(4,"0");
+      const txsGuardar = transacciones.filter(t=>Number(t.monto)>0);
+      const { data, error } = await supabase.from("comprobantes_pago").insert({
+        numero,
+        fecha_pago:       form.fecha_pago||null,
+        periodo_desde:    form.periodo_desde||null,
+        periodo_hasta:    form.periodo_hasta||null,
+        codigo_operacion: txsGuardar.map(t=>t.codigo).filter(Boolean).join(", ")||null,
+        monto_pagado:     totalMonto||null,
+        responsable:      form.responsable||null,
+        contact_id:       firstQ?.contactId||null,
+        quote_ids:        selectedQuoteIds,
+        notas:            form.notas||null,
+        transacciones:    txsGuardar,
+        estado:           "emitido",
+      }).select().single();
+      if(error) { console.error("Supabase error:", error); alert("Error al guardar: "+error.message); setSaving(false); return; }
+      setSaving(false);
+      if(data) { onSaved(data); doPrint(numero); }
+    } catch(e) { console.error(e); alert("Error inesperado: "+e.message); setSaving(false); }
   };
 
   const inp = { width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" };
   const lbl = { fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5, fontWeight:600, display:"block" };
-  const txsValidos = transacciones.filter(t=>t.codigo&&t.monto);
+  const txsValidos = transacciones.filter(t=>Number(t.monto)>0);
   const txsTotalCheck = transacciones.reduce((s,t)=>s+Number(t.monto||0),0);
 
   return (
@@ -2357,8 +2360,8 @@ function PrestacionModal({ quotes, existing, onClose, onSaved }) {
         ) : (
           <div style={{ display:"flex", gap:10 }}>
             <button onClick={onClose} style={{ flex:1, padding:"11px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>Cancelar</button>
-            <button onClick={saveAndPrint} disabled={saving||txsValidos.length===0||selectedQuoteIds.length===0}
-              style={{ flex:2, padding:"11px 0", background:saving||txsValidos.length===0||selectedQuoteIds.length===0?COLORS.border:COLORS.accent, border:"none", borderRadius:8, color:saving||txsValidos.length===0||selectedQuoteIds.length===0?COLORS.textMuted:"#fff", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:saving||txsValidos.length===0?"not-allowed":"pointer", transition:"all 0.2s" }}>
+            <button onClick={saveAndPrint} disabled={saving||selectedQuoteIds.length===0}
+              style={{ flex:2, padding:"11px 0", background:saving||selectedQuoteIds.length===0?COLORS.border:COLORS.accent, border:"none", borderRadius:8, color:saving||selectedQuoteIds.length===0?COLORS.textMuted:"#fff", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:saving?"not-allowed":"pointer", transition:"all 0.2s" }}>
               {saving?"Guardando...":"💾 Guardar y Generar PDF"}
             </button>
           </div>
