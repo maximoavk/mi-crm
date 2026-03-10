@@ -1909,16 +1909,32 @@ function PrestacionesView({ isMobile }) {
 
   const loadAll = async () => {
     setLoading(true);
-    const [{ data: docsData }, { data: quotesData }] = await Promise.all([
-      supabase.from("comprobantes_pago").select("*").order("created_at",{ascending:false}),
-      supabase.from("cotizaciones").select("*").eq("aplica_iva", false).order("numero",{ascending:false}),
-    ]);
+    // Load comprobantes
+    const { data: docsData } = await supabase.from("comprobantes_pago").select("*").order("created_at",{ascending:false});
     setDocs(docsData||[]);
-    // Also fetch quotes where iva_modo is null or hasIva=false
-    // Try both field names
-    const { data: quotesData2 } = await supabase.from("cotizaciones").select("*").order("numero",{ascending:false});
-    const sinIva = (quotesData2||[]).filter(q => q.aplica_iva===false || q.iva_modo==="ninguno" || q.sin_iva===true);
-    setQuotes(sinIva.length > 0 ? sinIva.map(mapQuote) : (quotesData||[]).map(mapQuote));
+
+    // Load ALL quotes and filter sin IVA (aplica_iva = false)
+    const { data: quotesData } = await supabase.from("cotizaciones").select("*").order("numero",{ascending:false});
+    const sinIva = (quotesData||[]).filter(q => q.aplica_iva === false);
+    const mappedQuotes = sinIva.map(mapQuote);
+
+    // Load lines for each quote sin IVA
+    if (mappedQuotes.length > 0) {
+      const quoteIds = mappedQuotes.map(q=>q.id);
+      const { data: linesData } = await supabase.from("quote_lines")
+        .select("*")
+        .in("quote_id", quoteIds)
+        .eq("tipo_linea","item")
+        .order("orden");
+      const linesByQuote = (linesData||[]).reduce((acc,l)=>{
+        if (!acc[l.quote_id]) acc[l.quote_id] = [];
+        acc[l.quote_id].push(mapQuoteLine(l));
+        return acc;
+      },{});
+      setQuotes(mappedQuotes.map(q=>({ ...q, lines: linesByQuote[q.id]||[] })));
+    } else {
+      setQuotes([]);
+    }
     setLoading(false);
   };
 
@@ -2015,7 +2031,7 @@ function PrestacionModal({ quotes, existing, onClose, onSaved }) {
   const isReprint = !!existing;
 
   const [selectedQuoteIds, setSelectedQuoteIds] = useState(existing?.quote_ids||[]);
-  const [selectedLines, setSelectedLines]       = useState(existing?.selected_lines||null); // null = all
+  const [selectedLineKeys, setSelectedLineKeys] = useState(null); // null = todas las líneas
   const [form, setForm] = useState({
     fecha_pago:       existing?.fecha_pago||new Date().toISOString().slice(0,10),
     periodo_desde:    existing?.periodo_desde||"",
@@ -2028,17 +2044,31 @@ function PrestacionModal({ quotes, existing, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const ff = (k,v) => setForm(p=>({...p,[k]:v}));
 
-  const toggleQuote = id =>
+  const toggleQuote = id => {
     setSelectedQuoteIds(prev => prev.includes(id) ? (prev.length>1?prev.filter(x=>x!==id):prev) : [...prev,id]);
+    setSelectedLineKeys(null); // reset line selection on quote change
+  };
+  const toggleLine = (lineKey) =>
+    setSelectedLineKeys(prev => {
+      const all = selQuotes.flatMap(q=>(q.lines||[]).map(l=>l.id||`${l.quoteId}-${l.code}`));
+      const current = prev === null ? all : prev;
+      return current.includes(lineKey) ? current.filter(k=>k!==lineKey) : [...current, lineKey];
+    });
 
   // Selected quotes objects
   const selQuotes = quotes.filter(q=>selectedQuoteIds.includes(q.id));
 
   // All lines from selected quotes
-  const allLines = selQuotes.flatMap(q=>(q.lines||[]).map(l=>({...l, quoteNum:q.number, quoteId:q.id})));
+  const allLinesRaw = selQuotes.flatMap(q=>(q.lines||[]).map(l=>({...l, quoteNum:q.number, quoteId:q.id, _key: l.id||`${q.id}-${l.code}`})));
+  const allLines = selectedLineKeys===null ? allLinesRaw : allLinesRaw.filter(l=>selectedLineKeys.includes(l._key));
 
-  // Auto total
-  const autoTotal = selQuotes.reduce((s,q)=>s+Number(q.total||0),0);
+  // Auto total — sum of selected lines only
+  const autoTotal = allLines.reduce((s,l)=>{
+    const qty  = Number(l.qty||l.quantity||l.cantidad||1);
+    const price= Number(l.unitPrice||l.precio_unitario||0);
+    const disc = Number(l.discount||l.descuento||0);
+    return s + Math.round(price*(1-disc/100)*qty);
+  },0);
   const totalMonto = Number(form.monto_pagado)||autoTotal;
 
   // First quote for client info
@@ -2205,22 +2235,56 @@ function PrestacionModal({ quotes, existing, onClose, onSaved }) {
           )}
         </div>
 
-        {/* Líneas preview */}
-        {allLines.length>0 && (
+        {/* Líneas con selección individual */}
+        {allLinesRaw.length>0 && (
           <div style={{ marginBottom:18, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, overflow:"hidden" }}>
-            <div style={{ padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}`, display:"flex", justifyContent:"space-between" }}>
-              <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>{allLines.length} línea{allLines.length!==1?"s":""} incluidas</span>
-              <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.green }}>{fmt(autoTotal)}</span>
-            </div>
-            {allLines.map((l,i)=>(
-              <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 14px", borderBottom:i<allLines.length-1?`1px solid ${COLORS.border}`:"none" }}>
-                <div>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, color:COLORS.text }}>{l.description||l.descripcion||"—"}</div>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{l.code||l.codigo||""}{selQuotes.length>1?` · COT °${l.quoteNum}`:""}</div>
-                </div>
-                <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{l.quantity||l.cantidad||1} UN</span>
+            <div style={{ padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>
+                Líneas — selecciona las que incluir
+              </span>
+              <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                <button onClick={()=>setSelectedLineKeys(null)}
+                  style={{ fontFamily:FONT, fontSize:10, color:selectedLineKeys===null?COLORS.green:COLORS.textMuted, background:"transparent", border:"none", cursor:"pointer", textDecoration:"underline" }}>
+                  Todas
+                </button>
+                <button onClick={()=>setSelectedLineKeys([])}
+                  style={{ fontFamily:FONT, fontSize:10, color:selectedLineKeys!==null&&selectedLineKeys.length===0?COLORS.red:COLORS.textMuted, background:"transparent", border:"none", cursor:"pointer", textDecoration:"underline" }}>
+                  Ninguna
+                </button>
               </div>
-            ))}
+            </div>
+            {allLinesRaw.map((l,i)=>{
+              const isSelected = selectedLineKeys===null || selectedLineKeys.includes(l._key);
+              const qty   = Number(l.qty||l.quantity||l.cantidad||1);
+              const price = Number(l.unitPrice||l.precio_unitario||0);
+              const disc  = Number(l.discount||l.descuento||0);
+              const sub   = Math.round(price*(1-disc/100)*qty);
+              return (
+                <label key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 14px", borderBottom:i<allLinesRaw.length-1?`1px solid ${COLORS.border}`:"none", cursor:"pointer", background:isSelected?"transparent":`${COLORS.border}44` }}>
+                  <input type="checkbox" checked={isSelected} onChange={()=>toggleLine(l._key)}
+                    style={{ accentColor:COLORS.green, width:14, height:14, flexShrink:0 }} />
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, color:isSelected?COLORS.text:COLORS.textMuted, fontWeight:isSelected?600:400 }}>
+                      {l.description||l.descripcion||"—"}
+                    </div>
+                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
+                      {l.code||l.codigo||""}{selQuotes.length>1?` · COT °${l.quoteNum}`:""}
+                      {disc>0?` · ${disc}% dscto`:""}
+                    </div>
+                  </div>
+                  <div style={{ textAlign:"right", flexShrink:0 }}>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{qty} UN</div>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:isSelected?COLORS.green:COLORS.textMuted }}>{fmt(sub)}</div>
+                  </div>
+                </label>
+              );
+            })}
+            <div style={{ padding:"8px 14px", borderTop:`1px solid ${COLORS.border}`, display:"flex", justifyContent:"space-between" }}>
+              <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{allLines.length} de {allLinesRaw.length} líneas seleccionadas</span>
+              <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.green }}>
+                {fmt(allLines.reduce((s,l)=>{ const q=Number(l.qty||l.quantity||l.cantidad||1); const p=Number(l.unitPrice||l.precio_unitario||0); const d=Number(l.discount||l.descuento||0); return s+Math.round(p*(1-d/100)*q); },0))}
+              </span>
+            </div>
           </div>
         )}
 
