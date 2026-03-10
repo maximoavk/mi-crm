@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calculator, GanttChartSquare, CheckSquare, BarChart2, LogOut, Sun, Moon } from "lucide-react";
 
 // ── SUPABASE ────────────────────────────────────────────────────────────────
 const supabase = createClient(
@@ -4735,16 +4734,16 @@ function PurchaseView({ isMobile }) {
 
 // ── NAV ──────────────────────────────────────────────────────────────────────
 const NAV = [
-  { key:"dashboard", label:"Dashboard", Icon: LayoutDashboard  },
-  { key:"contacts",  label:"Contactos", Icon: Users            },
-  { key:"pipeline",  label:"Pipeline",  Icon: Kanban           },
-  { key:"quotes",    label:"Cotizar",   Icon: FileText         },
-  { key:"products",  label:"Catálogo",  Icon: Package          },
-  { key:"purchase",  label:"Compras",   Icon: ShoppingCart     },
-  { key:"costeo",    label:"Costeo",    Icon: Calculator       },
-  { key:"gantt",     label:"Proyectos", Icon: GanttChartSquare },
-  { key:"tasks",     label:"Tareas",    Icon: CheckSquare      },
-  { key:"reports",   label:"Reportes",  Icon: BarChart2        },
+  { key:"dashboard", label:"Dashboard", icon:"◈" },
+  { key:"contacts",  label:"Contactos", icon:"◎" },
+  { key:"pipeline",  label:"Pipeline",  icon:"◧" },
+  { key:"quotes",    label:"Cotizar",   icon:"◑" },
+  { key:"products",  label:"Catálogo",  icon:"◫" },
+  { key:"purchase",  label:"Compras",   icon:"◆" },
+  { key:"costeo",    label:"Costeo",    icon:"◐" },
+  { key:"gantt",     label:"Proyectos", icon:"▦" },
+  { key:"tasks",     label:"Tareas",    icon:"◉" },
+  { key:"reports",   label:"Reportes",  icon:"◌" },
 ];
 
 // ── LOGIN SCREEN ─────────────────────────────────────────────────────────────
@@ -4882,7 +4881,7 @@ export default function CRM() {
             const active=view===n.key;
             return (
               <button key={n.key} onClick={()=>navigate(n.key)} style={{ display:"flex", alignItems:"center", gap:12, width:"100%", padding:"13px 16px", borderRadius:8, marginBottom:4, background:active?COLORS.accentDim:"transparent", border:`1px solid ${active?COLORS.accentGlow:"transparent"}`, cursor:"pointer", color:active?COLORS.accent:COLORS.text, fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:active?600:400, textAlign:"left" }}>
-                <n.Icon size={17} />{n.label}
+                <span style={{ fontSize:17 }}>{n.icon}</span>{n.label}
               </button>
             );
           })}
@@ -4895,52 +4894,30 @@ export default function CRM() {
             <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, letterSpacing:"0.18em", textTransform:"uppercase", marginBottom:2 }}>B2B SALES</div>
             <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text }}>Polygonos <span style={{color:COLORS.accent}}>360</span></div>
           </div>
-          <nav style={{ padding:"12px 10px", flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:2 }}>
+          <nav style={{ padding:"20px 12px", flex:1, overflowY:"auto" }}>
             {NAV.map(n=>{
-              const active = view===n.key;
+              const active=view===n.key;
               return (
-                <button key={n.key} onClick={()=>navigate(n.key)}
-                  style={{
-                    display:"flex", alignItems:"center", gap:10,
-                    width:"100%", padding:"9px 12px", borderRadius:10,
-                    background: active ? "linear-gradient(120deg,#AC3AB322,#2954EC22)" : "transparent",
-                    border: active ? "1px solid #AC3AB333" : "1px solid transparent",
-                    cursor:"pointer", textAlign:"left", transition:"all 0.15s",
-                    color: active ? COLORS.text : COLORS.textMuted,
-                    fontFamily: FONT_DISPLAY, fontSize:13,
-                    fontWeight: active ? 700 : 400,
-                  }}>
-                  <div style={{
-                    width:30, height:30, borderRadius:8, flexShrink:0,
-                    display:"flex", alignItems:"center", justifyContent:"center",
-                    background: active ? "linear-gradient(135deg,#AC3AB3,#2954EC)" : COLORS.bg,
-                    border: active ? "none" : `1px solid ${COLORS.border}`,
-                    color: active ? "#fff" : COLORS.textMuted,
-                    transition:"all 0.15s",
-                  }}>
-                    <n.Icon size={14} strokeWidth={active?2.5:1.8} />
-                  </div>
-                  {n.label}
-                  {active && <div style={{ marginLeft:"auto", width:5, height:5, borderRadius:"50%", background:"#AC3AB3", flexShrink:0 }} />}
+                <button key={n.key} onClick={()=>navigate(n.key)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"10px 12px", borderRadius:7, marginBottom:4, background:active?COLORS.accentDim:"transparent", border:`1px solid ${active?COLORS.accentGlow:"transparent"}`, cursor:"pointer", color:active?COLORS.accent:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:active?600:400, textAlign:"left" }}>
+                  <span style={{ fontSize:16 }}>{n.icon}</span>{n.label}
                 </button>
               );
             })}
           </nav>
-          <div style={{ padding:"14px 16px", borderTop:`1px solid ${COLORS.border}` }}>
+          <div style={{ padding:"16px 24px", borderTop:`1px solid ${COLORS.border}` }}>
             {/* Toggle día/noche */}
             <button onClick={()=>setDarkMode(d=>!d)}
-              style={{ width:"100%", marginBottom:8, padding:"8px 12px", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", display:"flex", alignItems:"center", gap:8, transition:"all 0.15s" }}>
-              {darkMode ? <Sun size={14} /> : <Moon size={14} />}
+              style={{ width:"100%", marginBottom:10, padding:"8px 0", background:darkMode?COLORS.card:COLORS_LIGHT.card, border:`1px solid ${COLORS.border}`, borderRadius:7, color:COLORS.textMuted, fontFamily:FONT, fontSize:12, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8, transition:"all 0.2s" }}>
+              <span style={{ fontSize:15 }}>{darkMode?"☀️":"🌙"}</span>
               <span>{darkMode?"Modo Claro":"Modo Oscuro"}</span>
             </button>
-            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:3 }}>
-              <span style={{ color:"#00C896" }}>●</span> {contacts.length} contactos · {deals.length} deals
+            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:4 }}>
+              <span style={{ color:COLORS.green }}>●</span> {contacts.length} contactos · {deals.length} deals
             </div>
-            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:10, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:10, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
               {session?.user?.email}
             </div>
-            <button onClick={logout} style={{ width:"100%", padding:"7px 12px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:7 }}>
-              <LogOut size={13} />
+            <button onClick={logout} style={{ width:"100%", padding:"7px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
               Cerrar sesión
             </button>
           </div>
@@ -4968,9 +4945,9 @@ export default function CRM() {
             const active=view===n.key;
             return (
               <button key={n.key} onClick={()=>navigate(n.key)} style={{ flex:1, padding:"8px 2px 6px", background:"transparent", border:"none", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
-                <n.Icon size={16} color={active?"#AC3AB3":COLORS.textMuted} strokeWidth={active?2.5:1.8} />
-                <span style={{ fontFamily:FONT, fontSize:8, color:active?"#AC3AB3":COLORS.textMuted }}>{n.label}</span>
-                {active && <div style={{ width:16, height:2, borderRadius:2, background:"linear-gradient(90deg,#AC3AB3,#2954EC)", marginTop:1 }} />}
+                <span style={{ fontSize:15 }}>{n.icon}</span>
+                <span style={{ fontFamily:FONT, fontSize:8, color:active?COLORS.accent:COLORS.textMuted }}>{n.label}</span>
+                {active && <div style={{ width:3, height:3, borderRadius:"50%", background:COLORS.accent }} />}
               </button>
             );
           })}
