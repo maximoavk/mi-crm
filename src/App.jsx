@@ -1903,7 +1903,8 @@ function PrestacionesView({ isMobile }) {
   const [quotes, setQuotes]       = useState([]);
   const [loading, setLoading]     = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [editDoc, setEditDoc]     = useState(null);   // null = nuevo, obj = editar txs
+  const [editDoc, setEditDoc]     = useState(null);
+  const [collapsed, setCollapsed] = useState({});
 
   useEffect(()=>{ loadAll(); },[]);
 
@@ -1930,39 +1931,33 @@ function PrestacionesView({ isMobile }) {
     setDocs(prev=>prev.filter(d=>d.id!==id));
   };
 
-  const lineSubtotal = (l) => {
+  const lineSubtotal = l => {
     const qty=Number(l.qty||l.quantity||l.cantidad||1);
     const p=Number(l.unitPrice||l.precio_unitario||0);
     const d=Number(l.discount||l.descuento||0);
     return Math.round(p*(1-d/100)*qty);
   };
 
-  // Agrupar comprobantes por COT (quote_ids[0])
+  const toggleCollapse = (qId) => setCollapsed(prev=>({...prev,[qId]:!prev[qId]}));
+
   const grouped = quotes.map(q => {
     const qDocs = docs.filter(d=>(d.quote_ids||[]).includes(q.id));
     if(qDocs.length===0) return null;
-    const cotTotal = (q.lines||[]).reduce((s,l)=>s+lineSubtotal(l),0);
-    const totalPagado = qDocs.reduce((s,d)=>s+Number(d.monto_pagado||0),0);
-    const saldo = cotTotal - totalPagado;
-    const pct = cotTotal>0 ? Math.min((totalPagado/cotTotal)*100,100) : 0;
+    const cotTotal   = (q.lines||[]).reduce((s,l)=>s+lineSubtotal(l),0);
+    const totalPagado= qDocs.reduce((s,d)=>s+Number(d.monto_pagado||0),0);
+    const saldo      = cotTotal - totalPagado;
+    const pct        = cotTotal>0 ? Math.min((totalPagado/cotTotal)*100,100) : 0;
     return { quote:q, docs:qDocs, cotTotal, totalPagado, saldo, pct };
   }).filter(Boolean);
 
-  // Comprobantes sin COT asociada
   const orphanDocs = docs.filter(d=> {
     const qids = d.quote_ids||[];
     return qids.length===0 || !quotes.find(q=>qids.includes(q.id));
   });
 
-  const ProgBar = ({pct, color, label, left, right}) => (
-    <div style={{ marginBottom:5 }}>
-      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
-        <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.06em" }}>{label}</span>
-        <span style={{ fontFamily:FONT, fontSize:9, color }}>{left} · {right}</span>
-      </div>
-      <div style={{ height:5, background:COLORS.border, borderRadius:99, overflow:"hidden" }}>
-        <div style={{ height:"100%", width:`${Math.min(pct,100)}%`, background:color, borderRadius:99, transition:"width 0.3s" }} />
-      </div>
+  const MiniBar = ({pct,color,h=4}) => (
+    <div style={{ height:h, background:"#1F2535", borderRadius:99, overflow:"hidden", flex:1 }}>
+      <div style={{ height:"100%", width:`${Math.min(pct,100)}%`, background:color, borderRadius:99, transition:"width 0.3s" }} />
     </div>
   );
 
@@ -1981,131 +1976,125 @@ function PrestacionesView({ isMobile }) {
           {grouped.length===0 && orphanDocs.length===0 && (
             <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>Sin comprobantes aún.</div>
           )}
+          <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+            {grouped.map(({ quote:q, docs:qDocs, cotTotal, totalPagado, saldo, pct }) => {
+              const isOpen = !collapsed[q.id];
+              return (
+                <div key={q.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:14, overflow:"hidden" }}>
 
-          {/* Tarjetas contenedoras por COT */}
-          <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-            {grouped.map(({ quote:q, docs:qDocs, cotTotal, totalPagado, saldo, pct }) => (
-              <div key={q.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:14, overflow:"hidden" }}>
-
-                {/* Header tarjeta COT */}
-                <div style={{ padding:"14px 20px", borderBottom:`1px solid ${COLORS.border}`, display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:10 }}>
-                  <div>
-                    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
-                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.accent }}>COT °{q.number}</div>
-                      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{q.clientCompany||q.clientName}</div>
-                      <Badge color={saldo<=0?COLORS.green:COLORS.yellow}>{saldo<=0?"Pagado":"Pendiente"}</Badge>
+                  {/* ── Header tarjeta COT (siempre visible) ── */}
+                  <div onClick={()=>toggleCollapse(q.id)}
+                    style={{ padding:"12px 18px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", userSelect:"none" }}>
+                    {/* Chevron */}
+                    <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, flexShrink:0, transition:"transform 0.2s", display:"inline-block", transform:isOpen?"rotate(90deg)":"rotate(0deg)" }}>▶</span>
+                    {/* COT num */}
+                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.accent, flexShrink:0 }}>COT °{q.number}</span>
+                    {/* Cliente */}
+                    <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{q.clientCompany||q.clientName}</span>
+                    {/* Badge estado */}
+                    <Badge color={saldo<=0?COLORS.green:COLORS.yellow}>{saldo<=0?"Pagado":"Pendiente"}</Badge>
+                    {/* Mini barra progreso */}
+                    <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0, width:120 }}>
+                      <MiniBar pct={pct} color={saldo<=0?COLORS.green:`linear-gradient(90deg,${COLORS.accent},${COLORS.green})`} h={5} />
+                      <span style={{ fontFamily:FONT, fontSize:10, color:saldo<=0?COLORS.green:COLORS.accent, flexShrink:0, minWidth:32, textAlign:"right" }}>{pct.toFixed(0)}%</span>
                     </div>
-                    <div style={{ width:260 }}>
-                      <ProgBar
-                        pct={pct}
-                        color={saldo<=0?COLORS.green:`linear-gradient(90deg,${COLORS.accent},${COLORS.green})`}
-                        label="Pagado / total COT"
-                        left={fmt(totalPagado)}
-                        right={`${pct.toFixed(1)}%`}
-                      />
-                      {saldo>0 && <ProgBar
-                        pct={100-pct}
-                        color={`linear-gradient(90deg,${COLORS.yellow},${COLORS.red})`}
-                        label="Saldo pendiente"
-                        left={fmt(saldo)}
-                        right={fmt(cotTotal)}
-                      />}
+                    {/* Totales */}
+                    <div style={{ textAlign:"right", flexShrink:0 }}>
+                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:saldo<=0?COLORS.green:COLORS.text }}>{fmt(totalPagado)}</div>
+                      <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>de {fmt(cotTotal)}</div>
+                    </div>
+                    {/* Count badge */}
+                    <div style={{ background:`${COLORS.accent}22`, border:`1px solid ${COLORS.accent}33`, borderRadius:20, padding:"2px 9px", fontFamily:FONT, fontSize:10, color:COLORS.accent, flexShrink:0 }}>
+                      {qDocs.length} CP
                     </div>
                   </div>
-                  <div style={{ textAlign:"right" }}>
-                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:2 }}>Total COT</div>
-                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text }}>{fmt(cotTotal)}</div>
-                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.green }}>{fmt(totalPagado)} pagado</div>
-                  </div>
-                </div>
 
-                {/* Sub-tarjetas comprobantes */}
-                <div style={{ padding:"10px 20px 14px", display:"flex", flexDirection:"column", gap:8 }}>
-                  {qDocs.map(doc => {
-                    const txs = doc.transacciones||[];
-                    const docPct = cotTotal>0 ? Math.min((Number(doc.monto_pagado||0)/cotTotal)*100,100) : 0;
-                    const linePct = cotTotal>0 ? Math.min((Number(doc.monto_pagado||0)/cotTotal)*100,100) : 0;
-                    return (
-                      <div key={doc.id} style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"12px 14px" }}>
-                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
-                          <div>
-                            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3 }}>
-                              <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.accent }}>{doc.numero}</span>
-                              <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{fmtDate(doc.fecha_pago)}</span>
-                              {doc.responsable && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>· {doc.responsable}</span>}
-                            </div>
-                            {txs.length>0 && (
-                              <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
-                                {txs.map((t,i)=>(
-                                  <span key={i} style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"2px 6px" }}>
-                                    {t.codigo ? t.codigo.slice(0,12)+"…" : "—"} · {fmt(Number(t.monto||0))}
-                                  </span>
-                                ))}
+                  {/* ── Sub-tarjetas colapsables en fila horizontal ── */}
+                  {isOpen && (
+                    <div style={{ borderTop:`1px solid ${COLORS.border}`, padding:"10px 14px 14px", overflowX:"auto" }}>
+                      <div style={{ display:"flex", gap:10, minWidth:"max-content" }}>
+                        {qDocs.map(doc => {
+                          const txs = doc.transacciones||[];
+                          const docPct  = cotTotal>0 ? Math.min((Number(doc.monto_pagado||0)/cotTotal)*100,100) : 0;
+                          const saldoDoc= Math.max(0, cotTotal - Number(doc.monto_pagado||0));
+                          const saldoPct= cotTotal>0 ? Math.min((saldoDoc/cotTotal)*100,100) : 0;
+                          return (
+                            <div key={doc.id} style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"12px 14px", width:240, flexShrink:0 }}>
+                              {/* Número + fecha */}
+                              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:6 }}>
+                                <div>
+                                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.accent }}>{doc.numero}</div>
+                                  <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>{fmtDate(doc.fecha_pago)} · {doc.responsable||""}</div>
+                                </div>
+                                <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.green }}>{fmt(doc.monto_pagado||0)}</div>
                               </div>
-                            )}
-                          </div>
-                          <div style={{ textAlign:"right", flexShrink:0, marginLeft:10 }}>
-                            <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.green }}>{fmt(doc.monto_pagado||0)}</div>
-                            <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>{docPct.toFixed(1)}% del total COT</div>
-                          </div>
-                        </div>
-
-                        {/* Barras sub-tarjeta */}
-                        <div style={{ marginBottom:8 }}>
-                          <ProgBar
-                            pct={docPct}
-                            color={`linear-gradient(90deg,${COLORS.accent},${COLORS.green})`}
-                            label="Este pago / total COT"
-                            left={fmt(doc.monto_pagado||0)}
-                            right={`${docPct.toFixed(1)}%`}
-                          />
-                          <ProgBar
-                            pct={100-docPct}
-                            color={`linear-gradient(90deg,${COLORS.yellow},${COLORS.red})`}
-                            label="Saldo tras este pago"
-                            left={fmt(Math.max(0,cotTotal-Number(doc.monto_pagado||0)))}
-                            right={fmt(cotTotal)}
-                          />
-                        </div>
-
-                        {/* Botones sub-tarjeta */}
-                        <div style={{ display:"flex", gap:6, borderTop:`1px solid ${COLORS.border}`, paddingTop:8 }}>
-                          <button onClick={()=>{ setEditDoc(doc); setShowModal(true); }}
-                            style={{ padding:"4px 10px", borderRadius:5, fontFamily:FONT, fontSize:10, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.secondary}44`, color:COLORS.secondary }}>
-                            ✏️ Editar transacciones
-                          </button>
-                          <button onClick={()=>{ setEditDoc({...doc, _reprint:true}); setShowModal(true); }}
-                            style={{ padding:"4px 10px", borderRadius:5, fontFamily:FONT, fontSize:10, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>
-                            🖨 Reimprimir
-                          </button>
-                          <button onClick={()=>deleteDoc(doc.id)}
-                            style={{ padding:"4px 10px", borderRadius:5, fontFamily:FONT, fontSize:10, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red, marginLeft:"auto" }}>
-                            ✕
-                          </button>
+                              {/* Transacciones resumidas */}
+                              {txs.length>0 && (
+                                <div style={{ marginBottom:8 }}>
+                                  {txs.map((t,i)=>(
+                                    <div key={i} style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginBottom:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                                      🏦 {t.codigo?t.codigo.slice(0,14)+"…":"—"} · {fmt(Number(t.monto||0))}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {/* Barras */}
+                              <div style={{ marginBottom:8 }}>
+                                <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:3 }}>
+                                  <span style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted, width:58, flexShrink:0 }}>Pago/COT</span>
+                                  <MiniBar pct={docPct} color={`linear-gradient(90deg,${COLORS.accent},${COLORS.green})`} />
+                                  <span style={{ fontFamily:FONT, fontSize:8, color:COLORS.accent, flexShrink:0, minWidth:30, textAlign:"right" }}>{docPct.toFixed(0)}%</span>
+                                </div>
+                                <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                                  <span style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted, width:58, flexShrink:0 }}>Saldo</span>
+                                  <MiniBar pct={saldoPct} color={saldoDoc<=0?COLORS.green:`linear-gradient(90deg,${COLORS.yellow},${COLORS.red})`} />
+                                  <span style={{ fontFamily:FONT, fontSize:8, color:COLORS.yellow, flexShrink:0, minWidth:30, textAlign:"right" }}>{saldoPct.toFixed(0)}%</span>
+                                </div>
+                              </div>
+                              {/* Botones */}
+                              <div style={{ display:"flex", gap:5, borderTop:`1px solid ${COLORS.border}`, paddingTop:8 }}>
+                                <button onClick={()=>{ setEditDoc(doc); setShowModal(true); }}
+                                  style={{ flex:1, padding:"4px 0", borderRadius:5, fontFamily:FONT, fontSize:9, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.secondary}44`, color:COLORS.secondary }}>
+                                  ✏️ Editar
+                                </button>
+                                <button onClick={()=>{ setEditDoc({...doc,_reprint:true}); setShowModal(true); }}
+                                  style={{ flex:1, padding:"4px 0", borderRadius:5, fontFamily:FONT, fontSize:9, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>
+                                  🖨 PDF
+                                </button>
+                                <button onClick={()=>deleteDoc(doc.id)}
+                                  style={{ padding:"4px 7px", borderRadius:5, fontFamily:FONT, fontSize:10, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red }}>
+                                  ✕
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {/* Botón agregar nuevo CP al mismo COT */}
+                        <div onClick={()=>{ setEditDoc(null); setShowModal(true); }}
+                          style={{ width:120, flexShrink:0, border:`2px dashed ${COLORS.border}`, borderRadius:10, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:14, color:COLORS.textMuted, gap:6 }}>
+                          <span style={{ fontSize:22 }}>+</span>
+                          <span style={{ fontFamily:FONT, fontSize:9, textAlign:"center", lineHeight:1.4 }}>Nuevo comprobante</span>
                         </div>
                       </div>
-                    );
-                  })}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
-            {/* Comprobantes huérfanos */}
+            {/* Huérfanos */}
             {orphanDocs.length>0 && (
-              <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:14, padding:"14px 20px" }}>
+              <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:14, padding:"12px 18px" }}>
                 <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>Sin cotización asociada</div>
-                {orphanDocs.map(doc=>(
-                  <div key={doc.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:`1px solid ${COLORS.border}` }}>
-                    <div>
-                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.accent, marginRight:8 }}>{doc.numero}</span>
-                      <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{fmtDate(doc.fecha_pago)}</span>
+                <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+                  {orphanDocs.map(doc=>(
+                    <div key={doc.id} style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"8px 12px", display:"flex", gap:10, alignItems:"center" }}>
+                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.accent }}>{doc.numero}</span>
+                      <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.green }}>{fmt(doc.monto_pagado||0)}</span>
+                      <button onClick={()=>deleteDoc(doc.id)} style={{ background:"transparent", border:"none", color:COLORS.red, cursor:"pointer", fontSize:13 }}>✕</button>
                     </div>
-                    <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.green }}>{fmt(doc.monto_pagado||0)}</span>
-                      <button onClick={()=>deleteDoc(doc.id)} style={{ padding:"3px 8px", borderRadius:5, fontFamily:FONT, fontSize:10, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red }}>✕</button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -2135,7 +2124,7 @@ function PrestacionesView({ isMobile }) {
 function EditTxModal({ doc, onClose, onSaved }) {
   const emptyTx = () => ({ id:Date.now()+Math.random(), fecha:new Date().toISOString().slice(0,10), codigo:"", monto:"" });
   const [transacciones, setTransacciones] = useState(
-    doc.transacciones?.length>0 ? doc.transacciones.map(t=>({...t, id:t.id||Date.now()+Math.random()})) : [emptyTx()]
+    doc.transacciones?.length>0 ? doc.transacciones.map(t=>({...t,id:t.id||Date.now()+Math.random()})) : [emptyTx()]
   );
   const [saving, setSaving] = useState(false);
   const addTx    = () => setTransacciones(p=>[...p, emptyTx()]);
@@ -2160,7 +2149,7 @@ function EditTxModal({ doc, onClose, onSaved }) {
 
   return (
     <div style={{ position:"fixed", inset:0, background:"#000b", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-      <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:14, width:"100%", maxWidth:580, maxHeight:"88vh", overflowY:"auto", padding:24 }}>
+      <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:14, width:"100%", maxWidth:560, maxHeight:"88vh", overflowY:"auto", padding:24 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
           <div>
             <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.secondary, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:2 }}>Editar transacciones</div>
@@ -2168,12 +2157,10 @@ function EditTxModal({ doc, onClose, onSaved }) {
           </div>
           <button onClick={onClose} style={{ background:"transparent", border:"none", color:COLORS.textMuted, fontSize:20, cursor:"pointer" }}>✕</button>
         </div>
-
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
           <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Transacciones bancarias</span>
           <button onClick={addTx} style={{ padding:"4px 12px", background:`${COLORS.accent}22`, border:`1px solid ${COLORS.accent}44`, borderRadius:6, color:COLORS.accent, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer" }}>+ Agregar</button>
         </div>
-
         <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:16 }}>
           {transacciones.map(tx=>(
             <div key={tx.id} style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 12px" }}>
@@ -2186,12 +2173,10 @@ function EditTxModal({ doc, onClose, onSaved }) {
             </div>
           ))}
         </div>
-
         <div style={{ padding:"10px 14px", background:`${COLORS.green}10`, border:`1px solid ${COLORS.green}30`, borderRadius:8, display:"flex", justifyContent:"space-between", marginBottom:16 }}>
           <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{txsValidos.length} transacciones válidas</span>
           <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.green }}>{fmt(txTotal)}</span>
         </div>
-
         <div style={{ display:"flex", gap:10 }}>
           <button onClick={onClose} style={{ flex:1, padding:"10px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>Cancelar</button>
           <button onClick={save} disabled={saving} style={{ flex:2, padding:"10px 0", background:saving?COLORS.border:COLORS.secondary, border:"none", borderRadius:8, color:saving?COLORS.textMuted:"#fff", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:saving?"not-allowed":"pointer" }}>
@@ -2207,7 +2192,6 @@ function EditTxModal({ doc, onClose, onSaved }) {
 function NuevoPrestacionModal({ quotes, existing, allDocs, onClose, onSaved }) {
   const isReprint = !!(existing?._reprint);
   const emptyTx = () => ({ id:Date.now()+Math.random(), fecha:new Date().toISOString().slice(0,10), codigo:"", monto:"" });
-
   const [selectedQuoteIds, setSelectedQuoteIds] = useState(existing?.quote_ids||[]);
   const [selectedLineKeys, setSelectedLineKeys] = useState(null);
   const [transacciones, setTransacciones]       = useState(
@@ -2218,294 +2202,180 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, onClose, onSaved }) {
     periodo_desde: existing?.periodo_desde||"",
     periodo_hasta: existing?.periodo_hasta||"",
     responsable:   existing?.responsable||"VARRIAGA",
-    notas:         existing?.notas||"",
   });
   const [saving, setSaving] = useState(false);
-  const ff = (k,v) => setForm(p=>({...p,[k]:v}));
+  const ff=(k,v)=>setForm(p=>({...p,[k]:v}));
+  const addTx=()=>setTransacciones(p=>[...p,emptyTx()]);
+  const removeTx=id=>setTransacciones(p=>p.filter(t=>t.id!==id));
+  const updateTx=(id,k,v)=>setTransacciones(p=>p.map(t=>t.id===id?{...t,[k]:v}:t));
+  const toggleQuote=id=>{ setSelectedQuoteIds(prev=>prev.includes(id)?(prev.length>1?prev.filter(x=>x!==id):prev):[...prev,id]); setSelectedLineKeys(null); };
+  const toggleLine=key=>setSelectedLineKeys(prev=>{ const all=allLinesRaw.map(l=>l._key); const cur=prev===null?all:prev; return cur.includes(key)?cur.filter(k=>k!==key):[...cur,key]; });
+  const selQuotes=quotes.filter(q=>selectedQuoteIds.includes(q.id));
+  const allLinesRaw=selQuotes.flatMap(q=>(q.lines||[]).map(l=>({...l,quoteNum:q.number,quoteId:q.id,_key:l.id||`${q.id}-${l.code}`})));
+  const allLines=selectedLineKeys===null?allLinesRaw:allLinesRaw.filter(l=>selectedLineKeys.includes(l._key));
+  const lsub=l=>{const qty=Number(l.qty||l.quantity||l.cantidad||1);const p=Number(l.unitPrice||l.precio_unitario||0);const d=Number(l.discount||l.descuento||0);return Math.round(p*(1-d/100)*qty);};
+  const lineTotal=allLines.reduce((s,l)=>s+lsub(l),0);
+  const cotTotal=allLinesRaw.reduce((s,l)=>s+lsub(l),0);
+  const txTotal=transacciones.reduce((s,t)=>s+Number(t.monto||0),0);
+  const totalMonto=txTotal>0?txTotal:lineTotal;
+  const firstQ=selQuotes[0]||quotes[0];
+  const fmtDL=d=>d?new Date(d+"T00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"}):"—";
 
-  const addTx    = () => setTransacciones(p=>[...p, emptyTx()]);
-  const removeTx = id => setTransacciones(p=>p.filter(t=>t.id!==id));
-  const updateTx = (id,k,v) => setTransacciones(p=>p.map(t=>t.id===id?{...t,[k]:v}:t));
-
-  const toggleQuote = id => {
-    setSelectedQuoteIds(prev=>prev.includes(id)?(prev.length>1?prev.filter(x=>x!==id):prev):[...prev,id]);
-    setSelectedLineKeys(null);
-  };
-  const toggleLine = key => setSelectedLineKeys(prev=>{
-    const all = allLinesRaw.map(l=>l._key);
-    const cur = prev===null ? all : prev;
-    return cur.includes(key) ? cur.filter(k=>k!==key) : [...cur,key];
-  });
-
-  const selQuotes   = quotes.filter(q=>selectedQuoteIds.includes(q.id));
-  const allLinesRaw = selQuotes.flatMap(q=>(q.lines||[]).map(l=>({...l, quoteNum:q.number, quoteId:q.id, _key:l.id||`${q.id}-${l.code}`})));
-  const allLines    = selectedLineKeys===null ? allLinesRaw : allLinesRaw.filter(l=>selectedLineKeys.includes(l._key));
-
-  const lineSubtotal = l => {
-    const qty=Number(l.qty||l.quantity||l.cantidad||1);
-    const p=Number(l.unitPrice||l.precio_unitario||0);
-    const d=Number(l.discount||l.descuento||0);
-    return Math.round(p*(1-d/100)*qty);
-  };
-  const lineTotal = allLines.reduce((s,l)=>s+lineSubtotal(l),0);
-  const cotTotal  = allLinesRaw.reduce((s,l)=>s+lineSubtotal(l),0);
-  const txTotal   = transacciones.reduce((s,t)=>s+Number(t.monto||0),0);
-  const totalMonto = txTotal>0 ? txTotal : lineTotal;
-  const firstQ    = selQuotes[0]||quotes[0];
-  const fmtDateLong = d=>d?new Date(d+"T00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"}):"—";
-
-  const doPrint = (numero) => {
-    const quoteRefs = selQuotes.map(q=>`COT °${q.number}`).join(", ");
-    const periodoStr = form.periodo_desde
-      ? `${fmtDateLong(form.periodo_desde)}${form.periodo_hasta?" – "+fmtDateLong(form.periodo_hasta):""}` : "—";
-    const txsV = transacciones.filter(t=>Number(t.monto)>0);
-    const txTot = txsV.reduce((s,t)=>s+Number(t.monto),0);
-    const saldo = cotTotal - txTot;
-    const pct1 = lineTotal>0 ? Math.min((txTot/lineTotal)*100,100) : 0;
-    const pct2 = cotTotal>0 ? Math.min(Math.max(cotTotal-txTot,0)/cotTotal*100,100) : 0;
-
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-    <style>
-      @page{size:A4 portrait;margin:15mm 15mm 12mm;}
-      @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
-      *{margin:0;padding:0;box-sizing:border-box;}
-      body{font-family:'Courier New',monospace;color:#1a1a1a;background:#fff;font-size:11px;}
-      .hbox{float:right;width:235px;border:1.5px solid #1a1a1a;padding:8px 10px;margin:0 0 6mm 10mm;}
-      .hbox .ttl{font-size:12px;font-weight:bold;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:4px;margin-bottom:6px;}
-      .hbox table{width:100%;font-size:9.5px;} .hbox td{padding:1.5px 0;} .hbox td b{display:block;font-size:10px;}
-      .linfo{float:left;width:195px;font-size:10px;line-height:1.9;}
-      .linfo b{display:block;margin-bottom:1px;}
-      .cf::after{content:"";display:table;clear:both;}
-      .stitle{font-size:11px;font-weight:bold;border-bottom:1.5px solid #1a1a1a;padding-bottom:3px;margin:7mm 0 4mm;letter-spacing:.05em;}
-      table.it{width:100%;border-collapse:collapse;margin-bottom:5mm;}
-      table.it thead tr{background:#1a1a1a;color:#fff;}
-      table.it th{padding:4px 6px;font-size:9px;text-transform:uppercase;letter-spacing:.06em;text-align:left;}
-      table.it th.r,table.it td.r{text-align:right;} table.it th.c,table.it td.c{text-align:center;}
-      table.it td{padding:5px 6px;font-size:10px;border-bottom:1px solid #ddd;}
-      table.it tbody tr:nth-child(even) td{background:#f9f9f9;}
-      .tots{float:right;width:230px;border:1px solid #aaa;margin-bottom:8mm;}
-      .tots tr td{padding:4px 10px;font-size:10px;} .tots tr td:last-child{text-align:right;}
-      .tots tr:last-child td{font-weight:bold;font-size:12px;border-top:2px solid #1a1a1a;background:#f5f5f5;}
-      .cop{margin-top:4mm;padding:6px 10px;border:1px solid #aaa;clear:both;}
-      .cop .cop-title{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:#666;margin-bottom:4px;font-weight:bold;}
-      table.txs{width:100%;border-collapse:collapse;font-size:10px;}
-      table.txs th{font-size:8.5px;text-transform:uppercase;letter-spacing:.06em;color:#888;padding:2px 4px;text-align:left;border-bottom:1px solid #ddd;}
-      table.txs th.r{text-align:right;} table.txs td{padding:3px 4px;border-bottom:1px solid #f0f0f0;}
-      table.txs td.r{text-align:right;} table.txs td.pct{text-align:right;color:#888;font-size:9px;}
-      .status-box{margin-top:5mm;padding:8px 10px;border:1.5px solid ${saldo<=0?"#1a8a1a":"#b85c00"};border-radius:4px;clear:both;}
-      .bar-row{margin-bottom:5px;}
-      .bar-row .bar-label{display:flex;justify-content:space-between;font-size:9px;color:#666;margin-bottom:2px;}
-      .bar-track{height:7px;background:#eee;border-radius:99px;overflow:hidden;}
-      .foot{margin-top:8mm;border-top:1px solid #ccc;padding-top:4mm;font-size:9px;color:#888;text-align:center;}
+  const doPrint=(numero)=>{
+    const quoteRefs=selQuotes.map(q=>`COT °${q.number}`).join(", ");
+    const periodoStr=form.periodo_desde?`${fmtDL(form.periodo_desde)}${form.periodo_hasta?" – "+fmtDL(form.periodo_hasta):""}` :"—";
+    const txsV=transacciones.filter(t=>Number(t.monto)>0);
+    const txTot=txsV.reduce((s,t)=>s+Number(t.monto),0);
+    const saldo=cotTotal-txTot;
+    const pct1=lineTotal>0?Math.min((txTot/lineTotal)*100,100):0;
+    const pct2=cotTotal>0?Math.min(Math.max(cotTotal-txTot,0)/cotTotal*100,100):0;
+    const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    @page{size:A4 portrait;margin:15mm 15mm 12mm;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+    *{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Courier New',monospace;color:#1a1a1a;font-size:11px;}
+    .hbox{float:right;width:235px;border:1.5px solid #1a1a1a;padding:8px 10px;margin:0 0 6mm 10mm;}
+    .hbox .ttl{font-size:12px;font-weight:bold;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:4px;margin-bottom:6px;}
+    .hbox table{width:100%;font-size:9.5px;}.hbox td{padding:1.5px 0;}.hbox td b{display:block;font-size:10px;}
+    .linfo{float:left;width:195px;font-size:10px;line-height:1.9;}.linfo b{display:block;margin-bottom:1px;}
+    .cf::after{content:"";display:table;clear:both;}
+    .stitle{font-size:11px;font-weight:bold;border-bottom:1.5px solid #1a1a1a;padding-bottom:3px;margin:7mm 0 4mm;}
+    table.it{width:100%;border-collapse:collapse;margin-bottom:5mm;}
+    table.it thead tr{background:#1a1a1a;color:#fff;}
+    table.it th{padding:4px 6px;font-size:9px;text-transform:uppercase;letter-spacing:.06em;text-align:left;}
+    table.it th.r,table.it td.r{text-align:right;}table.it th.c,table.it td.c{text-align:center;}
+    table.it td{padding:5px 6px;font-size:10px;border-bottom:1px solid #ddd;}
+    table.it tbody tr:nth-child(even) td{background:#f9f9f9;}
+    .tots{float:right;width:230px;border:1px solid #aaa;margin-bottom:8mm;}
+    .tots tr td{padding:4px 10px;font-size:10px;}.tots tr td:last-child{text-align:right;}
+    .tots tr:last-child td{font-weight:bold;font-size:12px;border-top:2px solid #1a1a1a;background:#f5f5f5;}
+    .cop{margin-top:4mm;padding:6px 10px;border:1px solid #aaa;clear:both;}
+    .cop-title{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:#666;margin-bottom:4px;font-weight:bold;}
+    table.txs{width:100%;border-collapse:collapse;font-size:10px;}
+    table.txs th{font-size:8.5px;text-transform:uppercase;letter-spacing:.06em;color:#888;padding:2px 4px;text-align:left;border-bottom:1px solid #ddd;}
+    table.txs th.r,table.txs td.r{text-align:right;}table.txs td{padding:3px 4px;border-bottom:1px solid #f0f0f0;}
+    .sbox{margin-top:5mm;padding:8px 10px;border:1.5px solid ${saldo<=0?"#1a8a1a":"#b85c00"};border-radius:4px;clear:both;}
+    .br .bl{display:flex;justify-content:space-between;font-size:9px;color:#666;margin-bottom:2px;}
+    .bt{height:7px;background:#eee;border-radius:99px;overflow:hidden;}
+    .foot{margin-top:8mm;border-top:1px solid #ccc;padding-top:4mm;font-size:9px;color:#888;text-align:center;}
     </style></head><body>
-    <div class="hbox">
-      <div class="ttl">Comprobante de prestación de servicios</div>
-      <table>
-        <tr><td>Número cotización / Fecha</td></tr>
-        <tr><td><b>${quoteRefs} / ${fmtDateLong(form.fecha_pago)}</b></td></tr>
-        <tr><td style="padding-top:3px">Documento / Fecha emisión</td></tr>
-        <tr><td><b>${numero} / ${fmtDateLong(form.fecha_pago)}</b></td></tr>
-        <tr><td style="padding-top:3px">Responsable</td></tr>
-        <tr><td><b>${form.responsable||"—"}</b></td></tr>
-        <tr><td style="padding-top:3px">N° Cliente (RUT)</td></tr>
-        <tr><td><b>${firstQ?.clientRut||"—"}</b></td></tr>
-      </table>
-    </div>
-    <div class="linfo">
-      <b>Lugar prest. servicio</b>${firstQ?.clientAddress||firstQ?.clientCompany||"—"}
-      <br/><br/><b>Período</b>${periodoStr}
-      <br/><br/><b>Cotización${selQuotes.length>1?"es":""} asociada${selQuotes.length>1?"s":""}:</b>${quoteRefs}
-    </div>
+    <div class="hbox"><div class="ttl">Comprobante de prestación de servicios</div><table>
+    <tr><td>Número cotización / Fecha</td></tr><tr><td><b>${quoteRefs} / ${fmtDL(form.fecha_pago)}</b></td></tr>
+    <tr><td style="padding-top:3px">Documento / Fecha emisión</td></tr><tr><td><b>${numero} / ${fmtDL(form.fecha_pago)}</b></td></tr>
+    <tr><td style="padding-top:3px">Responsable</td></tr><tr><td><b>${form.responsable||"—"}</b></td></tr>
+    <tr><td style="padding-top:3px">N° Cliente (RUT)</td></tr><tr><td><b>${firstQ?.clientRut||"—"}</b></td></tr>
+    </table></div>
+    <div class="linfo"><b>Lugar prest. servicio</b>${firstQ?.clientAddress||firstQ?.clientCompany||"—"}
+    <br/><br/><b>Período</b>${periodoStr}
+    <br/><br/><b>Cotización${selQuotes.length>1?"es":""} asociada${selQuotes.length>1?"s":""}:</b>${quoteRefs}</div>
     <div class="cf"></div>
     <div class="stitle">Sistema de emisión</div>
-    <table class="it">
-      <thead><tr>
-        <th>Lín.</th><th>Servicio</th><th>Denominación / Descripción</th>
-        <th class="c">Ctd.</th><th class="c">Unidad</th>
-        <th class="r">Precio unit. CLP</th><th class="r">Valor neto CLP</th>
-      </tr></thead>
-      <tbody>
-        ${allLines.map((l,i)=>{
-          const qty=Number(l.qty||l.quantity||l.cantidad||1);
-          const price=Number(l.unitPrice||l.precio_unitario||0);
-          const disc=Number(l.discount||l.descuento||0);
-          const neto=Math.round(price*(1-disc/100)*qty);
-          return `<tr>
-            <td>${i+1}</td><td style="font-size:9px">${l.code||l.codigo||"—"}</td>
-            <td>${l.description||l.descripcion||"—"}${selQuotes.length>1?`<br/><span style="font-size:8px;color:#888">COT °${l.quoteNum}</span>`:""}</td>
-            <td class="c">${qty}</td><td class="c">UN</td>
-            <td class="r">${price.toLocaleString("es-CL")}</td>
-            <td class="r">${neto.toLocaleString("es-CL")}</td>
-          </tr>`;
-        }).join("")}
-      </tbody>
-    </table>
-    <table class="tots">
-      <tr><td>Valor bruto CLP</td><td>${totalMonto.toLocaleString("es-CL")}</td></tr>
-      <tr><td>Valor Neto incl. Dscto / recargo</td><td>${totalMonto.toLocaleString("es-CL")}</td></tr>
-    </table>
-    <div class="cop">
-      <div class="cop-title">Cod operaciones:</div>
-      <table class="txs">
-        <thead><tr><th>Fecha</th><th>Código operación</th><th class="r">Monto CLP</th><th class="r">% del total</th></tr></thead>
-        <tbody>
-          ${txsV.map(t=>{
-            const pct=lineTotal>0?((Number(t.monto)/lineTotal)*100).toFixed(1):"—";
-            const fecha=t.fecha?new Date(t.fecha+"T00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"}):"—";
-            return `<tr><td>${fecha}</td><td>${t.codigo||"—"}</td><td class="r">$${Number(t.monto).toLocaleString("es-CL")}</td><td class="pct">${pct}%</td></tr>`;
-          }).join("")}
-          <tr style="font-weight:bold;background:#f5f5f5;border-top:2px solid #1a1a1a">
-            <td colspan="2">Total pagado</td>
-            <td class="r">$${txTot.toLocaleString("es-CL")}</td>
-            <td class="pct">${lineTotal>0?((txTot/lineTotal)*100).toFixed(1):0}%</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="status-box">
+    <table class="it"><thead><tr><th>Lín.</th><th>Servicio</th><th>Denominación / Descripción</th><th class="c">Ctd.</th><th class="c">Unidad</th><th class="r">Precio unit. CLP</th><th class="r">Valor neto CLP</th></tr></thead>
+    <tbody>${allLines.map((l,i)=>{const qty=Number(l.qty||l.quantity||l.cantidad||1);const price=Number(l.unitPrice||l.precio_unitario||0);const disc=Number(l.discount||l.descuento||0);const neto=Math.round(price*(1-disc/100)*qty);return`<tr><td>${i+1}</td><td style="font-size:9px">${l.code||l.codigo||"—"}</td><td>${l.description||l.descripcion||"—"}</td><td class="c">${qty}</td><td class="c">UN</td><td class="r">${price.toLocaleString("es-CL")}</td><td class="r">${neto.toLocaleString("es-CL")}</td></tr>`;}).join("")}</tbody></table>
+    <table class="tots"><tr><td>Valor bruto CLP</td><td>${totalMonto.toLocaleString("es-CL")}</td></tr><tr><td>Valor Neto incl. Dscto / recargo</td><td>${totalMonto.toLocaleString("es-CL")}</td></tr></table>
+    <div class="cop"><div class="cop-title">Cod operaciones:</div>
+    <table class="txs"><thead><tr><th>Fecha</th><th>Código operación</th><th class="r">Monto CLP</th><th class="r">% del total</th></tr></thead>
+    <tbody>${txsV.map(t=>{const pct=lineTotal>0?((Number(t.monto)/lineTotal)*100).toFixed(1):"—";const fecha=t.fecha?new Date(t.fecha+"T00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"}):"—";return`<tr><td>${fecha}</td><td>${t.codigo||"—"}</td><td class="r">$${Number(t.monto).toLocaleString("es-CL")}</td><td style="text-align:right;font-size:9px;color:#888">${pct}%</td></tr>`;}).join("")}
+    <tr style="font-weight:bold;background:#f5f5f5;border-top:2px solid #1a1a1a"><td colspan="2">Total pagado</td><td class="r">$${txTot.toLocaleString("es-CL")}</td><td style="text-align:right;font-size:9px">${lineTotal>0?((txTot/lineTotal)*100).toFixed(1):0}%</td></tr>
+    </tbody></table></div>
+    <div class="sbox">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <span style="font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.07em;color:#555">Estado de pago</span>
         <span style="font-size:11px;font-weight:bold;color:${saldo<=0?"#1a8a1a":"#b85c00"}">${saldo<=0?"✓ Pagado completo":"Saldo pendiente: $"+saldo.toLocaleString("es-CL")}</span>
       </div>
-      <div class="bar-row">
-        <div class="bar-label"><span>Pagado / líneas seleccionadas</span><span>${pct1.toFixed(1)}% · $${txTot.toLocaleString("es-CL")} de $${lineTotal.toLocaleString("es-CL")}</span></div>
-        <div class="bar-track"><div style="height:100%;width:${pct1.toFixed(1)}%;background:${saldo<=0?"#1a8a1a":"#e07b00"};border-radius:99px"></div></div>
-      </div>
-      <div class="bar-row" style="margin-top:4px">
-        <div class="bar-label"><span>Saldo pendiente / total COT</span><span>${pct2.toFixed(1)}% · $${Math.max(0,cotTotal-txTot).toLocaleString("es-CL")} de $${cotTotal.toLocaleString("es-CL")}</span></div>
-        <div class="bar-track"><div style="height:100%;width:${pct2.toFixed(1)}%;background:#b85c00;border-radius:99px"></div></div>
-      </div>
+      <div class="br" style="margin-bottom:5px"><div class="bl"><span>Pagado / líneas seleccionadas</span><span>${pct1.toFixed(1)}% · $${txTot.toLocaleString("es-CL")} de $${lineTotal.toLocaleString("es-CL")}</span></div><div class="bt"><div style="height:100%;width:${pct1.toFixed(1)}%;background:${saldo<=0?"#1a8a1a":"#e07b00"};border-radius:99px"></div></div></div>
+      <div class="br"><div class="bl"><span>Saldo pendiente / total COT</span><span>${pct2.toFixed(1)}% · $${Math.max(0,cotTotal-txTot).toLocaleString("es-CL")} de $${cotTotal.toLocaleString("es-CL")}</span></div><div class="bt"><div style="height:100%;width:${pct2.toFixed(1)}%;background:#b85c00;border-radius:99px"></div></div></div>
     </div>
     <div class="foot">Documento interno de gestión · Generado el ${new Date().toLocaleDateString("es-CL")} · ${numero}</div>
-    <script>window.onload=()=>window.print();</script>
-    </body></html>`;
-    const w=window.open("","_blank"); w.document.write(html); w.document.close();
+    <script>window.onload=()=>window.print();</script></body></html>`;
+    const w=window.open("","_blank");w.document.write(html);w.document.close();
   };
 
-  const saveAndPrint = async () => {
+  const saveAndPrint=async()=>{
     setSaving(true);
     try {
-      // Número correlativo CP-{cotNum}-{seq}
-      const cotNum = firstQ?.number || "00";
-      const { data: existing } = await supabase.from("comprobantes_pago")
-        .select("numero").like("numero", `CP-${cotNum}-%`);
-      const seq = String((existing?.length||0)+1).padStart(3,"0");
-      const numero = `CP-${cotNum}-${seq}`;
-      const txsV = transacciones.filter(t=>Number(t.monto)>0);
-      const { data, error } = await supabase.from("comprobantes_pago").insert({
-        numero,
-        fecha_pago:       form.fecha_pago||null,
-        periodo_desde:    form.periodo_desde||null,
-        periodo_hasta:    form.periodo_hasta||null,
-        codigo_operacion: txsV.map(t=>t.codigo).filter(Boolean).join(", ")||null,
-        monto_pagado:     txTotal>0?txTotal:lineTotal||null,
-        responsable:      form.responsable||null,
-        contact_id:       null,
-        quote_ids:        selectedQuoteIds,
-        notas:            form.notas||null,
-        transacciones:    txsV,
-        estado:           "emitido",
+      const cotNum=firstQ?.number||"00";
+      const {data:existing2}=await supabase.from("comprobantes_pago").select("numero").like("numero",`CP-${cotNum}-%`);
+      const seq=String((existing2?.length||0)+1).padStart(3,"0");
+      const numero=`CP-${cotNum}-${seq}`;
+      const txsV=transacciones.filter(t=>Number(t.monto)>0);
+      const {data,error}=await supabase.from("comprobantes_pago").insert({
+        numero,fecha_pago:form.fecha_pago||null,periodo_desde:form.periodo_desde||null,periodo_hasta:form.periodo_hasta||null,
+        codigo_operacion:txsV.map(t=>t.codigo).filter(Boolean).join(", ")||null,
+        monto_pagado:txTotal>0?txTotal:lineTotal||null,responsable:form.responsable||null,
+        contact_id:null,quote_ids:selectedQuoteIds,transacciones:txsV,estado:"emitido",
       }).select().single();
-      if(error){ alert("Error: "+error.message); setSaving(false); return; }
-      setSaving(false);
-      if(data){ onSaved(data); doPrint(numero); }
-    } catch(e){ alert("Error: "+e.message); setSaving(false); }
+      if(error){alert("Error: "+error.message);setSaving(false);return;}
+      setSaving(false);if(data){onSaved(data);doPrint(numero);}
+    }catch(e){alert("Error: "+e.message);setSaving(false);}
   };
 
-  const inp = { width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" };
-  const lbl = { fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5, fontWeight:600, display:"block" };
-  const txsValidos = transacciones.filter(t=>Number(t.monto)>0);
-  const txsTotalCheck = transacciones.reduce((s,t)=>s+Number(t.monto||0),0);
-
-  const BarModal = ({pct, color, label, detail}) => (
-    <div style={{ marginBottom:5 }}>
-      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:2 }}>
-        <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.06em" }}>{label}</span>
-        <span style={{ fontFamily:FONT, fontSize:9, color }}>{detail}</span>
-      </div>
-      <div style={{ height:5, background:COLORS.border, borderRadius:99, overflow:"hidden" }}>
-        <div style={{ height:"100%", width:`${Math.min(pct,100)}%`, background:color, borderRadius:99, transition:"width 0.3s" }} />
-      </div>
-    </div>
-  );
+  const inp={width:"100%",background:COLORS.bg,border:`1px solid ${COLORS.border}`,borderRadius:6,padding:"9px 12px",fontFamily:FONT,fontSize:13,color:COLORS.text,outline:"none",boxSizing:"border-box"};
+  const lbl={fontFamily:FONT,fontSize:10,color:COLORS.textMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:5,fontWeight:600,display:"block"};
+  const txsValidos=transacciones.filter(t=>Number(t.monto)>0);
+  const txsCheck=transacciones.reduce((s,t)=>s+Number(t.monto||0),0);
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"#000b", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-      <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:14, width:"100%", maxWidth:660, maxHeight:"92vh", overflowY:"auto", padding:28 }}>
-
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:22 }}>
+    <div style={{position:"fixed",inset:0,background:"#000b",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{background:COLORS.surface,border:`1px solid ${COLORS.border}`,borderRadius:14,width:"100%",maxWidth:660,maxHeight:"92vh",overflowY:"auto",padding:28}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
           <div>
-            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:3 }}>Sin IVA · Prestación de Servicios</div>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text }}>
-              {isReprint ? `🖨 Reimprimir ${existing?.numero}` : "📋 Nuevo Comprobante"}
-            </div>
+            <div style={{fontFamily:FONT,fontSize:10,color:COLORS.accent,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:3}}>Sin IVA · Prestación de Servicios</div>
+            <div style={{fontFamily:FONT_DISPLAY,fontSize:18,fontWeight:700,color:COLORS.text}}>{isReprint?`🖨 Reimprimir ${existing?.numero}`:"📋 Nuevo Comprobante"}</div>
           </div>
-          <button onClick={onClose} style={{ background:"transparent", border:"none", color:COLORS.textMuted, fontSize:20, cursor:"pointer" }}>✕</button>
+          <button onClick={onClose} style={{background:"transparent",border:"none",color:COLORS.textMuted,fontSize:20,cursor:"pointer"}}>✕</button>
         </div>
 
-        {/* Cotizaciones sin IVA */}
-        <div style={{ marginBottom:20 }}>
+        {/* Cotizaciones */}
+        <div style={{marginBottom:20}}>
           <label style={lbl}>Cotizaciones sin IVA <span style={{fontWeight:400,color:COLORS.textMuted}}>({quotes.length} disponibles)</span></label>
-          {quotes.length===0 ? (
-            <div style={{ padding:"12px 14px", background:`${COLORS.yellow}10`, border:`1px solid ${COLORS.yellow}30`, borderRadius:8, fontFamily:FONT, fontSize:12, color:COLORS.yellow }}>
-              ⚠ No hay cotizaciones sin IVA.
-            </div>
-          ) : (
-            <div style={{ display:"flex", flexDirection:"column", gap:6, maxHeight:180, overflowY:"auto" }}>
-              {quotes.map(q=>{
-                const sel=selectedQuoteIds.includes(q.id);
-                return (
-                  <label key={q.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", background:sel?`${COLORS.green}12`:COLORS.bg, border:`1px solid ${sel?COLORS.green:COLORS.border}`, borderRadius:8, cursor:"pointer" }}>
-                    <input type="checkbox" checked={sel} onChange={()=>toggleQuote(q.id)} style={{ accentColor:COLORS.green, width:15, height:15, flexShrink:0 }} />
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.text }}>COT °{q.number}</span>
-                      <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginLeft:8 }}>{q.clientCompany||q.clientName}</span>
-                      <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginLeft:8 }}>{fmtDate(q.date)}</span>
-                    </div>
-                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.green, flexShrink:0 }}>{fmt(q.total)}</span>
-                  </label>
-                );
-              })}
+          {quotes.length===0?<div style={{padding:"12px 14px",background:`${COLORS.yellow}10`,border:`1px solid ${COLORS.yellow}30`,borderRadius:8,fontFamily:FONT,fontSize:12,color:COLORS.yellow}}>⚠ No hay cotizaciones sin IVA.</div>:(
+            <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:180,overflowY:"auto"}}>
+              {quotes.map(q=>{const sel=selectedQuoteIds.includes(q.id);return(
+                <label key={q.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",background:sel?`${COLORS.green}12`:COLORS.bg,border:`1px solid ${sel?COLORS.green:COLORS.border}`,borderRadius:8,cursor:"pointer"}}>
+                  <input type="checkbox" checked={sel} onChange={()=>toggleQuote(q.id)} style={{accentColor:COLORS.green,width:15,height:15,flexShrink:0}} />
+                  <div style={{flex:1,minWidth:0}}>
+                    <span style={{fontFamily:FONT_DISPLAY,fontSize:12,fontWeight:700,color:COLORS.text}}>COT °{q.number}</span>
+                    <span style={{fontFamily:FONT,fontSize:11,color:COLORS.textMuted,marginLeft:8}}>{q.clientCompany||q.clientName}</span>
+                    <span style={{fontFamily:FONT,fontSize:11,color:COLORS.textMuted,marginLeft:8}}>{fmtDate(q.date)}</span>
+                  </div>
+                  <span style={{fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,color:COLORS.green,flexShrink:0}}>{fmt(q.total)}</span>
+                </label>
+              );})}
             </div>
           )}
         </div>
 
         {/* Líneas */}
-        {allLinesRaw.length>0 && (
-          <div style={{ marginBottom:20, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, overflow:"hidden" }}>
-            <div style={{ padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Líneas — selecciona las que incluir</span>
-              <div style={{ display:"flex", gap:10 }}>
-                <button onClick={()=>setSelectedLineKeys(null)} style={{ fontFamily:FONT, fontSize:10, color:selectedLineKeys===null?COLORS.green:COLORS.textMuted, background:"transparent", border:"none", cursor:"pointer", textDecoration:"underline" }}>Todas</button>
-                <button onClick={()=>setSelectedLineKeys([])} style={{ fontFamily:FONT, fontSize:10, color:selectedLineKeys!==null&&selectedLineKeys.length===0?COLORS.red:COLORS.textMuted, background:"transparent", border:"none", cursor:"pointer", textDecoration:"underline" }}>Ninguna</button>
+        {allLinesRaw.length>0&&(
+          <div style={{marginBottom:20,background:COLORS.bg,border:`1px solid ${COLORS.border}`,borderRadius:8,overflow:"hidden"}}>
+            <div style={{padding:"7px 14px",borderBottom:`1px solid ${COLORS.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontFamily:FONT,fontSize:10,color:COLORS.textMuted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Líneas — selecciona las que incluir</span>
+              <div style={{display:"flex",gap:10}}>
+                <button onClick={()=>setSelectedLineKeys(null)} style={{fontFamily:FONT,fontSize:10,color:selectedLineKeys===null?COLORS.green:COLORS.textMuted,background:"transparent",border:"none",cursor:"pointer",textDecoration:"underline"}}>Todas</button>
+                <button onClick={()=>setSelectedLineKeys([])} style={{fontFamily:FONT,fontSize:10,color:selectedLineKeys!==null&&selectedLineKeys.length===0?COLORS.red:COLORS.textMuted,background:"transparent",border:"none",cursor:"pointer",textDecoration:"underline"}}>Ninguna</button>
               </div>
             </div>
-            {allLinesRaw.map((l,i)=>{
-              const isSel=selectedLineKeys===null||selectedLineKeys.includes(l._key);
-              const sub=lineSubtotal(l);
-              return (
-                <label key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 14px", borderBottom:i<allLinesRaw.length-1?`1px solid ${COLORS.border}`:"none", cursor:"pointer", background:isSel?"transparent":`${COLORS.border}33` }}>
-                  <input type="checkbox" checked={isSel} onChange={()=>toggleLine(l._key)} style={{ accentColor:COLORS.green, width:14, height:14, flexShrink:0 }} />
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, color:isSel?COLORS.text:COLORS.textMuted, fontWeight:isSel?600:400 }}>{l.description||l.descripcion||"—"}</div>
-                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{l.code||l.codigo||""}{selQuotes.length>1?` · COT °${l.quoteNum}`:""}</div>
-                  </div>
-                  <div style={{ textAlign:"right", flexShrink:0 }}>
-                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{l.qty||l.quantity||l.cantidad||1} UN</div>
-                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:isSel?COLORS.green:COLORS.textMuted }}>{fmt(sub)}</div>
-                  </div>
-                </label>
-              );
-            })}
-            <div style={{ padding:"8px 14px", borderTop:`1px solid ${COLORS.border}`, display:"flex", justifyContent:"space-between" }}>
-              <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{allLines.length} de {allLinesRaw.length} líneas</span>
-              <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.green }}>{fmt(lineTotal)}</span>
+            {allLinesRaw.map((l,i)=>{const isSel=selectedLineKeys===null||selectedLineKeys.includes(l._key);const sub=lsub(l);return(
+              <label key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",borderBottom:i<allLinesRaw.length-1?`1px solid ${COLORS.border}`:"none",cursor:"pointer",background:isSel?"transparent":`${COLORS.border}33`}}>
+                <input type="checkbox" checked={isSel} onChange={()=>toggleLine(l._key)} style={{accentColor:COLORS.green,width:14,height:14,flexShrink:0}} />
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontFamily:FONT_DISPLAY,fontSize:12,color:isSel?COLORS.text:COLORS.textMuted,fontWeight:isSel?600:400}}>{l.description||l.descripcion||"—"}</div>
+                  <div style={{fontFamily:FONT,fontSize:10,color:COLORS.textMuted}}>{l.code||l.codigo||""}</div>
+                </div>
+                <div style={{textAlign:"right",flexShrink:0}}>
+                  <div style={{fontFamily:FONT,fontSize:10,color:COLORS.textMuted}}>{l.qty||l.quantity||l.cantidad||1} UN</div>
+                  <div style={{fontFamily:FONT_DISPLAY,fontSize:12,fontWeight:700,color:isSel?COLORS.green:COLORS.textMuted}}>{fmt(sub)}</div>
+                </div>
+              </label>
+            );})}
+            <div style={{padding:"8px 14px",borderTop:`1px solid ${COLORS.border}`,display:"flex",justifyContent:"space-between"}}>
+              <span style={{fontFamily:FONT,fontSize:11,color:COLORS.textMuted}}>{allLines.length} de {allLinesRaw.length} líneas</span>
+              <span style={{fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,color:COLORS.green}}>{fmt(lineTotal)}</span>
             </div>
           </div>
         )}
 
         {/* Campos */}
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
           <div><label style={lbl}>Fecha de pago</label><input type="date" value={form.fecha_pago} onChange={e=>ff("fecha_pago",e.target.value)} style={inp} /></div>
           <div><label style={lbl}>Responsable</label><input value={form.responsable} onChange={e=>ff("responsable",e.target.value)} placeholder="Ej: VARRIAGA" style={inp} /></div>
           <div><label style={lbl}>Período desde</label><input type="date" value={form.periodo_desde} onChange={e=>ff("periodo_desde",e.target.value)} style={inp} /></div>
@@ -2513,68 +2383,74 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, onClose, onSaved }) {
         </div>
 
         {/* Transacciones */}
-        <div style={{ marginBottom:16 }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-            <label style={{...lbl, marginBottom:0}}>Transacciones bancarias</label>
-            <button onClick={addTx} style={{ padding:"4px 12px", background:`${COLORS.accent}22`, border:`1px solid ${COLORS.accent}44`, borderRadius:6, color:COLORS.accent, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer" }}>+ Agregar</button>
+        <div style={{marginBottom:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <label style={{...lbl,marginBottom:0}}>Transacciones bancarias</label>
+            <button onClick={addTx} style={{padding:"4px 12px",background:`${COLORS.accent}22`,border:`1px solid ${COLORS.accent}44`,borderRadius:6,color:COLORS.accent,fontFamily:FONT_DISPLAY,fontSize:11,cursor:"pointer"}}>+ Agregar</button>
           </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {transacciones.map(tx=>{
               const monto=Number(tx.monto||0);
-              const pct1=lineTotal>0&&monto>0?(monto/lineTotal)*100:0;
-              const pct2=cotTotal>0&&monto>0?Math.max(cotTotal-monto,0)/cotTotal*100:0;
-              return (
-                <div key={tx.id} style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 12px" }}>
-                  <div style={{ display:"grid", gridTemplateColumns:"140px 1fr 130px auto", gap:8, alignItems:"center" }}>
-                    <input type="date" value={tx.fecha} onChange={e=>updateTx(tx.id,"fecha",e.target.value)} style={{ ...inp, fontSize:12, padding:"7px 10px" }} />
-                    <input value={tx.codigo} onChange={e=>updateTx(tx.id,"codigo",e.target.value)} placeholder="Código operación bancaria" style={{ ...inp, fontSize:12, padding:"7px 10px" }} />
-                    <input type="number" min="0" value={tx.monto} onChange={e=>updateTx(tx.id,"monto",e.target.value)} placeholder="Monto CLP" style={{ ...inp, fontSize:12, padding:"7px 10px" }} />
-                    {transacciones.length>1 && <button onClick={()=>removeTx(tx.id)} style={{ background:"transparent", border:"none", color:COLORS.red, cursor:"pointer", fontSize:16, padding:"0 4px" }}>✕</button>}
+              const p1=lineTotal>0&&monto>0?(monto/lineTotal)*100:0;
+              const p2=cotTotal>0&&monto>0?Math.max(cotTotal-monto,0)/cotTotal*100:0;
+              return(
+                <div key={tx.id} style={{background:COLORS.bg,border:`1px solid ${COLORS.border}`,borderRadius:8,padding:"10px 12px"}}>
+                  <div style={{display:"grid",gridTemplateColumns:"140px 1fr 130px auto",gap:8,alignItems:"center"}}>
+                    <input type="date" value={tx.fecha} onChange={e=>updateTx(tx.id,"fecha",e.target.value)} style={{...inp,fontSize:12,padding:"7px 10px"}} />
+                    <input value={tx.codigo} onChange={e=>updateTx(tx.id,"codigo",e.target.value)} placeholder="Código operación bancaria" style={{...inp,fontSize:12,padding:"7px 10px"}} />
+                    <input type="number" min="0" value={tx.monto} onChange={e=>updateTx(tx.id,"monto",e.target.value)} placeholder="Monto CLP" style={{...inp,fontSize:12,padding:"7px 10px"}} />
+                    {transacciones.length>1&&<button onClick={()=>removeTx(tx.id)} style={{background:"transparent",border:"none",color:COLORS.red,cursor:"pointer",fontSize:16,padding:"0 4px"}}>✕</button>}
                   </div>
-                  {monto>0 && (
-                    <div style={{ marginTop:8, display:"flex", flexDirection:"column", gap:4 }}>
-                      <BarModal pct={pct1} color={`linear-gradient(90deg,${COLORS.accent},${COLORS.green})`} label="Pagado / líneas selec." detail={`${pct1.toFixed(1)}% · ${fmt(monto)}`} />
-                      <BarModal pct={pct2} color={`linear-gradient(90deg,${COLORS.yellow},${COLORS.red})`} label="Saldo pendiente / total COT" detail={`${pct2.toFixed(1)}% · ${fmt(Math.max(0,cotTotal-monto))}`} />
+                  {monto>0&&(
+                    <div style={{marginTop:7,display:"flex",flexDirection:"column",gap:4}}>
+                      {[{pct:p1,color:`linear-gradient(90deg,${COLORS.accent},${COLORS.green})`,label:"Pagado / líneas selec."},
+                        {pct:p2,color:`linear-gradient(90deg,${COLORS.yellow},${COLORS.red})`,label:"Saldo pendiente / COT"}
+                      ].map(({pct,color,label})=>(
+                        <div key={label} style={{display:"flex",alignItems:"center",gap:8}}>
+                          <span style={{fontFamily:FONT,fontSize:9,color:COLORS.textMuted,width:140,flexShrink:0}}>{label}</span>
+                          <div style={{height:4,flex:1,background:COLORS.border,borderRadius:99,overflow:"hidden"}}>
+                            <div style={{height:"100%",width:`${Math.min(pct,100)}%`,background:color,borderRadius:99,transition:"width 0.3s"}} />
+                          </div>
+                          <span style={{fontFamily:FONT,fontSize:9,color:COLORS.accent,flexShrink:0,minWidth:35,textAlign:"right"}}>{pct.toFixed(1)}%</span>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
               );
             })}
           </div>
-          {txsTotalCheck>0 && lineTotal>0 && (
-            <div style={{ marginTop:8, padding:"8px 12px", background:Math.abs(txsTotalCheck-lineTotal)<10?`${COLORS.green}10`:`${COLORS.yellow}10`, border:`1px solid ${Math.abs(txsTotalCheck-lineTotal)<10?COLORS.green:COLORS.yellow}30`, borderRadius:8, display:"flex", justifyContent:"space-between" }}>
-              <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
-                {Math.abs(txsTotalCheck-lineTotal)<10 ? "✓ Cuadran" : `⚠ Diferencia: ${fmt(Math.abs(txsTotalCheck-lineTotal))}`}
-              </span>
-              <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.text }}>{fmt(txsTotalCheck)} / {fmt(lineTotal)}</span>
+          {txsCheck>0&&lineTotal>0&&(
+            <div style={{marginTop:8,padding:"8px 12px",background:Math.abs(txsCheck-lineTotal)<10?`${COLORS.green}10`:`${COLORS.yellow}10`,border:`1px solid ${Math.abs(txsCheck-lineTotal)<10?COLORS.green:COLORS.yellow}30`,borderRadius:8,display:"flex",justifyContent:"space-between"}}>
+              <span style={{fontFamily:FONT,fontSize:11,color:COLORS.textMuted}}>{Math.abs(txsCheck-lineTotal)<10?"✓ Cuadran":`⚠ Diferencia: ${fmt(Math.abs(txsCheck-lineTotal))}`}</span>
+              <span style={{fontFamily:FONT_DISPLAY,fontSize:12,fontWeight:700,color:COLORS.text}}>{fmt(txsCheck)} / {fmt(lineTotal)}</span>
             </div>
           )}
         </div>
 
-        {/* Totalizador */}
-        {totalMonto>0 && (
-          <div style={{ marginBottom:20, padding:"12px 16px", background:`${COLORS.green}10`, border:`1px solid ${COLORS.green}30`, borderRadius:10, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+        {totalMonto>0&&(
+          <div style={{marginBottom:20,padding:"12px 16px",background:`${COLORS.green}10`,border:`1px solid ${COLORS.green}30`,borderRadius:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div>
-              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Total comprobante · Sin IVA</div>
-              <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.green }}>{fmt(totalMonto)}</div>
+              <div style={{fontFamily:FONT,fontSize:10,color:COLORS.textMuted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Total comprobante · Sin IVA</div>
+              <div style={{fontFamily:FONT_DISPLAY,fontSize:22,fontWeight:700,color:COLORS.green}}>{fmt(totalMonto)}</div>
             </div>
-            <div style={{ textAlign:"right" }}>
-              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{txsValidos.length} transacción{txsValidos.length!==1?"es":""}</div>
-              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{allLines.length} línea{allLines.length!==1?"s":""}</div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontFamily:FONT,fontSize:10,color:COLORS.textMuted}}>{txsValidos.length} transacción{txsValidos.length!==1?"es":""}</div>
+              <div style={{fontFamily:FONT,fontSize:11,color:COLORS.textMuted}}>{allLines.length} línea{allLines.length!==1?"s":""}</div>
             </div>
           </div>
         )}
 
-        {isReprint ? (
-          <div style={{ display:"flex", gap:10 }}>
-            <button onClick={onClose} style={{ flex:1, padding:"11px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>Cerrar</button>
-            <button onClick={()=>doPrint(existing?.numero)} style={{ flex:2, padding:"11px 0", background:COLORS.green, border:"none", borderRadius:8, color:"#fff", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>🖨 Reimprimir PDF</button>
+        {isReprint?(
+          <div style={{display:"flex",gap:10}}>
+            <button onClick={onClose} style={{flex:1,padding:"11px 0",background:"transparent",border:`1px solid ${COLORS.border}`,borderRadius:8,color:COLORS.textMuted,fontFamily:FONT_DISPLAY,fontSize:13,cursor:"pointer"}}>Cerrar</button>
+            <button onClick={()=>doPrint(existing?.numero)} style={{flex:2,padding:"11px 0",background:COLORS.green,border:"none",borderRadius:8,color:"#fff",fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,cursor:"pointer"}}>🖨 Reimprimir PDF</button>
           </div>
-        ) : (
-          <div style={{ display:"flex", gap:10 }}>
-            <button onClick={onClose} style={{ flex:1, padding:"11px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>Cancelar</button>
+        ):(
+          <div style={{display:"flex",gap:10}}>
+            <button onClick={onClose} style={{flex:1,padding:"11px 0",background:"transparent",border:`1px solid ${COLORS.border}`,borderRadius:8,color:COLORS.textMuted,fontFamily:FONT_DISPLAY,fontSize:13,cursor:"pointer"}}>Cancelar</button>
             <button onClick={saveAndPrint} disabled={saving||selectedQuoteIds.length===0}
-              style={{ flex:2, padding:"11px 0", background:saving||selectedQuoteIds.length===0?COLORS.border:COLORS.accent, border:"none", borderRadius:8, color:saving||selectedQuoteIds.length===0?COLORS.textMuted:"#fff", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:saving?"not-allowed":"pointer" }}>
+              style={{flex:2,padding:"11px 0",background:saving||selectedQuoteIds.length===0?COLORS.border:COLORS.accent,border:"none",borderRadius:8,color:saving||selectedQuoteIds.length===0?COLORS.textMuted:"#fff",fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,cursor:saving?"not-allowed":"pointer"}}>
               {saving?"Guardando...":"💾 Guardar y Generar PDF"}
             </button>
           </div>
@@ -4282,6 +4158,9 @@ function PurchaseView({ isMobile }) {
 
   // Shipments
   const [shipments, setShipments] = useState([]);
+  const [editingGuiaId, setEditingGuiaId]       = useState(null);
+  const [editingGuiaVal, setEditingGuiaVal]     = useState("");
+  const [editingGuiaCourier, setEditingGuiaCourier] = useState("Starken");
   const SHIP_ESTADOS = [
     { key:"GENERADA",    color:"#6b7a99", icon:"📋" },
     { key:"EN_TRANSITO", color:"#A855F7", icon:"🚚" },
@@ -4295,7 +4174,7 @@ function PurchaseView({ isMobile }) {
   ];
 
   // Modal despacho
-  const emptyDespacho = { nombre:"", rut:"", telefono:"", correo:"", courier:"Starken", tipo:"sucursal", sucursal:"", direccion:"", region:"", comuna:"", ciudad:"", tracking_code:"", notas_despacho:"", num_cotizacion:"" };
+  const emptyDespacho = { nombre:"", rut:"", telefono:"", correo:"", courier:"Starken", tipo:"sucursal", sucursal:"", direccion:"", region:"", comuna:"", ciudad:"", tracking_code:"", notas_despacho:"", num_cotizacion:"", costo_despacho:"", aplica_iva_despacho:false };
   const [showDespachoModal, setShowDespachoModal] = useState(false);
   const [despachoOC, setDespachoOC]               = useState(null);
   const [despachoForm, setDespachoForm]           = useState(emptyDespacho);
@@ -4758,8 +4637,37 @@ function PurchaseView({ isMobile }) {
 
                               {/* ── Fila superior: número guía + courier + acciones ── */}
                               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-                                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                                  <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text }}>{ship.numero_guia}</span>
+                                <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                                  {editingGuiaId===ship.id ? (
+                                    <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+                                      <input autoFocus value={editingGuiaVal} onChange={e=>setEditingGuiaVal(e.target.value)}
+                                        style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, background:COLORS.bg, border:`1px solid ${COLORS.accent}`, borderRadius:5, padding:"3px 8px", color:COLORS.text, width:110, outline:"none" }}
+                                        onKeyDown={async e=>{
+                                          if(e.key==="Enter"){
+                                            await supabase.from("shipments").update({numero_guia:editingGuiaVal, courier:editingGuiaCourier}).eq("id",ship.id);
+                                            setShipments(prev=>prev.map(s=>s.id===ship.id?{...s,numero_guia:editingGuiaVal,courier:editingGuiaCourier}:s));
+                                            setEditingGuiaId(null);
+                                          } else if(e.key==="Escape"){ setEditingGuiaId(null); }
+                                        }}
+                                      />
+                                      <select value={editingGuiaCourier} onChange={e=>setEditingGuiaCourier(e.target.value)}
+                                        style={{ fontFamily:FONT, fontSize:11, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:5, padding:"3px 7px", color:COLORS.text, outline:"none" }}>
+                                        {COURIERS_LIST.map(c=><option key={c.key} value={c.key}>{c.key}</option>)}
+                                      </select>
+                                      <button onClick={async()=>{
+                                        await supabase.from("shipments").update({numero_guia:editingGuiaVal, courier:editingGuiaCourier}).eq("id",ship.id);
+                                        setShipments(prev=>prev.map(s=>s.id===ship.id?{...s,numero_guia:editingGuiaVal,courier:editingGuiaCourier}:s));
+                                        setEditingGuiaId(null);
+                                      }} style={{ padding:"3px 8px", background:COLORS.green, border:"none", borderRadius:5, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer" }}>✓</button>
+                                      <button onClick={()=>setEditingGuiaId(null)} style={{ padding:"3px 7px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>✕</button>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text }}>{ship.numero_guia}</span>
+                                      <button onClick={()=>{ setEditingGuiaId(ship.id); setEditingGuiaVal(ship.numero_guia); setEditingGuiaCourier(ship.courier); }}
+                                        style={{ padding:"2px 7px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:4, color:COLORS.textMuted, fontFamily:FONT, fontSize:9, cursor:"pointer" }}>✏️ Editar</button>
+                                    </>
+                                  )}
                                   <span style={{ fontFamily:FONT, fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:10, background:`${courierInfo?.color||"#6b7a99"}22`, color:courierInfo?.color||"#6b7a99", border:`1px solid ${courierInfo?.color||"#6b7a99"}44` }}>
                                     {ship.courier}
                                   </span>
@@ -5106,6 +5014,8 @@ function PurchaseView({ isMobile }) {
             sucursal:            despachoForm.sucursal,
             tracking_code:       despachoForm.tracking_code||null,
             notas:               despachoForm.notas_despacho||null,
+            costo_despacho:      despachoForm.costo_despacho ? Number(despachoForm.costo_despacho) : null,
+            aplica_iva_despacho: !!despachoForm.aplica_iva_despacho,
             estado:              "GENERADA",
           }).select().single();
           if (savedShip) setShipments(prev=>[savedShip, ...prev]);
@@ -5386,6 +5296,60 @@ function PurchaseView({ isMobile }) {
                 <input value={despachoForm.num_cotizacion||""} onChange={e=>df("num_cotizacion",e.target.value)}
                   placeholder="Ej: COT-2026-001 o vacío"
                   style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+              </div>
+
+              {/* Costo flete */}
+              <div style={{ marginBottom:16, padding:"14px 16px", background:`${COLORS.yellow}08`, border:`1px solid ${COLORS.yellow}30`, borderRadius:10 }}>
+                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.yellow, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10, fontWeight:700 }}>💰 Costo de despacho / flete</div>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:10, alignItems:"center" }}>
+                  <input type="number" min="0" value={despachoForm.costo_despacho||""} onChange={e=>df("costo_despacho",e.target.value)}
+                    placeholder="Ej: 15000" style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+                  <label style={{ display:"flex", alignItems:"center", gap:7, cursor:"pointer", whiteSpace:"nowrap" }}>
+                    <input type="checkbox" checked={!!despachoForm.aplica_iva_despacho} onChange={e=>df("aplica_iva_despacho",e.target.checked)}
+                      style={{ width:15, height:15, accentColor:COLORS.yellow, cursor:"pointer" }} />
+                    <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>+ IVA (19%)</span>
+                  </label>
+                </div>
+                {Number(despachoForm.costo_despacho)>0 && (()=>{
+                  const neto = Number(despachoForm.costo_despacho);
+                  const iva  = despachoForm.aplica_iva_despacho ? Math.round(neto*0.19) : 0;
+                  const tot  = neto + iva;
+                  const ocItems = despachoOC?.purchase_order_items||[];
+                  const totalCompra = ocItems.reduce((s,it)=>s+Number(it.cantidad||0)*Number(it.precio_unitario_neto||0),0);
+                  return (
+                    <div style={{ marginTop:10, paddingTop:10, borderTop:`1px solid ${COLORS.yellow}22` }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                        <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Flete neto</span>
+                        <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{fmt(neto)}</span>
+                      </div>
+                      {iva>0 && <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                        <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>IVA flete (19%)</span>
+                        <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.red }}>{fmt(iva)}</span>
+                      </div>}
+                      <div style={{ display:"flex", justifyContent:"space-between", paddingTop:4, borderTop:`1px solid ${COLORS.yellow}22`, marginBottom:totalCompra>0?8:0 }}>
+                        <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.yellow }}>Total flete</span>
+                        <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.yellow }}>{fmt(tot)}</span>
+                      </div>
+                      {totalCompra>0 && (
+                        <div style={{ padding:"8px 10px", background:COLORS.bg, borderRadius:6, border:`1px solid ${COLORS.border}` }}>
+                          <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.06em" }}>Desglose</div>
+                          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                            <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Valor compra neto</span>
+                            <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{fmt(totalCompra)}</span>
+                          </div>
+                          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                            <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>+ Flete total</span>
+                            <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.yellow }}>{fmt(tot)}</span>
+                          </div>
+                          <div style={{ display:"flex", justifyContent:"space-between", paddingTop:4, borderTop:`1px solid ${COLORS.border}` }}>
+                            <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.text }}>🚚 Costo real total</span>
+                            <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.yellow }}>{fmt(totalCompra+tot)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Notas despacho */}
