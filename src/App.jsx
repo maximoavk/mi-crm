@@ -1921,7 +1921,8 @@ function DocGrid({ docs, quotes, tab, setEditDoc, setShowModal, deleteDoc }) {
   const grouped = quotes.map(q => {
     const qDocs = docs.filter(d=>(d.quote_ids||[]).includes(q.id));
     if(qDocs.length===0) return null;
-    const cotTotal   = (q.lines||[]).reduce((s,l)=>s+lineSubtotalBruto(l),0);
+    // Para PF: q.total ya incluye IVA — usar directamente para evitar doble IVA
+    const cotTotal   = tab==="pf" ? (q.total||0) : (q.lines||[]).reduce((s,l)=>s+lineSubtotalBruto(l),0);
     const totalPagado= qDocs.reduce((s,d)=>s+Number(d.monto_pagado||0),0);
     const saldo      = cotTotal - totalPagado;
     const pct        = cotTotal>0 ? Math.min((totalPagado/cotTotal)*100,100) : 0;
@@ -2537,8 +2538,8 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
                     {isPF && q.clientRut && <span style={{fontFamily:FONT,fontSize:10,color:COLORS.textMuted,marginLeft:6}}>{q.clientRut}</span>}
                   </div>
                   <div style={{textAlign:"right",flexShrink:0}}>
-                    {isPF && <div style={{fontFamily:FONT,fontSize:9,color:COLORS.textMuted}}>Neto: {fmt(q.total)}</div>}
-                    <span style={{fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,color:COLORS.green}}>{isPF?fmt(Math.round(q.total*1.19)):fmt(q.total)}</span>
+                    {isPF && <div style={{fontFamily:FONT,fontSize:9,color:COLORS.textMuted}}>Neto: {fmt(Math.round(q.total/1.19))}</div>}
+                    <span style={{fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,color:COLORS.green}}>{fmt(q.total)}</span>
                     {isPF && <div style={{fontFamily:FONT,fontSize:9,color:COLORS.textMuted}}>c/IVA</div>}
                   </div>
                 </label>
