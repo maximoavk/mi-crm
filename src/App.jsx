@@ -1904,7 +1904,7 @@ function PrestacionesView({ isMobile }) {
   const [loading, setLoading]     = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editDoc, setEditDoc]     = useState(null);
-  const [collapsed, setCollapsed] = useState({});
+  const [collapsed, setCollapsed] = useState({});  // vacío = todos colapsados por defecto
 
   useEffect(()=>{ loadAll(); },[]);
 
@@ -1978,7 +1978,7 @@ function PrestacionesView({ isMobile }) {
           )}
           <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
             {grouped.map(({ quote:q, docs:qDocs, cotTotal, totalPagado, saldo, pct }) => {
-              const isOpen = !collapsed[q.id];
+              const isOpen = !!collapsed[q.id];  // colapsado por defecto
               return (
                 <div key={q.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:14, overflow:"hidden" }}>
 
@@ -2012,7 +2012,77 @@ function PrestacionesView({ isMobile }) {
                   {/* ── Sub-tarjetas colapsables en fila horizontal ── */}
                   {isOpen && (
                     <div style={{ borderTop:`1px solid ${COLORS.border}`, padding:"10px 14px 14px", overflowX:"auto" }}>
-                      <div style={{ display:"flex", gap:10, minWidth:"max-content" }}>
+                      <div style={{ display:"flex", gap:10, minWidth:"max-content", alignItems:"flex-start" }}>
+                        {/* Dona SVG */}
+                        {(()=>{
+                          const R=52, r=34, cx=60, cy=60;
+                          const circum = 2*Math.PI*r;
+                          const pagadoPct = cotTotal>0 ? Math.min(totalPagado/cotTotal,1) : 0;
+                          const saldoPct  = 1 - pagadoPct;
+                          const dashPagado = pagadoPct * circum;
+                          const dashSaldo  = saldoPct  * circum;
+                          // arc starts at top (-90deg = -PI/2)
+                          const offsetPagado = 0;
+                          const offsetSaldo  = -(pagadoPct * circum);
+                          return (
+                            <div style={{ flexShrink:0, width:120, display:"flex", flexDirection:"column", alignItems:"center", gap:6, paddingTop:4 }}>
+                              <svg width={120} height={120} viewBox="0 0 120 120">
+                                {/* Track */}
+                                <circle cx={cx} cy={cy} r={r} fill="none" stroke={COLORS.border} strokeWidth={R-r} />
+                                {/* Saldo (rojo/naranja) */}
+                                {saldoPct>0 && <circle cx={cx} cy={cy} r={r} fill="none"
+                                  stroke="url(#dSaldo)" strokeWidth={R-r}
+                                  strokeDasharray={`${dashSaldo} ${circum - dashSaldo}`}
+                                  strokeDashoffset={offsetSaldo}
+                                  strokeLinecap="butt"
+                                  transform={`rotate(-90 ${cx} ${cy})`}
+                                />}
+                                {/* Pagado (verde/violeta) */}
+                                {pagadoPct>0 && <circle cx={cx} cy={cy} r={r} fill="none"
+                                  stroke="url(#dPagado)" strokeWidth={R-r}
+                                  strokeDasharray={`${dashPagado} ${circum - dashPagado}`}
+                                  strokeDashoffset={offsetPagado}
+                                  strokeLinecap="butt"
+                                  transform={`rotate(-90 ${cx} ${cy})`}
+                                />}
+                                <defs>
+                                  <linearGradient id="dPagado" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stopColor={COLORS.accent} />
+                                    <stop offset="100%" stopColor={COLORS.green} />
+                                  </linearGradient>
+                                  <linearGradient id="dSaldo" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stopColor={COLORS.yellow} />
+                                    <stop offset="100%" stopColor={COLORS.red} />
+                                  </linearGradient>
+                                </defs>
+                                {/* Centro */}
+                                <text x={cx} y={cy-6} textAnchor="middle" fill={COLORS.text} fontSize="14" fontWeight="700" fontFamily="Space Grotesk, sans-serif">
+                                  {(pagadoPct*100).toFixed(0)}%
+                                </text>
+                                <text x={cx} y={cy+10} textAnchor="middle" fill={COLORS.textMuted} fontSize="8" fontFamily="DM Mono, monospace">
+                                  PAGADO
+                                </text>
+                              </svg>
+                              {/* Leyenda */}
+                              <div style={{ display:"flex", flexDirection:"column", gap:3, width:"100%" }}>
+                                <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                                  <div style={{ width:8, height:8, borderRadius:99, background:`linear-gradient(135deg,${COLORS.accent},${COLORS.green})`, flexShrink:0 }} />
+                                  <span style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted }}>Pagado</span>
+                                  <span style={{ fontFamily:FONT_DISPLAY, fontSize:9, color:COLORS.green, marginLeft:"auto", fontWeight:700 }}>{fmt(totalPagado)}</span>
+                                </div>
+                                <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                                  <div style={{ width:8, height:8, borderRadius:99, background:`linear-gradient(135deg,${COLORS.yellow},${COLORS.red})`, flexShrink:0 }} />
+                                  <span style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted }}>Saldo</span>
+                                  <span style={{ fontFamily:FONT_DISPLAY, fontSize:9, color:COLORS.yellow, marginLeft:"auto", fontWeight:700 }}>{fmt(saldo)}</span>
+                                </div>
+                                <div style={{ display:"flex", alignItems:"center", gap:5, paddingTop:3, borderTop:`1px solid ${COLORS.border}` }}>
+                                  <span style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted }}>Total COT</span>
+                                  <span style={{ fontFamily:FONT_DISPLAY, fontSize:9, color:COLORS.text, marginLeft:"auto", fontWeight:700 }}>{fmt(cotTotal)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                         {qDocs.map(doc => {
                           const txs = doc.transacciones||[];
                           const docPct  = cotTotal>0 ? Math.min((Number(doc.monto_pagado||0)/cotTotal)*100,100) : 0;
