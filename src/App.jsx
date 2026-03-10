@@ -2140,15 +2140,34 @@ function PrestacionModal({ quotes, existing, onClose, onSaved }) {
               <td class="pct">${pct}%</td>
             </tr>`;
           }).join("")}
-          ${txsValidos.length>1?`<tr style="font-weight:bold;background:#f5f5f5">
-            <td colspan="2">Total transacciones</td>
+          ${txsValidos.length>0?`<tr style="font-weight:bold;background:#f5f5f5;border-top:2px solid #1a1a1a">
+            <td colspan="2">Total pagado</td>
             <td class="r">$${txTotal.toLocaleString("es-CL")}</td>
-            <td class="pct">100%</td>
+            <td class="pct">${totalMonto>0?((txTotal/totalMonto)*100).toFixed(1):0}%</td>
           </tr>`:""}
         </tbody>
       </table>
     </div>
-    <div class="foot">Polygonos SPA · RUT 77.180.437-3 · Generado el ${new Date().toLocaleDateString("es-CL")} · ${numero}</div>
+    ${(()=>{
+      const saldo = totalMonto - txTotal;
+      const pctAvance = totalMonto>0 ? Math.min((txTotal/totalMonto)*100,100) : 0;
+      const barWidth = Math.round(pctAvance);
+      return `<div style="margin-top:5mm;padding:8px 10px;border:1.5px solid ${saldo<=0?'#1a8a1a':'#b85c00'};border-radius:4px;clear:both">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.07em;color:#555">Estado de pago</span>
+          <span style="font-size:11px;font-weight:bold;color:${saldo<=0?'#1a8a1a':'#b85c00'}">${saldo<=0?"✓ Pagado completo":"Saldo pendiente: $"+saldo.toLocaleString("es-CL")}</span>
+        </div>
+        <div style="height:8px;background:#eee;border-radius:99px;overflow:hidden;margin-bottom:4px">
+          <div style="height:100%;width:${barWidth}%;background:${saldo<=0?'#1a8a1a':'#e07b00'};border-radius:99px"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:#888">
+          <span>Pagado: $${txTotal.toLocaleString("es-CL")}</span>
+          <span>${pctAvance.toFixed(1)}% del total</span>
+          <span>Total: $${totalMonto.toLocaleString("es-CL")}</span>
+        </div>
+      </div>`;
+    })()}
+    <div class="foot">Documento interno de gestión · Generado el ${new Date().toLocaleDateString("es-CL")} · ${numero}</div>
     <script>window.onload=()=>window.print();</script>
     </body></html>`;
     const w=window.open("","_blank"); w.document.write(html); w.document.close();
