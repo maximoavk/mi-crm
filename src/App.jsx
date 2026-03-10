@@ -4669,19 +4669,46 @@ function PurchaseView({ isMobile }) {
                   </div>
 
                   {/* Totales */}
-                  <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:14 }}>
-                    <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"12px 16px", minWidth:220 }}>
-                      <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:4 }}>
-                        <span>Neto</span><span style={{color:COLORS.green}}>{fmt(neto)}</span>
+                  {(()=>{
+                    const ocShipsForFlete = shipments.filter(s=>s.purchase_order_id===oc.id && Number(s.costo_despacho||0)>0);
+                    const fleteNeto  = ocShipsForFlete.reduce((s,sh)=>s+Number(sh.costo_despacho||0),0);
+                    const fleteIva   = ocShipsForFlete.reduce((s,sh)=>s+(sh.aplica_iva_despacho?Math.round(Number(sh.costo_despacho||0)*0.19):0),0);
+                    const fleteTot   = fleteNeto + fleteIva;
+                    const costoReal  = total + fleteTot;
+                    return (
+                      <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:14 }}>
+                        <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"12px 16px", minWidth:240 }}>
+                          {/* Neto productos */}
+                          <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:4 }}>
+                            <span>Neto</span><span style={{color:COLORS.green}}>{fmt(neto)}</span>
+                          </div>
+                          <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:8 }}>
+                            <span>IVA (19%)</span><span style={{color:"#ef4444"}}>{fmt(total-neto)}</span>
+                          </div>
+                          <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text, borderTop:`1px solid ${COLORS.border}`, paddingTop:8, marginBottom: fleteTot>0?10:0 }}>
+                            <span>Total</span><span style={{color:COLORS.accent}}>{fmt(total)}</span>
+                          </div>
+                          {/* Flete — solo si hay despachos con costo */}
+                          {fleteTot>0 && (
+                            <>
+                              <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:3 }}>
+                                <span>Flete neto</span><span>{fmt(fleteNeto)}</span>
+                              </div>
+                              {fleteIva>0 && (
+                                <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:6 }}>
+                                  <span>IVA flete (19%)</span><span style={{color:"#ef4444"}}>{fmt(fleteIva)}</span>
+                                </div>
+                              )}
+                              <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, borderTop:`2px solid ${COLORS.yellow}44`, paddingTop:8, background:`${COLORS.yellow}08`, margin:"0 -16px -12px", padding:"8px 16px 12px", borderRadius:"0 0 8px 8px" }}>
+                                <span style={{color:COLORS.yellow}}>🚚 Costo real total</span>
+                                <span style={{color:COLORS.yellow}}>{fmt(costoReal)}</span>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:8 }}>
-                        <span>IVA (19%)</span><span style={{color:"#ef4444"}}>{fmt(total-neto)}</span>
-                      </div>
-                      <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text, borderTop:`1px solid ${COLORS.border}`, paddingTop:8 }}>
-                        <span>Total</span><span style={{color:COLORS.accent}}>{fmt(total)}</span>
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
                   {/* Notas */}
                   {oc.notas && (
