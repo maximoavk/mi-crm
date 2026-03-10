@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calculator, GanttChartSquare, CheckSquare, BarChart2, LogOut, Sun, Moon } from "lucide-react";
+import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calculator, GanttChartSquare, CheckSquare, BarChart2, LogOut, Sun, Moon, Receipt } from "lucide-react";
 
 // ── SUPABASE ────────────────────────────────────────────────────────────────
 const supabase = createClient(
@@ -1796,7 +1796,6 @@ function QuotesView({ contacts, isMobile }) {
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [nextNumber, setNextNumber] = useState(1);
   const [search, setSearch] = useState("");
-  const [comprobanteQuote, setComprobanteQuote] = useState(null);
 
   useEffect(()=>{ loadQuotes(); },[]);
   const loadQuotes = async () => {
@@ -1882,9 +1881,6 @@ function QuotesView({ contacts, isMobile }) {
                 <div style={{ borderTop:`1px solid ${COLORS.border}`, marginTop:12, paddingTop:12, display:"flex", gap:8, flexWrap:"wrap" }}>
                   <button onClick={()=>{ setSelectedQuote(q); setView("detail"); }} style={{ padding:"5px 12px", borderRadius:5, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>✏️ Editar</button>
                   <button onClick={()=>{ setSelectedQuote(q); setView("pdf"); }} style={{ padding:"5px 12px", borderRadius:5, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.green}44`, color:COLORS.green }}>📄 Ver PDF</button>
-                  {q.hasIva===false && (
-                    <button onClick={()=>setComprobanteQuote(q)} style={{ padding:"5px 12px", borderRadius:5, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:"1px solid #2954EC44", color:"#2954EC" }}>💳 Comprobante</button>
-                  )}
                   {["enviada","aprobada","rechazada"].map(s=>(
                     <button key={s} onClick={()=>updateStatus(q.id,s)} style={{ padding:"5px 12px", borderRadius:5, fontFamily:FONT, fontSize:11, cursor:"pointer", background:q.status===s?STATUS_QUOTE[s].color+"22":"transparent", border:`1px solid ${STATUS_QUOTE[s].color}44`, color:STATUS_QUOTE[s].color }}>
                       {STATUS_QUOTE[s].label}
@@ -1897,109 +1893,216 @@ function QuotesView({ contacts, isMobile }) {
           })}
         </div>
       )}
-      {comprobanteQuote && (
-        <ComprobanteModal
-          quote={comprobanteQuote}
+    </div>
+  );
+}
+
+// ── PRESTACIONES ─────────────────────────────────────────────────────────────
+function PrestacionesView({ isMobile }) {
+  const [docs, setDocs]           = useState([]);
+  const [quotes, setQuotes]       = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editDoc, setEditDoc]     = useState(null);
+
+  useEffect(()=>{ loadAll(); },[]);
+
+  const loadAll = async () => {
+    setLoading(true);
+    const [{ data: docsData }, { data: quotesData }] = await Promise.all([
+      supabase.from("comprobantes_pago").select("*").order("created_at",{ascending:false}),
+      supabase.from("cotizaciones").select("*").eq("aplica_iva", false).order("numero",{ascending:false}),
+    ]);
+    setDocs(docsData||[]);
+    // Also fetch quotes where iva_modo is null or hasIva=false
+    // Try both field names
+    const { data: quotesData2 } = await supabase.from("cotizaciones").select("*").order("numero",{ascending:false});
+    const sinIva = (quotesData2||[]).filter(q => q.aplica_iva===false || q.iva_modo==="ninguno" || q.sin_iva===true);
+    setQuotes(sinIva.length > 0 ? sinIva.map(mapQuote) : (quotesData||[]).map(mapQuote));
+    setLoading(false);
+  };
+
+  const deleteDoc = async (id) => {
+    await supabase.from("comprobantes_pago").delete().eq("id",id);
+    setDocs(prev=>prev.filter(d=>d.id!==id));
+  };
+
+  const STATUS_COLOR = { emitido: COLORS.green, anulado: COLORS.red };
+
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:20, flexWrap:"wrap", gap:10 }}>
+        <div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Sin IVA</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Prestaciones de Servicios</div>
+        </div>
+        <AddBtn onClick={()=>{ setEditDoc(null); setShowModal(true); }} label="Nuevo comprobante" />
+      </div>
+
+      {loading ? <Loader /> : (
+        <>
+          {docs.length===0 && (
+            <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>
+              Sin comprobantes aún. Crea el primero con el botón de arriba.
+            </div>
+          )}
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            {docs.map(doc=>(
+              <div key={doc.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:"16px 20px" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:10, marginBottom:10 }}>
+                  <div>
+                    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
+                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.accent }}>{doc.numero}</div>
+                      <Badge color={STATUS_COLOR[doc.estado]||COLORS.textMuted}>{doc.estado||"emitido"}</Badge>
+                      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{fmtDate(doc.fecha_pago)}</div>
+                    </div>
+                    {doc.codigo_operacion && (
+                      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                        🏦 <span style={{color:COLORS.text}}>{doc.codigo_operacion}</span>
+                      </div>
+                    )}
+                    {doc.responsable && (
+                      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:2 }}>👤 {doc.responsable}</div>
+                    )}
+                  </div>
+                  <div style={{ textAlign:"right" }}>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:COLORS.green }}>{fmt(doc.monto_pagado||0)}</div>
+                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Sin IVA</div>
+                  </div>
+                </div>
+                {doc.periodo_desde && (
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:8 }}>
+                    📅 Período: {fmtDate(doc.periodo_desde)} → {fmtDate(doc.periodo_hasta||doc.periodo_desde)}
+                  </div>
+                )}
+                {(doc.quote_ids||[]).length>0 && (
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:10 }}>
+                    📋 COTs: {(doc.quote_ids||[]).map((id,i)=>{
+                      const q = quotes.find(q=>q.id===id);
+                      return q ? <span key={id} style={{color:COLORS.accent, marginRight:6}}>°{q.number}</span> : null;
+                    })}
+                  </div>
+                )}
+                <div style={{ display:"flex", gap:8, borderTop:`1px solid ${COLORS.border}`, paddingTop:10 }}>
+                  <button onClick={()=>{ setEditDoc(doc); setShowModal(true); }}
+                    style={{ padding:"5px 12px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>
+                    🖨 Reimprimir
+                  </button>
+                  <button onClick={()=>deleteDoc(doc.id)}
+                    style={{ padding:"5px 12px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red, marginLeft:"auto" }}>
+                    ✕ Eliminar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {showModal && (
+        <PrestacionModal
           quotes={quotes}
-          contacts={contacts}
-          onClose={()=>setComprobanteQuote(null)}
+          existing={editDoc}
+          onClose={()=>{ setShowModal(false); setEditDoc(null); }}
+          onSaved={(doc)=>{ setDocs(prev=> editDoc ? prev.map(d=>d.id===doc.id?doc:d) : [doc,...prev]); setShowModal(false); setEditDoc(null); }}
         />
       )}
     </div>
   );
 }
 
-// ── COMPROBANTE DE PAGO ──────────────────────────────────────────────────────
-function ComprobanteModal({ quote, quotes, contacts, onClose }) {
-  const [saved, setSaved]           = useState(null);
-  const [saving, setSaving]         = useState(false);
-  const [selectedQuoteIds, setSelectedQuoteIds] = useState([quote.id]);
+function PrestacionModal({ quotes, existing, onClose, onSaved }) {
+  const isReprint = !!existing;
+
+  const [selectedQuoteIds, setSelectedQuoteIds] = useState(existing?.quote_ids||[]);
+  const [selectedLines, setSelectedLines]       = useState(existing?.selected_lines||null); // null = all
   const [form, setForm] = useState({
-    fecha_pago:       new Date().toISOString().slice(0,10),
-    periodo_desde:    "",
-    periodo_hasta:    "",
-    codigo_operacion: "",
-    monto_pagado:     "",
-    responsable:      "VARRIAGA",
-    notas:            "",
+    fecha_pago:       existing?.fecha_pago||new Date().toISOString().slice(0,10),
+    periodo_desde:    existing?.periodo_desde||"",
+    periodo_hasta:    existing?.periodo_hasta||"",
+    codigo_operacion: existing?.codigo_operacion||"",
+    monto_pagado:     existing?.monto_pagado||"",
+    responsable:      existing?.responsable||"VARRIAGA",
+    notas:            existing?.notas||"",
   });
+  const [saving, setSaving] = useState(false);
   const ff = (k,v) => setForm(p=>({...p,[k]:v}));
-
-  // Solo cotizaciones sin IVA del mismo cliente
-  const clientQuotes = quotes.filter(q =>
-    q.hasIva === false &&
-    ((q.clientRut && q.clientRut === quote.clientRut) ||
-     (q.contactId && q.contactId === quote.contactId))
-  );
-  const selectedQuotes = quotes.filter(q => selectedQuoteIds.includes(q.id));
-  const allLines = selectedQuotes.flatMap(q => (q.lines||[]).map(l=>({...l, quoteNum:q.number})));
-  const autoTotal = selectedQuotes.reduce((s,q)=>s+Number(q.total||0),0);
-  const totalMonto = Number(form.monto_pagado) || autoTotal;
-
-  const fmtCLP = n => new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(n);
-  const fmtDateLong = d => d ? new Date(d+"T00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"}) : "—";
 
   const toggleQuote = id =>
     setSelectedQuoteIds(prev => prev.includes(id) ? (prev.length>1?prev.filter(x=>x!==id):prev) : [...prev,id]);
 
-  const printComprobante = (numero) => {
-    const quoteRefs = selectedQuotes.map(q=>`COT °${q.number}`).join(", ");
-    const periodoStr = form.periodo_desde && form.periodo_hasta
-      ? `${fmtDateLong(form.periodo_desde)} – ${fmtDateLong(form.periodo_hasta)}`
-      : form.periodo_desde ? fmtDateLong(form.periodo_desde) : "—";
+  // Selected quotes objects
+  const selQuotes = quotes.filter(q=>selectedQuoteIds.includes(q.id));
+
+  // All lines from selected quotes
+  const allLines = selQuotes.flatMap(q=>(q.lines||[]).map(l=>({...l, quoteNum:q.number, quoteId:q.id})));
+
+  // Auto total
+  const autoTotal = selQuotes.reduce((s,q)=>s+Number(q.total||0),0);
+  const totalMonto = Number(form.monto_pagado)||autoTotal;
+
+  // First quote for client info
+  const firstQ = selQuotes[0] || quotes[0];
+
+  const fmtDateLong = d => d ? new Date(d+"T00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"}) : "—";
+
+  const doPrint = (numero) => {
+    const quoteRefs = selQuotes.map(q=>`COT °${q.number}`).join(", ");
+    const periodoStr = form.periodo_desde
+      ? `${fmtDateLong(form.periodo_desde)}${form.periodo_hasta?" – "+fmtDateLong(form.periodo_hasta):""}`
+      : "—";
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
     <style>
       @page{size:A4 portrait;margin:15mm 15mm 12mm;}
       @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
       *{margin:0;padding:0;box-sizing:border-box;}
       body{font-family:'Courier New',monospace;color:#1a1a1a;background:#fff;font-size:11px;}
-      .header-box{float:right;width:230px;border:1.5px solid #1a1a1a;padding:8px 10px;margin-bottom:6mm;margin-left:10mm;}
-      .header-box .title{font-size:12px;font-weight:bold;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:4px;margin-bottom:6px;}
-      .header-box table{width:100%;font-size:9.5px;}
-      .header-box td{padding:1px 0;}
-      .left-info{float:left;width:200px;font-size:10px;line-height:1.8;}
-      .left-info strong{display:block;margin-bottom:2px;}
-      .clearfix::after{content:"";display:table;clear:both;}
-      .section-title{font-size:11px;font-weight:bold;border-bottom:1.5px solid #1a1a1a;padding-bottom:3px;margin:8mm 0 4mm;letter-spacing:.05em;}
-      table.items{width:100%;border-collapse:collapse;margin-bottom:5mm;}
-      table.items thead tr{background:#1a1a1a;color:#fff;}
-      table.items th{padding:4px 6px;font-size:9px;text-transform:uppercase;letter-spacing:.06em;text-align:left;font-family:'Courier New',monospace;}
-      table.items th.r,table.items td.r{text-align:right;}
-      table.items th.c,table.items td.c{text-align:center;}
-      table.items td{padding:5px 6px;font-size:10px;border-bottom:1px solid #ddd;}
-      table.items tbody tr:nth-child(even) td{background:#f9f9f9;}
-      .totales{float:right;width:220px;border:1px solid #aaa;margin-bottom:8mm;}
-      .totales tr td{padding:4px 10px;font-size:10px;}
-      .totales tr:last-child td{font-weight:bold;font-size:12px;border-top:2px solid #1a1a1a;background:#f5f5f5;}
-      .cod-op{margin-top:6mm;padding:6px 10px;border:1px solid #aaa;font-size:10px;}
-      .cod-op strong{display:block;margin-bottom:2px;font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:#666;}
-      .footer{margin-top:10mm;border-top:1px solid #ccc;padding-top:4mm;font-size:9px;color:#888;text-align:center;}
+      .hbox{float:right;width:235px;border:1.5px solid #1a1a1a;padding:8px 10px;margin:0 0 6mm 10mm;}
+      .hbox .ttl{font-size:12px;font-weight:bold;text-align:center;border-bottom:1px solid #1a1a1a;padding-bottom:4px;margin-bottom:6px;}
+      .hbox table{width:100%;font-size:9.5px;} .hbox td{padding:1.5px 0;}
+      .hbox td b{display:block;font-size:10px;}
+      .linfo{float:left;width:195px;font-size:10px;line-height:1.9;}
+      .linfo b{display:block;margin-bottom:1px;}
+      .cf::after{content:"";display:table;clear:both;}
+      .stitle{font-size:11px;font-weight:bold;border-bottom:1.5px solid #1a1a1a;padding-bottom:3px;margin:7mm 0 4mm;letter-spacing:.05em;}
+      table.it{width:100%;border-collapse:collapse;margin-bottom:5mm;}
+      table.it thead tr{background:#1a1a1a;color:#fff;}
+      table.it th{padding:4px 6px;font-size:9px;text-transform:uppercase;letter-spacing:.06em;text-align:left;font-family:'Courier New',monospace;}
+      table.it th.r,table.it td.r{text-align:right;} table.it th.c,table.it td.c{text-align:center;}
+      table.it td{padding:5px 6px;font-size:10px;border-bottom:1px solid #ddd;}
+      table.it tbody tr:nth-child(even) td{background:#f9f9f9;}
+      .tots{float:right;width:230px;border:1px solid #aaa;margin-bottom:8mm;}
+      .tots tr td{padding:4px 10px;font-size:10px;} .tots tr td:last-child{text-align:right;}
+      .tots tr:last-child td{font-weight:bold;font-size:12px;border-top:2px solid #1a1a1a;background:#f5f5f5;}
+      .cop{margin-top:6mm;padding:6px 10px;border:1px solid #aaa;font-size:10px;clear:both;}
+      .cop b{display:block;margin-bottom:2px;font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:#666;}
+      .foot{margin-top:10mm;border-top:1px solid #ccc;padding-top:4mm;font-size:9px;color:#888;text-align:center;}
     </style></head><body>
-    <div class="header-box">
-      <div class="title">Comprobante de prestación de servicios</div>
+    <div class="hbox">
+      <div class="ttl">Comprobante de prestación de servicios</div>
       <table>
         <tr><td>Número cotización / Fecha</td></tr>
-        <tr><td><strong>${quoteRefs} / ${fmtDateLong(form.fecha_pago)}</strong></td></tr>
-        <tr><td style="padding-top:4px;">Posición / Número / Fecha</td></tr>
-        <tr><td><strong>1 / ${numero} / ${fmtDateLong(form.fecha_pago)}</strong></td></tr>
-        <tr><td style="padding-top:4px;">Nuestro responsable</td></tr>
-        <tr><td><strong>${form.responsable||"—"}</strong></td></tr>
-        <tr><td style="padding-top:4px;">N° Cliente (RUT)</td></tr>
-        <tr><td><strong>${quote.clientRut||"—"}</strong></td></tr>
+        <tr><td><b>${quoteRefs} / ${fmtDateLong(form.fecha_pago)}</b></td></tr>
+        <tr><td style="padding-top:3px">Documento / Fecha emisión</td></tr>
+        <tr><td><b>${numero} / ${fmtDateLong(form.fecha_pago)}</b></td></tr>
+        <tr><td style="padding-top:3px">Responsable</td></tr>
+        <tr><td><b>${form.responsable||"—"}</b></td></tr>
+        <tr><td style="padding-top:3px">N° Cliente (RUT)</td></tr>
+        <tr><td><b>${firstQ?.clientRut||"—"}</b></td></tr>
       </table>
     </div>
-    <div class="left-info">
-      <strong>Lugar prest. servicio</strong>${quote.clientAddress||quote.clientCompany||"—"}
-      <br/><br/><strong>Período</strong>${periodoStr}
-      <br/><br/><strong>Cotización${selectedQuotes.length>1?"es":""} asociada${selectedQuotes.length>1?"s":""}:</strong>${quoteRefs}
+    <div class="linfo">
+      <b>Lugar prest. servicio</b>${firstQ?.clientAddress||firstQ?.clientCompany||"—"}
+      <br/><br/><b>Período</b>${periodoStr}
+      <br/><br/><b>Cotización${selQuotes.length>1?"es":""} asociada${selQuotes.length>1?"s":""}:</b>${quoteRefs}
     </div>
-    <div class="clearfix"></div>
-    <div class="section-title">Sistema de emisión</div>
-    <table class="items">
+    <div class="cf"></div>
+    <div class="stitle">Sistema de emisión</div>
+    <table class="it">
       <thead><tr>
-        <th>Línea</th><th>Servicio</th><th>Denominación / Descripción</th>
+        <th>Lín.</th><th>Servicio</th><th>Denominación / Descripción</th>
         <th class="c">Ctd.</th><th class="c">Unidad</th>
-        <th class="r">Precio unitario CLP</th><th class="r">Valor neto CLP</th>
+        <th class="r">Precio unit. CLP</th><th class="r">Valor neto CLP</th>
       </tr></thead>
       <tbody>
         ${allLines.map((l,i)=>{
@@ -2009,8 +2112,8 @@ function ComprobanteModal({ quote, quotes, contacts, onClose }) {
           const neto = Math.round(price*(1-disc/100)*qty);
           return `<tr>
             <td>${i+1}</td>
-            <td>${l.code||l.codigo||"—"}</td>
-            <td>${l.description||l.descripcion||"—"}${selectedQuotes.length>1?`<br/><span style="font-size:8px;color:#888;">COT °${l.quoteNum}</span>`:""}</td>
+            <td style="font-size:9px">${l.code||l.codigo||"—"}</td>
+            <td>${l.description||l.descripcion||"—"}${selQuotes.length>1?`<br/><span style="font-size:8px;color:#888">COT °${l.quoteNum}</span>`:""}</td>
             <td class="c">${qty}</td><td class="c">UN</td>
             <td class="r">${price.toLocaleString("es-CL")}</td>
             <td class="r">${neto.toLocaleString("es-CL")}</td>
@@ -2018,19 +2121,18 @@ function ComprobanteModal({ quote, quotes, contacts, onClose }) {
         }).join("")}
       </tbody>
     </table>
-    <table class="totales">
-      <tr><td>Valor bruto CLP</td><td style="text-align:right">${totalMonto.toLocaleString("es-CL")}</td></tr>
-      <tr><td>Valor Neto incl. Dscto / recargo</td><td style="text-align:right">${totalMonto.toLocaleString("es-CL")}</td></tr>
+    <table class="tots">
+      <tr><td>Valor bruto CLP</td><td>${totalMonto.toLocaleString("es-CL")}</td></tr>
+      <tr><td>Valor Neto incl. Dscto / recargo</td><td>${totalMonto.toLocaleString("es-CL")}</td></tr>
     </table>
-    <div class="clearfix"></div>
-    <div class="cod-op">
-      <strong>Cod operaciones:</strong>
-      ${form.codigo_operacion||"—"}&nbsp;&nbsp;$${totalMonto.toLocaleString("es-CL")}
+    <div class="cop">
+      <b>Cod operaciones:</b>
+      ${form.codigo_operacion||"—"}&nbsp;&nbsp;&nbsp;$${totalMonto.toLocaleString("es-CL")}
     </div>
-    <div class="footer">Polygonos SPA · RUT 77.180.437-3 · Documento generado el ${new Date().toLocaleDateString("es-CL")} · ${numero}</div>
+    <div class="foot">Polygonos SPA · RUT 77.180.437-3 · Generado el ${new Date().toLocaleDateString("es-CL")} · ${numero}</div>
     <script>window.onload=()=>window.print();</script>
     </body></html>`;
-    const w = window.open("","_blank"); w.document.write(html); w.document.close();
+    const w=window.open("","_blank"); w.document.write(html); w.document.close();
   };
 
   const saveAndPrint = async () => {
@@ -2045,54 +2147,82 @@ function ComprobanteModal({ quote, quotes, contacts, onClose }) {
       codigo_operacion: form.codigo_operacion||null,
       monto_pagado:     totalMonto||null,
       responsable:      form.responsable||null,
-      contact_id:       quote.contactId||null,
+      contact_id:       firstQ?.contactId||null,
       quote_ids:        selectedQuoteIds,
       notas:            form.notas||null,
       estado:           "emitido",
     }).select().single();
-    setSaved({ numero });
     setSaving(false);
-    printComprobante(numero);
+    onSaved(data);
+    doPrint(numero);
   };
 
   const inp = { width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" };
   const lbl = { fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5, fontWeight:600, display:"block" };
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"#000a", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-      <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:14, width:"100%", maxWidth:600, maxHeight:"90vh", overflowY:"auto", padding:28 }}>
+    <div style={{ position:"fixed", inset:0, background:"#000b", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+      <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:14, width:"100%", maxWidth:640, maxHeight:"92vh", overflowY:"auto", padding:28 }}>
 
         {/* Header */}
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:22 }}>
           <div>
-            <div style={{ fontFamily:FONT, fontSize:10, color:"#2954EC", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:3 }}>Sin IVA · Prestación de Servicios</div>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text }}>💳 Comprobante de Pago</div>
+            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:3 }}>Sin IVA · Prestación de Servicios</div>
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text }}>
+              {isReprint ? `🖨 Reimprimir ${existing.numero}` : "📋 Nuevo Comprobante"}
+            </div>
           </div>
           <button onClick={onClose} style={{ background:"transparent", border:"none", color:COLORS.textMuted, fontSize:20, cursor:"pointer" }}>✕</button>
         </div>
 
-        {/* Cliente */}
-        <div style={{ padding:"10px 14px", background:"#2954EC10", border:"1px solid #2954EC30", borderRadius:8, marginBottom:20 }}>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text }}>{quote.clientCompany||quote.clientName}</div>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>RUT: {quote.clientRut} · {quote.clientAddress||"Sin dirección"}</div>
+        {/* Selección cotizaciones SIN IVA */}
+        <div style={{ marginBottom:20 }}>
+          <label style={lbl}>
+            Cotizaciones sin IVA disponibles
+            <span style={{ fontWeight:400, color:COLORS.textMuted, marginLeft:6 }}>({quotes.length} encontradas)</span>
+          </label>
+          {quotes.length===0 ? (
+            <div style={{ padding:"12px 14px", background:`${COLORS.yellow}10`, border:`1px solid ${COLORS.yellow}30`, borderRadius:8, fontFamily:FONT, fontSize:12, color:COLORS.yellow }}>
+              ⚠ No hay cotizaciones sin IVA registradas. Crea una cotización con IVA desactivado primero.
+            </div>
+          ) : (
+            <div style={{ display:"flex", flexDirection:"column", gap:6, maxHeight:200, overflowY:"auto" }}>
+              {quotes.map(q=>{
+                const sel = selectedQuoteIds.includes(q.id);
+                return (
+                  <label key={q.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", background:sel?`${COLORS.green}12`:COLORS.bg, border:`1px solid ${sel?COLORS.green:COLORS.border}`, borderRadius:8, cursor:"pointer" }}>
+                    <input type="checkbox" checked={sel} onChange={()=>toggleQuote(q.id)} style={{ accentColor:COLORS.green, width:15, height:15, flexShrink:0 }} />
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.text }}>COT °{q.number}</span>
+                      <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginLeft:8 }}>{q.clientCompany||q.clientName}</span>
+                      <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginLeft:8 }}>{fmtDate(q.date)}</span>
+                    </div>
+                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.green, flexShrink:0 }}>{fmt(q.total)}</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        {/* Selección cotizaciones sin IVA del cliente */}
-        <div style={{ marginBottom:20 }}>
-          <label style={lbl}>Cotizaciones incluidas <span style={{color:COLORS.textMuted,fontWeight:400}}>(solo sin IVA)</span></label>
-          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-            {clientQuotes.map(q=>(
-              <label key={q.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 12px", background:selectedQuoteIds.includes(q.id)?`${COLORS.green}12`:COLORS.bg, border:`1px solid ${selectedQuoteIds.includes(q.id)?COLORS.green:COLORS.border}`, borderRadius:8, cursor:"pointer" }}>
-                <input type="checkbox" checked={selectedQuoteIds.includes(q.id)} onChange={()=>toggleQuote(q.id)} style={{ accentColor:COLORS.green, width:15, height:15 }} />
-                <div style={{ flex:1 }}>
-                  <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text }}>COT °{q.number}</span>
-                  <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginLeft:8 }}>{fmtDate(q.date)}</span>
+        {/* Líneas preview */}
+        {allLines.length>0 && (
+          <div style={{ marginBottom:18, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, overflow:"hidden" }}>
+            <div style={{ padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}`, display:"flex", justifyContent:"space-between" }}>
+              <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>{allLines.length} línea{allLines.length!==1?"s":""} incluidas</span>
+              <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.green }}>{fmt(autoTotal)}</span>
+            </div>
+            {allLines.map((l,i)=>(
+              <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 14px", borderBottom:i<allLines.length-1?`1px solid ${COLORS.border}`:"none" }}>
+                <div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, color:COLORS.text }}>{l.description||l.descripcion||"—"}</div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{l.code||l.codigo||""}{selQuotes.length>1?` · COT °${l.quoteNum}`:""}</div>
                 </div>
-                <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.green }}>{fmt(q.total)}</span>
-              </label>
+                <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{l.quantity||l.cantidad||1} UN</span>
+              </div>
             ))}
           </div>
-        </div>
+        )}
 
         {/* Campos */}
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
@@ -2102,49 +2232,47 @@ function ComprobanteModal({ quote, quotes, contacts, onClose }) {
           <div><label style={lbl}>Período hasta</label><input type="date" value={form.periodo_hasta} onChange={e=>ff("periodo_hasta",e.target.value)} style={inp} /></div>
         </div>
         <div style={{ marginBottom:12 }}>
-          <label style={lbl}>Código operación bancaria</label>
+          <label style={lbl}>Código de operación bancaria <span style={{color:COLORS.red}}>*</span></label>
           <input value={form.codigo_operacion} onChange={e=>ff("codigo_operacion",e.target.value)} placeholder="Ej: 26022013540446138623" style={inp} />
         </div>
         <div style={{ marginBottom:20 }}>
-          <label style={lbl}>Monto pagado <span style={{fontWeight:400,color:COLORS.textMuted}}>(vacío = suma automática)</span></label>
+          <label style={lbl}>Monto pagado <span style={{fontWeight:400,color:COLORS.textMuted}}>(dejar vacío = suma automática de cotizaciones)</span></label>
           <input type="number" min="0" value={form.monto_pagado} onChange={e=>ff("monto_pagado",e.target.value)} placeholder={autoTotal.toLocaleString("es-CL")} style={inp} />
           {!form.monto_pagado && autoTotal>0 && (
-            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:4 }}>
-              Total automático: <strong style={{color:COLORS.green}}>{fmt(autoTotal)}</strong>
+            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:5, display:"flex", justifyContent:"space-between" }}>
+              <span>Total automático:</span>
+              <strong style={{color:COLORS.green}}>{fmt(autoTotal)}</strong>
             </div>
           )}
         </div>
 
-        {/* Líneas preview */}
-        {allLines.length>0 && (
-          <div style={{ marginBottom:20, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, overflow:"hidden" }}>
-            <div style={{ padding:"7px 12px", borderBottom:`1px solid ${COLORS.border}`, fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>
-              {allLines.length} línea{allLines.length!==1?"s":""} en el comprobante
+        {/* Totalizador */}
+        {totalMonto>0 && (
+          <div style={{ marginBottom:20, padding:"12px 16px", background:`${COLORS.green}10`, border:`1px solid ${COLORS.green}30`, borderRadius:10, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div>
+              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Total comprobante · Sin IVA</div>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.green }}>{fmt(totalMonto)}</div>
             </div>
-            {allLines.slice(0,5).map((l,i)=>(
-              <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"7px 12px", borderBottom:i<Math.min(allLines.length,5)-1?`1px solid ${COLORS.border}`:"none" }}>
-                <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{l.description||l.descripcion||"—"}</span>
-                <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{l.quantity||l.cantidad||1} UN</span>
+            {form.codigo_operacion && (
+              <div style={{ textAlign:"right" }}>
+                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Código operación</div>
+                <div style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.text }}>{form.codigo_operacion}</div>
               </div>
-            ))}
-            {allLines.length>5 && <div style={{ padding:"6px 12px", fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>+{allLines.length-5} líneas más...</div>}
+            )}
           </div>
         )}
 
         {/* Botones */}
-        {saved ? (
-          <div style={{ textAlign:"center" }}>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, color:COLORS.green, marginBottom:12 }}>✓ Guardado como {saved.numero}</div>
-            <div style={{ display:"flex", gap:10 }}>
-              <button onClick={onClose} style={{ flex:1, padding:"10px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>Cerrar</button>
-              <button onClick={()=>printComprobante(saved.numero)} style={{ flex:2, padding:"10px 0", background:COLORS.green, border:"none", borderRadius:8, color:"#fff", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>🖨 Reimprimir PDF</button>
-            </div>
+        {isReprint ? (
+          <div style={{ display:"flex", gap:10 }}>
+            <button onClick={onClose} style={{ flex:1, padding:"11px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>Cerrar</button>
+            <button onClick={()=>doPrint(existing.numero)} style={{ flex:2, padding:"11px 0", background:COLORS.green, border:"none", borderRadius:8, color:"#fff", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>🖨 Reimprimir PDF</button>
           </div>
         ) : (
           <div style={{ display:"flex", gap:10 }}>
-            <button onClick={onClose} style={{ flex:1, padding:"10px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>Cancelar</button>
-            <button onClick={saveAndPrint} disabled={saving||!form.codigo_operacion}
-              style={{ flex:2, padding:"10px 0", background:saving||!form.codigo_operacion?COLORS.border:"#2954EC", border:"none", borderRadius:8, color:saving||!form.codigo_operacion?COLORS.textMuted:"#fff", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:saving||!form.codigo_operacion?"not-allowed":"pointer" }}>
+            <button onClick={onClose} style={{ flex:1, padding:"11px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>Cancelar</button>
+            <button onClick={saveAndPrint} disabled={saving||!form.codigo_operacion||selectedQuoteIds.length===0}
+              style={{ flex:2, padding:"11px 0", background:saving||!form.codigo_operacion||selectedQuoteIds.length===0?COLORS.border:COLORS.accent, border:"none", borderRadius:8, color:saving||!form.codigo_operacion||selectedQuoteIds.length===0?COLORS.textMuted:"#fff", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:saving||!form.codigo_operacion?"not-allowed":"pointer", transition:"all 0.2s" }}>
               {saving?"Guardando...":"💾 Guardar y Generar PDF"}
             </button>
           </div>
@@ -3865,7 +3993,7 @@ function PurchaseView({ isMobile }) {
   ];
 
   // Modal despacho
-  const emptyDespacho = { nombre:"", rut:"", telefono:"", correo:"", courier:"Starken", tipo:"sucursal", sucursal:"", direccion:"", region:"", comuna:"", ciudad:"", tracking_code:"", notas_despacho:"", num_cotizacion:"", costo_despacho:"", aplica_iva_despacho:false };
+  const emptyDespacho = { nombre:"", rut:"", telefono:"", correo:"", courier:"Starken", tipo:"sucursal", sucursal:"", direccion:"", region:"", comuna:"", ciudad:"", tracking_code:"", notas_despacho:"", num_cotizacion:"" };
   const [showDespachoModal, setShowDespachoModal] = useState(false);
   const [despachoOC, setDespachoOC]               = useState(null);
   const [despachoForm, setDespachoForm]           = useState(emptyDespacho);
@@ -4290,50 +4418,19 @@ function PurchaseView({ isMobile }) {
                   </div>
 
                   {/* Totales */}
-                  {(()=>{
-                    const ocShipsFC=shipments.filter(s=>s.purchase_order_id===oc.id&&Number(s.costo_despacho)>0);
-                    const fleteNeto=ocShipsFC.reduce((s,sh)=>s+Number(sh.costo_despacho||0),0);
-                    const fleteIva=ocShipsFC.reduce((s,sh)=>s+(sh.aplica_iva_despacho?Math.round(Number(sh.costo_despacho||0)*0.19):0),0);
-                    const fleteTot=fleteNeto+fleteIva;
-                    const costoReal=total+fleteTot;
-                    return (
-                      <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:14 }}>
-                        <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"12px 16px", minWidth:240 }}>
-                          <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:4 }}>
-                            <span>Neto productos</span><span style={{color:COLORS.green}}>{fmt(neto)}</span>
-                          </div>
-                          <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:8 }}>
-                            <span>IVA (19%)</span><span style={{color:"#ef4444"}}>{fmt(total-neto)}</span>
-                          </div>
-                          <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text, borderTop:`1px solid ${COLORS.border}`, paddingTop:8, marginBottom:fleteTot>0?8:0 }}>
-                            <span>Total OC</span><span style={{color:COLORS.accent}}>{fmt(total)}</span>
-                          </div>
-                          {fleteTot>0 && (<>
-                            <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:3 }}>
-                              <span>Flete neto</span><span style={{color:COLORS.yellow}}>{fmt(fleteNeto)}</span>
-                            </div>
-                            {fleteIva>0 && <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:3 }}>
-                              <span>IVA flete</span><span style={{color:"#ef4444"}}>{fmt(fleteIva)}</span>
-                            </div>}
-                            <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.yellow, borderTop:`1px solid ${COLORS.yellow}33`, paddingTop:8, marginTop:4 }}>
-                              <span>🚚 Costo real total</span><span>{fmt(costoReal)}</span>
-                            </div>
-                            <div style={{ marginTop:10, paddingTop:8, borderTop:`1px solid ${COLORS.border}` }}>
-                              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Flete distribuido por ítem</div>
-                              {(oc.purchase_order_items||[]).map((it,i)=>{
-                                const subIt=Number(it.cantidad||0)*Number(it.precio_unitario_neto||0);
-                                const pct=neto>0?subIt/neto:0;
-                                return <div key={i} style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
-                                  <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{it.codigo||`Ítem ${i+1}`}</span>
-                                  <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.yellow }}>+{fmt(Math.round(fleteTot*pct))}</span>
-                                </div>;
-                              })}
-                            </div>
-                          </>)}
-                        </div>
+                  <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:14 }}>
+                    <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"12px 16px", minWidth:220 }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:4 }}>
+                        <span>Neto</span><span style={{color:COLORS.green}}>{fmt(neto)}</span>
                       </div>
-                    );
-                  })()}
+                      <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:8 }}>
+                        <span>IVA (19%)</span><span style={{color:"#ef4444"}}>{fmt(total-neto)}</span>
+                      </div>
+                      <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text, borderTop:`1px solid ${COLORS.border}`, paddingTop:8 }}>
+                        <span>Total</span><span style={{color:COLORS.accent}}>{fmt(total)}</span>
+                      </div>
+                    </div>
+                  </div>
 
                   {/* Notas */}
                   {oc.notas && (
@@ -4707,8 +4804,6 @@ function PurchaseView({ isMobile }) {
             sucursal:            despachoForm.sucursal,
             tracking_code:       despachoForm.tracking_code||null,
             notas:               despachoForm.notas_despacho||null,
-            costo_despacho:      despachoForm.costo_despacho ? Number(despachoForm.costo_despacho) : null,
-            aplica_iva_despacho: !!despachoForm.aplica_iva_despacho,
             estado:              "GENERADA",
           }).select().single();
           if (savedShip) setShipments(prev=>[savedShip, ...prev]);
@@ -4991,54 +5086,6 @@ function PurchaseView({ isMobile }) {
                   style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
               </div>
 
-              {/* Costo despacho */}
-              <div style={{ marginBottom:16, padding:"14px 16px", background:`${COLORS.yellow}08`, border:`1px solid ${COLORS.yellow}30`, borderRadius:10 }}>
-                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.yellow, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10, fontWeight:700 }}>💰 Costo de despacho / flete</div>
-                <div style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:10, alignItems:"center" }}>
-                  <input type="number" min="0" value={despachoForm.costo_despacho||""} onChange={e=>df("costo_despacho",e.target.value)}
-                    placeholder="Ej: 15000" style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
-                  <label style={{ display:"flex", alignItems:"center", gap:7, cursor:"pointer", whiteSpace:"nowrap" }}>
-                    <input type="checkbox" checked={!!despachoForm.aplica_iva_despacho} onChange={e=>df("aplica_iva_despacho",e.target.checked)}
-                      style={{ width:15, height:15, accentColor:COLORS.yellow, cursor:"pointer" }} />
-                    <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>+ IVA (19%)</span>
-                  </label>
-                </div>
-                {Number(despachoForm.costo_despacho)>0 && (()=>{
-                  const neto=Number(despachoForm.costo_despacho);
-                  const iva=despachoForm.aplica_iva_despacho?Math.round(neto*0.19):0;
-                  const tflete=neto+iva;
-                  const ocItems=despachoOC.purchase_order_items||[];
-                  const totalOC=ocItems.reduce((s,it)=>s+Number(it.cantidad||0)*Number(it.precio_unitario_neto||0),0);
-                  return (
-                    <div style={{ marginTop:10, paddingTop:10, borderTop:`1px solid ${COLORS.yellow}22` }}>
-                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                        <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Flete neto</span>
-                        <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{fmt(neto)}</span>
-                      </div>
-                      {iva>0 && <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                        <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>IVA flete (19%)</span>
-                        <span style={{ fontFamily:FONT, fontSize:11, color:"#ef4444" }}>{fmt(iva)}</span>
-                      </div>}
-                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:totalOC>0?10:0 }}>
-                        <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.yellow }}>Total flete</span>
-                        <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.yellow }}>{fmt(tflete)}</span>
-                      </div>
-                      {totalOC>0 && <div style={{ padding:"8px 10px", background:COLORS.bg, borderRadius:6, border:`1px solid ${COLORS.border}` }}>
-                        <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginBottom:6, textTransform:"uppercase", letterSpacing:"0.06em" }}>Distribución proporcional por ítem</div>
-                        {ocItems.map((it,i)=>{
-                          const subIt=Number(it.cantidad||0)*Number(it.precio_unitario_neto||0);
-                          const pct=totalOC>0?subIt/totalOC:0;
-                          return <div key={i} style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
-                            <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{it.codigo||`Ítem ${i+1}`}</span>
-                            <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.yellow }}>+{fmt(Math.round(tflete*pct))}</span>
-                          </div>;
-                        })}
-                      </div>}
-                    </div>
-                  );
-                })()}
-              </div>
-
               {/* Notas despacho */}
               <div style={{ marginBottom:18 }}>
                 <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5, fontWeight:600 }}>Notas (opcional)</div>
@@ -5076,7 +5123,8 @@ const NAV = [
   { key:"dashboard", label:"Dashboard", Icon: LayoutDashboard  },
   { key:"contacts",  label:"Contactos", Icon: Users            },
   { key:"pipeline",  label:"Pipeline",  Icon: Kanban           },
-  { key:"quotes",    label:"Cotizar",   Icon: FileText         },
+  { key:"quotes",       label:"Cotizar",     Icon: FileText         },
+  { key:"prestaciones", label:"Prestaciones", Icon: Receipt          },
   { key:"products",  label:"Catálogo",  Icon: Package          },
   { key:"purchase",  label:"Compras",   Icon: ShoppingCart     },
   { key:"costeo",    label:"Costeo",    Icon: Calculator       },
@@ -5290,7 +5338,8 @@ export default function CRM() {
           {view==="dashboard" && <Dashboard contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} />}
           {view==="contacts"  && <ContactsView contacts={contacts} setContacts={setContacts} isMobile={isMobile} />}
           {view==="pipeline"  && <PipelineView deals={deals} setDeals={setDeals} contacts={contacts} isMobile={isMobile} />}
-          {view==="quotes"    && <QuotesView contacts={contacts} isMobile={isMobile} />}
+          {view==="quotes"       && <QuotesView contacts={contacts} isMobile={isMobile} />}
+          {view==="prestaciones" && <PrestacionesView isMobile={isMobile} />}
           {view==="products"  && <ProductsDB isMobile={isMobile} />}
           {view==="purchase"  && <PurchaseView isMobile={isMobile} />}
           {view==="costeo"    && <CosteoView contacts={contacts} isMobile={isMobile} />}
