@@ -2187,7 +2187,7 @@ function PrestacionModal({ quotes, existing, onClose, onSaved }) {
         codigo_operacion: txsGuardar.map(t=>t.codigo).filter(Boolean).join(", ")||null,
         monto_pagado:     totalMonto||null,
         responsable:      form.responsable||null,
-        contact_id:       firstQ?.contactId||null,
+        contact_id:       null,
         quote_ids:        selectedQuoteIds,
         notas:            form.notas||null,
         transacciones:    txsGuardar,
