@@ -2135,8 +2135,9 @@ function PrestacionesView({ isMobile }) {
     setLoading(true);
     const { data: docsData } = await supabase.from("comprobantes_pago").select("*").order("created_at",{ascending:false});
     const allDocs = docsData||[];
-    setDocs(allDocs.filter(d=>!d.tipo||d.tipo==="cp"||d.tipo==="emitido"||d.tipo==="prestacion"));
-    setPfDocs(allDocs.filter(d=>d.tipo==="pf"));
+    // Distinguish CP vs PF by estado field (PF uses "pf") or numero prefix
+    setDocs(allDocs.filter(d=> d.estado!=="pf" && !(d.numero||"").startsWith("PF-")));
+    setPfDocs(allDocs.filter(d=> d.estado==="pf" || (d.numero||"").startsWith("PF-")));
 
     const { data: quotesData } = await supabase.from("cotizaciones").select("*").order("numero",{ascending:false});
     const sinIva  = (quotesData||[]).filter(q=>q.aplica_iva===false).map(mapQuote);
@@ -2486,7 +2487,7 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
         codigo_operacion:txsV.map(t=>t.codigo).filter(Boolean).join(", ")||null,
         monto_pagado:txTotal>0?txTotal:lineTotal||null, responsable:form.responsable||null,
         contact_id:null, quote_ids:selectedQuoteIds, transacciones:txsV,
-        estado:"emitido", tipo:isPF?"pf":"prestacion",
+        estado:isPF?"pf":"emitido",
       }).select().single();
       if(error){alert("Error: "+error.message);setSaving(false);return;}
       setSaving(false);if(data){onSaved(data);doPrint(numero);}
