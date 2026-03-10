@@ -52,18 +52,16 @@ const mapTaskToDb = (f) => ({
 
 // ── CONSTANTS ───────────────────────────────────────────────────────────────
 const COLORS_DARK = {
-  bg: "#0A0C10", surface: "#0F1117", card: "#151921", border: "#1F2535",
-  accent: "#AC3AB3", accentDim: "#AC3AB322", accentGlow: "#AC3AB344",
-  secondary: "#2954EC", secondaryDim: "#2954EC22",
-  green: "#00C896", yellow: "#F5A623", red: "#F04E6A", purple: "#AC3AB3",
+  bg: "#0A0C10", surface: "#111318", card: "#161A22", border: "#1E2530",
+  accent: "#00C2FF", accentDim: "#00C2FF22", accentGlow: "#00C2FF44",
+  green: "#00E5A0", yellow: "#FFB800", red: "#FF4D6A", purple: "#A855F7",
   text: "#E8ECF4", textMuted: "#6B7A99", textDim: "#3D4A66",
 };
 const COLORS_LIGHT = {
-  bg: "#F5F5F7", surface: "#FFFFFF", card: "#EBEBED", border: "#D0D0D8",
-  accent: "#8B2F91", accentDim: "#8B2F9115", accentGlow: "#8B2F9130",
-  secondary: "#2954EC", secondaryDim: "#2954EC18",
-  green: "#00A37A", yellow: "#C8860A", red: "#D63D57", purple: "#8B2F91",
-  text: "#0F1117", textMuted: "#4A5570", textDim: "#9AA3B5",
+  bg: "#F4F6FA", surface: "#FFFFFF", card: "#EEF1F7", border: "#D1D9E6",
+  accent: "#0096CC", accentDim: "#0096CC18", accentGlow: "#0096CC33",
+  green: "#00A97A", yellow: "#D4920A", red: "#E0304F", purple: "#8B3FD4",
+  text: "#0F1623", textMuted: "#4A5778", textDim: "#9AA3B8",
 };
 let COLORS = { ...COLORS_DARK };
 // darkMode global singleton — updated by CRM root
@@ -196,7 +194,7 @@ const Modal = ({ title, onClose, onSubmit, children }) => (
   </div>
 );
 const AddBtn = ({ onClick, label }) => (
-  <button onClick={onClick} style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 18px", background:COLORS.secondary||COLORS.accent, border:"none", borderRadius:7, color:"#fff", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer", letterSpacing:"-0.01em" }}>
+  <button onClick={onClick} style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 18px", background:COLORS.accent, border:"none", borderRadius:7, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>
     <span style={{ fontSize:18, lineHeight:1 }}>+</span>{label}
   </button>
 );
@@ -4893,18 +4891,15 @@ export default function CRM() {
       {!isMobile && (
         <aside style={{ width:220, background:COLORS.surface, borderRight:`1px solid ${COLORS.border}`, padding:"28px 0", display:"flex", flexDirection:"column", flexShrink:0, position:"sticky", top:0, height:"100vh" }}>
           <div style={{ padding:"0 24px 28px", borderBottom:`1px solid ${COLORS.border}` }}>
-            <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.accent, letterSpacing:"0.2em", textTransform:"uppercase", marginBottom:4, opacity:0.8 }}>B2B SALES</div>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:17, fontWeight:700, color:COLORS.text, letterSpacing:"-0.02em" }}>
-              Polygonos{" "}
-              <span style={{ background:`linear-gradient(135deg, ${COLORS.accent} 0%, ${COLORS.secondary||"#2954EC"} 100%)`, WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", backgroundClip:"text" }}>360</span>
-            </div>
+            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, letterSpacing:"0.18em", textTransform:"uppercase", marginBottom:2 }}>B2B SALES</div>
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text }}>Polygonos <span style={{color:COLORS.accent}}>360</span></div>
           </div>
-          <nav style={{ padding:"16px 10px", flex:1, overflowY:"auto" }}>
+          <nav style={{ padding:"20px 12px", flex:1, overflowY:"auto" }}>
             {NAV.map(n=>{
               const active=view===n.key;
               return (
-                <button key={n.key} onClick={()=>navigate(n.key)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"9px 12px", borderRadius:7, marginBottom:2, background:active?COLORS.accentDim:"transparent", border:`1px solid ${active?COLORS.accentGlow:"transparent"}`, cursor:"pointer", color:active?COLORS.accent:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:active?600:400, textAlign:"left", transition:"all 0.15s" }}>
-                  <span style={{ fontSize:15 }}>{n.icon}</span>{n.label}
+                <button key={n.key} onClick={()=>navigate(n.key)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"10px 12px", borderRadius:7, marginBottom:4, background:active?COLORS.accentDim:"transparent", border:`1px solid ${active?COLORS.accentGlow:"transparent"}`, cursor:"pointer", color:active?COLORS.accent:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:active?600:400, textAlign:"left" }}>
+                  <span style={{ fontSize:16 }}>{n.icon}</span>{n.label}
                 </button>
               );
             })}
