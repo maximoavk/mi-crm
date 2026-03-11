@@ -1045,19 +1045,65 @@ function GanttBar({ task, calStart, calDays, cellW, today }) {
   );
 }
 
+// ─── Buscador de producto inline para Estimating ────────────────────────────
+function EstProductSearch({ item, products, onUpdate, s }) {
+  const [q, setQ] = useState(item.descripcion||"");
+  const [open, setOpen] = useState(false);
+  const results = q.length>=2 ? products.filter(p=>(p.name||"").toLowerCase().includes(q.toLowerCase())||(p.code||"").toLowerCase().includes(q.toLowerCase())).slice(0,6) : [];
+  return (
+    <div style={{ position:"relative", minWidth:220 }}>
+      <input value={q} onChange={e=>{ setQ(e.target.value); onUpdate("descripcion",e.target.value); setOpen(true); }}
+        onFocus={()=>setOpen(true)} placeholder="Descripción o buscar catálogo..."
+        style={{...s, width:"100%"}} />
+      {open && results.length>0 && (
+        <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:400, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:6, boxShadow:"0 4px 16px #0008", marginTop:2 }}>
+          {results.map(p=>(
+            <div key={p.id} onClick={()=>{ setQ(p.name); onUpdate("descripcion",p.name); onUpdate("precioUnit",p.priceNeto); onUpdate("productId",p.id); setOpen(false); }}
+              style={{ padding:"6px 10px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}22`, display:"flex", justifyContent:"space-between" }}
+              onMouseEnter={e=>e.currentTarget.style.background=COLORS.card}
+              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              <div>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:600, color:COLORS.text }}>{p.name}</div>
+                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>{p.code} · {p.category}</div>
+              </div>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:COLORS.green, textAlign:"right" }}>
+                {fmt(p.priceNeto)}<div style={{fontSize:8,color:COLORS.textMuted}}>neto</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GanttView({ isMobile }) {
+  const [planTab, setPlanTab] = useState("qto"); // qto | estimating | planning
   const [cotNum, setCotNum]       = useState("");
   const [searching, setSearching] = useState(false);
-  const [proyecto, setProyecto]   = useState(null); // { nombre, cotNum }
+  const [proyecto, setProyecto]   = useState(null);
   const [tasks, setTasks]         = useState([]);
   const [saving, setSaving]       = useState(false);
   const [ganttId, setGanttId]     = useState(null);
   const [calStart, setCalStart]   = useState(new Date().toISOString().slice(0,10));
   const [calDays, setCalDays]     = useState(60);
-  const [editRow, setEditRow]     = useState(null); // id de fila en edición inline
-  const cellW = 28;
+  const [editRow, setEditRow]     = useState(null);
+
+  // QTO state
+  const [qtoItems, setQtoItems]   = useState([]); // { id, descripcion, cantidad, unidad, fuente }
+  // Estimating state
+  const [estItems, setEstItems]   = useState([]); // { id, descripcion, cantidad, unidad, precioUnit, total }
+  const [products, setProducts]   = useState([]);
+
+  const cellW = calDays <= 7 ? 60 : calDays <= 30 ? 36 : 28;
   const today = new Date().toISOString().slice(0,10);
   const calCols = buildCalHeader(calStart, calDays);
+
+  // Load products for estimating
+  React.useEffect(()=>{
+    supabase.from("productos").select("id,codigo,nombre,precio,unidad,categoria").order("nombre")
+      .then(({data})=>setProducts((data||[]).map(mapProduct)));
+  },[]);
 
   // Agrupar meses para header
   const months = [];
@@ -1068,7 +1114,6 @@ function GanttView({ isMobile }) {
     else months[months.length-1].count++;
   });
 
-  // Cargar Gantt existente desde Supabase
   const cargarGantt = async (num) => {
     setSearching(true);
     const { data: gantt } = await supabase.from("gantt_proyectos").select("*").eq("numero_cotizacion", Number(num)).single();
@@ -1084,19 +1129,29 @@ function GanttView({ isMobile }) {
         hhPresup: r.hh_presup||0, hhReal: r.hh_real||0,
         depende: r.depende_de||"", orden: r.orden||0, parentId: r.parent_id||null,
       })));
+      // Cargar QTO y Estimating desde JSON guardado en gantt_proyectos
+      if(gantt.qto_items)  setQtoItems(gantt.qto_items);
+      if(gantt.est_items)  setEstItems(gantt.est_items);
     } else {
-      // Nueva: buscar cotización para obtener nombre e importar fases del costeo
       const { data: cot } = await supabase.from("cotizaciones").select("*").eq("numero", Number(num)).single();
       if(cot) {
         setProyecto({ nombre: cot.comentarios||cot.razon_social||`Proyecto Cot. ${num}`, cotNum: num });
-        // Buscar líneas tipo "item" para importar como fases
         const { data: lines } = await supabase.from("quote_lines").select("*").eq("quote_id", cot.id).eq("tipo_linea","item").order("orden");
         const imported = (lines||[]).map((l,i)=>({
           id: `new_${Date.now()}_${i}`, tipo:"F", nombre: l.descripcion||`Fase ${i+1}`,
           rol:"PM", responsable:"", inicio: today, fin: addDays(today, 14),
           pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, depende:"", orden:i, parentId:null,
         }));
+        // También pre-popular QTO desde líneas de cotización
+        const qtoImported = (lines||[]).map((l,i)=>({
+          id: `qto_${Date.now()}_${i}`,
+          descripcion: l.descripcion||"",
+          cantidad: Number(l.cantidad)||1,
+          unidad: "un",
+          fuente: "Cotización",
+        }));
         setTasks(imported);
+        setQtoItems(qtoImported);
         setGanttId(null);
       } else {
         alert(`No se encontró la cotización N° ${num}`);
@@ -1113,14 +1168,17 @@ function GanttView({ isMobile }) {
       const { data } = await supabase.from("gantt_proyectos").insert({
         numero_cotizacion: Number(cotNum), nombre: proyecto.nombre,
         fecha_inicio: calStart, fecha_fin: addDays(calStart, calDays),
+        qto_items: qtoItems, est_items: estItems,
       }).select().single();
       gId = data?.id;
       setGanttId(gId);
     } else {
-      await supabase.from("gantt_proyectos").update({ nombre: proyecto.nombre, fecha_inicio: calStart }).eq("id", gId);
+      await supabase.from("gantt_proyectos").update({
+        nombre: proyecto.nombre, fecha_inicio: calStart,
+        qto_items: qtoItems, est_items: estItems,
+      }).eq("id", gId);
     }
     if(!gId) { setSaving(false); return; }
-    // Borrar y reinsertar tareas
     await supabase.from("gantt_tareas").delete().eq("gantt_id", gId);
     const rows = tasks.map((t,i)=>({
       gantt_id: gId, tipo: t.tipo, nombre: t.nombre, rol: t.rol,
@@ -1131,7 +1189,7 @@ function GanttView({ isMobile }) {
     }));
     await supabase.from("gantt_tareas").insert(rows);
     setSaving(false);
-    alert("✅ Gantt guardada");
+    alert("✅ Proyecto guardado");
   };
 
   const addTask = (tipo="T") => {
@@ -1143,7 +1201,6 @@ function GanttView({ isMobile }) {
       pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, depende:"", orden:t.length, parentId:null,
     }]);
   };
-
   const updateTask = (id, field, val) => setTasks(t=>t.map(r=>r.id===id?{...r,[field]:val}:r));
   const deleteTask = (id) => setTasks(t=>t.filter(r=>r.id!==id));
   const moveTask   = (id, dir) => {
@@ -1156,15 +1213,42 @@ function GanttView({ isMobile }) {
     setTasks(arr);
   };
 
-  const s = { // input style
+  // QTO helpers
+  const addQtoItem = () => setQtoItems(q=>[...q,{ id:`q_${Date.now()}`, descripcion:"", cantidad:1, unidad:"un", fuente:"" }]);
+  const updateQto  = (id,f,v) => setQtoItems(q=>q.map(r=>r.id===id?{...r,[f]:v}:r));
+  const removeQto  = (id) => setQtoItems(q=>q.filter(r=>r.id!==id));
+  const sendToEst  = (item) => {
+    // Enviar ítem QTO a Estimating con precio desde catálogo si hay match
+    const prod = products.find(p=>(p.name||"").toLowerCase().includes((item.descripcion||"").toLowerCase().slice(0,8)));
+    setEstItems(e=>[...e,{
+      id:`e_${Date.now()}`, descripcion:item.descripcion, cantidad:item.cantidad,
+      unidad:item.unidad, precioUnit: prod ? prod.priceNeto : 0,
+      total: prod ? prod.priceNeto*item.cantidad : 0, productId: prod?.id||null,
+    }]);
+    setPlanTab("estimating");
+  };
+
+  // Estimating helpers
+  const addEstItem = () => setEstItems(e=>[...e,{ id:`e_${Date.now()}`, descripcion:"", cantidad:1, unidad:"un", precioUnit:0, total:0, productId:null }]);
+  const updateEst  = (id,f,v) => setEstItems(e=>e.map(r=>{ if(r.id!==id) return r; const u={...r,[f]:v}; u.total=Number(u.cantidad||0)*Number(u.precioUnit||0); return u; }));
+  const removeEst  = (id) => setEstItems(e=>e.filter(r=>r.id!==id));
+  const totalEst   = estItems.reduce((s,r)=>s+Number(r.total),0);
+
+  const s = {
     background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4,
     color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"3px 6px", outline:"none",
   };
 
+  const PLAN_TABS = [
+    { k:"qto",        label:"📦 Quantity Take-off",    desc:"Levantamiento de cantidades" },
+    { k:"estimating", label:"💰 Estimating",            desc:"Precio a las cantidades" },
+    { k:"planning",   label:"📅 Planning",              desc:"Gantt de ejecución" },
+  ];
+
   return (
     <div style={{ fontFamily:FONT, color:COLORS.text }}>
       {/* HEADER */}
-      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20, flexWrap:"wrap" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16, flexWrap:"wrap" }}>
         <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>
           📅 Control de <span style={{color:COLORS.accent}}>Proyecto</span>
         </div>
@@ -1180,9 +1264,13 @@ function GanttView({ isMobile }) {
         {proyecto && <>
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.accent }}>{proyecto.nombre}</div>
           <div style={{ display:"flex", gap:6, marginLeft:"auto" }}>
-            <button onClick={()=>addTask("F")} style={{ padding:"5px 10px", background:`${GANTT_COLORS.fase}22`, border:`1px solid ${GANTT_COLORS.fase}44`, borderRadius:6, color:GANTT_COLORS.fase, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Fase</button>
-            <button onClick={()=>addTask("T")} style={{ padding:"5px 10px", background:`${GANTT_COLORS.tarea}22`, border:`1px solid ${GANTT_COLORS.tarea}44`, borderRadius:6, color:GANTT_COLORS.tarea, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Tarea</button>
-            <button onClick={()=>addTask("H")} style={{ padding:"5px 10px", background:`${GANTT_COLORS.hito}22`, border:`1px solid ${GANTT_COLORS.hito}44`, borderRadius:6, color:GANTT_COLORS.hito, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Hito</button>
+            {planTab==="planning" && <>
+              <button onClick={()=>addTask("F")} style={{ padding:"5px 10px", background:`${GANTT_COLORS.fase}22`, border:`1px solid ${GANTT_COLORS.fase}44`, borderRadius:6, color:GANTT_COLORS.fase, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Fase</button>
+              <button onClick={()=>addTask("T")} style={{ padding:"5px 10px", background:`${GANTT_COLORS.tarea}22`, border:`1px solid ${GANTT_COLORS.tarea}44`, borderRadius:6, color:GANTT_COLORS.tarea, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Tarea</button>
+              <button onClick={()=>addTask("H")} style={{ padding:"5px 10px", background:`${GANTT_COLORS.hito}22`, border:`1px solid ${GANTT_COLORS.hito}44`, borderRadius:6, color:GANTT_COLORS.hito, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Hito</button>
+            </>}
+            {planTab==="qto" && <button onClick={addQtoItem} style={{ padding:"5px 12px", background:`${COLORS.accent}22`, border:`1px solid ${COLORS.accent}44`, borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Ítem</button>}
+            {planTab==="estimating" && <button onClick={addEstItem} style={{ padding:"5px 12px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:6, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Ítem</button>}
             <button onClick={saveGantt} disabled={saving} style={{ padding:"5px 14px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer", opacity:saving?0.6:1 }}>
               {saving?"Guardando...":"💾 Guardar"}
             </button>
@@ -1194,222 +1282,354 @@ function GanttView({ isMobile }) {
         <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:40, textAlign:"center" }}>
           <div style={{ fontSize:40, marginBottom:12 }}>📅</div>
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, color:COLORS.textMuted }}>Ingresa el número de cotización para cargar o crear un plan de proyecto</div>
-          <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginTop:8 }}>Las fases se importan automáticamente desde el costeo</div>
+          <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginTop:8 }}>Las fases se importan automáticamente desde el costeo · El QTO se pre-llena desde las líneas de la cotización</div>
         </div>
       )}
 
       {proyecto && (
         <>
-          {/* Controles de vista */}
-          <div style={{ display:"flex", gap:10, marginBottom:12, alignItems:"center", flexWrap:"wrap" }}>
-            <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Inicio calendario:</span>
-            <input type="date" value={calStart} onChange={e=>setCalStart(e.target.value)} style={{...s}} />
-            <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Días vista:</span>
-            {[30,60,90,120].map(d=>(
-              <button key={d} onClick={()=>setCalDays(d)} style={{ padding:"3px 10px", background: calDays===d?COLORS.accent:"transparent", border:`1px solid ${calDays===d?COLORS.accent:COLORS.border}`, borderRadius:5, color: calDays===d?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>{d}d</button>
+          {/* ── Sub-tabs Pre-proyecto ── */}
+          <div style={{ display:"flex", gap:0, borderBottom:`1px solid ${COLORS.border}`, marginBottom:20 }}>
+            {PLAN_TABS.map(({k,label,desc})=>(
+              <button key={k} onClick={()=>setPlanTab(k)} style={{
+                padding:"10px 22px", fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer",
+                border:"none", borderBottom: planTab===k?`2px solid ${COLORS.accent}`:"2px solid transparent",
+                background:"transparent", color: planTab===k?COLORS.accent:COLORS.textMuted,
+                fontWeight: planTab===k?700:400, transition:"all 0.15s",
+              }}>
+                {label}
+                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginTop:2 }}>{desc}</div>
+              </button>
             ))}
-            {/* Leyenda */}
-            <div style={{ display:"flex", gap:10, marginLeft:"auto", flexWrap:"wrap" }}>
-              {[["Fase","#3b82f6"],["Tarea","#6366f1"],["Hito","#f59e0b"],["Completado","#39ff14"],["Atrasado","#ef4444"]].map(([l,c])=>(
-                <span key={l} style={{ fontFamily:FONT, fontSize:10, color:c }}>● {l}</span>
-              ))}
-            </div>
           </div>
 
-          {/* TABLA GANTT */}
-          <div style={{ overflowX:"auto", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10 }}>
-            <table style={{ borderCollapse:"collapse", fontSize:11, fontFamily:FONT }}>
-              <thead>
-                {/* Fila meses */}
-                <tr style={{ background:COLORS.surface }}>
-                  {/* Columnas fijas */}
-                  {[["#",28],["Tipo",44],["Descripción",180],["Rol",50],["Responsable",90],["Inicio",88],["Fin",88],["Plan%",52],["Av.%",52],["HH Pres.",62],["HH Real",62],["Dep.",48],["",52]].map(([h,w])=>(
-                    <th key={h} style={{ padding:"6px 4px", color:COLORS.textMuted, whiteSpace:"nowrap", minWidth:w, maxWidth:w, borderRight:`1px solid ${COLORS.border}`, textAlign:"center", letterSpacing:"0.06em", fontSize:9 }}>{h}</th>
-                  ))}
-                  {/* Meses */}
-                  {months.map((m,i)=>(
-                    <th key={i} colSpan={m.count} style={{ padding:"6px 4px", color:COLORS.accent, borderRight:`1px solid ${COLORS.border}`, textAlign:"center", fontFamily:FONT_DISPLAY, fontSize:10, textTransform:"uppercase", letterSpacing:"0.08em", whiteSpace:"nowrap", minWidth:m.count*cellW }}>
-                      {m.name}
-                    </th>
-                  ))}
-                </tr>
-                {/* Fila días */}
-                <tr style={{ background:COLORS.bg }}>
-                  {/* Columnas fijas vacías */}
-                  {Array(13).fill(0).map((_,i)=>(
-                    <th key={i} style={{ borderRight:`1px solid ${COLORS.border}`, borderBottom:`1px solid ${COLORS.border}` }} />
-                  ))}
-                  {/* Días */}
-                  {calCols.map((c,i)=>(
-                    <th key={i} style={{ width:cellW, minWidth:cellW, maxWidth:cellW, padding:"2px 0", textAlign:"center",
-                      background: c.date===today ? `${COLORS.accent}33` : c.isWeekend ? `${COLORS.border}44` : "transparent",
-                      borderRight:`1px solid ${COLORS.border}22`, borderBottom:`1px solid ${COLORS.border}`,
-                      color: c.date===today ? COLORS.accent : c.isWeekend ? COLORS.textMuted : COLORS.textMuted,
-                      fontSize:9, fontWeight: c.date===today?"700":"400" }}>
-                      <div>{c.dow}</div>
-                      <div>{c.day}</div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {tasks.map((t, idx)=>{
-                  const isFase = t.tipo==="F";
-                  const isHito = t.tipo==="H";
-                  const pct    = Number(t.pctAvance)||0;
-                  const isLate = t.fin < today && pct < 100;
-                  const rowBg  = isFase ? `${GANTT_COLORS.fase}11` : "transparent";
-                  const editing = editRow===t.id;
-
-                  return (
-                    <tr key={t.id} style={{ borderBottom:`1px solid ${COLORS.border}22`, background:rowBg }}
-                      onDoubleClick={()=>setEditRow(editing?null:t.id)}>
-                      {/* Nro */}
-                      <td style={{ padding:"4px 4px", textAlign:"center", color:COLORS.textMuted, fontSize:10, borderRight:`1px solid ${COLORS.border}` }}>
-                        <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
-                          <button onClick={()=>moveTask(t.id,-1)} style={{ background:"none",border:"none",color:COLORS.textMuted,cursor:"pointer",fontSize:8,padding:0,lineHeight:1 }}>▲</button>
-                          <span>{idx+1}</span>
-                          <button onClick={()=>moveTask(t.id,1)} style={{ background:"none",border:"none",color:COLORS.textMuted,cursor:"pointer",fontSize:8,padding:0,lineHeight:1 }}>▼</button>
-                        </div>
-                      </td>
-                      {/* Tipo */}
-                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
-                        {editing ? (
-                          <select value={t.tipo} onChange={e=>updateTask(t.id,"tipo",e.target.value)} style={{...s,width:50,padding:"2px 3px"}}>
-                            {Object.entries(TIPO_LABEL).map(([k,v])=><option key={k} value={k}>{v}</option>)}
-                          </select>
-                        ) : (
-                          <span style={{ padding:"2px 6px", borderRadius:4, fontSize:9, fontWeight:700,
-                            background: isFase?`${GANTT_COLORS.fase}22`:isHito?`${GANTT_COLORS.hito}22`:`${GANTT_COLORS.tarea}22`,
-                            color: isFase?GANTT_COLORS.fase:isHito?GANTT_COLORS.hito:GANTT_COLORS.tarea }}>
-                            {TIPO_LABEL[t.tipo]}
-                          </span>
-                        )}
-                      </td>
-                      {/* Descripción */}
-                      <td style={{ padding:"4px 6px", borderRight:`1px solid ${COLORS.border}`, maxWidth:180 }}>
-                        {editing ? (
-                          <input value={t.nombre} onChange={e=>updateTask(t.id,"nombre",e.target.value)} style={{...s,width:170}} />
-                        ) : (
-                          <span style={{ fontWeight:isFase?700:400, color:isFase?COLORS.text:COLORS.textMuted,
-                            paddingLeft: isFase?0:10, fontSize: isFase?12:11, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", display:"block", maxWidth:175 }}>
-                            {!isFase && <span style={{color:COLORS.border,marginRight:4}}>└</span>}{t.nombre}
-                          </span>
-                        )}
-                      </td>
-                      {/* Rol */}
-                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
-                        {editing ? (
-                          <select value={t.rol} onChange={e=>updateTask(t.id,"rol",e.target.value)} style={{...s,width:50,padding:"2px 3px"}}>
-                            {ROL_OPTS.map(r=><option key={r} value={r}>{r}</option>)}
-                          </select>
-                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.accent }}>{t.rol}</span>}
-                      </td>
-                      {/* Responsable */}
-                      <td style={{ padding:"4px 4px", borderRight:`1px solid ${COLORS.border}` }}>
-                        {editing ? (
-                          <input value={t.responsable} onChange={e=>updateTask(t.id,"responsable",e.target.value)} style={{...s,width:84}} />
-                        ) : <span style={{ fontSize:10, color:COLORS.textMuted }}>{t.responsable}</span>}
-                      </td>
-                      {/* Inicio */}
-                      <td style={{ padding:"4px 4px", borderRight:`1px solid ${COLORS.border}` }}>
-                        {editing ? (
-                          <input type="date" value={t.inicio} onChange={e=>updateTask(t.id,"inicio",e.target.value)} style={{...s,width:82}} />
-                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.text }}>{fmtShort(t.inicio)}</span>}
-                      </td>
-                      {/* Fin */}
-                      <td style={{ padding:"4px 4px", borderRight:`1px solid ${COLORS.border}` }}>
-                        {editing ? (
-                          <input type="date" value={t.fin} onChange={e=>updateTask(t.id,"fin",e.target.value)} style={{...s,width:82}} />
-                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:isLate?GANTT_COLORS.late:COLORS.text }}>{fmtShort(t.fin)}{isLate&&" ⚠"}</span>}
-                      </td>
-                      {/* Plan % */}
-                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
-                        {editing ? (
-                          <input type="number" value={t.pctPlan} onChange={e=>updateTask(t.id,"pctPlan",e.target.value)} style={{...s,width:44}} min={0} max={100} />
-                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.textMuted }}>{t.pctPlan}%</span>}
-                      </td>
-                      {/* Avance % */}
-                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
-                        {editing ? (
-                          <input type="number" value={t.pctAvance} onChange={e=>updateTask(t.id,"pctAvance",e.target.value)} style={{...s,width:44,color:COLORS.accent}} min={0} max={100} />
-                        ) : (
-                          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
-                            <span style={{ fontFamily:"monospace", fontSize:10, color: pct===100?GANTT_COLORS.done:isLate?GANTT_COLORS.late:COLORS.accent, fontWeight:700 }}>{pct}%</span>
-                            <div style={{ width:40, height:3, background:COLORS.border, borderRadius:2 }}>
-                              <div style={{ width:`${pct}%`, height:"100%", background: pct===100?GANTT_COLORS.done:isLate?GANTT_COLORS.late:COLORS.accent, borderRadius:2 }} />
-                            </div>
-                          </div>
-                        )}
-                      </td>
-                      {/* HH Pres. */}
-                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
-                        {editing ? (
-                          <input type="number" value={t.hhPresup} onChange={e=>updateTask(t.id,"hhPresup",e.target.value)} style={{...s,width:54}} />
-                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.textMuted }}>{t.hhPresup>0?t.hhPresup:"-"}</span>}
-                      </td>
-                      {/* HH Real */}
-                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
-                        {editing ? (
-                          <input type="number" value={t.hhReal} onChange={e=>updateTask(t.id,"hhReal",e.target.value)} style={{...s,width:54,color:"#39ff14"}} />
-                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color: t.hhReal>t.hhPresup&&t.hhPresup>0?GANTT_COLORS.late:"#39ff14" }}>{t.hhReal>0?t.hhReal:"-"}</span>}
-                      </td>
-                      {/* Dependencia */}
-                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
-                        {editing ? (
-                          <input value={t.depende} onChange={e=>updateTask(t.id,"depende",e.target.value)} style={{...s,width:40}} placeholder="#" />
-                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.textMuted }}>{t.depende||"-"}</span>}
-                      </td>
-                      {/* Acciones */}
-                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
-                        <div style={{ display:"flex", gap:2, justifyContent:"center" }}>
-                          <button onClick={()=>setEditRow(editing?null:t.id)}
-                            style={{ background:editing?COLORS.accent:"none", border:`1px solid ${editing?COLORS.accent:COLORS.border}`, borderRadius:3, color:editing?COLORS.bg:COLORS.textMuted, cursor:"pointer", fontSize:9, padding:"1px 5px" }}>
-                            {editing?"✓":"✏"}
-                          </button>
-                          <button onClick={()=>deleteTask(t.id)}
-                            style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:12, padding:"0 2px" }}>×</button>
-                        </div>
-                      </td>
-                      {/* Barras Gantt */}
-                      {calCols.map((c,ci)=>(
-                        <td key={ci} style={{ width:cellW, minWidth:cellW, maxWidth:cellW, padding:0, position:"relative", height:32,
-                          background: c.date===today?`${COLORS.accent}18`:c.isWeekend?`${COLORS.border}22`:"transparent",
-                          borderRight:`1px solid ${COLORS.border}11` }}>
-                          {ci===0 && <GanttBar task={t} calStart={calStart} calDays={calDays} cellW={cellW} today={today} />}
-                        </td>
+          {/* ── TAB: QUANTITY TAKE-OFF ── */}
+          {planTab==="qto" && (
+            <div>
+              <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:14 }}>
+                Levanta todas las cantidades de materiales necesarios para el proyecto. Los ítems se pueden enviar directamente a <strong style={{color:COLORS.accent}}>Estimating</strong> para ponerles precio.
+              </div>
+              <div style={{ overflowX:"auto", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10 }}>
+                <table style={{ borderCollapse:"collapse", width:"100%", fontSize:11, fontFamily:FONT }}>
+                  <thead>
+                    <tr style={{ background:COLORS.surface }}>
+                      {["#","Descripción / Material","Cantidad","Unidad","Fuente / Referencia","→ Est.",""].map((h,i)=>(
+                        <th key={i} style={{ padding:"8px 10px", color:COLORS.textMuted, textAlign:i===0||i>=4?"center":"left", fontSize:9, letterSpacing:"0.07em", textTransform:"uppercase", borderBottom:`1px solid ${COLORS.border}`, whiteSpace:"nowrap" }}>{h}</th>
                       ))}
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* RESUMEN KPIs */}
-          <div style={{ display:"flex", gap:12, marginTop:16, flexWrap:"wrap" }}>
-            {[
-              { label:"Total Tareas", val: tasks.filter(t=>t.tipo==="T").length, color:GANTT_COLORS.tarea },
-              { label:"Completadas", val: tasks.filter(t=>Number(t.pctAvance)===100).length, color:GANTT_COLORS.done },
-              { label:"Atrasadas", val: tasks.filter(t=>t.fin<today&&Number(t.pctAvance)<100).length, color:GANTT_COLORS.late },
-              { label:"HH Presup.", val: tasks.reduce((s,t)=>s+Number(t.hhPresup),0), color:COLORS.textMuted, suffix:"HH" },
-              { label:"HH Real", val: tasks.reduce((s,t)=>s+Number(t.hhReal),0), color:"#39ff14", suffix:"HH" },
-              { label:"Avance Prom.", val: tasks.filter(t=>t.tipo!=="H").length ? Math.round(tasks.filter(t=>t.tipo!=="H").reduce((s,t)=>s+Number(t.pctAvance),0)/tasks.filter(t=>t.tipo!=="H").length) : 0, color:COLORS.accent, suffix:"%" },
-            ].map(k=>(
-              <div key={k.label} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 16px", flex:1, minWidth:100 }}>
-                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:4 }}>{k.label}</div>
-                <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:k.color }}>{k.val}{k.suffix||""}</div>
+                  </thead>
+                  <tbody>
+                    {qtoItems.map((item,idx)=>(
+                      <tr key={item.id} style={{ borderBottom:`1px solid ${COLORS.border}22` }}>
+                        <td style={{ padding:"6px 10px", textAlign:"center", color:COLORS.textMuted, fontSize:10, width:32 }}>{idx+1}</td>
+                        <td style={{ padding:"6px 6px" }}>
+                          <input value={item.descripcion} onChange={e=>updateQto(item.id,"descripcion",e.target.value)}
+                            placeholder="Ej: Cable UTP Cat6 exterior" style={{...s, width:"100%", minWidth:220}} />
+                        </td>
+                        <td style={{ padding:"6px 6px", width:80 }}>
+                          <input type="number" value={item.cantidad} onChange={e=>updateQto(item.id,"cantidad",e.target.value)}
+                            style={{...s, width:70, textAlign:"right"}} min={0} />
+                        </td>
+                        <td style={{ padding:"6px 6px", width:80 }}>
+                          <select value={item.unidad} onChange={e=>updateQto(item.id,"unidad",e.target.value)} style={{...s, width:70}}>
+                            {["un","m","m2","m3","kg","gl","hr","set","cj"].map(u=><option key={u} value={u}>{u}</option>)}
+                          </select>
+                        </td>
+                        <td style={{ padding:"6px 6px" }}>
+                          <input value={item.fuente} onChange={e=>updateQto(item.id,"fuente",e.target.value)}
+                            placeholder="Ej: Plano eléctrico Rev.2" style={{...s, width:180}} />
+                        </td>
+                        <td style={{ padding:"6px 10px", textAlign:"center" }}>
+                          <button onClick={()=>sendToEst(item)}
+                            title="Enviar a Estimating"
+                            style={{ padding:"3px 10px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:4, color:COLORS.green, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>→</button>
+                        </td>
+                        <td style={{ padding:"6px 6px", textAlign:"center" }}>
+                          <button onClick={()=>removeQto(item.id)} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>×</button>
+                        </td>
+                      </tr>
+                    ))}
+                    {qtoItems.length===0 && (
+                      <tr><td colSpan={7} style={{ padding:30, textAlign:"center", color:COLORS.textMuted, fontFamily:FONT, fontSize:12 }}>
+                        Sin ítems. Haz clic en "+ Ítem" para agregar o carga una cotización para importar automáticamente.
+                      </td></tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
-            ))}
-          </div>
-          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:8 }}>
-            💡 Doble clic en una fila para editar · Enter en el campo cotización para cargar
-          </div>
+              <div style={{ marginTop:10, fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
+                💡 Total ítems QTO: <strong style={{color:COLORS.accent}}>{qtoItems.length}</strong> · Cantidad total de unidades: <strong style={{color:COLORS.accent}}>{qtoItems.reduce((s,r)=>s+Number(r.cantidad||0),0)}</strong>
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB: ESTIMATING ── */}
+          {planTab==="estimating" && (
+            <div>
+              <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:14 }}>
+                Asigna precios a cada cantidad del Take-off usando el <strong style={{color:COLORS.accent}}>Maestro de Productos</strong>. El total estimado es el presupuesto base del proyecto.
+              </div>
+              <div style={{ overflowX:"auto", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10 }}>
+                <table style={{ borderCollapse:"collapse", width:"100%", fontSize:11, fontFamily:FONT }}>
+                  <thead>
+                    <tr style={{ background:COLORS.surface }}>
+                      {["#","Descripción","Cant.","Un.","Precio Unit. (neto)","Subtotal",""].map((h,i)=>(
+                        <th key={i} style={{ padding:"8px 10px", color:COLORS.textMuted, textAlign:i>=2?"right":i===0?"center":"left", fontSize:9, letterSpacing:"0.07em", textTransform:"uppercase", borderBottom:`1px solid ${COLORS.border}`, whiteSpace:"nowrap" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {estItems.map((item,idx)=>(
+                      <tr key={item.id} style={{ borderBottom:`1px solid ${COLORS.border}22` }}>
+                        <td style={{ padding:"6px 10px", textAlign:"center", color:COLORS.textMuted, fontSize:10, width:32 }}>{idx+1}</td>
+                        <td style={{ padding:"6px 6px" }}>
+                          <EstProductSearch item={item} products={products} onUpdate={(f,v)=>updateEst(item.id,f,v)} s={s} />
+                        </td>
+                        <td style={{ padding:"6px 6px", width:70, textAlign:"right" }}>
+                          <input type="number" value={item.cantidad} onChange={e=>updateEst(item.id,"cantidad",e.target.value)}
+                            style={{...s, width:60, textAlign:"right"}} min={0} />
+                        </td>
+                        <td style={{ padding:"6px 6px", width:50, textAlign:"right" }}>
+                          <select value={item.unidad} onChange={e=>updateEst(item.id,"unidad",e.target.value)} style={{...s, width:50}}>
+                            {["un","m","m2","m3","kg","gl","hr","set","cj"].map(u=><option key={u} value={u}>{u}</option>)}
+                          </select>
+                        </td>
+                        <td style={{ padding:"6px 6px", width:120, textAlign:"right" }}>
+                          <input type="number" value={item.precioUnit} onChange={e=>updateEst(item.id,"precioUnit",e.target.value)}
+                            style={{...s, width:110, textAlign:"right", color:COLORS.accent}} min={0} />
+                        </td>
+                        <td style={{ padding:"6px 10px", textAlign:"right", width:110, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.green, whiteSpace:"nowrap" }}>
+                          {fmt(item.total)}
+                        </td>
+                        <td style={{ padding:"6px 6px", textAlign:"center" }}>
+                          <button onClick={()=>removeEst(item.id)} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>×</button>
+                        </td>
+                      </tr>
+                    ))}
+                    {estItems.length===0 && (
+                      <tr><td colSpan={7} style={{ padding:30, textAlign:"center", color:COLORS.textMuted, fontFamily:FONT, fontSize:12 }}>
+                        Sin ítems. Agrega desde "+ Ítem" o envía desde Quantity Take-off con →
+                      </td></tr>
+                    )}
+                  </tbody>
+                  {estItems.length>0 && (
+                    <tfoot>
+                      <tr style={{ background:COLORS.surface, borderTop:`2px solid ${COLORS.border}` }}>
+                        <td colSpan={5} style={{ padding:"10px 14px", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.text, textAlign:"right" }}>Total estimado neto:</td>
+                        <td style={{ padding:"10px 10px", fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.green, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(totalEst)}</td>
+                        <td />
+                      </tr>
+                      <tr style={{ background:COLORS.surface }}>
+                        <td colSpan={5} style={{ padding:"4px 14px", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textAlign:"right" }}>+ IVA 19%:</td>
+                        <td style={{ padding:"4px 10px", fontFamily:FONT, fontSize:12, color:COLORS.textMuted, textAlign:"right" }}>{fmt(Math.round(totalEst*0.19))}</td>
+                        <td />
+                      </tr>
+                      <tr style={{ background:COLORS.surface }}>
+                        <td colSpan={5} style={{ padding:"4px 14px 10px", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.text, textAlign:"right" }}>Total con IVA:</td>
+                        <td style={{ padding:"4px 10px 10px", fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.accent, textAlign:"right" }}>{fmt(Math.round(totalEst*1.19))}</td>
+                        <td />
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB: PLANNING (Gantt) ── */}
+          {planTab==="planning" && (
+            <>
+              {/* Controles de vista */}
+              <div style={{ display:"flex", gap:10, marginBottom:12, alignItems:"center", flexWrap:"wrap" }}>
+                <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Inicio calendario:</span>
+                <input type="date" value={calStart} onChange={e=>setCalStart(e.target.value)} style={{...s}} />
+                <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Vista:</span>
+                {[[1,"1d"],[7,"7d"],[30,"30d"],[60,"60d"],[90,"90d"],[120,"120d"]].map(([d,label])=>(
+                  <button key={d} onClick={()=>setCalDays(d)} style={{ padding:"3px 10px", background: calDays===d?COLORS.accent:"transparent", border:`1px solid ${calDays===d?COLORS.accent:COLORS.border}`, borderRadius:5, color: calDays===d?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>{label}</button>
+                ))}
+                <div style={{ display:"flex", gap:10, marginLeft:"auto", flexWrap:"wrap" }}>
+                  {[["Fase","#3b82f6"],["Tarea","#6366f1"],["Hito","#f59e0b"],["Completado","#39ff14"],["Atrasado","#ef4444"]].map(([l,c])=>(
+                    <span key={l} style={{ fontFamily:FONT, fontSize:10, color:c }}>● {l}</span>
+                  ))}
+                </div>
+              </div>
+
+              {/* TABLA GANTT */}
+              <div style={{ overflowX:"auto", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10 }}>
+                <table style={{ borderCollapse:"collapse", fontSize:11, fontFamily:FONT }}>
+                  <thead>
+                    <tr style={{ background:COLORS.surface }}>
+                      {[["#",28],["Tipo",44],["Descripción",180],["Rol",50],["Responsable",90],["Inicio",88],["Fin",88],["Plan%",52],["Av.%",52],["HH Pres.",62],["HH Real",62],["Dep.",48],["",52]].map(([h,w])=>(
+                        <th key={h} style={{ padding:"6px 4px", color:COLORS.textMuted, whiteSpace:"nowrap", minWidth:w, maxWidth:w, borderRight:`1px solid ${COLORS.border}`, textAlign:"center", letterSpacing:"0.06em", fontSize:9 }}>{h}</th>
+                      ))}
+                      {months.map((m,i)=>(
+                        <th key={i} colSpan={m.count} style={{ padding:"6px 4px", color:COLORS.accent, borderRight:`1px solid ${COLORS.border}`, textAlign:"center", fontFamily:FONT_DISPLAY, fontSize:10, textTransform:"uppercase", letterSpacing:"0.08em", whiteSpace:"nowrap", minWidth:m.count*cellW }}>
+                          {m.name}
+                        </th>
+                      ))}
+                    </tr>
+                    <tr style={{ background:COLORS.bg }}>
+                      {Array(13).fill(0).map((_,i)=>(
+                        <th key={i} style={{ borderRight:`1px solid ${COLORS.border}`, borderBottom:`1px solid ${COLORS.border}` }} />
+                      ))}
+                      {calCols.map((c,i)=>(
+                        <th key={i} style={{ width:cellW, minWidth:cellW, maxWidth:cellW, padding:"2px 0", textAlign:"center",
+                          background: c.date===today ? `${COLORS.accent}33` : c.isWeekend ? `${COLORS.border}44` : "transparent",
+                          borderRight:`1px solid ${COLORS.border}22`, borderBottom:`1px solid ${COLORS.border}`,
+                          color: c.date===today ? COLORS.accent : c.isWeekend ? COLORS.textMuted : COLORS.textMuted,
+                          fontSize:9, fontWeight: c.date===today?"700":"400" }}>
+                          <div>{c.dow}</div>
+                          <div>{c.day}</div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tasks.map((t, idx)=>{
+                      const isFase = t.tipo==="F";
+                      const isHito = t.tipo==="H";
+                      const pct    = Number(t.pctAvance)||0;
+                      const isLate = t.fin < today && pct < 100;
+                      const rowBg  = isFase ? `${GANTT_COLORS.fase}11` : "transparent";
+                      const editing = editRow===t.id;
+                      return (
+                        <tr key={t.id} style={{ borderBottom:`1px solid ${COLORS.border}22`, background:rowBg }}
+                          onDoubleClick={()=>setEditRow(editing?null:t.id)}>
+                          <td style={{ padding:"4px 4px", textAlign:"center", color:COLORS.textMuted, fontSize:10, borderRight:`1px solid ${COLORS.border}` }}>
+                            <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
+                              <button onClick={()=>moveTask(t.id,-1)} style={{ background:"none",border:"none",color:COLORS.textMuted,cursor:"pointer",fontSize:8,padding:0,lineHeight:1 }}>▲</button>
+                              <span>{idx+1}</span>
+                              <button onClick={()=>moveTask(t.id,1)} style={{ background:"none",border:"none",color:COLORS.textMuted,cursor:"pointer",fontSize:8,padding:0,lineHeight:1 }}>▼</button>
+                            </div>
+                          </td>
+                          <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                            {editing ? (
+                              <select value={t.tipo} onChange={e=>updateTask(t.id,"tipo",e.target.value)} style={{...s,width:50,padding:"2px 3px"}}>
+                                {Object.entries(TIPO_LABEL).map(([k,v])=><option key={k} value={k}>{v}</option>)}
+                              </select>
+                            ) : (
+                              <span style={{ padding:"2px 6px", borderRadius:4, fontSize:9, fontWeight:700,
+                                background: isFase?`${GANTT_COLORS.fase}22`:isHito?`${GANTT_COLORS.hito}22`:`${GANTT_COLORS.tarea}22`,
+                                color: isFase?GANTT_COLORS.fase:isHito?GANTT_COLORS.hito:GANTT_COLORS.tarea }}>
+                                {TIPO_LABEL[t.tipo]}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding:"4px 6px", borderRight:`1px solid ${COLORS.border}`, maxWidth:180 }}>
+                            {editing ? (
+                              <input value={t.nombre} onChange={e=>updateTask(t.id,"nombre",e.target.value)} style={{...s,width:170}} />
+                            ) : (
+                              <span style={{ fontWeight:isFase?700:400, color:isFase?COLORS.text:COLORS.textMuted,
+                                paddingLeft: isFase?0:10, fontSize: isFase?12:11, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", display:"block", maxWidth:175 }}>
+                                {!isFase && <span style={{color:COLORS.border,marginRight:4}}>└</span>}{t.nombre}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                            {editing ? (
+                              <select value={t.rol} onChange={e=>updateTask(t.id,"rol",e.target.value)} style={{...s,width:50,padding:"2px 3px"}}>
+                                {ROL_OPTS.map(r=><option key={r} value={r}>{r}</option>)}
+                              </select>
+                            ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.accent }}>{t.rol}</span>}
+                          </td>
+                          <td style={{ padding:"4px 4px", borderRight:`1px solid ${COLORS.border}` }}>
+                            {editing ? (
+                              <input value={t.responsable} onChange={e=>updateTask(t.id,"responsable",e.target.value)} style={{...s,width:84}} />
+                            ) : <span style={{ fontSize:10, color:COLORS.textMuted }}>{t.responsable}</span>}
+                          </td>
+                          <td style={{ padding:"4px 4px", borderRight:`1px solid ${COLORS.border}` }}>
+                            {editing ? (
+                              <input type="date" value={t.inicio} onChange={e=>updateTask(t.id,"inicio",e.target.value)} style={{...s,width:82}} />
+                            ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.text }}>{fmtShort(t.inicio)}</span>}
+                          </td>
+                          <td style={{ padding:"4px 4px", borderRight:`1px solid ${COLORS.border}` }}>
+                            {editing ? (
+                              <input type="date" value={t.fin} onChange={e=>updateTask(t.id,"fin",e.target.value)} style={{...s,width:82}} />
+                            ) : <span style={{ fontFamily:"monospace", fontSize:10, color:isLate?GANTT_COLORS.late:COLORS.text }}>{fmtShort(t.fin)}{isLate&&" ⚠"}</span>}
+                          </td>
+                          <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                            {editing ? (
+                              <input type="number" value={t.pctPlan} onChange={e=>updateTask(t.id,"pctPlan",e.target.value)} style={{...s,width:44}} min={0} max={100} />
+                            ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.textMuted }}>{t.pctPlan}%</span>}
+                          </td>
+                          <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                            {editing ? (
+                              <input type="number" value={t.pctAvance} onChange={e=>updateTask(t.id,"pctAvance",e.target.value)} style={{...s,width:44,color:COLORS.accent}} min={0} max={100} />
+                            ) : (
+                              <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+                                <span style={{ fontFamily:"monospace", fontSize:10, color: pct===100?GANTT_COLORS.done:isLate?GANTT_COLORS.late:COLORS.accent, fontWeight:700 }}>{pct}%</span>
+                                <div style={{ width:40, height:3, background:COLORS.border, borderRadius:2 }}>
+                                  <div style={{ width:`${pct}%`, height:"100%", background: pct===100?GANTT_COLORS.done:isLate?GANTT_COLORS.late:COLORS.accent, borderRadius:2 }} />
+                                </div>
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                            {editing ? (
+                              <input type="number" value={t.hhPresup} onChange={e=>updateTask(t.id,"hhPresup",e.target.value)} style={{...s,width:54}} />
+                            ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.textMuted }}>{t.hhPresup>0?t.hhPresup:"-"}</span>}
+                          </td>
+                          <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                            {editing ? (
+                              <input type="number" value={t.hhReal} onChange={e=>updateTask(t.id,"hhReal",e.target.value)} style={{...s,width:54,color:"#39ff14"}} />
+                            ) : <span style={{ fontFamily:"monospace", fontSize:10, color: t.hhReal>t.hhPresup&&t.hhPresup>0?GANTT_COLORS.late:"#39ff14" }}>{t.hhReal>0?t.hhReal:"-"}</span>}
+                          </td>
+                          <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                            {editing ? (
+                              <input value={t.depende} onChange={e=>updateTask(t.id,"depende",e.target.value)} style={{...s,width:40}} placeholder="#" />
+                            ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.textMuted }}>{t.depende||"-"}</span>}
+                          </td>
+                          <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                            <div style={{ display:"flex", gap:2, justifyContent:"center" }}>
+                              <button onClick={()=>setEditRow(editing?null:t.id)}
+                                style={{ background:editing?COLORS.accent:"none", border:`1px solid ${editing?COLORS.accent:COLORS.border}`, borderRadius:3, color:editing?COLORS.bg:COLORS.textMuted, cursor:"pointer", fontSize:9, padding:"1px 5px" }}>
+                                {editing?"✓":"✏"}
+                              </button>
+                              <button onClick={()=>deleteTask(t.id)}
+                                style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:12, padding:"0 2px" }}>×</button>
+                            </div>
+                          </td>
+                          {calCols.map((c,ci)=>(
+                            <td key={ci} style={{ width:cellW, minWidth:cellW, maxWidth:cellW, padding:0, position:"relative", height:32,
+                              background: c.date===today?`${COLORS.accent}18`:c.isWeekend?`${COLORS.border}22`:"transparent",
+                              borderRight:`1px solid ${COLORS.border}11` }}>
+                              {ci===0 && <GanttBar task={t} calStart={calStart} calDays={calDays} cellW={cellW} today={today} />}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* RESUMEN KPIs */}
+              <div style={{ display:"flex", gap:12, marginTop:16, flexWrap:"wrap" }}>
+                {[
+                  { label:"Total Tareas", val: tasks.filter(t=>t.tipo==="T").length, color:GANTT_COLORS.tarea },
+                  { label:"Completadas", val: tasks.filter(t=>Number(t.pctAvance)===100).length, color:GANTT_COLORS.done },
+                  { label:"Atrasadas", val: tasks.filter(t=>t.fin<today&&Number(t.pctAvance)<100).length, color:GANTT_COLORS.late },
+                  { label:"HH Presup.", val: tasks.reduce((s,t)=>s+Number(t.hhPresup),0), color:COLORS.textMuted, suffix:"HH" },
+                  { label:"HH Real", val: tasks.reduce((s,t)=>s+Number(t.hhReal),0), color:"#39ff14", suffix:"HH" },
+                  { label:"Avance Prom.", val: tasks.filter(t=>t.tipo!=="H").length ? Math.round(tasks.filter(t=>t.tipo!=="H").reduce((s,t)=>s+Number(t.pctAvance),0)/tasks.filter(t=>t.tipo!=="H").length) : 0, color:COLORS.accent, suffix:"%" },
+                ].map(k=>(
+                  <div key={k.label} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 16px", flex:1, minWidth:100 }}>
+                    <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:4 }}>{k.label}</div>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:k.color }}>{k.val}{k.suffix||""}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:8 }}>
+                💡 Doble clic en una fila para editar · Enter en el campo cotización para cargar
+              </div>
+            </>
+          )}
         </>
       )}
     </div>
   );
 }
+
 
 // ── MAPPERS COTIZACIONES ─────────────────────────────────────────────────────
 const mapProduct = (r) => ({
@@ -6073,9 +6293,9 @@ const NAV_GROUPS = [
   },
   {
     key: "proyectos", label: "Proyectos", Icon: GanttChartSquare, children: [
-      { key:"costeo",    label:"Costeo",    Icon: Calculator       },
-      { key:"gantt",     label:"Gantt",     Icon: GanttChartSquare },
-      { key:"tasks",     label:"Tareas",    Icon: CheckSquare      },
+      { key:"costeo",    label:"Costeo",        Icon: Calculator       },
+      { key:"gantt",     label:"Planificación",  Icon: GanttChartSquare },
+      { key:"tasks",     label:"Tareas",         Icon: CheckSquare      },
     ],
   },
   {
