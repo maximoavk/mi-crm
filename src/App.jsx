@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calculator, GanttChartSquare, CheckSquare, BarChart2, LogOut, Sun, Moon, Receipt, Wrench, Scale } from "lucide-react";
+import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calculator, GanttChartSquare, CheckSquare, BarChart2, LogOut, Sun, Moon, Receipt, Wrench } from "lucide-react";
 
 // ── SUPABASE ────────────────────────────────────────────────────────────────
 const supabase = createClient(
@@ -555,7 +555,9 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
                       <div style={{ display:"flex", alignItems:"center", gap:8, padding:isCollapsed?"10px 12px":"12px 14px 8px" }}>
                         <button onClick={()=>toggleCollapse(d.id)} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:11, padding:0, flexShrink:0 }}>{isCollapsed?"▶":"▼"}</button>
                         <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{d.title}</div>
+                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                            {d.quoteNumber ? `COT-${d.quoteNumber}` : d.title}
+                          </div>
                           {isCollapsed && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{d.company}</div>}
                         </div>
                         {isCollapsed && <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.green, fontWeight:700, flexShrink:0 }}>{fmt(d.value)}</div>}
@@ -1964,7 +1966,7 @@ function ProductsDB({ isMobile }) {
 }
 
 // ── COTIZACIONES LIST ────────────────────────────────────────────────────────
-function QuotesView({ contacts, isMobile }) {
+function QuotesView({ contacts, deals, setDeals, isMobile }) {
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("list");
@@ -1995,6 +1997,32 @@ function QuotesView({ contacts, isMobile }) {
   const updateStatus = async (id, status) => {
     await supabase.from("cotizaciones").update({ estado: status }).eq("id", id);
     setQuotes(quotes.map(q=>q.id===id?{...q,status}:q));
+    // Auto-push al pipeline cuando se marca como enviada
+    if (status === "enviada") {
+      const q = quotes.find(q=>q.id===id);
+      if (q) {
+        const quoteNum = String(q.number);
+        const existing = deals.find(d=>String(d.quoteNumber)===quoteNum);
+        if (existing) {
+          await supabase.from("deals").update({ etapa:"propuesta" }).eq("id", existing.id);
+          setDeals(deals.map(d=>d.id===existing.id?{...d,stage:"propuesta"}:d));
+        } else {
+          const titulo = `COT-${quoteNum}`;
+          const { data: newDeal } = await supabase.from("deals").insert({
+            titulo,
+            valor: q.total||0,
+            etapa: "propuesta",
+            empresa: q.clientCompany||q.clientName||"",
+            quote_number: quoteNum,
+          }).select().single();
+          if (newDeal) setDeals(prev=>[...prev, {
+            id: newDeal.id, title: newDeal.titulo, value: newDeal.valor,
+            stage: newDeal.etapa, company: newDeal.empresa,
+            quoteNumber: quoteNum,
+          }]);
+        }
+      }
+    }
   };
 
   const del = async (id) => {
@@ -6038,7 +6066,6 @@ const NAV_GROUPS = [
     key: "comercial", label: "Comercial", Icon: FileText, children: [
       { key:"quotes",        label:"Cotizar",      Icon: FileText },
       { key:"prestaciones",  label:"Prestaciones", Icon: Receipt  },
-      { key:"analisis",      label:"Análisis",     Icon: Scale    },
     ],
   },
   {
@@ -8139,7 +8166,7 @@ export default function CRM() {
           {view==="dashboard" && <Dashboard contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} />}
           {view==="contacts"  && <ContactsView contacts={contacts} setContacts={setContacts} isMobile={isMobile} />}
           {view==="pipeline"  && <PipelineView deals={deals} setDeals={setDeals} contacts={contacts} isMobile={isMobile} />}
-          {view==="quotes"       && <QuotesView contacts={contacts} isMobile={isMobile} />}
+          {view==="quotes"       && <QuotesView contacts={contacts} deals={deals} setDeals={setDeals} isMobile={isMobile} />}
           {view==="prestaciones" && <PrestacionesView isMobile={isMobile} />}
           {view==="products"  && <ProductsDB isMobile={isMobile} />}
           {view==="purchase"  && <PurchaseView isMobile={isMobile} />}
