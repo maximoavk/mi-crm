@@ -7139,9 +7139,10 @@ function OpModal({ op, quotes, contacts, onClose, onSaved, onPrint }) {
     try {
       const q    = quotes.find(q=>q.id===form.quote_id);
       const cotN = q?.numero||"00";
-      // Sanitizar campos integer — Supabase rechaza "" como integer
+      // Sanitizar campos integer y uuid — Supabase rechaza "" en columnas tipadas
       const sanitizedForm = {
         ...form,
+        quote_id:       form.quote_id||null,
         revision:       form.revision===""||form.revision===null||form.revision===undefined ? 0 : Number(form.revision)||0,
         garantia_meses: form.garantia_meses===""||form.garantia_meses===null||form.garantia_meses===undefined ? null : Number(form.garantia_meses)||null,
       };
