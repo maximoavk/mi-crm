@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calculator, GanttChartSquare, CheckSquare, BarChart2, LogOut, Sun, Moon, Receipt } from "lucide-react";
+import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calculator, GanttChartSquare, CheckSquare, BarChart2, LogOut, Sun, Moon, Receipt, Wrench } from "lucide-react";
 
 // ── SUPABASE ────────────────────────────────────────────────────────────────
 const supabase = createClient(
@@ -5666,11 +5666,697 @@ const NAV = [
   { key:"purchase",  label:"Compras",   Icon: ShoppingCart     },
   { key:"costeo",    label:"Costeo",    Icon: Calculator       },
   { key:"gantt",     label:"Proyectos", Icon: GanttChartSquare },
+  { key:"operaciones", label:"Operaciones", Icon: Wrench          },
   { key:"tasks",     label:"Tareas",    Icon: CheckSquare      },
   { key:"reports",   label:"Reportes",  Icon: BarChart2        },
 ];
 
 // ── LOGIN SCREEN ─────────────────────────────────────────────────────────────
+
+// ── OPERACIONES / TERRENO ─────────────────────────────────────────────────────
+
+const CHECKLIST_TEMPLATES = {
+  "Motor de portón": [
+    { seccion:"1.0 Inspección General", items:["Funcionamiento apertura y cierre","Ruidos o vibraciones anómalas","Velocidad de operación","Detención en finales de carrera","Alineación general del portón"] },
+    { seccion:"2.0 Motor – Mecánica",  items:["Estado piñón de salida","Fijación del motor a la base","Ajuste de tornillería","Acople piñón–cremallera","Holguras mecánicas"] },
+    { seccion:"3.0 Motor – Electrónica", items:["Estado tarjeta electrónica","Limpieza tarjeta (aire/brocha)","Bornes de alimentación","Fusibles","Programación de fuerza","Programación de recorrido"] },
+    { seccion:"4.0 Cremallera",        items:["Alineación con piñón","Fijaciones al portón","Tramos duros o saltos","Limpieza","Lubricación"] },
+    { seccion:"5.0 Estructura Portón", items:["Estado del marco","Soldaduras","Rigidez estructural","Anclajes de cremallera","Roce con suelo"] },
+    { seccion:"6.0 Ruedas y Rodadura", items:["Desgaste de ruedas","Giro libre de polines","Enderezamiento de polines","Ajuste de altura","Lubricación de ejes"] },
+    { seccion:"7.0 Guía Superior",     items:["Estado de rodillos guía","Ajuste de presión","Alineación vertical","Lubricación"] },
+    { seccion:"8.0 Base y Fundaciones",items:["Nivelación base motor","Limpieza de base","Firmeza del anclaje","Ajuste de pernos"] },
+    { seccion:"9.0 Seguridad",         items:["Limpieza fotoceldas","Alineación fotoceldas","Prueba inversión de movimiento","Cambio baterías sensores","Revisión desbloqueo manual"] },
+    { seccion:"10.0 Batería/Respaldo", items:["Medición de voltaje","Estado físico","Conexiones","Prueba sin energía","Recomendación de cambio"] },
+    { seccion:"11.0 Limpieza General", items:["Limpieza interior motor","Limpieza exterior motor","Limpieza de riel","Retiro de residuos"] },
+    { seccion:"12.0 Pruebas Finales",  items:["Apertura completa","Cierre completo","Prueba con obstáculo","Tiempo de apertura"] },
+  ],
+  "Barrera vehicular": [
+    { seccion:"1.0 Inspección General", items:["Funcionamiento apertura/cierre","Tiempo de ciclo","Detección de vehículos","Funcionamiento bucles"] },
+    { seccion:"2.0 Mecánica",          items:["Estado de pluma","Contrapeso","Fijación motor","Amortiguador de pluma"] },
+    { seccion:"3.0 Electrónica",       items:["Tarjeta electrónica","Bornes de alimentación","Programación de fuerza","Fusibles"] },
+    { seccion:"4.0 Seguridad",         items:["Fotoceldas","Bucles inductivos","Función anti-aplastamiento","Luz de señalización"] },
+    { seccion:"5.0 Pruebas Finales",   items:["Ciclo completo","Prueba de emergencia","Prueba corte de luz"] },
+  ],
+  "Control de acceso IP": [
+    { seccion:"1.0 Hardware",          items:["Estado físico lector","Cableado estructurado","Alimentación PoE/12V","Protección contra humedad"] },
+    { seccion:"2.0 Software/Firmware", items:["Versión de firmware","Configuración de red","Base de datos de usuarios","Horarios y calendarios"] },
+    { seccion:"3.0 Funcionalidad",     items:["Lectura de tarjetas","Lectura biométrica","Apertura remota","Registro de eventos","Integración con central"] },
+    { seccion:"4.0 Pruebas Finales",   items:["Acceso autorizado","Acceso no autorizado","Prueba de alarma","Backup de configuración"] },
+  ],
+  "CCTV / Cámaras": [
+    { seccion:"1.0 Hardware",          items:["Estado físico cámaras","Limpieza de lentes","Ajuste de ángulo","Fijación y soporte","Cableado"] },
+    { seccion:"2.0 Grabación/NVR",     items:["Estado NVR/DVR","Espacio en disco","Retención de grabación","Estado de alarmas"] },
+    { seccion:"3.0 Video",             items:["Calidad de imagen diurna","Calidad de imagen nocturna","Cobertura correcta","Detección de movimiento"] },
+    { seccion:"4.0 Pruebas Finales",   items:["Acceso remoto","Calidad streaming","Respaldo de configuración"] },
+  ],
+};
+
+const CHECKLIST_COMISIONAMIENTO = {
+  "Motor de portón": [
+    { seccion:"1.0 Instalación Mecánica", items:["Fijación motor a base","Alineación piñón-cremallera","Ajuste de finales de carrera","Tensión de cremallera","Holguras mecánicas correctas"] },
+    { seccion:"2.0 Instalación Eléctrica", items:["Alimentación 220V correcta","Puesta a tierra","Cableado de fotoceldas","Cableado de pulsadores","Cableado de llave de selector"] },
+    { seccion:"3.0 Configuración",        items:["Programación de fuerza","Programación de velocidad","Configuración fotoceldas","Configuración de retardo","Prueba de batería de respaldo"] },
+    { seccion:"4.0 Verificación Final",   items:["5 ciclos completos sin falla","Prueba de seguridad con obstáculo","Instrucción al cliente","Entrega de manual","Entrega de controles"] },
+  ],
+  "Barrera vehicular": [
+    { seccion:"1.0 Instalación",     items:["Fijación a base","Nivelación","Conexión eléctrica","Conexión bucles inductivos"] },
+    { seccion:"2.0 Configuración",   items:["Velocidad de ciclo","Fuerza de apertura","Detector de bucles","Sensibilidad anti-aplastamiento"] },
+    { seccion:"3.0 Verificación",    items:["10 ciclos completos","Prueba de bucles","Prueba de emergencia","Instrucción al cliente"] },
+  ],
+  "Control de acceso IP": [
+    { seccion:"1.0 Instalación HW",  items:["Montaje en pared/marco","Cableado Cat6","Alimentación PoE","Prueba de comunicación"] },
+    { seccion:"2.0 Configuración SW", items:["IP estática asignada","Usuarios cargados","Horarios configurados","Integración con cerradura"] },
+    { seccion:"3.0 Verificación",    items:["Acceso con tarjeta","Acceso biométrico","Reporte de eventos","Acceso remoto","Instrucción al cliente"] },
+  ],
+  "CCTV / Cámaras": [
+    { seccion:"1.0 Instalación",     items:["Montaje y orientación","Cableado coaxial/Cat6","Alimentación","Protección exterior"] },
+    { seccion:"2.0 Configuración",   items:["IP asignada","Calidad de grabación","Retención configurada","Acceso remoto activo"] },
+    { seccion:"3.0 Verificación",    items:["Cobertura correcta","Calidad nocturna","Grabación en curso","Acceso remoto verificado","Instrucción al cliente"] },
+  ],
+};
+
+// ─── Utilidad: genera checklist inicial con estado null ───────────────────────
+function buildChecklist(template) {
+  return (template||[]).map(sec=>({
+    seccion: sec.seccion,
+    items: sec.items.map(label=>({ label, estado: null, obs: "" }))
+  }));
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
+function OperacionesView({ isMobile }) {
+  const [ops, setOps]             = useState([]);
+  const [quotes, setQuotes]       = useState([]);
+  const [contacts, setContacts]   = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editOp, setEditOp]       = useState(null);
+  const [filterTipo, setFilterTipo] = useState("todos");
+
+  useEffect(()=>{ load(); },[]);
+
+  const load = async () => {
+    setLoading(true);
+    const [{ data:opsData },{ data:qData },{ data:cData }] = await Promise.all([
+      supabase.from("operaciones_terreno").select("*").order("created_at",{ascending:false}),
+      supabase.from("cotizaciones").select("id,numero,nombre_cliente,razon_social,estado").order("numero",{ascending:false}),
+      supabase.from("contactos").select("id,nombre,empresa"),
+    ]);
+    setOps(opsData||[]);
+    setQuotes(qData||[]);
+    setContacts(cData||[]);
+    setLoading(false);
+  };
+
+  const deleteOp = async(id)=>{
+    if(!window.confirm("¿Eliminar esta operación?")) return;
+    await supabase.from("operaciones_terreno").delete().eq("id",id);
+    setOps(prev=>prev.filter(o=>o.id!==id));
+  };
+
+  const TIPOS = ["todos","mantencion","comisionamiento"];
+  const filtered = ops.filter(o=> filterTipo==="todos" || o.tipo===filterTipo);
+
+  const TIPO_COLOR = { mantencion: COLORS.secondary, comisionamiento: COLORS.green };
+  const TIPO_LABEL = { mantencion:"Mantención", comisionamiento:"Comisionamiento" };
+  const TIPO_ICON  = { mantencion:"🔧", comisionamiento:"🏗️" };
+
+  const ESTADO_COLOR = { borrador:COLORS.textMuted, completado:COLORS.yellow, firmado:COLORS.green };
+  const ESTADO_LABEL = { borrador:"Borrador", completado:"Completado", firmado:"Firmado" };
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:20, flexWrap:"wrap", gap:10 }}>
+        <div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Terreno · Documentos técnicos</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Operaciones</div>
+        </div>
+        <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+          {/* Filtro tipo */}
+          <div style={{ display:"flex", gap:4, background:COLORS.surface, padding:3, borderRadius:8, border:`1px solid ${COLORS.border}` }}>
+            {TIPOS.map(t=>(
+              <button key={t} onClick={()=>setFilterTipo(t)}
+                style={{ padding:"5px 14px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", border:"none",
+                  background:filterTipo===t?`${TIPO_COLOR[t]||COLORS.accent}22`:"transparent",
+                  color:filterTipo===t?(TIPO_COLOR[t]||COLORS.accent):COLORS.textMuted }}>
+                {t==="todos"?"Todos":TIPO_LABEL[t]}
+              </button>
+            ))}
+          </div>
+          <AddBtn onClick={()=>{ setEditOp(null); setShowModal(true); }} label="Nueva operación" />
+        </div>
+      </div>
+
+      {/* Stats rápidas */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:10, marginBottom:20 }}>
+        {[
+          { label:"Total", val:ops.length, color:COLORS.accent },
+          { label:"Mantenciones", val:ops.filter(o=>o.tipo==="mantencion").length, color:COLORS.secondary },
+          { label:"Comisionamientos", val:ops.filter(o=>o.tipo==="comisionamiento").length, color:COLORS.green },
+          { label:"Firmados", val:ops.filter(o=>o.estado==="firmado").length, color:COLORS.yellow },
+        ].map(({label,val,color})=>(
+          <div key={label} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"12px 16px" }}>
+            <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>{label}</div>
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color }}>{val}</div>
+          </div>
+        ))}
+      </div>
+
+      {loading ? <Loader /> : filtered.length===0 ? (
+        <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>
+          <div style={{ fontSize:32, marginBottom:10 }}>🔧</div>
+          Sin operaciones aún. Crea la primera desde una cotización aprobada.
+        </div>
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {filtered.map(op=>{
+            const q = quotes.find(q=>q.id===op.quote_id);
+            const tc = TIPO_COLOR[op.tipo]||COLORS.accent;
+            const checklist = op.checklist||[];
+            const totalItems = checklist.reduce((s,sec)=>s+(sec.items||[]).length,0);
+            const doneItems  = checklist.reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado==="ok"||it.estado==="obs").length,0);
+            const pct = totalItems>0?Math.round(doneItems/totalItems*100):0;
+            const garantiaVence = op.garantia_meses && op.fecha_visita
+              ? new Date(new Date(op.fecha_visita).setMonth(new Date(op.fecha_visita).getMonth()+Number(op.garantia_meses))).toLocaleDateString("es-CL")
+              : null;
+            return (
+              <div key={op.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:"14px 18px" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12, flexWrap:"wrap" }}>
+                  {/* Info principal */}
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:5, flexWrap:"wrap" }}>
+                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:tc }}>{TIPO_ICON[op.tipo]} {op.numero||op.id.slice(0,8)}</span>
+                      <Badge color={tc}>{TIPO_LABEL[op.tipo]}</Badge>
+                      <Badge color={ESTADO_COLOR[op.estado]||COLORS.textMuted}>{ESTADO_LABEL[op.estado]||op.estado}</Badge>
+                      {op.tipo==="comisionamiento" && garantiaVence && (
+                        <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.yellow, background:`${COLORS.yellow}15`, padding:"2px 8px", borderRadius:10, border:`1px solid ${COLORS.yellow}33` }}>
+                          🛡 Garantía hasta {garantiaVence}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, marginBottom:3 }}>
+                      {op.cliente_nombre||q?.razon_social||q?.nombre_cliente||"—"}
+                    </div>
+                    <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
+                      {q && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent }}>COT °{q.numero}</span>}
+                      {op.tecnico && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>👷 {op.tecnico}</span>}
+                      {op.fecha_visita && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>📅 {new Date(op.fecha_visita+"T00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}</span>}
+                      {op.equipo_modelo && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>⚙️ {op.equipo_modelo}{op.equipo_serial?` · S/N: ${op.equipo_serial}`:""}</span>}
+                    </div>
+                  </div>
+                  {/* Progreso checklist */}
+                  {totalItems>0 && (
+                    <div style={{ flexShrink:0, textAlign:"right", minWidth:100 }}>
+                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:pct===100?COLORS.green:tc }}>{pct}%</div>
+                      <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginBottom:4 }}>{doneItems}/{totalItems} ítems</div>
+                      <div style={{ height:4, width:100, background:COLORS.border, borderRadius:99, overflow:"hidden" }}>
+                        <div style={{ height:"100%", width:`${pct}%`, background:pct===100?COLORS.green:tc, borderRadius:99, transition:"width 0.3s" }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {/* Acciones */}
+                <div style={{ display:"flex", gap:8, marginTop:12, paddingTop:10, borderTop:`1px solid ${COLORS.border}`, flexWrap:"wrap" }}>
+                  <button onClick={()=>{ setEditOp(op); setShowModal(true); }}
+                    style={{ padding:"5px 14px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${tc}22`, border:`1px solid ${tc}44`, color:tc }}>
+                    ✏️ Abrir / Editar
+                  </button>
+                  <button onClick={()=>printOp(op, q)}
+                    style={{ padding:"5px 14px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${COLORS.accent}22`, border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>
+                    🖨 PDF
+                  </button>
+                  <button onClick={()=>deleteOp(op.id)}
+                    style={{ padding:"5px 10px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red, marginLeft:"auto" }}>
+                    ✕
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {showModal && (
+        <OpModal
+          op={editOp}
+          quotes={quotes}
+          contacts={contacts}
+          onClose={()=>{ setShowModal(false); setEditOp(null); }}
+          onSaved={(saved, isNew)=>{
+            if(isNew) setOps(prev=>[saved,...prev]);
+            else setOps(prev=>prev.map(o=>o.id===saved.id?saved:o));
+            setShowModal(false); setEditOp(null);
+          }}
+          onPrint={(op)=>{ const q=quotes.find(q=>q.id===op.quote_id); printOp(op,q); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── PDF renderer ─────────────────────────────────────────────────────────────
+function printOp(op, quote) {
+  const isCom  = op.tipo==="comisionamiento";
+  const fecha  = op.fecha_visita ? new Date(op.fecha_visita+"T00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"}) : "—";
+  const checklist = op.checklist||[];
+  const garantiaVence = op.garantia_meses && op.fecha_visita
+    ? new Date(new Date(op.fecha_visita).setMonth(new Date(op.fecha_visita).getMonth()+Number(op.garantia_meses))).toLocaleDateString("es-CL")
+    : null;
+
+  const checklistHtml = checklist.map(sec=>`
+    <div class="sec">
+      <div class="sec-title">${sec.seccion}</div>
+      <div class="items-grid">
+        ${(sec.items||[]).map(it=>`
+          <div class="item ${it.estado==="ok"?"ok":it.estado==="obs"?"obs":it.estado==="na"?"na":"pend"}">
+            <span class="chk">${it.estado==="ok"?"☑":it.estado==="na"?"⊘":"☐"}</span>
+            <div class="item-body">
+              <span>${it.label}</span>
+              ${it.obs?`<div class="item-obs">Obs: ${it.obs}</div>`:""}
+            </div>
+            ${it.estado==="obs"?`<span class="badge-obs">OBS</span>`:""}
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `).join("");
+
+  const firmaHtml = op.firma_imagen
+    ? `<div class="firma-box"><div class="firma-label">Firma del cliente</div><img src="${op.firma_imagen}" style="max-width:200px;max-height:70px;display:block;margin:4px 0"/><div style="font-size:9px;color:#666">${op.firma_nombre||""} · ${fecha}</div></div>`
+    : `<div class="firma-box"><div class="firma-label">Firma del cliente</div><div style="border-bottom:1px solid #aaa;height:50px;margin:4px 0"></div><div style="font-size:9px;color:#888">____________________________</div></div>`;
+
+  const comBlock = isCom ? `
+    <div class="com-block">
+      <div class="com-title">Datos de equipamiento instalado</div>
+      <table class="com-table">
+        <tr><td>Modelo</td><td><b>${op.equipo_modelo||"—"}</b></td><td>Serial / N/S</td><td><b>${op.equipo_serial||"—"}</b></td></tr>
+        <tr><td>Tipo equipo</td><td><b>${op.equipo_tipo||"—"}</b></td><td>Marca</td><td><b>${op.equipo_marca||"—"}</b></td></tr>
+        <tr><td>Fecha instalación</td><td><b>${fecha}</b></td><td>Garantía</td><td><b>${op.garantia_meses||"—"} meses${garantiaVence?` (hasta ${garantiaVence})`:""}</b></td></tr>
+      </table>
+      ${op.observaciones_generales?`<div style="margin-top:4mm;font-size:10px"><b>Observaciones:</b> ${op.observaciones_generales}</div>`:""}
+    </div>` : op.observaciones_generales ? `<div style="margin:4mm 0;padding:5px 8px;border:1px solid #e2e8f0;border-radius:3px;font-size:10px"><b>Observaciones generales:</b> ${op.observaciones_generales}</div>` : "";
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    @page{size:A4 portrait;margin:12mm 14mm;}
+    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a1a;font-size:11px;}
+    .hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:4mm;margin-bottom:5mm;}
+    .hdr img{height:38px;}
+    .hdr-right{text-align:right;}
+    .doc-type{font-size:14px;font-weight:900;letter-spacing:.05em;color:#1a1a1a;}
+    .doc-sub{font-size:9px;color:#666;margin-top:2px;}
+    .meta{display:grid;grid-template-columns:1fr 1fr;gap:4mm;margin-bottom:5mm;}
+    .meta-box{border:1px solid #e2e8f0;border-radius:3px;padding:5px 8px;}
+    .meta-label{font-size:8px;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:2px;font-weight:600;}
+    .meta-val{font-size:11px;font-weight:700;color:#1a1a1a;}
+    .meta-sub{font-size:9px;color:#555;margin-top:1px;}
+    .com-block{margin-bottom:5mm;padding:6px 10px;border:1.5px solid #3b82f6;border-radius:4px;background:#f0f7ff;}
+    .com-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#3b82f6;margin-bottom:4px;}
+    .com-table{width:100%;font-size:10px;border-collapse:collapse;}
+    .com-table td{padding:3px 6px;border-bottom:1px solid #dde8f8;}
+    .com-table td:first-child,.com-table td:nth-child(3){color:#666;font-size:9px;width:22%;}
+    .sec{margin-bottom:5mm;}
+    .sec-title{font-size:11px;font-weight:700;border-bottom:1.5px solid #1a1a1a;padding-bottom:2px;margin-bottom:3mm;}
+    .items-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;}
+    .item{display:flex;align-items:flex-start;gap:5px;padding:3px 5px;border-radius:2px;font-size:10px;}
+    .item.ok{background:#f0fdf4;}.item.obs{background:#fff7ed;}.item.na{background:#f8fafc;opacity:.6;}.item.pend{background:#fff;}
+    .chk{font-size:12px;flex-shrink:0;margin-top:-1px;}
+    .item-body{flex:1;}
+    .item-obs{font-size:8.5px;color:#b45309;margin-top:1px;font-style:italic;}
+    .badge-obs{font-size:8px;font-weight:700;color:#b45309;background:#fef3c7;padding:1px 4px;border-radius:3px;flex-shrink:0;}
+    .footer-row{display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin-top:6mm;padding-top:4mm;border-top:1px solid #e2e8f0;}
+    .firma-box{border:1px solid #e2e8f0;border-radius:3px;padding:6px 10px;}
+    .firma-label{font-size:8px;text-transform:uppercase;letter-spacing:.07em;color:#888;font-weight:600;margin-bottom:4px;}
+    .tecnico-box{border:1px solid #e2e8f0;border-radius:3px;padding:6px 10px;}
+    .foot{margin-top:6mm;border-top:1px solid #ccc;padding-top:3mm;font-size:8px;color:#999;text-align:center;}
+  </style></head><body>
+  <div class="hdr">
+    <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos"/>
+    <div class="hdr-right">
+      <div class="doc-type">${isCom?"Informe de Comisionamiento":"Checklist de Mantención"}</div>
+      <div class="doc-sub">${op.numero||"OP-"+op.id.slice(0,8)} · ${fecha}</div>
+      ${quote?`<div class="doc-sub">Cotización N° ${quote.numero}</div>`:""}
+    </div>
+  </div>
+  <div class="meta">
+    <div class="meta-box"><div class="meta-label">Cliente</div><div class="meta-val">${op.cliente_nombre||quote?.razon_social||quote?.nombre_cliente||"—"}</div>${op.cliente_rut?`<div class="meta-sub">RUT: ${op.cliente_rut}</div>`:""}</div>
+    <div class="meta-box"><div class="meta-label">Dirección / Lugar</div><div class="meta-val">${op.lugar||"—"}</div></div>
+    <div class="meta-box"><div class="meta-label">Técnico responsable</div><div class="meta-val">${op.tecnico||"—"}</div></div>
+    <div class="meta-box"><div class="meta-label">Equipo intervenido</div><div class="meta-val">${op.equipo_tipo||"—"}</div>${op.equipo_modelo?`<div class="meta-sub">${op.equipo_modelo}</div>`:""}</div>
+  </div>
+  ${comBlock}
+  ${checklistHtml}
+  <div class="footer-row">
+    <div class="tecnico-box">
+      <div class="firma-label">Elaborado por</div>
+      <div style="font-size:11px;font-weight:700;margin:4px 0">${op.tecnico||"—"}</div>
+      <div style="font-size:9px;color:#666">${fecha} · Rev. ${op.revision||0}</div>
+      <div style="border-bottom:1px solid #aaa;height:40px;margin-top:6px"></div>
+    </div>
+    ${firmaHtml}
+  </div>
+  <div class="foot">Innovación | Tecnología | Seguridad · ventas@polygonos.cl · +56 9 6426 6356 · Polygonos SpA · RUT 77.180.437-3</div>
+  <script>window.onload=()=>window.print();</script>
+  </body></html>`;
+
+  const w = window.open("","_blank"); w.document.write(html); w.document.close();
+}
+
+// ─── Modal Operación ──────────────────────────────────────────────────────────
+function OpModal({ op, quotes, contacts, onClose, onSaved, onPrint }) {
+  const isNew = !op;
+  const isCom = op?.tipo==="comisionamiento";
+  const [tipo,   setTipo]   = useState(op?.tipo||"mantencion");
+  const [form,   setForm]   = useState({
+    quote_id:             op?.quote_id||"",
+    tecnico:              op?.tecnico||"Maximo Hudson",
+    fecha_visita:         op?.fecha_visita||new Date().toISOString().slice(0,10),
+    lugar:                op?.lugar||"",
+    cliente_nombre:       op?.cliente_nombre||"",
+    cliente_rut:          op?.cliente_rut||"",
+    equipo_tipo:          op?.equipo_tipo||"Motor de portón",
+    equipo_modelo:        op?.equipo_modelo||"",
+    equipo_serial:        op?.equipo_serial||"",
+    equipo_marca:         op?.equipo_marca||"",
+    garantia_meses:       op?.garantia_meses||"",
+    observaciones_generales: op?.observaciones_generales||"",
+    estado:               op?.estado||"borrador",
+    revision:             op?.revision||0,
+  });
+  const [checklist, setChecklist] = useState(op?.checklist||null);
+  const [firma, setFirma]         = useState({ img: op?.firma_imagen||null, nombre: op?.firma_nombre||"" });
+  const [firmaMode, setFirmaMode] = useState(false);
+  const [saving, setSaving]       = useState(false);
+  const [activeTab, setActiveTab] = useState("info"); // info | checklist | firma
+  const canvasRef = React.useRef(null);
+  const drawing   = React.useRef(false);
+
+  const ff = (k,v) => setForm(p=>({...p,[k]:v}));
+
+  // Auto-fill cliente when quote selected
+  React.useEffect(()=>{
+    if(form.quote_id){
+      const q = quotes.find(q=>q.id===form.quote_id);
+      if(q){ ff("cliente_nombre", q.razon_social||q.nombre_cliente||""); }
+    }
+  },[form.quote_id]);
+
+  // Init checklist when equipo_tipo or tipo changes
+  React.useEffect(()=>{
+    if(!op?.checklist){
+      const tmpl = tipo==="comisionamiento"
+        ? CHECKLIST_COMISIONAMIENTO[form.equipo_tipo]
+        : CHECKLIST_TEMPLATES[form.equipo_tipo];
+      setChecklist(buildChecklist(tmpl||[]));
+    }
+  },[form.equipo_tipo, tipo]);
+
+  const setItem = (sIdx, iIdx, field, val) => {
+    setChecklist(prev => prev.map((s,si)=> si!==sIdx ? s : {
+      ...s, items: s.items.map((it,ii)=> ii!==iIdx ? it : {...it,[field]:val})
+    }));
+  };
+
+  // Firma canvas
+  const startDraw = (e) => {
+    drawing.current = true;
+    const c = canvasRef.current;
+    const r = c.getBoundingClientRect();
+    const cx = c.getContext("2d");
+    cx.beginPath();
+    const clientX = e.touches?.[0]?.clientX ?? e.clientX;
+    const clientY = e.touches?.[0]?.clientY ?? e.clientY;
+    cx.moveTo(clientX-r.left, clientY-r.top);
+  };
+  const draw = (e) => {
+    if(!drawing.current) return;
+    e.preventDefault();
+    const c = canvasRef.current;
+    const r = c.getBoundingClientRect();
+    const cx = c.getContext("2d");
+    cx.lineWidth = 2; cx.lineCap = "round"; cx.strokeStyle = "#1a1a1a";
+    const clientX = e.touches?.[0]?.clientX ?? e.clientX;
+    const clientY = e.touches?.[0]?.clientY ?? e.clientY;
+    cx.lineTo(clientX-r.left, clientY-r.top);
+    cx.stroke();
+  };
+  const endDraw = () => { drawing.current = false; };
+  const clearFirma = () => { canvasRef.current?.getContext("2d").clearRect(0,0,400,120); };
+  const saveFirma  = () => { setFirma(p=>({...p, img:canvasRef.current.toDataURL()})); setFirmaMode(false); };
+
+  const totalItems = (checklist||[]).reduce((s,sec)=>s+(sec.items||[]).length,0);
+  const doneItems  = (checklist||[]).reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado==="ok"||it.estado==="obs").length,0);
+  const pct = totalItems>0?Math.round(doneItems/totalItems*100):0;
+
+  const save = async (nuevoEstado) => {
+    setSaving(true);
+    try {
+      const q    = quotes.find(q=>q.id===form.quote_id);
+      const cotN = q?.numero||"00";
+      const payload = {
+        tipo, ...form,
+        checklist: checklist||[],
+        firma_imagen: firma.img||null,
+        firma_nombre: firma.nombre||null,
+        estado: nuevoEstado||form.estado,
+      };
+      let data, error;
+      if(isNew){
+        // Generate correlative number
+        const { data:existing } = await supabase.from("operaciones_terreno").select("numero").like("numero",`${tipo==="comisionamiento"?"COM":"MNT"}-${cotN}-%`);
+        const seq = String((existing?.length||0)+1).padStart(3,"0");
+        payload.numero = `${tipo==="comisionamiento"?"COM":"MNT"}-${cotN}-${seq}`;
+        ({ data, error } = await supabase.from("operaciones_terreno").insert(payload).select().single());
+      } else {
+        ({ data, error } = await supabase.from("operaciones_terreno").update(payload).eq("id",op.id).select().single());
+      }
+      if(error){ alert("Error: "+error.message); setSaving(false); return; }
+      onSaved(data, isNew);
+    } catch(e){ alert("Error: "+e.message); setSaving(false); }
+  };
+
+  const inp = { width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", boxSizing:"border-box" };
+  const lbl = { fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4, fontWeight:600, display:"block" };
+  const TABS = [{ k:"info",label:"📋 Info"},{k:"checklist",label:`✅ Checklist (${pct}%)`},{k:"firma",label:"✍️ Firma"}];
+  const TC = tipo==="comisionamiento"?COLORS.green:COLORS.secondary;
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"#000c", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:12 }}>
+      <div style={{ background:COLORS.surface, border:`1px solid ${TC}44`, borderRadius:16, width:"100%", maxWidth:720, maxHeight:"95vh", display:"flex", flexDirection:"column" }}>
+
+        {/* Header */}
+        <div style={{ padding:"18px 24px 0", borderBottom:`1px solid ${COLORS.border}`, flexShrink:0 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+            <div>
+              <div style={{ fontFamily:FONT, fontSize:10, color:TC, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:3 }}>
+                {isNew?"Nueva operación":op.numero}
+              </div>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:17, fontWeight:700, color:COLORS.text }}>
+                {isNew ? (
+                  <div style={{ display:"flex", gap:8 }}>
+                    {[["mantencion","🔧 Mantención",COLORS.secondary],["comisionamiento","🏗️ Comisionamiento",COLORS.green]].map(([k,l,c])=>(
+                      <button key={k} onClick={()=>setTipo(k)}
+                        style={{ padding:"5px 16px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", border:`1px solid ${tipo===k?c:COLORS.border}`, background:tipo===k?`${c}22`:"transparent", color:tipo===k?c:COLORS.textMuted }}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                ) : `${tipo==="comisionamiento"?"🏗️":"🔧"} ${tipo==="comisionamiento"?"Comisionamiento":"Mantención"}`}
+              </div>
+            </div>
+            <button onClick={onClose} style={{ background:"transparent", border:"none", color:COLORS.textMuted, fontSize:20, cursor:"pointer" }}>✕</button>
+          </div>
+          {/* Tabs */}
+          <div style={{ display:"flex", gap:0 }}>
+            {TABS.map(t=>(
+              <button key={t.k} onClick={()=>setActiveTab(t.k)}
+                style={{ padding:"8px 18px", fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", border:"none", background:"transparent",
+                  color:activeTab===t.k?TC:COLORS.textMuted, borderBottom:`2px solid ${activeTab===t.k?TC:"transparent"}`, transition:"all 0.15s" }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex:1, overflowY:"auto", padding:"20px 24px" }}>
+
+          {/* TAB INFO */}
+          {activeTab==="info" && (
+            <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+              {/* Cotización */}
+              <div>
+                <label style={lbl}>Cotización asociada</label>
+                <select value={form.quote_id} onChange={e=>ff("quote_id",e.target.value)} style={inp}>
+                  <option value="">— Sin cotización —</option>
+                  {quotes.map(q=><option key={q.id} value={q.id}>COT °{q.numero} · {q.razon_social||q.nombre_cliente}</option>)}
+                </select>
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                <div><label style={lbl}>Técnico responsable</label><input value={form.tecnico} onChange={e=>ff("tecnico",e.target.value)} style={inp} /></div>
+                <div><label style={lbl}>Fecha visita</label><input type="date" value={form.fecha_visita} onChange={e=>ff("fecha_visita",e.target.value)} style={inp} /></div>
+                <div><label style={lbl}>Cliente / Lugar</label><input value={form.cliente_nombre} onChange={e=>ff("cliente_nombre",e.target.value)} style={inp} /></div>
+                <div><label style={lbl}>RUT cliente</label><input value={form.cliente_rut} onChange={e=>ff("cliente_rut",e.target.value)} placeholder="Ej: 65.198.585-4" style={inp} /></div>
+                <div style={{ gridColumn:"span 2" }}><label style={lbl}>Dirección / Lugar de faena</label><input value={form.lugar} onChange={e=>ff("lugar",e.target.value)} placeholder="Ej: Av. Peñuelas 2500, Coquimbo" style={inp} /></div>
+              </div>
+              {/* Equipo */}
+              <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16 }}>
+                <div style={{ fontFamily:FONT, fontSize:10, color:TC, textTransform:"uppercase", letterSpacing:"0.08em", fontWeight:700, marginBottom:12 }}>⚙️ Datos del equipo</div>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+                  <div>
+                    <label style={lbl}>Tipo de equipo</label>
+                    <select value={form.equipo_tipo} onChange={e=>ff("equipo_tipo",e.target.value)} style={inp}>
+                      {Object.keys(CHECKLIST_TEMPLATES).map(k=><option key={k} value={k}>{k}</option>)}
+                    </select>
+                  </div>
+                  <div><label style={lbl}>Modelo</label><input value={form.equipo_modelo} onChange={e=>ff("equipo_modelo",e.target.value)} placeholder="Ej: Centurion D10 Turbo" style={inp} /></div>
+                  <div><label style={lbl}>Marca</label><input value={form.equipo_marca} onChange={e=>ff("equipo_marca",e.target.value)} placeholder="Ej: Centurion" style={inp} /></div>
+                  <div><label style={lbl}>N° Serie / Serial</label><input value={form.equipo_serial} onChange={e=>ff("equipo_serial",e.target.value)} placeholder="Ej: CTD10-2024-00123" style={inp} /></div>
+                  {tipo==="comisionamiento" && (
+                    <div><label style={lbl}>Garantía (meses)</label>
+                      <input type="number" min="0" value={form.garantia_meses} onChange={e=>ff("garantia_meses",e.target.value)} placeholder="Ej: 12" style={inp} />
+                      {form.garantia_meses&&form.fecha_visita&&<div style={{fontFamily:FONT,fontSize:10,color:COLORS.green,marginTop:3}}>
+                        Vence: {new Date(new Date(form.fecha_visita).setMonth(new Date(form.fecha_visita).getMonth()+Number(form.garantia_meses))).toLocaleDateString("es-CL")}
+                      </div>}
+                    </div>
+                  )}
+                  <div><label style={lbl}>Revisión Nro.</label><input type="number" min="0" value={form.revision} onChange={e=>ff("revision",e.target.value)} style={inp} /></div>
+                </div>
+              </div>
+              <div>
+                <label style={lbl}>Observaciones generales</label>
+                <textarea value={form.observaciones_generales} onChange={e=>ff("observaciones_generales",e.target.value)}
+                  placeholder="Notas generales del estado del equipo, recomendaciones, etc."
+                  rows={3} style={{...inp, resize:"vertical"}} />
+              </div>
+            </div>
+          )}
+
+          {/* TAB CHECKLIST */}
+          {activeTab==="checklist" && (
+            <div>
+              {/* Barra de progreso global */}
+              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16, padding:"10px 14px", background:COLORS.bg, borderRadius:10, border:`1px solid ${COLORS.border}` }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                    <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{doneItems} de {totalItems} ítems completados</span>
+                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:pct===100?COLORS.green:TC }}>{pct}%</span>
+                  </div>
+                  <div style={{ height:6, background:COLORS.border, borderRadius:99, overflow:"hidden" }}>
+                    <div style={{ height:"100%", width:`${pct}%`, background:pct===100?COLORS.green:TC, borderRadius:99, transition:"width 0.3s" }} />
+                  </div>
+                </div>
+                <div style={{ display:"flex", gap:6 }}>
+                  {[["ok","✓ OK",COLORS.green],["obs","⚠ OBS",COLORS.yellow],["na","N/A",COLORS.textMuted]].map(([s,l,c])=>(
+                    <div key={s} style={{ fontFamily:FONT, fontSize:9, color:c, background:`${c}15`, padding:"2px 7px", borderRadius:10 }}>{l}</div>
+                  ))}
+                </div>
+              </div>
+
+              {(checklist||[]).map((sec,sIdx)=>(
+                <div key={sIdx} style={{ marginBottom:16 }}>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.text, borderBottom:`2px solid ${TC}44`, paddingBottom:6, marginBottom:8 }}>
+                    {sec.seccion}
+                  </div>
+                  <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                    {(sec.items||[]).map((it,iIdx)=>(
+                      <div key={iIdx} style={{ background:it.estado==="ok"?`${COLORS.green}10`:it.estado==="obs"?`${COLORS.yellow}10`:it.estado==="na"?`${COLORS.border}22`:COLORS.bg, border:`1px solid ${it.estado==="ok"?COLORS.green+"33":it.estado==="obs"?COLORS.yellow+"33":COLORS.border}`, borderRadius:7, padding:"8px 12px" }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                          <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, flexShrink:0, minWidth:16, textAlign:"center" }}>
+                            {it.estado==="ok"?"✓":it.estado==="na"?"⊘":"○"}
+                          </span>
+                          <span style={{ fontFamily:FONT, fontSize:12, color:it.estado==="na"?COLORS.textMuted:COLORS.text, flex:1, textDecoration:it.estado==="na"?"line-through":"none" }}>{it.label}</span>
+                          <div style={{ display:"flex", gap:4, flexShrink:0 }}>
+                            {[["ok","OK",COLORS.green],["obs","OBS",COLORS.yellow],["na","N/A",COLORS.textMuted]].map(([s,l,c])=>(
+                              <button key={s} onClick={()=>setItem(sIdx,iIdx,"estado",it.estado===s?null:s)}
+                                style={{ padding:"2px 8px", borderRadius:5, fontFamily:FONT_DISPLAY, fontSize:9, cursor:"pointer", border:`1px solid ${it.estado===s?c:COLORS.border}`, background:it.estado===s?`${c}22`:"transparent", color:it.estado===s?c:COLORS.textMuted, fontWeight:it.estado===s?700:400 }}>
+                                {l}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        {it.estado==="obs" && (
+                          <input value={it.obs||""} onChange={e=>setItem(sIdx,iIdx,"obs",e.target.value)}
+                            placeholder="Describe la observación…"
+                            style={{ marginTop:6, width:"100%", background:"transparent", border:`1px solid ${COLORS.yellow}44`, borderRadius:5, padding:"5px 9px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* TAB FIRMA */}
+          {activeTab==="firma" && (
+            <div>
+              {firma.img && !firmaMode ? (
+                <div style={{ marginBottom:16, padding:"14px 16px", background:COLORS.bg, border:`1px solid ${COLORS.green}44`, borderRadius:10 }}>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.green, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8, fontWeight:700 }}>✓ Firma registrada</div>
+                  <img src={firma.img} alt="firma" style={{ maxWidth:260, maxHeight:90, border:`1px solid ${COLORS.border}`, borderRadius:6, background:"#fff", padding:4 }} />
+                  <div style={{ marginTop:8 }}>
+                    <input value={firma.nombre} onChange={e=>setFirma(p=>({...p,nombre:e.target.value}))} placeholder="Nombre del firmante"
+                      style={{...inp, maxWidth:300}} />
+                  </div>
+                  <div style={{ display:"flex", gap:8, marginTop:10 }}>
+                    <button onClick={()=>setFirmaMode(true)} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${COLORS.yellow}22`, border:`1px solid ${COLORS.yellow}44`, color:COLORS.yellow }}>✏️ Volver a firmar</button>
+                    <button onClick={()=>setFirma({img:null,nombre:""})} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red }}>✕ Borrar firma</button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:10 }}>
+                    El cliente puede firmar directamente en pantalla. Funciona en celular/tablet con dedo.
+                  </div>
+                  <div style={{ background:"#fff", border:`2px solid ${TC}`, borderRadius:10, overflow:"hidden", marginBottom:10, touchAction:"none" }}>
+                    <canvas ref={canvasRef} width={650} height={130} style={{ display:"block", width:"100%", cursor:"crosshair" }}
+                      onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw}
+                      onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw}
+                    />
+                  </div>
+                  <div style={{ marginBottom:10 }}>
+                    <input value={firma.nombre} onChange={e=>setFirma(p=>({...p,nombre:e.target.value}))} placeholder="Nombre del firmante (cliente)"
+                      style={{...inp, maxWidth:320}} />
+                  </div>
+                  <div style={{ display:"flex", gap:8 }}>
+                    <button onClick={clearFirma} style={{ padding:"7px 16px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.border}`, color:COLORS.textMuted }}>🗑 Limpiar</button>
+                    <button onClick={saveFirma} style={{ padding:"7px 16px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, color:COLORS.green }}>✓ Aceptar firma</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer botones */}
+        <div style={{ padding:"14px 24px", borderTop:`1px solid ${COLORS.border}`, display:"flex", gap:8, flexShrink:0, flexWrap:"wrap" }}>
+          <button onClick={onClose} style={{ padding:"9px 18px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.border}`, color:COLORS.textMuted }}>Cancelar</button>
+          <button onClick={()=>save("borrador")} disabled={saving}
+            style={{ padding:"9px 18px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:`${COLORS.border}`, border:"none", color:COLORS.textMuted }}>
+            💾 Guardar borrador
+          </button>
+          <button onClick={()=>save("completado")} disabled={saving}
+            style={{ padding:"9px 18px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:`${TC}22`, border:`1px solid ${TC}44`, color:TC }}>
+            ✓ Marcar completado
+          </button>
+          {firma.img && <button onClick={()=>save("firmado")} disabled={saving}
+            style={{ padding:"9px 18px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, color:COLORS.green }}>
+            ✍️ Guardar firmado
+          </button>}
+          <button onClick={async()=>{ await save(form.estado); }} disabled={saving}
+            style={{ padding:"9px 18px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:COLORS.accent, border:"none", color:"#fff", marginLeft:"auto" }}>
+            🖨 Guardar y PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -5881,6 +6567,7 @@ export default function CRM() {
           {view==="purchase"  && <PurchaseView isMobile={isMobile} />}
           {view==="costeo"    && <CosteoView contacts={contacts} isMobile={isMobile} />}
           {view==="gantt"     && <GanttView isMobile={isMobile} />}
+          {view==="operaciones" && <OperacionesView isMobile={isMobile} />}
           {view==="tasks"     && <TasksView tasks={tasks} setTasks={setTasks} contacts={contacts} isMobile={isMobile} />}
           {view==="reports"   && <ReportsView contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} />}
         </div>
