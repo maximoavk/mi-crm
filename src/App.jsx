@@ -927,6 +927,7 @@ function ReportsView({ contacts, deals, tasks, isMobile }) {
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:16, marginBottom:16 }}>
         <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20 }}>
           <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Pipeline por etapa</div>
+          {STAGES.map(s=>{
             const val=deals.filter(d=>d.stage===s.key).reduce((a,d)=>a+Number(d.value),0);
             return (
               <div key={s.key} style={{ marginBottom:12 }}>
