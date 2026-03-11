@@ -113,10 +113,10 @@ function AddressSelector({ value, onChange }) {
 }
 
 const STAGES = [
-  { key: "contacto",    label: "Contacto",    color: COLORS.textMuted },
-  { key: "propuesta",   label: "Propuesta",   color: COLORS.yellow },
-  { key: "negociacion", label: "Negociación", color: COLORS.accent },
-  { key: "cerrado",     label: "Cerrado",     color: COLORS.green },
+  { key: "propuesta",    label: "Propuesta",    color: COLORS.yellow },
+  { key: "negociacion",  label: "Negociación",  color: COLORS.accent },
+  { key: "cerrado",      label: "Cerrado",      color: COLORS.green },
+  { key: "por_facturar", label: "Por Facturar", color: COLORS.purple },
 ];
 const STATUS_CONFIG = {
   cliente:   { label: "Cliente",   color: COLORS.green },
@@ -462,7 +462,7 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
   const [editingId, setEditingId] = useState(null);
   const [collapsed, setCollapsed] = useState({});
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title:"", company:"", contactId:"", rut:"", value:"", stage:"contacto", probability:"20", closeDate:"", quoteNumber:"" });
+  const [form, setForm] = useState({ title:"", company:"", contactId:"", rut:"", value:"", stage:"propuesta", probability:"20", closeDate:"", quoteNumber:"" });
   const [quoteBusqueda, setQuoteBusqueda] = useState("");
   const [quoteFound, setQuoteFound] = useState(null);
   const [quoteSearching, setQuoteSearching] = useState(false);
@@ -489,7 +489,7 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
       f("rut", q.rut_cliente || "");
       f("value", String(Math.round(q.total || 0)));
       // Mapear estado cotización → etapa pipeline
-      const estadoMap = { aprobado:"cierre", enviado:"propuesta", enviada:"propuesta", borrador:"contacto", rechazado:"contacto" };
+      const estadoMap = { aprobado:"cierre", enviado:"propuesta", enviada:"propuesta", borrador:"propuesta", rechazado:"propuesta" };
       f("stage", estadoMap[q.estado] || "propuesta");
     } else {
       setQuoteFound(null);
@@ -642,6 +642,7 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
 function TasksView({ tasks, setTasks, contacts, isMobile }) {
   const [filter, setFilter] = useState("pendientes");
   const [showModal, setShowModal] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ title:"", contactId:"", company:"", dueDate:"", priority:"media", type:"tarea" });
   const f = (k,v) => setForm(p=>({...p,[k]:v}));
@@ -663,13 +664,30 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
     setTasks(tasks.filter(t=>t.id!==id));
   };
 
+  const openNew = () => {
+    setEditingTask(null);
+    setForm({ title:"", contactId:"", company:"", dueDate:"", priority:"media", type:"tarea" });
+    setShowModal(true);
+  };
+
+  const openEdit = (t) => {
+    setEditingTask(t);
+    setForm({ title:t.title, contactId:t.contactId||"", company:t.company||"", dueDate:t.dueDate||"", priority:t.priority||"media", type:t.type||"tarea" });
+    setShowModal(true);
+  };
+
   const save = async () => {
     if (!form.title) return;
     setSaving(true);
     const contact = contacts.find(c=>c.id===form.contactId);
     const dbForm = { ...form, company: form.company||(contact?.company||"") };
-    const { data, error } = await supabase.from("task").insert(mapTaskToDb(dbForm)).select().single();
-    if (!error) setTasks([...tasks, mapTask(data)]);
+    if (editingTask) {
+      const { data, error } = await supabase.from("task").update(mapTaskToDb(dbForm)).eq("id", editingTask.id).select().single();
+      if (!error) setTasks(tasks.map(t=>t.id===editingTask.id?mapTask(data):t));
+    } else {
+      const { data, error } = await supabase.from("task").insert(mapTaskToDb(dbForm)).select().single();
+      if (!error) setTasks([...tasks, mapTask(data)]);
+    }
     setSaving(false); setShowModal(false);
     setForm({ title:"", contactId:"", company:"", dueDate:"", priority:"media", type:"tarea" });
   };
@@ -685,7 +703,7 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
           {["todas","pendientes","vencidas","completadas"].map(flt=>(
             <button key={flt} onClick={()=>setFilter(flt)} style={{ padding:"7px 12px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:filter===flt?COLORS.accent:COLORS.card, color:filter===flt?COLORS.bg:COLORS.textMuted, border:`1px solid ${filter===flt?COLORS.accent:COLORS.border}` }}>{flt.charAt(0).toUpperCase()+flt.slice(1)}</button>
           ))}
-          <AddBtn onClick={()=>setShowModal(true)} label="Nueva" />
+          <AddBtn onClick={openNew} label="Nueva" />
         </div>
       </div>
       <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
@@ -704,6 +722,7 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
               </div>
               <Tag label={pc.label} color={pc.color} />
               <div style={{ fontFamily:FONT, fontSize:11, color:overdue?COLORS.red:COLORS.textMuted, minWidth:50, textAlign:"right" }}>{overdue&&"⚠ "}{fmtDate(t.dueDate)}</div>
+              <button onClick={()=>openEdit(t)} style={{ background:"none", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.textMuted, cursor:"pointer", fontSize:11, padding:"3px 8px", fontFamily:FONT }}>✏ Editar</button>
               <button onClick={()=>del(t.id)} style={{ background:"none", border:"none", color:COLORS.textDim, cursor:"pointer", fontSize:13 }}>✕</button>
             </div>
           );
@@ -711,13 +730,13 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
         {filtered.length===0 && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>Sin tareas en esta categoría</div>}
       </div>
       {showModal && (
-        <Modal title="Nueva Tarea" onClose={()=>setShowModal(false)} onSubmit={save}>
+        <Modal title={editingTask?"Editar Tarea":"Nueva Tarea"} onClose={()=>setShowModal(false)} onSubmit={save}>
           <Input label="Título *" value={form.title} onChange={e=>f("title",e.target.value)} placeholder="Ej: Llamada de seguimiento" />
           <Select label="Contacto" value={form.contactId} onChange={e=>{const c=contacts.find(x=>x.id===e.target.value);f("contactId",e.target.value);if(c)f("company",c.company);}}>
             <option value="">— Sin contacto —</option>
             {contacts.map(c=><option key={c.id} value={c.id}>{c.name} ({c.company})</option>)}
           </Select>
-          <Input label="Empresa" value={form.company} onChange={e=>f("company",e.target.value)} placeholder="Ej: AdministARS" />
+          <Input label="Razón Social" value={form.company} onChange={e=>f("company",e.target.value)} placeholder="Ej: AdministARS" />
           <Input label="Fecha límite" value={form.dueDate} onChange={e=>f("dueDate",e.target.value)} type="date" />
           <Select label="Prioridad" value={form.priority} onChange={e=>f("priority",e.target.value)}>
             <option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option>
@@ -1795,7 +1814,7 @@ function ProductsDB({ isMobile }) {
 }
 
 // ── COTIZACIONES LIST ────────────────────────────────────────────────────────
-function QuotesView({ contacts, isMobile }) {
+function QuotesView({ contacts, deals, setDeals, isMobile }) {
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("list");
@@ -1825,7 +1844,30 @@ function QuotesView({ contacts, isMobile }) {
 
   const updateStatus = async (id, status) => {
     await supabase.from("cotizaciones").update({ estado: status }).eq("id", id);
+    const updatedQuote = quotes.find(q=>q.id===id);
     setQuotes(quotes.map(q=>q.id===id?{...q,status}:q));
+    // Auto-push a Pipeline cuando se marca como "enviada"
+    if (status === "enviada" && updatedQuote) {
+      const existingDeal = (deals||[]).find(d=>String(d.quoteNumber)===String(updatedQuote.number));
+      if (!existingDeal) {
+        const dealData = {
+          titulo: updatedQuote.clientCompany || updatedQuote.clientName || `COT-${updatedQuote.number}`,
+          empresa: updatedQuote.clientCompany || updatedQuote.clientName || "",
+          rut_empresa: updatedQuote.clientRut || "",
+          valor: Number(updatedQuote.total) || 0,
+          etapa: "propuesta",
+          probabilidad: 30,
+          fecha_cierre: null,
+          contact_id: updatedQuote.contactId || null,
+          numero_cotizacion: updatedQuote.number,
+        };
+        const { data: newDeal } = await supabase.from("deals").insert(dealData).select().single();
+        if (newDeal && setDeals) setDeals(prev=>[...prev, mapDeal(newDeal)]);
+      } else {
+        await supabase.from("deals").update({ etapa: "propuesta" }).eq("id", existingDeal.id);
+        if (setDeals) setDeals(prev=>prev.map(d=>d.id===existingDeal.id?{...d,stage:"propuesta"}:d));
+      }
+    }
   };
 
   const del = async (id) => {
@@ -3109,7 +3151,8 @@ function QuotePDF({ quote, onBack }) {
         <button onClick={()=>{
           const prev = document.title;
           const cliente = quote.clientCompany||quote.clientName||"Cliente";
-          document.title = `COT-${String(quote.number).padStart(3,"0")} ${cliente}`;
+          const fechaDoc = quote.date ? new Date(quote.date+"T00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"-") : new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"-");
+          document.title = `COT-${String(quote.number).padStart(3,"0")} ${cliente} ${fechaDoc}`;
           window.print();
           setTimeout(()=>{ document.title = prev; }, 2000);
         }} style={{ padding:"8px 18px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>🖨️ Imprimir / PDF</button>
@@ -5770,7 +5813,6 @@ const NAV_GROUPS = [
     key: "comercial", label: "Comercial", Icon: FileText, children: [
       { key:"quotes",        label:"Cotizar",      Icon: FileText },
       { key:"prestaciones",  label:"Prestaciones", Icon: Receipt  },
-      { key:"analisis",      label:"Análisis",     Icon: Scale    },
     ],
   },
   {
@@ -7853,7 +7895,7 @@ export default function CRM() {
           {view==="dashboard" && <Dashboard contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} />}
           {view==="contacts"  && <ContactsView contacts={contacts} setContacts={setContacts} isMobile={isMobile} />}
           {view==="pipeline"  && <PipelineView deals={deals} setDeals={setDeals} contacts={contacts} isMobile={isMobile} />}
-          {view==="quotes"       && <QuotesView contacts={contacts} isMobile={isMobile} />}
+          {view==="quotes"       && <QuotesView contacts={contacts} deals={deals} setDeals={setDeals} isMobile={isMobile} />}
           {view==="prestaciones" && <PrestacionesView isMobile={isMobile} />}
           {view==="products"  && <ProductsDB isMobile={isMobile} />}
           {view==="purchase"  && <PurchaseView isMobile={isMobile} />}
