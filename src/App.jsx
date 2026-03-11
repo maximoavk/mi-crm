@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calculator, GanttChartSquare, CheckSquare, BarChart2, LogOut, Sun, Moon, Receipt, Wrench } from "lucide-react";
+import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calculator, GanttChartSquare, CheckSquare, BarChart2, LogOut, Sun, Moon, Receipt, Wrench, Scale } from "lucide-react";
 
 // ── SUPABASE ────────────────────────────────────────────────────────────────
 const supabase = createClient(
@@ -279,6 +279,8 @@ function Dashboard({ contacts, deals, tasks, isMobile }) {
 // ── CONTACTS ────────────────────────────────────────────────────────────────
 function ContactsView({ contacts, setContacts, isMobile }) {
   const [search, setSearch] = useState("");
+  const [collapsed, setCollapsed] = useState({});
+  const toggleQ = (id) => setCollapsed(p=>({...p,[id]:!p[id]}));
   const [filterStatus, setFilterStatus] = useState("todos");
   const [selected, setSelected] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -1320,6 +1322,8 @@ function ProductsDB({ isMobile }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [collapsed, setCollapsed] = useState({});
+  const toggleQ = (id) => setCollapsed(p=>({...p,[id]:!p[id]}));
   const [filterType, setFilterType] = useState("todos");
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -1456,7 +1460,7 @@ function ProductsDB({ isMobile }) {
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:14, flexWrap:"wrap", gap:10 }}>
         <div>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Catálogo</div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Maestro de Productos</div>
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Base de Productos y Servicios</div>
         </div>
         <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
@@ -1796,6 +1800,8 @@ function QuotesView({ contacts, isMobile }) {
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [nextNumber, setNextNumber] = useState(1);
   const [search, setSearch] = useState("");
+  const [collapsed, setCollapsed] = useState({});
+  const toggleQ = (id) => setCollapsed(p=>({...p,[id]:!p[id]}));
 
   useEffect(()=>{ loadQuotes(); },[]);
   const loadQuotes = async () => {
@@ -1861,33 +1867,45 @@ function QuotesView({ contacts, isMobile }) {
               (q.clientCompany||"").toLowerCase().includes(s);
           }).map(q=>{
             const sc = STATUS_QUOTE[q.status]||STATUS_QUOTE.borrador;
+            const isOpen = !!collapsed[q.id];
             return (
-              <div key={q.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"16px 20px" }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:10 }}>
-                  <div style={{ flex:1 }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
-                      <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.accent, fontWeight:700 }}>N° {q.number}</div>
-                      <Badge color={sc.color}>{sc.label}</Badge>
-                      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{fmtDate(q.date)}</div>
+              <div key={q.id} style={{ background:COLORS.card, border:`1px solid ${isOpen?COLORS.accent+"44":COLORS.border}`, borderRadius:10, overflow:"hidden", transition:"border-color 0.2s" }}>
+                {/* ── Header siempre visible ── */}
+                <div onClick={()=>toggleQ(q.id)} style={{ padding:"14px 20px", cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center", gap:10 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:10, flex:1, minWidth:0, flexWrap:"wrap" }}>
+                    <span style={{ fontFamily:FONT, fontSize:13, color:COLORS.accent, fontWeight:700, flexShrink:0, display:"inline-block", transform:isOpen?"rotate(90deg)":"rotate(0deg)", transition:"transform 0.2s" }}>▶</span>
+                    <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.accent, fontWeight:700, flexShrink:0 }}>N° {q.number}</div>
+                    <Badge color={sc.color}>{sc.label}</Badge>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, flexShrink:0 }}>{fmtDate(q.date)}</div>
+                    <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
+                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:600, color:COLORS.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{q.clientCompany||q.clientName}</div>
+                      {q.clientRut && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{q.clientName!==q.clientCompany&&q.clientName?q.clientName+" · ":""}{q.clientRut}</div>}
                     </div>
-                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:600, color:COLORS.text }}>{q.clientCompany||q.clientName}</div>
-                    <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{q.clientName} · RUT: {q.clientRut}</div>
                   </div>
-                  <div style={{ textAlign:"right" }}>
-                    <div style={{ fontFamily:FONT, fontSize:18, color:COLORS.green, fontWeight:700 }}>{fmt(q.total)}</div>
-                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{q.hasIva?"IVA incluido":"Sin IVA"}</div>
+                  <div style={{ textAlign:"right", flexShrink:0 }}>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, color:COLORS.green, fontWeight:700 }}>{fmt(q.total)}</div>
+                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{q.hasIva?"IVA incluido":"Sin IVA"}</div>
                   </div>
                 </div>
-                <div style={{ borderTop:`1px solid ${COLORS.border}`, marginTop:12, paddingTop:12, display:"flex", gap:8, flexWrap:"wrap" }}>
-                  <button onClick={()=>{ setSelectedQuote(q); setView("detail"); }} style={{ padding:"5px 12px", borderRadius:5, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>✏️ Editar</button>
-                  <button onClick={()=>{ setSelectedQuote(q); setView("pdf"); }} style={{ padding:"5px 12px", borderRadius:5, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.green}44`, color:COLORS.green }}>📄 Ver PDF</button>
-                  {["enviada","aprobada","rechazada"].map(s=>(
-                    <button key={s} onClick={()=>updateStatus(q.id,s)} style={{ padding:"5px 12px", borderRadius:5, fontFamily:FONT, fontSize:11, cursor:"pointer", background:q.status===s?STATUS_QUOTE[s].color+"22":"transparent", border:`1px solid ${STATUS_QUOTE[s].color}44`, color:STATUS_QUOTE[s].color }}>
-                      {STATUS_QUOTE[s].label}
-                    </button>
-                  ))}
-                  <button onClick={()=>del(q.id)} style={{ padding:"5px 12px", borderRadius:5, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red, marginLeft:"auto" }}>✕</button>
-                </div>
+                {/* ── Cuerpo expandible ── */}
+                {isOpen && (
+                  <div style={{ borderTop:`1px solid ${COLORS.border}`, padding:"12px 20px" }}>
+                    <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:10 }}>
+                      {q.clientName} · RUT: {q.clientRut}
+                      {q.paymentMethod && <span style={{marginLeft:10}}>· {q.paymentMethod}</span>}
+                    </div>
+                    <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                      <button onClick={(e)=>{ e.stopPropagation(); setSelectedQuote(q); setView("detail"); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>✏️ Editar</button>
+                      <button onClick={(e)=>{ e.stopPropagation(); setSelectedQuote(q); setView("pdf"); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.green}44`, color:COLORS.green }}>📄 Ver PDF</button>
+                      {["enviada","aprobada","rechazada"].map(s=>(
+                        <button key={s} onClick={(e)=>{ e.stopPropagation(); updateStatus(q.id,s); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:q.status===s?STATUS_QUOTE[s].color+"22":"transparent", border:`1px solid ${STATUS_QUOTE[s].color}44`, color:STATUS_QUOTE[s].color }}>
+                          {STATUS_QUOTE[s].label}
+                        </button>
+                      ))}
+                      <button onClick={(e)=>{ e.stopPropagation(); del(q.id); }} style={{ padding:"6px 12px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red, marginLeft:"auto" }}>✕</button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -5662,7 +5680,8 @@ const NAV = [
   { key:"pipeline",  label:"Pipeline",  Icon: Kanban           },
   { key:"quotes",       label:"Cotizar",     Icon: FileText         },
   { key:"prestaciones", label:"Prestaciones", Icon: Receipt          },
-  { key:"products",  label:"Catálogo",  Icon: Package          },
+  { key:"products",  label:"Maestro",    Icon: Package          },
+  { key:"analisis",   label:"Análisis",   Icon: Scale            },
   { key:"purchase",  label:"Compras",   Icon: ShoppingCart     },
   { key:"costeo",    label:"Costeo",    Icon: Calculator       },
   { key:"gantt",     label:"Proyectos", Icon: GanttChartSquare },
@@ -5672,6 +5691,589 @@ const NAV = [
 ];
 
 // ── LOGIN SCREEN ─────────────────────────────────────────────────────────────
+
+
+// ── ANÁLISIS DE PRECIOS ───────────────────────────────────────────────────────
+
+function AnalisisPreciosView({ isMobile }) {
+  const [products, setProducts]   = useState([]);
+  const [analyses, setAnalyses]   = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [view, setView]           = useState("list"); // list | edit | compare
+  const [current, setCurrent]     = useState(null);
+
+  useEffect(()=>{ load(); },[]);
+
+  const load = async () => {
+    setLoading(true);
+    const [{ data:prods }, { data:ans }] = await Promise.all([
+      supabase.from("productos").select("*").order("nombre"),
+      supabase.from("analisis_precios").select("*").order("created_at", {ascending:false}),
+    ]);
+    setProducts(prods||[]);
+    setAnalyses(ans||[]);
+    setLoading(false);
+  };
+
+  const deleteAn = async(id)=>{
+    if(!window.confirm("¿Eliminar este análisis?")) return;
+    await supabase.from("analisis_precios").delete().eq("id",id);
+    setAnalyses(prev=>prev.filter(a=>a.id!==id));
+  };
+
+  const openNew = () => {
+    setCurrent({ id:null, titulo:"", categoria:"", descripcion:"", items:[], created_at:new Date().toISOString() });
+    setView("edit");
+  };
+
+  const openEdit = (a) => { setCurrent(a); setView("edit"); };
+  const openCompare = (a) => { setCurrent(a); setView("compare"); };
+
+  if(view==="edit")    return <AnalisisEditor analysis={current} products={products} onBack={()=>{ setView("list"); load(); }} />;
+  if(view==="compare") return <AnalisisComparativa analysis={current} onBack={()=>setView("list")} onEdit={()=>setView("edit")} />;
+
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:20, flexWrap:"wrap", gap:10 }}>
+        <div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Comercial · Técnico</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Análisis de Precios</div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:3 }}>Compara equipos de una misma categoría por precio y ficha técnica</div>
+        </div>
+        <AddBtn onClick={openNew} label="Nuevo análisis" />
+      </div>
+
+      {loading ? <Loader /> : analyses.length===0 ? (
+        <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>
+          <div style={{ fontSize:32, marginBottom:10 }}>⚖️</div>
+          <div style={{ marginBottom:6 }}>Sin análisis aún.</div>
+          <div style={{ fontSize:11 }}>Crea un análisis para comparar productos de una misma categoría.</div>
+        </div>
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {analyses.map(a=>{
+            const items = a.items||[];
+            const precios = items.map(i=>Number(i.precio_venta||0)).filter(Boolean);
+            const minP = precios.length ? Math.min(...precios) : 0;
+            const maxP = precios.length ? Math.max(...precios) : 0;
+            return (
+              <div key={a.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:"16px 20px" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12, flexWrap:"wrap" }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4, flexWrap:"wrap" }}>
+                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>{a.titulo||"Sin título"}</span>
+                      {a.categoria && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.secondary, background:`${COLORS.secondary}15`, padding:"2px 8px", borderRadius:10, border:`1px solid ${COLORS.secondary}33` }}>{a.categoria}</span>}
+                    </div>
+                    {a.descripcion && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:6 }}>{a.descripcion}</div>}
+                    <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
+                      <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>⚖️ {items.length} producto{items.length!==1?"s":""}</span>
+                      {precios.length > 0 && <>
+                        <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.green }}>Mín: {fmt(minP)}</span>
+                        <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.yellow }}>Máx: {fmt(maxP)}</span>
+                        {precios.length > 1 && <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Δ {fmt(maxP-minP)}</span>}
+                      </>}
+                      <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim }}>{new Date(a.created_at).toLocaleDateString("es-CL")}</span>
+                    </div>
+                  </div>
+                  <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                    <button onClick={()=>openCompare(a)} style={{ padding:"6px 14px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${COLORS.secondary}22`, border:`1px solid ${COLORS.secondary}44`, color:COLORS.secondary }}>📊 Comparativa</button>
+                    <button onClick={()=>openEdit(a)} style={{ padding:"6px 14px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${COLORS.accent}22`, border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>✏️ Editar</button>
+                    <button onClick={()=>deleteAn(a.id)} style={{ padding:"6px 10px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red }}>✕</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Editor de análisis ────────────────────────────────────────────────────────
+function AnalisisEditor({ analysis, products, onBack }) {
+  const isNew = !analysis?.id;
+  const [titulo, setTitulo]       = useState(analysis?.titulo||"");
+  const [categoria, setCategoria] = useState(analysis?.categoria||"");
+  const [desc, setDesc]           = useState(analysis?.descripcion||"");
+  const [items, setItems]         = useState(analysis?.items||[]);
+  const [saving, setSaving]       = useState(false);
+  const [search, setSearch]       = useState("");
+  const [showPicker, setShowPicker] = useState(false);
+
+  // Categorías únicas del catálogo
+  const cats = [...new Set((products||[]).map(p=>p.categoria||p.category||"").filter(Boolean))].sort();
+
+  const addProduct = (p) => {
+    if(items.find(i=>i.producto_id===p.id)) return;
+    setItems(prev=>[...prev, {
+      producto_id: p.id,
+      nombre: p.nombre||p.name||"",
+      codigo: p.codigo||p.code||"",
+      proveedor: p.proveedor||p.supplier||"",
+      precio_costo: Number(p.precio||p.price||0),
+      precio_venta: Number(p.precio_venta||p.precio||p.price||0),
+      descripcion_tecnica: p.descripcion||p.description||"",
+      specs: {},  // key-value técnicos
+      ventajas: "",
+      desventajas: "",
+      recomendado: false,
+    }]);
+    setShowPicker(false);
+    setSearch("");
+  };
+
+  const addManual = () => {
+    setItems(prev=>[...prev, {
+      producto_id: null,
+      nombre: "Nuevo producto",
+      codigo: "",
+      proveedor: "",
+      precio_costo: 0,
+      precio_venta: 0,
+      descripcion_tecnica: "",
+      specs: {},
+      ventajas: "",
+      desventajas: "",
+      recomendado: false,
+    }]);
+  };
+
+  const updItem = (idx, field, val) => setItems(prev=>prev.map((it,i)=>i!==idx?it:{...it,[field]:val}));
+  const delItem = (idx) => setItems(prev=>prev.filter((_,i)=>i!==idx));
+
+  const addSpec = (idx) => {
+    setItems(prev=>prev.map((it,i)=>i!==idx?it:{...it, specs:{...it.specs, "Nueva característica":""}}));
+  };
+  const updSpec = (idx, oldKey, newKey, val) => {
+    setItems(prev=>prev.map((it,i)=>{
+      if(i!==idx) return it;
+      const specs = {...it.specs};
+      if(oldKey!==newKey){ delete specs[oldKey]; }
+      specs[newKey] = val;
+      return {...it, specs};
+    }));
+  };
+  const delSpec = (idx, key) => {
+    setItems(prev=>prev.map((it,i)=>{
+      if(i!==idx) return it;
+      const specs = {...it.specs}; delete specs[key];
+      return {...it, specs};
+    }));
+  };
+
+  const save = async () => {
+    setSaving(true);
+    const payload = { titulo, categoria, descripcion:desc, items };
+    let error;
+    if(isNew){
+      ({ error } = await supabase.from("analisis_precios").insert(payload));
+    } else {
+      ({ error } = await supabase.from("analisis_precios").update(payload).eq("id", analysis.id));
+    }
+    setSaving(false);
+    if(error){ alert("Error: "+error.message); return; }
+    onBack();
+  };
+
+  const inp = { background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 12px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", width:"100%", boxSizing:"border-box" };
+  const lbl = { fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:3, display:"block", fontWeight:600 };
+
+  const filteredProds = (products||[]).filter(p=>{
+    const s = search.toLowerCase();
+    return !s || (p.nombre||p.name||"").toLowerCase().includes(s) || (p.codigo||p.code||"").toLowerCase().includes(s);
+  }).slice(0,12);
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
+        <button onClick={onBack} style={{ padding:"6px 12px", borderRadius:7, fontFamily:FONT, fontSize:12, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.border}`, color:COLORS.textMuted }}>← Volver</button>
+        <div>
+          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.1em" }}>{isNew?"Nuevo análisis":"Editar análisis"}</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text }}>{titulo||"Sin título"}</div>
+        </div>
+      </div>
+
+      {/* Meta */}
+      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:"16px 20px", marginBottom:16 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
+          <div><label style={lbl}>Título del análisis</label><input value={titulo} onChange={e=>setTitulo(e.target.value)} placeholder="Ej: Motores de portón corredizo 2026" style={inp} /></div>
+          <div>
+            <label style={lbl}>Categoría</label>
+            <input list="cats-list" value={categoria} onChange={e=>setCategoria(e.target.value)} placeholder="Ej: Motor portón, Control acceso..." style={inp} />
+            <datalist id="cats-list">{cats.map(c=><option key={c} value={c}/>)}</datalist>
+          </div>
+        </div>
+        <div><label style={lbl}>Descripción / contexto</label><textarea value={desc} onChange={e=>setDesc(e.target.value)} rows={2} placeholder="Para qué cliente o proyecto es este análisis, contexto de la decisión..." style={{...inp, resize:"vertical"}} /></div>
+      </div>
+
+      {/* Productos */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+        <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text }}>Productos a comparar ({items.length})</div>
+        <div style={{ display:"flex", gap:8 }}>
+          <button onClick={()=>setShowPicker(!showPicker)} style={{ padding:"6px 14px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${COLORS.secondary}22`, border:`1px solid ${COLORS.secondary}44`, color:COLORS.secondary }}>
+            📦 Desde catálogo
+          </button>
+          <button onClick={addManual} style={{ padding:"6px 14px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${COLORS.border}`, border:"none", color:COLORS.textMuted }}>
+            + Manual
+          </button>
+        </div>
+      </div>
+
+      {/* Product picker */}
+      {showPicker && (
+        <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.secondary}44`, borderRadius:10, padding:14, marginBottom:14 }}>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar en catálogo por nombre o código..." style={{...inp, marginBottom:10}} autoFocus />
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))", gap:8, maxHeight:240, overflowY:"auto" }}>
+            {filteredProds.map(p=>{
+              const already = items.find(i=>i.producto_id===p.id);
+              return (
+                <div key={p.id} onClick={()=>!already&&addProduct(p)}
+                  style={{ padding:"8px 12px", borderRadius:7, border:`1px solid ${already?COLORS.green+"44":COLORS.border}`, background:already?`${COLORS.green}08`:COLORS.card, cursor:already?"default":"pointer", opacity:already?0.6:1 }}>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:already?COLORS.green:COLORS.text }}>{p.nombre||p.name}</div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{p.codigo||p.code} · {fmt(Number(p.precio||p.price||0))}</div>
+                  {already && <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.green }}>✓ Ya agregado</div>}
+                </div>
+              );
+            })}
+            {filteredProds.length===0 && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, gridColumn:"span 3", textAlign:"center", padding:20 }}>Sin resultados</div>}
+          </div>
+        </div>
+      )}
+
+      {/* Items */}
+      {items.length===0 ? (
+        <div style={{ textAlign:"center", padding:40, fontFamily:FONT, color:COLORS.textMuted, background:COLORS.card, borderRadius:12, border:`1px dashed ${COLORS.border}` }}>
+          Agrega productos desde el catálogo o manualmente para comenzar la comparativa
+        </div>
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          {items.map((it,idx)=>(
+            <div key={idx} style={{ background:COLORS.card, border:`1px solid ${it.recomendado?COLORS.green+"66":COLORS.border}`, borderRadius:12, padding:"16px 20px", position:"relative" }}>
+              {/* Recomendado badge */}
+              {it.recomendado && <div style={{ position:"absolute", top:12, right:50, fontFamily:FONT, fontSize:9, color:COLORS.green, background:`${COLORS.green}20`, padding:"2px 8px", borderRadius:10, border:`1px solid ${COLORS.green}44` }}>⭐ Recomendado</div>}
+              <button onClick={()=>delItem(idx)} style={{ position:"absolute", top:12, right:12, background:"transparent", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>✕</button>
+
+              {/* Nombre + código + proveedor */}
+              <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr", gap:10, marginBottom:12 }}>
+                <div><label style={lbl}>Nombre / Modelo</label><input value={it.nombre} onChange={e=>updItem(idx,"nombre",e.target.value)} style={inp} /></div>
+                <div><label style={lbl}>Código</label><input value={it.codigo} onChange={e=>updItem(idx,"codigo",e.target.value)} style={inp} /></div>
+                <div><label style={lbl}>Proveedor</label><input value={it.proveedor} onChange={e=>updItem(idx,"proveedor",e.target.value)} style={inp} /></div>
+              </div>
+
+              {/* Precios */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:12 }}>
+                <div>
+                  <label style={lbl}>Precio costo (neto)</label>
+                  <input type="number" value={it.precio_costo} onChange={e=>updItem(idx,"precio_costo",Number(e.target.value))} style={inp} />
+                </div>
+                <div>
+                  <label style={lbl}>Precio venta (neto)</label>
+                  <input type="number" value={it.precio_venta} onChange={e=>updItem(idx,"precio_venta",Number(e.target.value))} style={inp} />
+                  {it.precio_costo>0 && it.precio_venta>0 && (
+                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.green, marginTop:3 }}>
+                      Margen: {Math.round((it.precio_venta-it.precio_costo)/it.precio_venta*100)}%
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label style={lbl}>Precio venta c/IVA</label>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.green, padding:"8px 0" }}>{fmt(Math.round(it.precio_venta*1.19))}</div>
+                </div>
+              </div>
+
+              {/* Descripción técnica */}
+              <div style={{ marginBottom:12 }}>
+                <label style={lbl}>Descripción técnica</label>
+                <textarea value={it.descripcion_tecnica} onChange={e=>updItem(idx,"descripcion_tecnica",e.target.value)} rows={2} placeholder="Descripción general del equipo..." style={{...inp, resize:"vertical"}} />
+              </div>
+
+              {/* Especificaciones técnicas */}
+              <div style={{ marginBottom:12 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                  <label style={{...lbl, marginBottom:0}}>Especificaciones técnicas</label>
+                  <button onClick={()=>addSpec(idx)} style={{ padding:"3px 10px", borderRadius:5, fontFamily:FONT, fontSize:10, cursor:"pointer", background:`${COLORS.secondary}22`, border:`1px solid ${COLORS.secondary}44`, color:COLORS.secondary }}>+ Agregar</button>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                  {Object.entries(it.specs||{}).map(([k,v])=>(
+                    <div key={k} style={{ display:"grid", gridTemplateColumns:"1fr 1fr auto", gap:6, alignItems:"center" }}>
+                      <input value={k} onChange={e=>updSpec(idx,k,e.target.value,v)} placeholder="Característica" style={{...inp, fontSize:11}} />
+                      <input value={v} onChange={e=>updSpec(idx,k,k,e.target.value)} placeholder="Valor" style={{...inp, fontSize:11}} />
+                      <button onClick={()=>delSpec(idx,k)} style={{ background:"transparent", border:"none", color:COLORS.red, cursor:"pointer" }}>✕</button>
+                    </div>
+                  ))}
+                  {Object.keys(it.specs||{}).length===0 && (
+                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textDim, fontStyle:"italic" }}>Sin especificaciones — agrega características técnicas para la comparativa</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Ventajas / Desventajas */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
+                <div>
+                  <label style={{...lbl, color:COLORS.green}}>✓ Ventajas</label>
+                  <textarea value={it.ventajas} onChange={e=>updItem(idx,"ventajas",e.target.value)} rows={2} placeholder="Una por línea..." style={{...inp, resize:"vertical", borderColor:`${COLORS.green}33`}} />
+                </div>
+                <div>
+                  <label style={{...lbl, color:COLORS.red}}>✗ Desventajas</label>
+                  <textarea value={it.desventajas} onChange={e=>updItem(idx,"desventajas",e.target.value)} rows={2} placeholder="Una por línea..." style={{...inp, resize:"vertical", borderColor:`${COLORS.red}33`}} />
+                </div>
+              </div>
+
+              {/* Recomendado toggle */}
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <button onClick={()=>{ setItems(prev=>prev.map((it2,i)=>({...it2,recomendado:i===idx}))); }}
+                  style={{ padding:"4px 12px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:it.recomendado?`${COLORS.green}22`:"transparent", border:`1px solid ${it.recomendado?COLORS.green:COLORS.border}44`, color:it.recomendado?COLORS.green:COLORS.textMuted }}>
+                  ⭐ {it.recomendado?"Recomendado":"Marcar como recomendado"}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div style={{ display:"flex", gap:8, marginTop:20, paddingTop:16, borderTop:`1px solid ${COLORS.border}` }}>
+        <button onClick={onBack} style={{ padding:"9px 20px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.border}`, color:COLORS.textMuted }}>Cancelar</button>
+        <button onClick={save} disabled={saving}
+          style={{ padding:"9px 24px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:COLORS.accent, border:"none", color:"#fff", marginLeft:"auto" }}>
+          {saving?"Guardando…":"💾 Guardar análisis"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Comparativa visual (segunda hoja / vista de ficha técnica) ────────────────
+function AnalisisComparativa({ analysis, onBack, onEdit }) {
+  const items = analysis?.items||[];
+  // Collect all unique spec keys across all items
+  const allSpecs = [...new Set(items.flatMap(it=>Object.keys(it.specs||{})))];
+
+  const printComparativa = () => {
+    const recIdx = items.findIndex(it=>it.recomendado);
+
+    const headerCols = items.map(it=>`<th style="text-align:center;padding:8px 12px;background:${it.recomendado?"#16a34a":"#1e293b"};color:#fff;min-width:160px">${it.recomendado?"⭐ ":""}<br/><b>${it.nombre}</b><br/><small style="font-weight:normal;opacity:.8">${it.codigo}</small></th>`).join("");
+
+    const precioRows = `
+      <tr><td class="lbl">Precio neto</td>${items.map(it=>`<td class="val">${fmt(it.precio_venta)}</td>`).join("")}</tr>
+      <tr><td class="lbl">Precio c/IVA</td>${items.map(it=>`<td class="val hi">${fmt(Math.round(it.precio_venta*1.19))}</td>`).join("")}</tr>
+      <tr><td class="lbl">Proveedor</td>${items.map(it=>`<td class="val">${it.proveedor||"—"}</td>`).join("")}</tr>
+    `;
+
+    const specRows = allSpecs.map(k=>`
+      <tr><td class="lbl">${k}</td>${items.map(it=>`<td class="val">${it.specs?.[k]||"—"}</td>`).join("")}</tr>
+    `).join("");
+
+    const ventRows = `
+      <tr><td class="lbl">✓ Ventajas</td>${items.map(it=>`<td class="val green">${(it.ventajas||"").split("\n").filter(Boolean).map(v=>`• ${v}`).join("<br/>")}</td>`).join("")}</tr>
+      <tr><td class="lbl">✗ Desventajas</td>${items.map(it=>`<td class="val red">${(it.desventajas||"").split("\n").filter(Boolean).map(v=>`• ${v}`).join("<br/>")}</td>`).join("")}</tr>
+    `;
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+      @page{size:A4 landscape;margin:12mm 14mm;}
+      @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+      *{margin:0;padding:0;box-sizing:border-box;}
+      body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a1a;font-size:11px;}
+      .hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:4mm;margin-bottom:5mm;}
+      .hdr img{height:34px;}
+      .doc-type{font-size:15px;font-weight:900;letter-spacing:.03em;}
+      .doc-sub{font-size:10px;color:#555;margin-top:3px;}
+      table{width:100%;border-collapse:collapse;margin-bottom:6mm;}
+      th{font-size:12px;font-weight:700;}
+      .sec-row td{background:#f1f5f9;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.07em;padding:5px 10px;color:#475569;}
+      .lbl{padding:6px 10px;color:#64748b;font-size:10px;background:#f8fafc;border-bottom:1px solid #e2e8f0;width:140px;font-weight:600;vertical-align:top;}
+      .val{padding:6px 10px;text-align:center;border-bottom:1px solid #e2e8f0;vertical-align:top;}
+      .val.hi{font-weight:700;font-size:12px;color:#16a34a;}
+      .val.green{color:#16a34a;text-align:left;font-size:10px;}
+      .val.red{color:#dc2626;text-align:left;font-size:10px;}
+      .rec-badge{display:inline-block;background:#16a34a;color:#fff;font-size:9px;padding:2px 6px;border-radius:10px;margin-bottom:4px;}
+      .price-chart{margin-bottom:6mm;}
+      .bar-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
+      .bar-label{width:150px;font-size:10px;color:#555;text-align:right;flex-shrink:0;}
+      .bar-track{flex:1;height:18px;background:#e2e8f0;border-radius:4px;overflow:hidden;}
+      .bar-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:6px;font-size:9px;color:#fff;font-weight:700;}
+      .bar-val{width:80px;font-size:10px;font-weight:700;flex-shrink:0;}
+      .foot{margin-top:4mm;border-top:1px solid #ccc;padding-top:3mm;font-size:8px;color:#999;text-align:center;}
+    </style></head><body>
+    <div class="hdr">
+      <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png"/>
+      <div>
+        <div class="doc-type">Análisis Comparativo de Precios</div>
+        <div class="doc-sub">${analysis.titulo||""} ${analysis.categoria?"· "+analysis.categoria:""} · ${new Date().toLocaleDateString("es-CL")}</div>
+        ${analysis.descripcion?`<div class="doc-sub" style="margin-top:2px;font-style:italic">${analysis.descripcion}</div>`:""}
+      </div>
+    </div>
+
+    <!-- Gráfico de barras de precios -->
+    <div class="price-chart">
+      <div style="font-weight:700;font-size:12px;margin-bottom:6px;border-bottom:2px solid #1a1a1a;padding-bottom:3px;">Comparativa de Precios (neto)</div>
+      ${(()=>{
+        const maxP = Math.max(...items.map(i=>i.precio_venta||0), 1);
+        return items.map(it=>{
+          const pct = Math.round((it.precio_venta||0)/maxP*100);
+          const color = it.recomendado?"#16a34a":"#2563eb";
+          return `<div class="bar-row">
+            <div class="bar-label">${it.nombre}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}">${pct===100?fmt(it.precio_venta):""}</div></div>
+            <div class="bar-val">${fmt(it.precio_venta)}</div>
+          </div>`;
+        }).join("");
+      })()}
+    </div>
+
+    <!-- Tabla comparativa -->
+    <table>
+      <thead><tr><th style="text-align:left;padding:8px 10px;background:#1e293b;color:#94a3b8;width:140px">Característica</th>${headerCols}</tr></thead>
+      <tbody>
+        <tr class="sec-row"><td colspan="${items.length+1}">Precios</td></tr>
+        ${precioRows}
+        ${allSpecs.length?`<tr class="sec-row"><td colspan="${items.length+1}">Especificaciones técnicas</td></tr>${specRows}`:""}
+        <tr class="sec-row"><td colspan="${items.length+1}">Ventajas y desventajas</td></tr>
+        ${ventRows}
+      </tbody>
+    </table>
+
+    <div class="foot">Polygonos SpA · RUT 77.180.437-3 · Documento interno de evaluación técnica · ventas@polygonos.cl · ${new Date().toLocaleDateString("es-CL")}</div>
+    <script>window.onload=()=>window.print();</script>
+    </body></html>`;
+
+    const w = window.open("","_blank"); w.document.write(html); w.document.close();
+  };
+
+  const maxPrice = Math.max(...items.map(i=>Number(i.precio_venta||0)), 1);
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20, flexWrap:"wrap", gap:10 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          <button onClick={onBack} style={{ padding:"6px 12px", borderRadius:7, fontFamily:FONT, fontSize:12, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.border}`, color:COLORS.textMuted }}>← Volver</button>
+          <div>
+            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.1em" }}>Comparativa</div>
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text }}>{analysis.titulo}</div>
+            {analysis.descripcion && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{analysis.descripcion}</div>}
+          </div>
+        </div>
+        <div style={{ display:"flex", gap:8 }}>
+          <button onClick={onEdit} style={{ padding:"7px 16px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${COLORS.accent}22`, border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>✏️ Editar</button>
+          <button onClick={printComparativa} style={{ padding:"7px 16px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:COLORS.accent, border:"none", color:"#fff" }}>🖨 PDF Comparativa</button>
+        </div>
+      </div>
+
+      {items.length < 2 ? (
+        <div style={{ textAlign:"center", padding:40, fontFamily:FONT, color:COLORS.textMuted, background:COLORS.card, borderRadius:12, border:`1px solid ${COLORS.border}` }}>
+          Agrega al menos 2 productos para ver la comparativa.
+        </div>
+      ) : (
+        <>
+          {/* Gráfico de barras de precios */}
+          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:"18px 22px", marginBottom:16 }}>
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text, marginBottom:14, borderBottom:`2px solid ${COLORS.border}`, paddingBottom:8 }}>
+              📊 Comparativa de precios (neto)
+            </div>
+            {items.map((it,i)=>{
+              const pct = Math.round((Number(it.precio_venta||0))/maxPrice*100);
+              const c = it.recomendado?COLORS.green:COLORS.secondary;
+              return (
+                <div key={i} style={{ marginBottom:12 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                    <span style={{ fontFamily:FONT, fontSize:12, color:it.recomendado?COLORS.green:COLORS.text }}>
+                      {it.recomendado?"⭐ ":""}{it.nombre} <span style={{ color:COLORS.textMuted, fontSize:10 }}>{it.codigo}</span>
+                    </span>
+                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:c }}>{fmt(it.precio_venta)} <span style={{ color:COLORS.textMuted, fontSize:10, fontWeight:400 }}>neto</span></span>
+                  </div>
+                  <div style={{ height:20, background:COLORS.bg, borderRadius:6, overflow:"hidden", border:`1px solid ${COLORS.border}` }}>
+                    <div style={{ height:"100%", width:`${pct}%`, background:c, borderRadius:6, transition:"width 0.4s", display:"flex", alignItems:"center", paddingLeft:8 }}>
+                      {pct>15 && <span style={{ fontFamily:FONT, fontSize:10, color:"#fff", fontWeight:700 }}>{fmt(Math.round(it.precio_venta*1.19))} c/IVA</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Tabla comparativa */}
+          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, overflow:"hidden", marginBottom:16 }}>
+            <div style={{ overflowX:"auto" }}>
+              <table style={{ width:"100%", borderCollapse:"collapse" }}>
+                <thead>
+                  <tr style={{ background:COLORS.bg }}>
+                    <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", padding:"10px 14px", textAlign:"left", width:150, borderBottom:`2px solid ${COLORS.border}` }}>Característica</th>
+                    {items.map((it,i)=>(
+                      <th key={i} style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, padding:"10px 14px", textAlign:"center", borderBottom:`2px solid ${it.recomendado?COLORS.green:COLORS.border}`, color:it.recomendado?COLORS.green:COLORS.text, background:it.recomendado?`${COLORS.green}08`:"transparent", minWidth:160 }}>
+                        {it.recomendado && <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.green, marginBottom:2 }}>⭐ RECOMENDADO</div>}
+                        {it.nombre}
+                        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, fontWeight:400 }}>{it.codigo}</div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Precio */}
+                  <tr style={{ background:`${COLORS.accent}08` }}>
+                    <td style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"6px 14px", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.05em", borderBottom:`1px solid ${COLORS.border}` }} colSpan={items.length+1}>Precios</td>
+                  </tr>
+                  {[
+                    ["Proveedor", it=>it.proveedor||"—"],
+                    ["Precio neto", it=>fmt(it.precio_venta)],
+                    ["Precio c/IVA", it=>fmt(Math.round(it.precio_venta*1.19))],
+                    ["Margen", it=>it.precio_costo>0?`${Math.round((it.precio_venta-it.precio_costo)/it.precio_venta*100)}%`:"—"],
+                  ].map(([label,fn],ri)=>(
+                    <tr key={ri} style={{ background:ri%2===0?COLORS.bg:"transparent" }}>
+                      <td style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}` }}>{label}</td>
+                      {items.map((it,i)=>(
+                        <td key={i} style={{ fontFamily:label.includes("IVA")?FONT_DISPLAY:FONT, fontSize:label.includes("IVA")?14:12, fontWeight:label.includes("IVA")?700:400, color:label.includes("IVA")?COLORS.green:COLORS.text, textAlign:"center", padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}`, background:it.recomendado?`${COLORS.green}06`:"transparent" }}>
+                          {fn(it)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+
+                  {/* Specs */}
+                  {allSpecs.length > 0 && <>
+                    <tr style={{ background:`${COLORS.secondary}08` }}>
+                      <td style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"6px 14px", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.05em", borderBottom:`1px solid ${COLORS.border}` }} colSpan={items.length+1}>Especificaciones técnicas</td>
+                    </tr>
+                    {allSpecs.map((k,ri)=>(
+                      <tr key={k} style={{ background:ri%2===0?COLORS.bg:"transparent" }}>
+                        <td style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}` }}>{k}</td>
+                        {items.map((it,i)=>{
+                          const val = it.specs?.[k];
+                          return <td key={i} style={{ fontFamily:FONT, fontSize:12, color:val?COLORS.text:COLORS.textDim, textAlign:"center", padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}`, background:it.recomendado?`${COLORS.green}06`:"transparent" }}>{val||"—"}</td>;
+                        })}
+                      </tr>
+                    ))}
+                  </>}
+
+                  {/* Ventajas / Desventajas */}
+                  <tr style={{ background:`${COLORS.green}08` }}>
+                    <td style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"6px 14px", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.05em", borderBottom:`1px solid ${COLORS.border}` }} colSpan={items.length+1}>Análisis cualitativo</td>
+                  </tr>
+                  {[["✓ Ventajas","ventajas",COLORS.green],["✗ Desventajas","desventajas",COLORS.red]].map(([label,field,c])=>(
+                    <tr key={label}>
+                      <td style={{ fontFamily:FONT, fontSize:11, color:c, padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}`, verticalAlign:"top", fontWeight:600 }}>{label}</td>
+                      {items.map((it,i)=>(
+                        <td key={i} style={{ fontFamily:FONT, fontSize:11, color:COLORS.text, padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}`, verticalAlign:"top", background:it.recomendado?`${COLORS.green}06`:"transparent" }}>
+                          {(it[field]||"").split("\n").filter(Boolean).map((v,vi)=>(
+                            <div key={vi} style={{ color:c, marginBottom:2 }}>• {v}</div>
+                          ))}
+                          {!it[field] && <span style={{ color:COLORS.textDim }}>—</span>}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 
 // ── OPERACIONES / TERRENO ─────────────────────────────────────────────────────
 
@@ -6568,6 +7170,7 @@ export default function CRM() {
           {view==="costeo"    && <CosteoView contacts={contacts} isMobile={isMobile} />}
           {view==="gantt"     && <GanttView isMobile={isMobile} />}
           {view==="operaciones" && <OperacionesView isMobile={isMobile} />}
+          {view==="analisis"    && <AnalisisPreciosView isMobile={isMobile} />}
           {view==="tasks"     && <TasksView tasks={tasks} setTasks={setTasks} contacts={contacts} isMobile={isMobile} />}
           {view==="reports"   && <ReportsView contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} />}
         </div>
