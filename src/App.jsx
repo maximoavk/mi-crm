@@ -741,8 +741,8 @@ function ReportsView({ contacts, deals, tasks, isMobile }) {
   const [yearFilter, setYearFilter] = useState(String(new Date().getFullYear()));
 
   useEffect(()=>{
-    supabase.from("cotizaciones").select("numero,fecha,total,estado,razon_social,nombre_cliente").order("fecha",{ascending:false})
-      .then(({data})=>setQuotes((data||[]).map(r=>({ number:r.numero, date:r.fecha, total:Number(r.total)||0, status:r.estado, client:r.razon_social||r.nombre_cliente||"" }))));
+    supabase.from("cotizaciones").select("numero,fecha,total,estado,razon_social,nombre_cliente,aplica_iva,iva_modo").order("fecha",{ascending:false})
+      .then(({data})=>setQuotes((data||[]).map(r=>({ number:r.numero, date:r.fecha, total:Number(r.total)||0, status:r.estado, client:r.razon_social||r.nombre_cliente||"", hasIva:r.aplica_iva, ivaMode:r.iva_modo||"empresa" }))));
   },[]);
 
   // Ingresos = deals cerrados + cotizaciones aprobadas (no vinculadas a deal cerrado)
@@ -789,6 +789,23 @@ function ReportsView({ contacts, deals, tasks, isMobile }) {
     return { year:yr, total: fromQ+fromD };
   });
   const maxYearly = Math.max(...yearlyData.map(y=>y.total),1);
+
+  // IVA breakdown — solo cotizaciones aprobadas con IVA, no duplicadas con deals
+  // fromCosteo: aplica_iva=false pero ivaMode=empresa → total ya incluye IVA
+  const ivaQuotes = approvedQuotes.filter(q=>!closedDealQuoteNums.has(String(q.number)) && (q.hasIva || q.ivaMode==="empresa"));
+  const ivaYearlyData = allYears.map(yr=>{
+    const qs = ivaQuotes.filter(q=>(q.date||"").startsWith(yr));
+    const totalConIva = qs.reduce((s,q)=>s+q.total,0);
+    const fromCosteo = qs.filter(q=>!q.hasIva && q.ivaMode==="empresa");
+    const normal     = qs.filter(q=>q.hasIva);
+    // Para cotizaciones normales (hasIva): total = neto*(1.19) → neto = total/1.19, iva = total - neto
+    // Para fromCosteo: total ya incluye IVA implícito → mismo cálculo
+    const ivaTotal   = qs.reduce((s,q)=> s + (q.total - Math.round(q.total/1.19)), 0);
+    const netoTotal  = qs.reduce((s,q)=> s + Math.round(q.total/1.19), 0);
+    return { year:yr, totalConIva, netoTotal, ivaTotal, count: qs.length };
+  }).filter(y=>y.count>0);
+  const totalIvaAcumulado = ivaYearlyData.reduce((s,y)=>s+y.ivaTotal,0);
+  const totalNetoAcumulado = ivaYearlyData.reduce((s,y)=>s+y.netoTotal,0);
 
   return (
     <div>
@@ -849,10 +866,67 @@ function ReportsView({ contacts, deals, tasks, isMobile }) {
         ))}
       </div>
 
+      {/* IVA Breakdown */}
+      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20, marginBottom:16 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, flexWrap:"wrap", gap:8 }}>
+          <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, fontSize:14 }}>IVA facturado (venta)</div>
+          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Solo cotizaciones aprobadas con IVA · No incluye IVA compra</div>
+        </div>
+        {ivaYearlyData.length===0 && <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin cotizaciones con IVA aprobadas aún.</div>}
+        {/* KPIs rápidos */}
+        {ivaYearlyData.length>0 && (
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:16 }}>
+            <div style={{ background:COLORS.bg, borderRadius:8, padding:"12px 14px", border:`1px solid ${COLORS.border}` }}>
+              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>Total neto (sin IVA)</div>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text }}>{fmt(totalNetoAcumulado)}</div>
+            </div>
+            <div style={{ background:COLORS.bg, borderRadius:8, padding:"12px 14px", border:`1px solid ${COLORS.red}44` }}>
+              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.red, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>IVA 19% acumulado</div>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.red }}>{fmt(totalIvaAcumulado)}</div>
+            </div>
+            <div style={{ background:COLORS.bg, borderRadius:8, padding:"12px 14px", border:`1px solid ${COLORS.green}44` }}>
+              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.green, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>Total bruto (c/IVA)</div>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.green }}>{fmt(totalNetoAcumulado+totalIvaAcumulado)}</div>
+            </div>
+          </div>
+        )}
+        {/* Breakdown por año */}
+        {ivaYearlyData.map(y=>(
+          <div key={y.year} style={{ marginBottom:14, paddingBottom:14, borderBottom:`1px solid ${COLORS.border}` }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+              <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text }}>{y.year}</span>
+              <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{y.count} cotización{y.count!==1?"es":""}</span>
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
+              <div>
+                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", marginBottom:3 }}>Neto</div>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text }}>{fmt(y.netoTotal)}</div>
+              </div>
+              <div>
+                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.red, textTransform:"uppercase", marginBottom:3 }}>IVA 19%</div>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.red }}>{fmt(y.ivaTotal)}</div>
+              </div>
+              <div>
+                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.green, textTransform:"uppercase", marginBottom:3 }}>Total c/IVA</div>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.green }}>{fmt(y.totalConIva)}</div>
+              </div>
+            </div>
+            {/* Mini barra proporcional neto vs iva */}
+            <div style={{ marginTop:8, height:6, background:COLORS.border, borderRadius:3, overflow:"hidden", display:"flex" }}>
+              <div style={{ height:"100%", background:COLORS.accent, width:`${y.totalConIva>0?(y.netoTotal/y.totalConIva)*100:0}%`, transition:"width 0.4s" }} />
+              <div style={{ height:"100%", background:COLORS.red, flex:1 }} />
+            </div>
+            <div style={{ display:"flex", gap:12, marginTop:4 }}>
+              <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.accent }}>■ Neto {y.totalConIva>0?Math.round((y.netoTotal/y.totalConIva)*100):0}%</span>
+              <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.red }}>■ IVA {y.totalConIva>0?Math.round((y.ivaTotal/y.totalConIva)*100):0}%</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:16, marginBottom:16 }}>
         <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20 }}>
           <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Pipeline por etapa</div>
-          {STAGES.map(s=>{
             const val=deals.filter(d=>d.stage===s.key).reduce((a,d)=>a+Number(d.value),0);
             return (
               <div key={s.key} style={{ marginBottom:12 }}>
