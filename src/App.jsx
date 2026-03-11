@@ -3249,22 +3249,19 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
                       placeholder="Buscar producto..."
                       style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none", boxSizing:"border-box" }}
                     />
-                    {/* Margen inline debajo del buscador */}
+                    {/* Margen calculado automáticamente desde precio vs costo */}
                     <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:3 }}>
-                      <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>Margen %:</span>
-                      <input type="number" value={lineMargen[idx]||0}
-                        onChange={e=>{
-                          const m = Number(e.target.value)||0;
-                          setLineMargen(s=>({...s,[idx]:m}));
-                          // Recalcular precio si hay producto seleccionado
-                          if(costoNetoProd>0) {
-                            const newPrice = Math.round(costoNetoProd*(1+m/100));
-                            updateLine(idx,"unitPrice",newPrice);
-                          }
-                        }}
-                        style={{ width:48, background:COLORS.bg, border:`1px solid ${COLORS.accent}44`, borderRadius:4, padding:"2px 5px", fontFamily:FONT, fontSize:10, color:COLORS.accent, outline:"none" }}
-                      />
-                      {costoNetoProd>0 && <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>Costo: ${costoNetoProd.toLocaleString("es-CL")}</span>}
+                      {costoNetoProd>0 ? (() => {
+                        const precio = Number(line.unitPrice)||0;
+                        const margenCalc = precio>0 ? Math.round(((precio - costoNetoProd)/costoNetoProd)*100) : 0;
+                        const color = margenCalc<=0 ? COLORS.red : margenCalc<15 ? COLORS.yellow : COLORS.green;
+                        return (<>
+                          <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>Costo: ${costoNetoProd.toLocaleString("es-CL")}</span>
+                          <span style={{ fontFamily:FONT, fontSize:9, fontWeight:700, color, background:color+"18", border:`1px solid ${color}44`, borderRadius:3, padding:"1px 5px" }}>
+                            {margenCalc>0?"+":""}{margenCalc}% margen
+                          </span>
+                        </>);
+                      })() : null}
                     </div>
                     {/* Dropdown resultados */}
                     {lineDropOpen[idx] && resultados.length>0 && (
