@@ -113,10 +113,10 @@ function AddressSelector({ value, onChange }) {
 }
 
 const STAGES = [
-  { key: "propuesta",    label: "Propuesta",    color: COLORS.yellow },
-  { key: "negociacion",  label: "Negociación",  color: COLORS.accent },
-  { key: "cerrado",      label: "Cerrado",      color: COLORS.green },
-  { key: "por_facturar", label: "Por Facturar", color: COLORS.purple },
+  { key: "contacto",    label: "Contacto",    color: COLORS.textMuted },
+  { key: "propuesta",   label: "Propuesta",   color: COLORS.yellow },
+  { key: "negociacion", label: "Negociación", color: COLORS.accent },
+  { key: "cerrado",     label: "Cerrado",     color: COLORS.green },
 ];
 const STATUS_CONFIG = {
   cliente:   { label: "Cliente",   color: COLORS.green },
@@ -462,7 +462,7 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
   const [editingId, setEditingId] = useState(null);
   const [collapsed, setCollapsed] = useState({});
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title:"", company:"", contactId:"", rut:"", value:"", stage:"propuesta", probability:"20", closeDate:"", quoteNumber:"" });
+  const [form, setForm] = useState({ title:"", company:"", contactId:"", rut:"", value:"", stage:"contacto", probability:"20", closeDate:"", quoteNumber:"" });
   const [quoteBusqueda, setQuoteBusqueda] = useState("");
   const [quoteFound, setQuoteFound] = useState(null);
   const [quoteSearching, setQuoteSearching] = useState(false);
@@ -489,7 +489,7 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
       f("rut", q.rut_cliente || "");
       f("value", String(Math.round(q.total || 0)));
       // Mapear estado cotización → etapa pipeline
-      const estadoMap = { aprobado:"cierre", enviado:"propuesta", enviada:"propuesta", borrador:"propuesta", rechazado:"propuesta" };
+      const estadoMap = { aprobado:"cierre", enviado:"propuesta", enviada:"propuesta", borrador:"contacto", rechazado:"contacto" };
       f("stage", estadoMap[q.estado] || "propuesta");
     } else {
       setQuoteFound(null);
@@ -642,7 +642,6 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
 function TasksView({ tasks, setTasks, contacts, isMobile }) {
   const [filter, setFilter] = useState("pendientes");
   const [showModal, setShowModal] = useState(false);
-  const [editingTask, setEditingTask] = useState(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ title:"", contactId:"", company:"", dueDate:"", priority:"media", type:"tarea" });
   const f = (k,v) => setForm(p=>({...p,[k]:v}));
@@ -664,30 +663,13 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
     setTasks(tasks.filter(t=>t.id!==id));
   };
 
-  const openNew = () => {
-    setEditingTask(null);
-    setForm({ title:"", contactId:"", company:"", dueDate:"", priority:"media", type:"tarea" });
-    setShowModal(true);
-  };
-
-  const openEdit = (t) => {
-    setEditingTask(t);
-    setForm({ title:t.title, contactId:t.contactId||"", company:t.company||"", dueDate:t.dueDate||"", priority:t.priority||"media", type:t.type||"tarea" });
-    setShowModal(true);
-  };
-
   const save = async () => {
     if (!form.title) return;
     setSaving(true);
     const contact = contacts.find(c=>c.id===form.contactId);
     const dbForm = { ...form, company: form.company||(contact?.company||"") };
-    if (editingTask) {
-      const { data, error } = await supabase.from("task").update(mapTaskToDb(dbForm)).eq("id", editingTask.id).select().single();
-      if (!error) setTasks(tasks.map(t=>t.id===editingTask.id?mapTask(data):t));
-    } else {
-      const { data, error } = await supabase.from("task").insert(mapTaskToDb(dbForm)).select().single();
-      if (!error) setTasks([...tasks, mapTask(data)]);
-    }
+    const { data, error } = await supabase.from("task").insert(mapTaskToDb(dbForm)).select().single();
+    if (!error) setTasks([...tasks, mapTask(data)]);
     setSaving(false); setShowModal(false);
     setForm({ title:"", contactId:"", company:"", dueDate:"", priority:"media", type:"tarea" });
   };
@@ -703,7 +685,7 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
           {["todas","pendientes","vencidas","completadas"].map(flt=>(
             <button key={flt} onClick={()=>setFilter(flt)} style={{ padding:"7px 12px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:filter===flt?COLORS.accent:COLORS.card, color:filter===flt?COLORS.bg:COLORS.textMuted, border:`1px solid ${filter===flt?COLORS.accent:COLORS.border}` }}>{flt.charAt(0).toUpperCase()+flt.slice(1)}</button>
           ))}
-          <AddBtn onClick={openNew} label="Nueva" />
+          <AddBtn onClick={()=>setShowModal(true)} label="Nueva" />
         </div>
       </div>
       <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
@@ -722,7 +704,6 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
               </div>
               <Tag label={pc.label} color={pc.color} />
               <div style={{ fontFamily:FONT, fontSize:11, color:overdue?COLORS.red:COLORS.textMuted, minWidth:50, textAlign:"right" }}>{overdue&&"⚠ "}{fmtDate(t.dueDate)}</div>
-              <button onClick={()=>openEdit(t)} style={{ background:"none", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.textMuted, cursor:"pointer", fontSize:11, padding:"3px 8px", fontFamily:FONT }}>✏ Editar</button>
               <button onClick={()=>del(t.id)} style={{ background:"none", border:"none", color:COLORS.textDim, cursor:"pointer", fontSize:13 }}>✕</button>
             </div>
           );
@@ -730,13 +711,13 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
         {filtered.length===0 && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>Sin tareas en esta categoría</div>}
       </div>
       {showModal && (
-        <Modal title={editingTask?"Editar Tarea":"Nueva Tarea"} onClose={()=>setShowModal(false)} onSubmit={save}>
+        <Modal title="Nueva Tarea" onClose={()=>setShowModal(false)} onSubmit={save}>
           <Input label="Título *" value={form.title} onChange={e=>f("title",e.target.value)} placeholder="Ej: Llamada de seguimiento" />
           <Select label="Contacto" value={form.contactId} onChange={e=>{const c=contacts.find(x=>x.id===e.target.value);f("contactId",e.target.value);if(c)f("company",c.company);}}>
             <option value="">— Sin contacto —</option>
             {contacts.map(c=><option key={c.id} value={c.id}>{c.name} ({c.company})</option>)}
           </Select>
-          <Input label="Razón Social" value={form.company} onChange={e=>f("company",e.target.value)} placeholder="Ej: AdministARS" />
+          <Input label="Empresa" value={form.company} onChange={e=>f("company",e.target.value)} placeholder="Ej: AdministARS" />
           <Input label="Fecha límite" value={form.dueDate} onChange={e=>f("dueDate",e.target.value)} type="date" />
           <Select label="Prioridad" value={form.priority} onChange={e=>f("priority",e.target.value)}>
             <option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option>
@@ -756,11 +737,58 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
 
 // ── REPORTS ──────────────────────────────────────────────────────────────────
 function ReportsView({ contacts, deals, tasks, isMobile }) {
-  const totalRevenue = deals.filter(d=>d.stage==="cerrado").reduce((s,d)=>s+Number(d.value),0);
+  const [quotes, setQuotes] = useState([]);
+  const [yearFilter, setYearFilter] = useState(String(new Date().getFullYear()));
+
+  useEffect(()=>{
+    supabase.from("cotizaciones").select("numero,fecha,total,estado,razon_social,nombre_cliente").order("fecha",{ascending:false})
+      .then(({data})=>setQuotes((data||[]).map(r=>({ number:r.numero, date:r.fecha, total:Number(r.total)||0, status:r.estado, client:r.razon_social||r.nombre_cliente||"" }))));
+  },[]);
+
+  // Ingresos = deals cerrados + cotizaciones aprobadas (no vinculadas a deal cerrado)
+  const dealRevenue = deals.filter(d=>d.stage==="cerrado").reduce((s,d)=>s+Number(d.value),0);
+  const approvedQuotes = quotes.filter(q=>q.status==="aprobada");
+  // Para no duplicar: si una cotización tiene número que coincide con un deal cerrado, no sumarla
+  const closedDealQuoteNums = new Set(deals.filter(d=>d.stage==="cerrado"&&d.quoteNumber).map(d=>String(d.quoteNumber)));
+  const quoteRevenue = approvedQuotes.filter(q=>!closedDealQuoteNums.has(String(q.number))).reduce((s,q)=>s+q.total,0);
+  const totalRevenue = dealRevenue + quoteRevenue;
+
   const wonRate = deals.length>0?Math.round(deals.filter(d=>d.stage==="cerrado").length/deals.length*100):0;
   const avgDeal = deals.length>0?Math.round(deals.reduce((s,d)=>s+Number(d.value),0)/deals.length):0;
   const taskCompletion = tasks.length>0?Math.round(tasks.filter(t=>t.done).length/tasks.length*100):0;
   const totalPipeline = deals.reduce((s,d)=>s+Number(d.value),0);
+
+  // Años disponibles desde cotizaciones
+  const availableYears = [...new Set(approvedQuotes.map(q=>q.date?q.date.slice(0,4):"").filter(Boolean))].sort((a,b)=>b-a);
+  if (!availableYears.includes(yearFilter) && availableYears.length>0) {/* keep current */}
+
+  // Ingresos por mes del año seleccionado
+  const MONTHS = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  const monthlyData = MONTHS.map((label,i)=>{
+    const month = String(i+1).padStart(2,"0");
+    const prefix = `${yearFilter}-${month}`;
+    const fromQuotes = approvedQuotes
+      .filter(q=>!closedDealQuoteNums.has(String(q.number)) && (q.date||"").startsWith(prefix))
+      .reduce((s,q)=>s+q.total,0);
+    const fromDeals = deals
+      .filter(d=>d.stage==="cerrado" && (d.closeDate||"").startsWith(prefix))
+      .reduce((s,d)=>s+Number(d.value),0);
+    return { label, total: fromQuotes + fromDeals };
+  });
+  const maxMonthly = Math.max(...monthlyData.map(m=>m.total), 1);
+
+  // Ingresos por año
+  const allYears = [...new Set([
+    ...approvedQuotes.map(q=>q.date?q.date.slice(0,4):"").filter(Boolean),
+    ...deals.filter(d=>d.stage==="cerrado"&&d.closeDate).map(d=>d.closeDate.slice(0,4)),
+  ])].sort((a,b)=>b-a).slice(0,5);
+
+  const yearlyData = allYears.map(yr=>{
+    const fromQ = approvedQuotes.filter(q=>!closedDealQuoteNums.has(String(q.number))&&(q.date||"").startsWith(yr)).reduce((s,q)=>s+q.total,0);
+    const fromD = deals.filter(d=>d.stage==="cerrado"&&(d.closeDate||"").startsWith(yr)).reduce((s,d)=>s+Number(d.value),0);
+    return { year:yr, total: fromQ+fromD };
+  });
+  const maxYearly = Math.max(...yearlyData.map(y=>y.total),1);
 
   return (
     <div>
@@ -768,12 +796,59 @@ function ReportsView({ contacts, deals, tasks, isMobile }) {
         <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Análisis</div>
         <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Reportes y Estadísticas</div>
       </div>
+      {/* KPIs */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20 }}>
-        <Stat label="Ingresos cerrados" value={fmt(totalRevenue)} color={COLORS.green} />
+        <Stat label="Ingresos totales" value={fmt(totalRevenue)} sub={`Cotiz. aprobadas + deals cerrados`} color={COLORS.green} />
         <Stat label="Tasa de cierre" value={`${wonRate}%`} color={wonRate>50?COLORS.green:COLORS.yellow} />
         <Stat label="Valor promedio deal" value={fmt(avgDeal)} color={COLORS.accent} />
         <Stat label="Tareas completadas" value={`${taskCompletion}%`} color={COLORS.text} />
       </div>
+
+      {/* Ingresos por mes */}
+      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20, marginBottom:16 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, flexWrap:"wrap", gap:8 }}>
+          <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, fontSize:14 }}>Ingresos por mes</div>
+          <div style={{ display:"flex", gap:6 }}>
+            {(availableYears.length>0?availableYears:[String(new Date().getFullYear())]).map(yr=>(
+              <button key={yr} onClick={()=>setYearFilter(yr)}
+                style={{ padding:"4px 12px", borderRadius:5, fontFamily:FONT, fontSize:11, cursor:"pointer",
+                  background:yearFilter===yr?COLORS.accent:COLORS.bg, color:yearFilter===yr?COLORS.bg:COLORS.textMuted,
+                  border:`1px solid ${yearFilter===yr?COLORS.accent:COLORS.border}` }}>{yr}</button>
+            ))}
+          </div>
+        </div>
+        <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:120 }}>
+          {monthlyData.map((m,i)=>(
+            <div key={i} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
+              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textAlign:"center" }}>
+                {m.total>0?`$${Math.round(m.total/1000)}k`:""}
+              </div>
+              <div style={{ width:"100%", background:m.total>0?COLORS.green:COLORS.border, borderRadius:"3px 3px 0 0",
+                height:`${Math.max((m.total/maxMonthly)*90,m.total>0?4:0)}px`, minHeight:m.total>0?"4px":"0",
+                transition:"height 0.3s" }} />
+              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>{m.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Ingresos por año */}
+      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20, marginBottom:16 }}>
+        <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Ingresos acumulados por año</div>
+        {yearlyData.length===0 && <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin cotizaciones aprobadas aún.</div>}
+        {yearlyData.map(y=>(
+          <div key={y.year} style={{ marginBottom:12 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
+              <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, fontWeight:600 }}>{y.year}</span>
+              <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.green, fontWeight:700 }}>{fmt(y.total)}</span>
+            </div>
+            <div style={{ height:8, background:COLORS.border, borderRadius:4 }}>
+              <div style={{ height:8, borderRadius:4, background:`linear-gradient(90deg,${COLORS.green},${COLORS.accent})`, width:`${(y.total/maxYearly)*100}%`, transition:"width 0.4s" }} />
+            </div>
+          </div>
+        ))}
+      </div>
+
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:16, marginBottom:16 }}>
         <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20 }}>
           <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Pipeline por etapa</div>
@@ -1814,7 +1889,7 @@ function ProductsDB({ isMobile }) {
 }
 
 // ── COTIZACIONES LIST ────────────────────────────────────────────────────────
-function QuotesView({ contacts, deals, setDeals, isMobile }) {
+function QuotesView({ contacts, isMobile }) {
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("list");
@@ -1844,35 +1919,35 @@ function QuotesView({ contacts, deals, setDeals, isMobile }) {
 
   const updateStatus = async (id, status) => {
     await supabase.from("cotizaciones").update({ estado: status }).eq("id", id);
-    const updatedQuote = quotes.find(q=>q.id===id);
     setQuotes(quotes.map(q=>q.id===id?{...q,status}:q));
-    // Auto-push a Pipeline cuando se marca como "enviada"
-    if (status === "enviada" && updatedQuote) {
-      const existingDeal = (deals||[]).find(d=>String(d.quoteNumber)===String(updatedQuote.number));
-      if (!existingDeal) {
-        const dealData = {
-          titulo: updatedQuote.clientCompany || updatedQuote.clientName || `COT-${updatedQuote.number}`,
-          empresa: updatedQuote.clientCompany || updatedQuote.clientName || "",
-          rut_empresa: updatedQuote.clientRut || "",
-          valor: Number(updatedQuote.total) || 0,
-          etapa: "propuesta",
-          probabilidad: 30,
-          fecha_cierre: null,
-          contact_id: updatedQuote.contactId || null,
-          numero_cotizacion: updatedQuote.number,
-        };
-        const { data: newDeal } = await supabase.from("deals").insert(dealData).select().single();
-        if (newDeal && setDeals) setDeals(prev=>[...prev, mapDeal(newDeal)]);
-      } else {
-        await supabase.from("deals").update({ etapa: "propuesta" }).eq("id", existingDeal.id);
-        if (setDeals) setDeals(prev=>prev.map(d=>d.id===existingDeal.id?{...d,stage:"propuesta"}:d));
-      }
-    }
   };
 
   const del = async (id) => {
     await supabase.from("cotizaciones").delete().eq("id", id);
     setQuotes(quotes.filter(q=>q.id!==id));
+  };
+
+  const duplicate = async (q) => {
+    const newNumber = nextNumber;
+    const today = new Date().toISOString().slice(0,10);
+    // Insert nueva cotización con datos del original pero nuevo número, fecha hoy y estado borrador
+    const newData = mapQuoteToDb({
+      ...q, number: newNumber, date: today, status: "borrador", total: q.total
+    });
+    const { data: savedQuote } = await supabase.from("cotizaciones").insert(newData).select().single();
+    if (!savedQuote) return;
+    // Copiar líneas
+    const { data: origLines } = await supabase.from("quote_lines").select("*").eq("quote_id", q.id).order("orden");
+    if (origLines && origLines.length > 0) {
+      const newLines = origLines.map(l => ({ ...l, id: undefined, quote_id: savedQuote.id }));
+      await supabase.from("quote_lines").insert(newLines);
+    }
+    const mapped = mapQuote(savedQuote);
+    setQuotes(prev=>[mapped,...prev]);
+    setNextNumber(n=>n+1);
+    // Abrir en edición para que ajuste datos del cliente
+    setSelectedQuote(mapped);
+    setView("detail");
   };
 
   if (view==="new") return <QuoteEditor contacts={contacts} nextNumber={nextNumber} onSave={(q)=>{ setQuotes([q,...quotes]); setNextNumber(n=>n+1); setSelectedQuote(q); setView("list"); }} onCancel={()=>setView("list")} />;
@@ -1953,6 +2028,7 @@ function QuotesView({ contacts, deals, setDeals, isMobile }) {
                     <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
                       <button onClick={(e)=>{ e.stopPropagation(); setSelectedQuote(q); setView("detail"); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>✏️ Editar</button>
                       <button onClick={(e)=>{ e.stopPropagation(); setSelectedQuote(q); setView("pdf"); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.green}44`, color:COLORS.green }}>📄 Ver PDF</button>
+                      <button onClick={(e)=>{ e.stopPropagation(); duplicate(q); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.yellow}44`, color:COLORS.yellow }}>⧉ Duplicar</button>
                       {["enviada","aprobada","rechazada"].map(s=>(
                         <button key={s} onClick={(e)=>{ e.stopPropagation(); updateStatus(q.id,s); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:q.status===s?STATUS_QUOTE[s].color+"22":"transparent", border:`1px solid ${STATUS_QUOTE[s].color}44`, color:STATUS_QUOTE[s].color }}>
                           {STATUS_QUOTE[s].label}
@@ -3151,8 +3227,7 @@ function QuotePDF({ quote, onBack }) {
         <button onClick={()=>{
           const prev = document.title;
           const cliente = quote.clientCompany||quote.clientName||"Cliente";
-          const fechaDoc = quote.date ? new Date(quote.date+"T00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"-") : new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"-");
-          document.title = `COT-${String(quote.number).padStart(3,"0")} ${cliente} ${fechaDoc}`;
+          document.title = `COT-${String(quote.number).padStart(3,"0")} ${cliente}`;
           window.print();
           setTimeout(()=>{ document.title = prev; }, 2000);
         }} style={{ padding:"8px 18px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>🖨️ Imprimir / PDF</button>
@@ -3313,7 +3388,7 @@ function QuotePDF({ quote, onBack }) {
           body * { visibility: hidden; }
           #print-area, #print-area * { visibility: visible; }
           #print-area {
-            position: fixed; left: 0; top: 0;
+            position: absolute; left: 0; top: 0;
             width: 100%; padding: 12mm 14mm;
             box-sizing: border-box;
             font-size: 11px;
@@ -3333,7 +3408,7 @@ function QuotePDF({ quote, onBack }) {
           #print-area .rut-label { color: #cc0000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           #print-area .totals-table { width: 220px; margin-left: auto; }
           #print-area .totals-table td { white-space: nowrap; }
-          @page { margin: 0; size: A4; }
+          @page { margin: 10mm 14mm; size: A4; }
         }
       `}</style>
     </div>
@@ -5813,6 +5888,7 @@ const NAV_GROUPS = [
     key: "comercial", label: "Comercial", Icon: FileText, children: [
       { key:"quotes",        label:"Cotizar",      Icon: FileText },
       { key:"prestaciones",  label:"Prestaciones", Icon: Receipt  },
+      { key:"analisis",      label:"Análisis",     Icon: Scale    },
     ],
   },
   {
@@ -7895,7 +7971,7 @@ export default function CRM() {
           {view==="dashboard" && <Dashboard contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} />}
           {view==="contacts"  && <ContactsView contacts={contacts} setContacts={setContacts} isMobile={isMobile} />}
           {view==="pipeline"  && <PipelineView deals={deals} setDeals={setDeals} contacts={contacts} isMobile={isMobile} />}
-          {view==="quotes"       && <QuotesView contacts={contacts} deals={deals} setDeals={setDeals} isMobile={isMobile} />}
+          {view==="quotes"       && <QuotesView contacts={contacts} isMobile={isMobile} />}
           {view==="prestaciones" && <PrestacionesView isMobile={isMobile} />}
           {view==="products"  && <ProductsDB isMobile={isMobile} />}
           {view==="purchase"  && <PurchaseView isMobile={isMobile} />}
