@@ -6725,10 +6725,17 @@ const CHECKLIST_TEMPLATES = {
     { seccion:"4.0 Pruebas Finales",   items:["Acceso autorizado","Acceso no autorizado","Prueba de alarma","Backup de configuración"] },
   ],
   "CCTV / Cámaras": [
-    { seccion:"1.0 Hardware",          items:["Estado físico cámaras","Limpieza de lentes","Ajuste de ángulo","Fijación y soporte","Cableado"] },
-    { seccion:"2.0 Grabación/NVR",     items:["Estado NVR/DVR","Espacio en disco","Retención de grabación","Estado de alarmas"] },
-    { seccion:"3.0 Video",             items:["Calidad de imagen diurna","Calidad de imagen nocturna","Cobertura correcta","Detección de movimiento"] },
-    { seccion:"4.0 Pruebas Finales",   items:["Acceso remoto","Calidad streaming","Respaldo de configuración"] },
+    { seccion:"1.0 Servicio de Mantenimiento", items:["Limpieza general de cámaras y accesorios","Ajuste de ángulo y orientación","Revisión de soportes y fijaciones","Limpieza de lentes con paño óptico","Verificación de protección IP/intemperie"] },
+    { seccion:"2.0 Central CCTV / NVR-DVR",   items:["Estado físico NVR/DVR","Limpieza interna (polvo/ventilación)","Verificación de discos duros","Espacio disponible en disco","Retención de grabación configurada","Fecha y hora del sistema","Firmware actualizado","Estado de alarmas configuradas"] },
+    { seccion:"3.0 Recuperaciones Eléctricas", items:["Tensión de alimentación cámaras (12V/PoE)","Estado de fuentes de alimentación","UPS o respaldo eléctrico (si aplica)","Protecciones contra sobretensión","Bornes y conexiones eléctricas"] },
+    { seccion:"4.0 Conexiones UTP/UDP",        items:["Estado de cables UTP/coaxial visibles","Revisión de conectores RJ45/BNC","Prueba de continuidad en tramos críticos","Revisión de canaletas y ductos","Amarras y orden de cableado"] },
+    { seccion:"5.0 Verificaciones IP / Red",   items:["IP asignada correctamente por cámara","Comunicación NVR ↔ cámaras","Acceso desde red local LAN","Acceso remoto (app/web)","Ancho de banda verificado","Sin conflictos de IP en red"] },
+    { seccion:"6.0 Estado NVR (Sistema)",      items:["Grabación continua activa","Grabación por movimiento activa","Historial de eventos reciente","Canales activos vs canales perdidos","Exportación de clip de prueba"] },
+    { seccion:"7.0 Estado Cámaras (Sistema)",  items:["Imagen diurna sin artefactos","Imagen nocturna / IR funcional","Detección de movimiento activa","Sin cámaras offline en el sistema","Resolución configurada correctamente"] },
+    { seccion:"8.0 Estado Cámaras (Físico)",   items:["Sin daños físicos visibles","Vidrio/domo sin condensación","Sellado hermético en exteriores","Tornillos y tapa en buen estado","Sin obstrucción del campo visual"] },
+    { seccion:"9.0 Estado Cableado (si aplica)",items:["Sin tramos expuestos a la intemperie","Canaletas fijadas correctamente","Sin dobleces críticos ni aplastamientos","Identificación/etiquetado de cables","Distancias dentro de norma"] },
+    { seccion:"10.0 Estado Antenas (si aplica)",items:["Antenas alineadas y fijadas","Sin oxido ni daño físico","Señal WiFi/RF estable","Nivel de señal adecuado (>-70dBm)","Cableado de RF sin quiebres"] },
+    { seccion:"11.0 Log de Mantención",        items:["Registro fotográfico realizado","Incidencias documentadas","Equipos reemplazados registrados","Recomendaciones entregadas al cliente","Firma de conformidad obtenida"] },
   ],
 };
 
@@ -6780,7 +6787,7 @@ function OperacionesView({ isMobile }) {
     setLoading(true);
     const [{ data:opsData },{ data:qData },{ data:cData }] = await Promise.all([
       supabase.from("operaciones_terreno").select("*").order("created_at",{ascending:false}),
-      supabase.from("cotizaciones").select("id,numero,nombre_cliente,razon_social,estado").order("numero",{ascending:false}),
+      supabase.from("cotizaciones").select("id,numero,nombre_cliente,razon_social,rut_cliente,direccion,estado").order("numero",{ascending:false}),
       supabase.from("contactos").select("id,nombre,empresa"),
     ]);
     setOps(opsData||[]);
@@ -7083,7 +7090,11 @@ function OpModal({ op, quotes, contacts, onClose, onSaved, onPrint }) {
   React.useEffect(()=>{
     if(form.quote_id){
       const q = quotes.find(q=>q.id===form.quote_id);
-      if(q){ ff("cliente_nombre", q.razon_social||q.nombre_cliente||""); }
+      if(q){
+        ff("cliente_nombre", q.razon_social||q.nombre_cliente||"");
+        if(q.rut_cliente)  ff("cliente_rut", q.rut_cliente);
+        if(q.direccion)    ff("lugar", q.direccion);
+      }
     }
   },[form.quote_id]);
 
