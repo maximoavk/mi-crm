@@ -2501,7 +2501,10 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
     </div>
     <div class="foot">${isPF?`Polygonos SpA · RUT 77.180.437-3 · Sistema de Pre-Facturación Interna · No válido como documento legal · Emitido por ${form.responsable||"mhudson"} el ${new Date().toLocaleDateString("es-CL")} · ${numero}`:`Polygonos SpA · RUT 77.180.437-3 · Documento interno de gestión · Generado el ${new Date().toLocaleDateString("es-CL")} · ${numero}`}</div>
     <script>window.onload=()=>window.print();</script></body></html>`;
-    const w=window.open("","_blank");w.document.write(html);w.document.close();
+    const clienteNombre = (selQuotes[0]?.clientCompany||selQuotes[0]?.clientName||"Cliente").replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ ]/g,"").trim();
+    const w=window.open("","_blank");
+    w.document.title=`${isPF?"PF":"CP"}-${cotNum}-${clienteNombre}`;
+    w.document.write(html);w.document.close();
   };
 
   const saveAndPrint = async () => {
@@ -3103,7 +3106,13 @@ function QuotePDF({ quote, onBack }) {
     <div>
       <div style={{ display:"flex", gap:10, marginBottom:20, alignItems:"center" }}>
         <button onClick={onBack} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>← Volver</button>
-        <button onClick={()=>window.print()} style={{ padding:"8px 18px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>🖨️ Imprimir / PDF</button>
+        <button onClick={()=>{
+          const prev = document.title;
+          const cliente = quote.clientCompany||quote.clientName||"Cliente";
+          document.title = `COT-${String(quote.number).padStart(3,"0")} ${cliente}`;
+          window.print();
+          setTimeout(()=>{ document.title = prev; }, 2000);
+        }} style={{ padding:"8px 18px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>🖨️ Imprimir / PDF</button>
       </div>
 
       {/* DOCUMENTO */}
@@ -5688,21 +5697,67 @@ function PurchaseView({ isMobile }) {
 }
 
 // ── NAV ──────────────────────────────────────────────────────────────────────
-const NAV = [
-  { key:"dashboard", label:"Dashboard", Icon: LayoutDashboard  },
-  { key:"contacts",  label:"Contactos", Icon: Users            },
-  { key:"pipeline",  label:"Pipeline",  Icon: Kanban           },
-  { key:"quotes",       label:"Cotizar",     Icon: FileText         },
-  { key:"prestaciones", label:"Prestaciones", Icon: Receipt          },
-  { key:"products",  label:"Maestro",    Icon: Package          },
-  { key:"analisis",   label:"Análisis",   Icon: Scale            },
-  { key:"purchase",  label:"Compras",   Icon: ShoppingCart     },
-  { key:"costeo",    label:"Costeo",    Icon: Calculator       },
-  { key:"gantt",     label:"Proyectos", Icon: GanttChartSquare },
-  { key:"operaciones", label:"Operaciones", Icon: Wrench          },
-  { key:"tasks",     label:"Tareas",    Icon: CheckSquare      },
-  { key:"reports",   label:"Reportes",  Icon: BarChart2        },
+// Flat list for mobile/bottom nav (top-level items only)
+const NAV_FLAT = [
+  { key:"dashboard",   label:"Dashboard",   Icon: LayoutDashboard  },
+  { key:"contacts",    label:"Contactos",   Icon: Users            },
+  { key:"quotes",      label:"Cotizar",     Icon: FileText         },
+  { key:"purchase",    label:"Compras",     Icon: ShoppingCart     },
+  { key:"operaciones", label:"Operaciones", Icon: Wrench           },
 ];
+
+// Grouped nav for desktop sidebar
+const NAV_GROUPS = [
+  {
+    key: "dashboard", label: "Dashboard", Icon: LayoutDashboard, single: true,
+  },
+  {
+    key: "crm", label: "CRM", Icon: Users, children: [
+      { key:"contacts",  label:"Contactos", Icon: Users   },
+      { key:"pipeline",  label:"Pipeline",  Icon: Kanban  },
+    ],
+  },
+  {
+    key: "comercial", label: "Comercial", Icon: FileText, children: [
+      { key:"quotes",        label:"Cotizar",      Icon: FileText },
+      { key:"prestaciones",  label:"Prestaciones", Icon: Receipt  },
+      { key:"analisis",      label:"Análisis",     Icon: Scale    },
+    ],
+  },
+  {
+    key: "catalogo", label: "Catálogo", Icon: Package, children: [
+      { key:"products",  label:"Maestro de Productos", Icon: Package      },
+      { key:"purchase",  label:"Compras",              Icon: ShoppingCart },
+    ],
+  },
+  {
+    key: "proyectos", label: "Proyectos", Icon: GanttChartSquare, children: [
+      { key:"costeo",    label:"Costeo",    Icon: Calculator       },
+      { key:"gantt",     label:"Gantt",     Icon: GanttChartSquare },
+      { key:"tasks",     label:"Tareas",    Icon: CheckSquare      },
+    ],
+  },
+  {
+    key: "operaciones", label: "Operaciones", Icon: Wrench, children: [
+      { key:"operaciones", label:"Terreno",  Icon: Wrench   },
+    ],
+  },
+  {
+    key: "reports", label: "Reportes", Icon: BarChart2, single: true,
+  },
+];
+
+// Helper: all nav keys flat
+const NAV = NAV_GROUPS.flatMap(g=>g.single?[{key:g.key,label:g.label,Icon:g.Icon}]:(g.children||[]));
+
+// Helper: find parent group of a view key
+const getParentGroup = (viewKey) => {
+  for(const g of NAV_GROUPS){
+    if(g.single && g.key===viewKey) return null;
+    if((g.children||[]).find(c=>c.key===viewKey)) return g.key;
+  }
+  return null;
+};
 
 // ── LOGIN SCREEN ─────────────────────────────────────────────────────────────
 
@@ -6172,7 +6227,9 @@ function AnalisisComparativa({ analysis, onBack, onEdit }) {
     <script>window.onload=()=>window.print();</script>
     </body></html>`;
 
-    const w = window.open("","_blank"); w.document.write(html); w.document.close();
+    const w = window.open("","_blank");
+    w.document.title = `Análisis-${(analysis.titulo||"Comparativa").replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ ]/g,"").trim()}`;
+    w.document.write(html); w.document.close();
   };
 
   const maxPrice = Math.max(...items.map(i=>Number(i.precio_venta||0)), 1);
@@ -6668,7 +6725,10 @@ function printOp(op, quote) {
   <script>window.onload=()=>window.print();</script>
   </body></html>`;
 
-  const w = window.open("","_blank"); w.document.write(html); w.document.close();
+  const clienteOp = (op.cliente_nombre||"Cliente").replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ ]/g,"").trim();
+  const w = window.open("","_blank");
+  w.document.title = `${isCom?"COM":"MNT"}-${op.numero||op.id.slice(0,8)}-${clienteOp}`;
+  w.document.write(html); w.document.close();
 }
 
 // ─── Modal Operación ──────────────────────────────────────────────────────────
@@ -7688,39 +7748,80 @@ export default function CRM() {
       )}
 
       {!isMobile && (
-        <aside style={{ width:220, background:COLORS.surface, borderRight:`1px solid ${COLORS.border}`, padding:"28px 0", display:"flex", flexDirection:"column", flexShrink:0, position:"sticky", top:0, height:"100vh" }}>
+        <aside style={{ width:224, background:COLORS.surface, borderRight:`1px solid ${COLORS.border}`, padding:"28px 0", display:"flex", flexDirection:"column", flexShrink:0, position:"sticky", top:0, height:"100vh" }}>
           <div style={{ padding:"0 24px 28px", borderBottom:`1px solid ${COLORS.border}` }}>
             <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, letterSpacing:"0.18em", textTransform:"uppercase", marginBottom:2 }}>CLAUDE ERP</div>
             <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text }}>Polygonos <span style={{color:COLORS.accent}}>360</span></div>
           </div>
-          <nav style={{ padding:"12px 10px", flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:2 }}>
-            {NAV.map(n=>{
-              const active = view===n.key;
+          <nav style={{ padding:"10px 8px", flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:1 }}>
+            {NAV_GROUPS.map(g=>{
+              if(g.single){
+                const active = view===g.key;
+                return (
+                  <button key={g.key} onClick={()=>navigate(g.key)}
+                    style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"9px 12px", borderRadius:10,
+                      background: active?"linear-gradient(120deg,#AC3AB322,#2954EC22)":"transparent",
+                      border: active?"1px solid #AC3AB333":"1px solid transparent",
+                      cursor:"pointer", textAlign:"left", transition:"all 0.15s",
+                      color: active?COLORS.text:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:active?700:400 }}>
+                    <div style={{ width:28, height:28, borderRadius:8, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center",
+                      background: active?"linear-gradient(135deg,#AC3AB3,#2954EC)":COLORS.bg,
+                      border: active?"none":`1px solid ${COLORS.border}`, color:active?"#fff":COLORS.textMuted }}>
+                      <g.Icon size={13} strokeWidth={active?2.5:1.8} />
+                    </div>
+                    {g.label}
+                    {active && <div style={{ marginLeft:"auto", width:5, height:5, borderRadius:"50%", background:"#AC3AB3", flexShrink:0 }} />}
+                  </button>
+                );
+              }
+              // Group with children
+              const childKeys = (g.children||[]).map(c=>c.key);
+              const groupActive = childKeys.includes(view);
+              const [groupOpen, setGroupOpen] = React.useState(groupActive);
+              // Auto-open if child is active
+              React.useEffect(()=>{ if(groupActive) setGroupOpen(true); },[view]);
               return (
-                <button key={n.key} onClick={()=>navigate(n.key)}
-                  style={{
-                    display:"flex", alignItems:"center", gap:10,
-                    width:"100%", padding:"9px 12px", borderRadius:10,
-                    background: active ? "linear-gradient(120deg,#AC3AB322,#2954EC22)" : "transparent",
-                    border: active ? "1px solid #AC3AB333" : "1px solid transparent",
-                    cursor:"pointer", textAlign:"left", transition:"all 0.15s",
-                    color: active ? COLORS.text : COLORS.textMuted,
-                    fontFamily: FONT_DISPLAY, fontSize:13,
-                    fontWeight: active ? 700 : 400,
-                  }}>
-                  <div style={{
-                    width:30, height:30, borderRadius:8, flexShrink:0,
-                    display:"flex", alignItems:"center", justifyContent:"center",
-                    background: active ? "linear-gradient(135deg,#AC3AB3,#2954EC)" : COLORS.bg,
-                    border: active ? "none" : `1px solid ${COLORS.border}`,
-                    color: active ? "#fff" : COLORS.textMuted,
-                    transition:"all 0.15s",
-                  }}>
-                    <n.Icon size={14} strokeWidth={active?2.5:1.8} />
-                  </div>
-                  {n.label}
-                  {active && <div style={{ marginLeft:"auto", width:5, height:5, borderRadius:"50%", background:"#AC3AB3", flexShrink:0 }} />}
-                </button>
+                <div key={g.key}>
+                  {/* Group header */}
+                  <button onClick={()=>setGroupOpen(o=>!o)}
+                    style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"8px 12px", borderRadius:10,
+                      background: groupActive?"linear-gradient(120deg,#AC3AB311,#2954EC11)":"transparent",
+                      border: groupActive?"1px solid #AC3AB322":"1px solid transparent",
+                      cursor:"pointer", textAlign:"left", transition:"all 0.15s",
+                      color: groupActive?COLORS.text:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:groupActive?700:500 }}>
+                    <div style={{ width:28, height:28, borderRadius:8, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center",
+                      background: groupActive?"linear-gradient(135deg,#AC3AB366,#2954EC66)":COLORS.bg,
+                      border: groupActive?"none":`1px solid ${COLORS.border}`, color:groupActive?"#fff":COLORS.textMuted }}>
+                      <g.Icon size={13} strokeWidth={groupActive?2.5:1.8} />
+                    </div>
+                    <span style={{ flex:1 }}>{g.label}</span>
+                    <span style={{ fontSize:9, color:COLORS.textDim, transition:"transform 0.2s", display:"inline-block", transform:groupOpen?"rotate(90deg)":"rotate(0deg)" }}>▶</span>
+                  </button>
+                  {/* Children */}
+                  {groupOpen && (
+                    <div style={{ paddingLeft:16, marginTop:2, marginBottom:4, display:"flex", flexDirection:"column", gap:1 }}>
+                      {(g.children||[]).map(c=>{
+                        const active = view===c.key;
+                        return (
+                          <button key={c.key} onClick={()=>navigate(c.key)}
+                            style={{ display:"flex", alignItems:"center", gap:9, width:"100%", padding:"7px 10px", borderRadius:8,
+                              background: active?"linear-gradient(120deg,#AC3AB322,#2954EC22)":"transparent",
+                              border: active?"1px solid #AC3AB333":"1px solid transparent",
+                              cursor:"pointer", textAlign:"left", transition:"all 0.15s",
+                              color: active?COLORS.text:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:active?700:400 }}>
+                            <div style={{ width:24, height:24, borderRadius:6, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center",
+                              background: active?"linear-gradient(135deg,#AC3AB3,#2954EC)":COLORS.card,
+                              border: active?"none":`1px solid ${COLORS.border}`, color:active?"#fff":COLORS.textMuted }}>
+                              <c.Icon size={11} strokeWidth={active?2.5:1.8} />
+                            </div>
+                            {c.label}
+                            {active && <div style={{ marginLeft:"auto", width:4, height:4, borderRadius:"50%", background:"#AC3AB3", flexShrink:0 }} />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </nav>
