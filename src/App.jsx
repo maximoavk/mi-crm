@@ -281,6 +281,7 @@ function ContactsView({ contacts, setContacts, isMobile }) {
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState({});
   const toggleQ = (id) => setCollapsed(p=>({...p,[id]:!p[id]}));
+  const [subTab, setSubTab] = useState("cotizaciones");
   const [filterStatus, setFilterStatus] = useState("todos");
   const [selected, setSelected] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -1324,6 +1325,7 @@ function ProductsDB({ isMobile }) {
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState({});
   const toggleQ = (id) => setCollapsed(p=>({...p,[id]:!p[id]}));
+  const [subTab, setSubTab] = useState("cotizaciones");
   const [filterType, setFilterType] = useState("todos");
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -1802,6 +1804,7 @@ function QuotesView({ contacts, isMobile }) {
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState({});
   const toggleQ = (id) => setCollapsed(p=>({...p,[id]:!p[id]}));
+  const [subTab, setSubTab] = useState("cotizaciones");
 
   useEffect(()=>{ loadQuotes(); },[]);
   const loadQuotes = async () => {
@@ -1836,15 +1839,26 @@ function QuotesView({ contacts, isMobile }) {
 
   return (
     <div>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:20, flexWrap:"wrap", gap:10 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:12, flexWrap:"wrap", gap:10 }}>
         <div>
           <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Comercial</div>
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Cotizaciones</div>
         </div>
-        <AddBtn onClick={()=>setView("new")} label="Nueva cotización" />
+        {subTab==="cotizaciones" && <AddBtn onClick={()=>setView("new")} label="Nueva cotización" />}
       </div>
+      {/* Sub-tabs */}
+      <div style={{ display:"flex", gap:0, borderBottom:`1px solid ${COLORS.border}`, marginBottom:18 }}>
+        {[["cotizaciones","📄 Cotizaciones"],["analisis","📊 Análisis de Precios"]].map(([k,l])=>(
+          <button key={k} onClick={()=>setSubTab(k)}
+            style={{ padding:"9px 20px", fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", border:"none", background:"transparent",
+              color:subTab===k?COLORS.accent:COLORS.textMuted, borderBottom:`2px solid ${subTab===k?COLORS.accent:"transparent"}`, transition:"all 0.15s" }}>
+            {l}
+          </button>
+        ))}
+      </div>
+      {subTab==="analisis" && <AnalisisPrecios />}
 
-      {loading ? <Loader /> : (
+      {subTab==="cotizaciones" && loading ? <Loader /> : subTab==="cotizaciones" && (
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           {/* Buscador */}
           <div style={{ position:"relative", marginBottom:4 }}>
@@ -5817,6 +5831,8 @@ function AnalisisEditor({ analysis, products, onBack }) {
       specs: {},  // key-value técnicos
       ventajas: "",
       desventajas: "",
+      ficha_tecnica_url: "",
+      garantia: "",
       recomendado: false,
     }]);
     setShowPicker(false);
@@ -5835,6 +5851,8 @@ function AnalisisEditor({ analysis, products, onBack }) {
       specs: {},
       ventajas: "",
       desventajas: "",
+      ficha_tecnica_url: "",
+      garantia: "",
       recomendado: false,
     }]);
   };
@@ -6021,6 +6039,19 @@ function AnalisisEditor({ analysis, products, onBack }) {
                 </div>
               </div>
 
+              {/* Garantía + Link ficha técnica */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 2fr", gap:10, marginBottom:10 }}>
+                <div>
+                  <label style={lbl}>Garantía</label>
+                  <input value={it.garantia||""} onChange={e=>updItem(idx,"garantia",e.target.value)} placeholder="Ej: 12 meses, 2 años..." style={inp} />
+                </div>
+                <div>
+                  <label style={lbl}>🔗 Link ficha técnica (fabricante)</label>
+                  <input value={it.ficha_tecnica_url||""} onChange={e=>updItem(idx,"ficha_tecnica_url",e.target.value)} placeholder="https://..." style={inp} />
+                  {it.ficha_tecnica_url && <a href={it.ficha_tecnica_url} target="_blank" rel="noreferrer" style={{ fontFamily:FONT, fontSize:10, color:COLORS.secondary, textDecoration:"none" }}>↗ Ver ficha técnica</a>}
+                </div>
+              </div>
+
               {/* Recomendado toggle */}
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                 <button onClick={()=>{ setItems(prev=>prev.map((it2,i)=>({...it2,recomendado:i===idx}))); }}
@@ -6057,9 +6088,11 @@ function AnalisisComparativa({ analysis, onBack, onEdit }) {
     const headerCols = items.map(it=>`<th style="text-align:center;padding:8px 12px;background:${it.recomendado?"#16a34a":"#1e293b"};color:#fff;min-width:160px">${it.recomendado?"⭐ ":""}<br/><b>${it.nombre}</b><br/><small style="font-weight:normal;opacity:.8">${it.codigo}</small></th>`).join("");
 
     const precioRows = `
+      <tr><td class="lbl">Proveedor</td>${items.map(it=>`<td class="val">${it.proveedor||"—"}</td>`).join("")}</tr>
+      <tr><td class="lbl">Garantía</td>${items.map(it=>`<td class="val">${it.garantia||"—"}</td>`).join("")}</tr>
       <tr><td class="lbl">Precio neto</td>${items.map(it=>`<td class="val">${fmt(it.precio_venta)}</td>`).join("")}</tr>
       <tr><td class="lbl">Precio c/IVA</td>${items.map(it=>`<td class="val hi">${fmt(Math.round(it.precio_venta*1.19))}</td>`).join("")}</tr>
-      <tr><td class="lbl">Proveedor</td>${items.map(it=>`<td class="val">${it.proveedor||"—"}</td>`).join("")}</tr>
+      <tr><td class="lbl">🔗 Ficha técnica</td>${items.map(it=>it.ficha_tecnica_url?`<td class="val"><a href="${it.ficha_tecnica_url}" style="color:#2563eb;font-size:9px">${it.ficha_tecnica_url.replace(/^https?:\/\/(?:www\.)?/,"").slice(0,35)}${it.ficha_tecnica_url.length>45?"…":""}</a></td>`:`<td class="val">—</td>`).join("")}</tr>
     `;
 
     const specRows = allSpecs.map(k=>`
@@ -6216,20 +6249,32 @@ function AnalisisComparativa({ analysis, onBack, onEdit }) {
                     <td style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"6px 14px", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.05em", borderBottom:`1px solid ${COLORS.border}` }} colSpan={items.length+1}>Precios</td>
                   </tr>
                   {[
-                    ["Proveedor", it=>it.proveedor||"—"],
-                    ["Precio neto", it=>fmt(it.precio_venta)],
-                    ["Precio c/IVA", it=>fmt(Math.round(it.precio_venta*1.19))],
-                    ["Margen", it=>it.precio_costo>0?`${Math.round((it.precio_venta-it.precio_costo)/it.precio_venta*100)}%`:"—"],
-                  ].map(([label,fn],ri)=>(
+                    ["Proveedor", it=>it.proveedor||"—", false],
+                    ["Garantía", it=>it.garantia||"—", false],
+                    ["Precio neto", it=>fmt(it.precio_venta), false],
+                    ["Precio c/IVA", it=>fmt(Math.round(it.precio_venta*1.19)), true],
+                    ["Margen", it=>it.precio_costo>0?`${Math.round((it.precio_venta-it.precio_costo)/it.precio_venta*100)}%`:"—", false],
+                  ].map(([label,fn,isHighlight],ri)=>(
                     <tr key={ri} style={{ background:ri%2===0?COLORS.bg:"transparent" }}>
                       <td style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}` }}>{label}</td>
                       {items.map((it,i)=>(
-                        <td key={i} style={{ fontFamily:label.includes("IVA")?FONT_DISPLAY:FONT, fontSize:label.includes("IVA")?14:12, fontWeight:label.includes("IVA")?700:400, color:label.includes("IVA")?COLORS.green:COLORS.text, textAlign:"center", padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}`, background:it.recomendado?`${COLORS.green}06`:"transparent" }}>
+                        <td key={i} style={{ fontFamily:isHighlight?FONT_DISPLAY:FONT, fontSize:isHighlight?14:12, fontWeight:isHighlight?700:400, color:isHighlight?COLORS.green:COLORS.text, textAlign:"center", padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}`, background:it.recomendado?`${COLORS.green}06`:"transparent" }}>
                           {fn(it)}
                         </td>
                       ))}
                     </tr>
                   ))}
+                  {/* Ficha técnica links row */}
+                  <tr style={{ background:COLORS.bg }}>
+                    <td style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}` }}>🔗 Ficha técnica</td>
+                    {items.map((it,i)=>(
+                      <td key={i} style={{ textAlign:"center", padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}`, background:it.recomendado?`${COLORS.green}06`:"transparent" }}>
+                        {it.ficha_tecnica_url
+                          ? <a href={it.ficha_tecnica_url} target="_blank" rel="noreferrer" style={{ fontFamily:FONT, fontSize:11, color:COLORS.secondary, textDecoration:"none" }}>↗ Ver ficha</a>
+                          : <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textDim }}>—</span>}
+                      </td>
+                    ))}
+                  </tr>
 
                   {/* Specs */}
                   {allSpecs.length > 0 && <>
@@ -6952,6 +6997,548 @@ function OpModal({ op, quotes, contacts, onClose, onSaved, onPrint }) {
             style={{ padding:"9px 18px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:COLORS.accent, border:"none", color:"#fff", marginLeft:"auto" }}>
             🖨 Guardar y PDF
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+// ── ANÁLISIS DE PRECIOS ───────────────────────────────────────────────────────
+// Sub-tab dentro de Cotizaciones
+// Compara hasta 3 productos A vs B vs C con specs técnicas y PDF comparativo
+
+function AnalisisPrecios({ isMobile }) {
+  const [fichas, setFichas]       = useState([]);
+  const [products, setProducts]   = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editFicha, setEditFicha] = useState(null);
+
+  useEffect(()=>{ loadAll(); },[]);
+
+  const loadAll = async () => {
+    setLoading(true);
+    const [{ data:fp },{ data:pr }] = await Promise.all([
+      supabase.from("fichas_comparativas").select("*").order("created_at",{ascending:false}),
+      supabase.from("products").select("*").order("codigo"),
+    ]);
+    setFichas(fp||[]);
+    setProducts((pr||[]).map(mapProduct));
+    setLoading(false);
+  };
+
+  const deleteFicha = async (id) => {
+    if(!window.confirm("¿Eliminar esta ficha comparativa?")) return;
+    await supabase.from("fichas_comparativas").delete().eq("id",id);
+    setFichas(prev=>prev.filter(f=>f.id!==id));
+  };
+
+  const LETRA = ["A","B","C"];
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:20, flexWrap:"wrap", gap:10 }}>
+        <div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Comercial · Cotizaciones</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Análisis de Precios</div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:3 }}>Fichas comparativas A vs B vs C — specs técnicas y precio</div>
+        </div>
+        <AddBtn onClick={()=>{ setEditFicha(null); setShowModal(true); }} label="Nueva ficha" />
+      </div>
+
+      {loading ? <Loader /> : fichas.length===0 ? (
+        <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>
+          <div style={{ fontSize:36, marginBottom:10 }}>📊</div>
+          Sin fichas comparativas aún. Crea la primera para comparar productos A vs B vs C.
+        </div>
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {fichas.map(f=>{
+            const opts = f.opciones||[];
+            const precios = opts.map(o=>Number(o.precio_venta||0)).filter(p=>p>0);
+            const minP = Math.min(...precios);
+            const maxP = Math.max(...precios);
+            return (
+              <div key={f.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:"16px 20px" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12, flexWrap:"wrap" }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text, marginBottom:4 }}>{f.titulo}</div>
+                    {f.categoria && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:8 }}>{f.categoria}</div>}
+                    {/* Mini cards de opciones */}
+                    <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                      {opts.map((o,i)=>{
+                        const p = Number(o.precio_venta||0);
+                        const isCheapest = p>0 && p===minP && precios.length>1;
+                        const isMostExp  = p>0 && p===maxP && precios.length>1 && minP!==maxP;
+                        return (
+                          <div key={i} style={{ background:COLORS.bg, border:`1px solid ${isCheapest?COLORS.green+"55":isMostExp?COLORS.red+"44":COLORS.border}`, borderRadius:8, padding:"8px 12px", minWidth:120 }}>
+                            <div style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:isCheapest?COLORS.green:isMostExp?COLORS.red:COLORS.textMuted, marginBottom:3 }}>
+                              Opción {LETRA[i]} {isCheapest?"✓ Mejor precio":isMostExp?"↑ Mayor precio":""}
+                            </div>
+                            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text, marginBottom:2 }}>{o.nombre||"—"}</div>
+                            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{o.marca||""}{o.modelo?` · ${o.modelo}`:""}</div>
+                            <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:isCheapest?COLORS.green:COLORS.text, marginTop:4 }}>{fmt(p)}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {precios.length>1 && minP!==maxP && (
+                      <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:8 }}>
+                        Diferencia: <span style={{ color:COLORS.yellow, fontWeight:700 }}>{fmt(maxP-minP)}</span>
+                        {" "}({Math.round((maxP-minP)/minP*100)}% sobre el menor precio)
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textAlign:"right", flexShrink:0 }}>
+                    {new Date(f.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}
+                  </div>
+                </div>
+                {/* Acciones */}
+                <div style={{ display:"flex", gap:8, marginTop:12, paddingTop:10, borderTop:`1px solid ${COLORS.border}`, flexWrap:"wrap" }}>
+                  <button onClick={()=>{ setEditFicha(f); setShowModal(true); }}
+                    style={{ padding:"5px 14px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${COLORS.accent}22`, border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>
+                    ✏️ Editar
+                  </button>
+                  <button onClick={()=>printFicha(f)}
+                    style={{ padding:"5px 14px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, color:COLORS.green }}>
+                    🖨 PDF Comparativo
+                  </button>
+                  <button onClick={()=>deleteFicha(f.id)}
+                    style={{ padding:"5px 10px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red, marginLeft:"auto" }}>
+                    ✕
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {showModal && (
+        <FichaModal
+          ficha={editFicha}
+          products={products}
+          onClose={()=>{ setShowModal(false); setEditFicha(null); }}
+          onSaved={(saved, isNew)=>{
+            if(isNew) setFichas(prev=>[saved,...prev]);
+            else setFichas(prev=>prev.map(f=>f.id===saved.id?saved:f));
+            setShowModal(false); setEditFicha(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── PDF Comparativo ──────────────────────────────────────────────────────────
+function printFicha(ficha) {
+  const opts   = ficha.opciones||[];
+  const LETRA  = ["A","B","C"];
+  const precios = opts.map(o=>Number(o.precio_venta||0));
+  const minP   = Math.min(...precios.filter(p=>p>0));
+  const maxP   = Math.max(...precios.filter(p=>p>0));
+
+  const fmtCLP = (n) => n>0 ? "$"+Math.round(n).toLocaleString("es-CL") : "—";
+  const pctDiff = (p) => {
+    if(!p||!minP||p===minP) return "";
+    return `+${Math.round((p-minP)/minP*100)}%`;
+  };
+
+  // Collect all spec keys across all options
+  const allSpecKeys = [...new Set(opts.flatMap(o=>Object.keys(o.specs||{})))];
+
+  const opcionesHtml = opts.map((o,i)=>{
+    const p = Number(o.precio_venta||0);
+    const isBest = p>0 && p===minP && minP!==maxP;
+    const isWorst = p>0 && p===maxP && minP!==maxP;
+    return `
+      <div class="op-card ${isBest?"best":isWorst?"worst":""}">
+        <div class="op-letra">${LETRA[i]}</div>
+        <div class="op-nombre">${o.nombre||"Opción "+LETRA[i]}</div>
+        <div class="op-sub">${[o.marca,o.modelo].filter(Boolean).join(" · ")||"—"}</div>
+        ${o.proveedor?`<div class="op-prov">Proveedor: ${o.proveedor}</div>`:""}
+        ${o.garantia?`<div class="op-prov">Garantía: ${o.garantia}</div>`:""}
+        <div class="op-precio">${fmtCLP(p)}</div>
+        ${pctDiff(p)?`<div class="op-diff">${pctDiff(p)} vs menor precio</div>`:""}
+        ${isBest?`<div class="op-badge best-badge">✓ Mejor precio</div>`:""}
+        ${isWorst?`<div class="op-badge worst-badge">↑ Mayor precio</div>`:""}
+      </div>
+    `;
+  }).join("");
+
+  // Comparison table rows
+  const rows = [];
+  // Price row
+  rows.push(`
+    <tr class="row-price">
+      <td class="spec-label">💰 Precio de venta</td>
+      ${opts.map((o,i)=>{
+        const p=Number(o.precio_venta||0);
+        const isBest=p>0&&p===minP&&minP!==maxP;
+        return `<td class="${isBest?"cell-best":""}">${fmtCLP(p)}${pctDiff(p)?`<br><small>${pctDiff(p)}</small>`:""}`;
+      }).join("")}
+    </tr>
+  `);
+  // Neto row
+  rows.push(`
+    <tr>
+      <td class="spec-label">Precio neto</td>
+      ${opts.map(o=>`<td>${fmtCLP(Math.round(Number(o.precio_venta||0)/1.19))}</td>`).join("")}
+    </tr>
+  `);
+  // Marca
+  rows.push(`<tr><td class="spec-label">Marca</td>${opts.map(o=>`<td>${o.marca||"—"}</td>`).join("")}</tr>`);
+  // Modelo
+  rows.push(`<tr><td class="spec-label">Modelo</td>${opts.map(o=>`<td>${o.modelo||"—"}</td>`).join("")}</tr>`);
+  // Proveedor
+  rows.push(`<tr><td class="spec-label">Proveedor</td>${opts.map(o=>`<td>${o.proveedor||"—"}</td>`).join("")}</tr>`);
+  // Garantia
+  rows.push(`<tr><td class="spec-label">Garantía</td>${opts.map(o=>`<td>${o.garantia||"—"}</td>`).join("")}</tr>`);
+  // Dynamic specs
+  allSpecKeys.forEach(key=>{
+    rows.push(`<tr><td class="spec-label">${key}</td>${opts.map(o=>`<td>${(o.specs||{})[key]||"—"}</td>`).join("")}</tr>`);
+  });
+  // Observaciones
+  rows.push(`<tr><td class="spec-label">Observaciones</td>${opts.map(o=>`<td style="font-size:9px;color:#555">${o.observaciones||"—"}</td>`).join("")}</tr>`);
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    @page{size:A4 landscape;margin:12mm 14mm;}
+    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a1a;font-size:11px;}
+
+    /* PÁGINA 1 — Tarjetas */
+    .page1{min-height:190mm;}
+    .hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:4mm;margin-bottom:6mm;}
+    .hdr img{height:34px;}
+    .hdr-right{text-align:right;}
+    .doc-type{font-size:15px;font-weight:900;letter-spacing:.04em;}
+    .doc-sub{font-size:9px;color:#666;margin-top:2px;}
+    .titulo{font-size:18px;font-weight:800;margin-bottom:2mm;}
+    .subtitulo{font-size:10px;color:#666;margin-bottom:6mm;}
+    .opciones-grid{display:grid;grid-template-columns:repeat(${opts.length},1fr);gap:5mm;margin-bottom:8mm;}
+    .op-card{border:1.5px solid #e2e8f0;border-radius:6px;padding:5mm;position:relative;}
+    .op-card.best{border-color:#16a34a;background:#f0fdf4;}
+    .op-card.worst{border-color:#dc2626;background:#fff5f5;}
+    .op-letra{font-size:28px;font-weight:900;color:#cbd5e1;position:absolute;top:4mm;right:5mm;}
+    .op-nombre{font-size:13px;font-weight:800;margin-bottom:2px;padding-right:24px;}
+    .op-sub{font-size:10px;color:#64748b;margin-bottom:3px;}
+    .op-prov{font-size:9px;color:#94a3b8;margin-bottom:2px;}
+    .op-precio{font-size:20px;font-weight:900;color:#16a34a;margin-top:4mm;}
+    .op-diff{font-size:9px;color:#dc2626;font-weight:700;}
+    .op-badge{display:inline-block;margin-top:3px;font-size:8px;font-weight:700;padding:2px 6px;border-radius:10px;}
+    .best-badge{background:#dcfce7;color:#16a34a;}
+    .worst-badge{background:#fee2e2;color:#dc2626;}
+
+    .page-break{page-break-before:always;}
+
+    /* PÁGINA 2 — Tabla comparativa */
+    .page2{}
+    .comp-title{font-size:14px;font-weight:800;margin-bottom:4mm;border-bottom:2px solid #1a1a1a;padding-bottom:2mm;}
+    table.comp{width:100%;border-collapse:collapse;font-size:10px;}
+    table.comp th{background:#1e293b;color:#fff;padding:5px 8px;text-align:left;font-weight:700;}
+    table.comp th.op-head{text-align:center;font-size:12px;}
+    table.comp td{padding:5px 8px;border-bottom:1px solid #e2e8f0;vertical-align:top;}
+    table.comp tr:nth-child(even) td{background:#f8fafc;}
+    .spec-label{font-weight:600;color:#475569;background:#f1f5f9!important;width:22%;}
+    .row-price td{background:#fefce8!important;font-weight:700;font-size:12px;}
+    .cell-best{color:#16a34a;font-weight:800;}
+    small{font-size:8px;color:#dc2626;}
+    .foot{margin-top:6mm;border-top:1px solid #ccc;padding-top:3mm;font-size:8px;color:#999;text-align:center;}
+    .diff-summary{display:flex;gap:5mm;margin-top:4mm;flex-wrap:wrap;}
+    .diff-box{border:1px solid #e2e8f0;border-radius:4px;padding:4px 8px;font-size:9px;}
+  </style></head><body>
+
+  <!-- PÁGINA 1: Vista general de opciones -->
+  <div class="page1">
+    <div class="hdr">
+      <div>
+        <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos"/>
+      </div>
+      <div class="hdr-right">
+        <div class="doc-type">Análisis Comparativo de Precios</div>
+        <div class="doc-sub">Generado el ${new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"})}</div>
+        <div class="doc-sub">Polygonos SpA · RUT 77.180.437-3 · Documento interno</div>
+      </div>
+    </div>
+    <div class="titulo">${ficha.titulo}</div>
+    ${ficha.categoria?`<div class="subtitulo">Categoría: ${ficha.categoria}</div>`:""}
+    ${ficha.descripcion?`<div style="font-size:10px;color:#555;margin-bottom:5mm">${ficha.descripcion}</div>`:""}
+    <div class="opciones-grid">${opcionesHtml}</div>
+    ${precios.filter(p=>p>0).length>1&&minP!==maxP?`
+    <div class="diff-summary">
+      <div class="diff-box">💰 Menor precio: <b>${fmtCLP(minP)}</b></div>
+      <div class="diff-box">📈 Mayor precio: <b>${fmtCLP(maxP)}</b></div>
+      <div class="diff-box">↕ Diferencia: <b>${fmtCLP(maxP-minP)}</b> (${Math.round((maxP-minP)/minP*100)}%)</div>
+    </div>`:""}
+  </div>
+
+  <!-- PÁGINA 2: Tabla comparativa detallada -->
+  <div class="page-break page2">
+    <div class="hdr">
+      <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos"/>
+      <div class="hdr-right">
+        <div class="doc-type">Tabla Comparativa Técnica</div>
+        <div class="doc-sub">${ficha.titulo}</div>
+      </div>
+    </div>
+    <div class="comp-title">Comparación técnica y de precio — ${opts.length} opciones</div>
+    <table class="comp">
+      <thead>
+        <tr>
+          <th>Atributo</th>
+          ${opts.map((o,i)=>`<th class="op-head">Opción ${LETRA[i]}<br><span style="font-size:9px;font-weight:400">${o.nombre||""}</span></th>`).join("")}
+        </tr>
+      </thead>
+      <tbody>${rows.join("")}</tbody>
+    </table>
+    <div class="foot">Polygonos SpA · RUT 77.180.437-3 · Análisis de precios interno · No válido como cotización oficial · ${new Date().toLocaleDateString("es-CL")}</div>
+  </div>
+
+  <script>window.onload=()=>window.print();</script>
+  </body></html>`;
+
+  const w = window.open("","_blank"); w.document.write(html); w.document.close();
+}
+
+// ─── Modal Ficha Comparativa ──────────────────────────────────────────────────
+function FichaModal({ ficha, products, onClose, onSaved }) {
+  const isNew = !ficha;
+  const LETRA = ["A","B","C"];
+  const emptyOpt = () => ({ nombre:"", marca:"", modelo:"", proveedor:"", garantia:"", precio_venta:"", precio_neto:"", observaciones:"", specs:{}, product_id:"" });
+
+  const [form, setForm] = useState({
+    titulo:      ficha?.titulo||"",
+    categoria:   ficha?.categoria||"",
+    descripcion: ficha?.descripcion||"",
+  });
+  const [opciones, setOpciones] = useState(
+    ficha?.opciones?.length ? ficha.opciones.map(o=>({...emptyOpt(),...o})) : [emptyOpt(), emptyOpt(), emptyOpt()]
+  );
+  const [newSpecKey, setNewSpecKey] = useState(["","",""]);
+  const [saving, setSaving] = useState(false);
+  const [activeOpt, setActiveOpt] = useState(0);
+
+  const ff = (k,v) => setForm(p=>({...p,[k]:v}));
+  const fo = (i,k,v) => setOpciones(prev=>prev.map((o,idx)=>idx!==i?o:{...o,[k]:v}));
+  const foSpec = (i,k,v) => setOpciones(prev=>prev.map((o,idx)=>idx!==i?o:{...o,specs:{...o.specs,[k]:v}}));
+  const delSpec = (i,k) => setOpciones(prev=>prev.map((o,idx)=>idx!==i?o:{...o,specs:Object.fromEntries(Object.entries(o.specs).filter(([ek])=>ek!==k))}));
+  const addSpec = (i) => {
+    const k = newSpecKey[i]?.trim();
+    if(!k) return;
+    foSpec(i,k,"");
+    setNewSpecKey(prev=>prev.map((v,idx)=>idx===i?"":v));
+  };
+
+  // When product selected from catalog, auto-fill option
+  const onSelectProduct = (i, pid) => {
+    const p = products.find(pr=>pr.id===pid);
+    if(!p) return;
+    setOpciones(prev=>prev.map((o,idx)=>idx!==i?o:{
+      ...o,
+      product_id: pid,
+      nombre: p.name,
+      marca: p.description||"",
+      modelo: p.description||"",
+      proveedor: p.provider||"",
+      precio_venta: p.price||"",
+      precio_neto: p.priceNeto||"",
+    }));
+  };
+
+  const save = async () => {
+    if(!form.titulo.trim()){ alert("Ingresa un título para la ficha"); return; }
+    setSaving(true);
+    const payload = { ...form, opciones };
+    let data, error;
+    if(isNew){
+      ({ data, error } = await supabase.from("fichas_comparativas").insert(payload).select().single());
+    } else {
+      ({ data, error } = await supabase.from("fichas_comparativas").update(payload).eq("id",ficha.id).select().single());
+    }
+    if(error){ alert("Error: "+error.message); setSaving(false); return; }
+    onSaved(data, isNew);
+  };
+
+  const inp = { width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 11px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", boxSizing:"border-box" };
+  const lbl = { fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:3, fontWeight:600, display:"block" };
+
+  const COLORS_OPTS = [COLORS.accent, COLORS.secondary, COLORS.green];
+  const curOpt = opciones[activeOpt];
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"#000c", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:12 }}>
+      <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:16, width:"100%", maxWidth:780, maxHeight:"95vh", display:"flex", flexDirection:"column" }}>
+
+        {/* Header */}
+        <div style={{ padding:"18px 24px 0", borderBottom:`1px solid ${COLORS.border}`, flexShrink:0 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+            <div>
+              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:3 }}>
+                {isNew?"Nueva ficha comparativa":"Editar ficha"}
+              </div>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:17, fontWeight:700, color:COLORS.text }}>📊 Análisis de Precios</div>
+            </div>
+            <button onClick={onClose} style={{ background:"transparent", border:"none", color:COLORS.textMuted, fontSize:20, cursor:"pointer" }}>✕</button>
+          </div>
+
+          {/* Tabs opciones */}
+          <div style={{ display:"flex", gap:0 }}>
+            <button onClick={()=>setActiveOpt(-1)}
+              style={{ padding:"8px 16px", fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", border:"none", background:"transparent",
+                color:activeOpt===-1?COLORS.text:COLORS.textMuted, borderBottom:`2px solid ${activeOpt===-1?COLORS.text:"transparent"}` }}>
+              📋 General
+            </button>
+            {opciones.map((o,i)=>(
+              <button key={i} onClick={()=>setActiveOpt(i)}
+                style={{ padding:"8px 16px", fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", border:"none", background:"transparent",
+                  color:activeOpt===i?COLORS_OPTS[i]:COLORS.textMuted, borderBottom:`2px solid ${activeOpt===i?COLORS_OPTS[i]:"transparent"}` }}>
+                Opción {LETRA[i]}{o.nombre?` · ${o.nombre.slice(0,12)}${o.nombre.length>12?"…":""}`:""} {o.precio_venta?`(${fmt(Number(o.precio_venta))})` : ""}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex:1, overflowY:"auto", padding:"20px 24px" }}>
+
+          {/* TAB GENERAL */}
+          {activeOpt===-1 && (
+            <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+              <div><label style={lbl}>Título de la ficha *</label>
+                <input value={form.titulo} onChange={e=>ff("titulo",e.target.value)} placeholder="Ej: Comparativa Motor Portón Corredera 600kg" style={inp} />
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                <div><label style={lbl}>Categoría</label>
+                  <input value={form.categoria} onChange={e=>ff("categoria",e.target.value)} placeholder="Ej: Motor de portón, CCTV, Control acceso" style={inp} />
+                </div>
+              </div>
+              <div><label style={lbl}>Descripción / Contexto</label>
+                <textarea value={form.descripcion} onChange={e=>ff("descripcion",e.target.value)}
+                  placeholder="Describe el contexto de esta comparativa, para qué proyecto o cliente, requerimientos principales..."
+                  rows={3} style={{...inp, resize:"vertical"}} />
+              </div>
+              {/* Mini preview comparativo */}
+              {opciones.some(o=>o.precio_venta) && (
+                <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:14 }}>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>Preview comparativo</div>
+                  <div style={{ display:"flex", gap:10 }}>
+                    {opciones.map((o,i)=>{
+                      const p = Number(o.precio_venta||0);
+                      const allP = opciones.map(x=>Number(x.precio_venta||0)).filter(x=>x>0);
+                      const minP = Math.min(...allP);
+                      const isBest = p>0&&p===minP&&allP.length>1&&Math.min(...allP)!==Math.max(...allP);
+                      return (
+                        <div key={i} style={{ flex:1, background:COLORS.surface, border:`1px solid ${isBest?COLORS.green+"55":COLORS_OPTS[i]+"33"}`, borderRadius:8, padding:"10px 12px" }}>
+                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:COLORS_OPTS[i] }}>Opción {LETRA[i]}</div>
+                          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text, marginTop:3 }}>{o.nombre||"—"}</div>
+                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:isBest?COLORS.green:COLORS.text, marginTop:6 }}>{p>0?fmt(p):"Sin precio"}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB OPCIÓN */}
+          {activeOpt>=0 && (
+            <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+              {/* Selector del catálogo */}
+              <div style={{ background:COLORS.bg, border:`1px solid ${COLORS_OPTS[activeOpt]}33`, borderRadius:10, padding:12 }}>
+                <label style={{...lbl, color:COLORS_OPTS[activeOpt]}}>⚡ Cargar desde Maestro de Productos</label>
+                <select value={curOpt.product_id||""} onChange={e=>onSelectProduct(activeOpt,e.target.value)} style={inp}>
+                  <option value="">— Seleccionar producto del catálogo —</option>
+                  {products.map(p=><option key={p.id} value={p.id}>{p.code} · {p.name} — {fmt(p.price)}</option>)}
+                </select>
+                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginTop:4 }}>Al seleccionar un producto se auto-completan nombre, modelo, proveedor y precio.</div>
+              </div>
+
+              {/* Datos principales */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                <div style={{ gridColumn:"span 2" }}>
+                  <label style={lbl}>Nombre / Descripción corta</label>
+                  <input value={curOpt.nombre} onChange={e=>fo(activeOpt,"nombre",e.target.value)} placeholder={`Nombre opción ${LETRA[activeOpt]}`} style={inp} />
+                </div>
+                <div><label style={lbl}>Marca</label>
+                  <input value={curOpt.marca} onChange={e=>fo(activeOpt,"marca",e.target.value)} placeholder="Ej: Centurion, Dahua, Hikvision" style={inp} />
+                </div>
+                <div><label style={lbl}>Modelo</label>
+                  <input value={curOpt.modelo} onChange={e=>fo(activeOpt,"modelo",e.target.value)} placeholder="Ej: D10 Turbo, DS-2CD2143G2" style={inp} />
+                </div>
+                <div><label style={lbl}>Proveedor</label>
+                  <input value={curOpt.proveedor} onChange={e=>fo(activeOpt,"proveedor",e.target.value)} placeholder="Ej: RW, SmartSecure, APACOM" style={inp} />
+                </div>
+                <div><label style={lbl}>Garantía</label>
+                  <input value={curOpt.garantia} onChange={e=>fo(activeOpt,"garantia",e.target.value)} placeholder="Ej: 12 meses, 2 años" style={inp} />
+                </div>
+              </div>
+
+              {/* Precios */}
+              <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:14 }}>
+                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS_OPTS[activeOpt], textTransform:"uppercase", letterSpacing:"0.08em", fontWeight:700, marginBottom:10 }}>💰 Precios</div>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                  <div>
+                    <label style={lbl}>Precio de venta (c/IVA)</label>
+                    <input type="number" value={curOpt.precio_venta} onChange={e=>{ fo(activeOpt,"precio_venta",e.target.value); fo(activeOpt,"precio_neto",Math.round(Number(e.target.value)/1.19)||""); }} style={inp} />
+                  </div>
+                  <div>
+                    <label style={lbl}>Precio neto (sin IVA)</label>
+                    <input type="number" value={curOpt.precio_neto} onChange={e=>{ fo(activeOpt,"precio_neto",e.target.value); fo(activeOpt,"precio_venta",Math.round(Number(e.target.value)*1.19)||""); }} style={inp} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Especificaciones técnicas dinámicas */}
+              <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:14 }}>
+                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.08em", fontWeight:700, marginBottom:10 }}>🔧 Especificaciones técnicas</div>
+                {Object.entries(curOpt.specs||{}).map(([k,v])=>(
+                  <div key={k} style={{ display:"flex", gap:8, marginBottom:8, alignItems:"center" }}>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, minWidth:140, flexShrink:0 }}>{k}</div>
+                    <input value={v} onChange={e=>foSpec(activeOpt,k,e.target.value)} style={{...inp, flex:1}} placeholder="Valor" />
+                    <button onClick={()=>delSpec(activeOpt,k)} style={{ background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red, borderRadius:5, padding:"4px 8px", cursor:"pointer", fontSize:11, flexShrink:0 }}>✕</button>
+                  </div>
+                ))}
+                {/* Agregar nueva spec */}
+                <div style={{ display:"flex", gap:8, marginTop:8 }}>
+                  <input value={newSpecKey[activeOpt]||""} onChange={e=>setNewSpecKey(prev=>prev.map((v,i)=>i===activeOpt?e.target.value:v))}
+                    placeholder="Nueva especificación (Ej: Potencia, Velocidad, Resolución...)"
+                    onKeyDown={e=>{ if(e.key==="Enter"){ e.preventDefault(); addSpec(activeOpt); }}}
+                    style={{...inp, flex:1}} />
+                  <button onClick={()=>addSpec(activeOpt)}
+                    style={{ padding:"8px 14px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${COLORS.accent}22`, border:`1px solid ${COLORS.accent}44`, color:COLORS.accent, flexShrink:0 }}>
+                    + Agregar
+                  </button>
+                </div>
+                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginTop:4 }}>Las specs que ingreses en cualquier opción aparecerán en la tabla comparativa del PDF.</div>
+              </div>
+
+              {/* Observaciones */}
+              <div>
+                <label style={lbl}>Observaciones / Notas de esta opción</label>
+                <textarea value={curOpt.observaciones} onChange={e=>fo(activeOpt,"observaciones",e.target.value)}
+                  placeholder="Ventajas, desventajas, disponibilidad, tiempo de entrega..."
+                  rows={3} style={{...inp, resize:"vertical"}} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding:"14px 24px", borderTop:`1px solid ${COLORS.border}`, display:"flex", gap:8, flexShrink:0, flexWrap:"wrap" }}>
+          <button onClick={onClose} style={{ padding:"9px 18px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.border}`, color:COLORS.textMuted }}>Cancelar</button>
+          <button onClick={save} disabled={saving}
+            style={{ padding:"9px 20px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:COLORS.accent, border:"none", color:"#fff", marginLeft:"auto" }}>
+            {saving?"Guardando…":(isNew?"Crear ficha":"Guardar cambios")}
+          </button>
+          {!isNew && <button onClick={()=>printFicha({...ficha, ...form, opciones})}
+            style={{ padding:"9px 18px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, color:COLORS.green }}>
+            🖨 PDF
+          </button>}
         </div>
       </div>
     </div>
