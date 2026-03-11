@@ -2013,13 +2013,10 @@ function QuotesView({ contacts, deals, setDeals, isMobile }) {
             valor: q.total||0,
             etapa: "propuesta",
             empresa: q.clientCompany||q.clientName||"",
-            quote_number: quoteNum,
+            numero_cotizacion: Number(quoteNum)||null,
+            probabilidad: 50,
           }).select().single();
-          if (newDeal) setDeals(prev=>[...prev, {
-            id: newDeal.id, title: newDeal.titulo, value: newDeal.valor,
-            stage: newDeal.etapa, company: newDeal.empresa,
-            quoteNumber: quoteNum,
-          }]);
+          if (newDeal) setDeals(prev=>[...prev, mapDeal(newDeal)]);
         }
       }
     }
