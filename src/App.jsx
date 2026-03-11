@@ -2932,6 +2932,78 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
 }
 
 
+// ── CRM CONTACT SEARCH ───────────────────────────────────────────────────────
+function ContactCRMSearch({ contacts, selectedId, onSelect }) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const selected = contacts.find(c=>c.id===selectedId);
+
+  const results = query.trim().length > 0
+    ? contacts.filter(c=>{
+        const q = query.toLowerCase();
+        return (c.name||"").toLowerCase().includes(q)
+          || (c.company||"").toLowerCase().includes(q)
+          || (c.rut||"").toLowerCase().includes(q);
+      }).slice(0,8)
+    : [];
+
+  const pick = (c) => { onSelect(c); setQuery(""); setOpen(false); };
+  const clear = () => { onSelect(null); setQuery(""); setOpen(false); };
+
+  return (
+    <div style={{ marginBottom:14, position:"relative" }}>
+      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Vincular Contacto CRM</div>
+      {selected && !open ? (
+        <div style={{ display:"flex", alignItems:"center", gap:10, background:COLORS.accentDim, border:`1px solid ${COLORS.accent}44`, borderRadius:6, padding:"9px 12px" }}>
+          <div style={{ flex:1 }}>
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.accent }}>{selected.company||selected.name}</div>
+            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{selected.name}{selected.rut ? ` · ${selected.rut}` : ""}</div>
+          </div>
+          <button onClick={()=>setOpen(true)} style={{ background:"none", border:`1px solid ${COLORS.border}`, borderRadius:4, color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:11, padding:"2px 8px" }}>Cambiar</button>
+          <button onClick={clear} style={{ background:"none", border:"none", color:COLORS.textDim, cursor:"pointer", fontSize:14 }}>✕</button>
+        </div>
+      ) : (
+        <div>
+          <div style={{ position:"relative" }}>
+            <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:COLORS.textMuted, fontSize:13 }}>🔍</span>
+            <input
+              autoFocus={open}
+              value={query}
+              onChange={e=>{ setQuery(e.target.value); setOpen(true); }}
+              onFocus={()=>setOpen(true)}
+              onBlur={()=>setTimeout(()=>setOpen(false),150)}
+              placeholder="Buscar por nombre, razón social o RUT…"
+              style={{ width:"100%", background:COLORS.bg, border:`1px solid ${open?COLORS.accent:COLORS.border}`, borderRadius:6, padding:"9px 12px 9px 32px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box", transition:"border-color 0.15s" }}
+            />
+            {query && <button onMouseDown={e=>e.preventDefault()} onClick={()=>setQuery("")} style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:14 }}>✕</button>}
+          </div>
+          {open && results.length>0 && (
+            <div style={{ position:"absolute", top:"100%", left:0, right:0, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, zIndex:50, marginTop:4, boxShadow:"0 8px 24px #0006", overflow:"hidden" }}>
+              {results.map(c=>(
+                <div key={c.id} onMouseDown={e=>e.preventDefault()} onClick={()=>pick(c)}
+                  style={{ padding:"10px 14px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}
+                  onMouseEnter={e=>e.currentTarget.style.background=COLORS.accentDim}
+                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                  <div>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text }}>{c.company||c.name}</div>
+                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{c.name}{c.rut?` · ${c.rut}`:""}</div>
+                  </div>
+                  <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim, textTransform:"uppercase" }}>{c.status}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {open && query.trim().length>0 && results.length===0 && (
+            <div style={{ position:"absolute", top:"100%", left:0, right:0, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, zIndex:50, marginTop:4, padding:"12px 14px" }}>
+              <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin resultados para "{query}"</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── QUOTE EDITOR ─────────────────────────────────────────────────────────────
 function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
   const isEdit = !!quote;
@@ -3097,10 +3169,16 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
       {/* CLIENTE */}
       <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20, marginBottom:16 }}>
         <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Cliente</div>
-        <Select label="Vincular contacto CRM" value={header.contactId} onChange={e=>hf("contactId",e.target.value)}>
-          <option value="">— Seleccionar contacto —</option>
-          {contacts.map(c=><option key={c.id} value={c.id}>{c.name} · {c.company}</option>)}
-        </Select>
+        {/* Buscador CRM */}
+        <ContactCRMSearch contacts={contacts} selectedId={header.contactId} onSelect={c=>{
+          hf("contactId", c ? c.id : "");
+          if (c) {
+            hf("clientName",    c.name    || "");
+            hf("clientCompany", c.company || "");
+            hf("clientRut",     c.rut     || "");
+            hf("clientPhone",   c.phone   || "");
+          }
+        }} />
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px,1fr))", gap:12 }}>
           <Input label="Nombre cliente" value={header.clientName} onChange={e=>hf("clientName",e.target.value)} />
           <Input label="RUT" value={header.clientRut} onChange={e=>hf("clientRut",formatRut(e.target.value))} maxLength={12} />
