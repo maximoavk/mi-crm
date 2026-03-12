@@ -1289,6 +1289,7 @@ const mapQuoteLine = (r) => ({
   milestone: r.hito || "",
   subtotal: r.subtotal || 0,
   orden: r.orden || 0,
+  fichaUrl: r.ficha_tecnica_url || "",
 });
 const mapQuoteLineToDb = (f, quoteId) => ({
   quote_id: quoteId, product_id: f.productId || null,
@@ -1300,6 +1301,7 @@ const mapQuoteLineToDb = (f, quoteId) => ({
   hito: f.milestone || "",
   subtotal: Number(f.subtotal) || 0,
   orden: Number(f.orden) || 0,
+  ficha_tecnica_url: f.fichaUrl || "",
 });
 
 // ── CATEGORÍAS DE CATÁLOGO POLYGONOS ────────────────────────────────────────
@@ -3169,7 +3171,6 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
                         onChange={e=>{
                           const m = Number(e.target.value)||0;
                           setLineMargen(s=>({...s,[idx]:m}));
-                          // Recalcular precio si hay producto seleccionado
                           if(costoNetoProd>0) {
                             const newPrice = Math.round(costoNetoProd*(1+m/100));
                             updateLine(idx,"unitPrice",newPrice);
@@ -3178,6 +3179,21 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
                         style={{ width:48, background:COLORS.bg, border:`1px solid ${COLORS.accent}44`, borderRadius:4, padding:"2px 5px", fontFamily:FONT, fontSize:10, color:COLORS.accent, outline:"none" }}
                       />
                       {costoNetoProd>0 && <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>Costo: ${costoNetoProd.toLocaleString("es-CL")}</span>}
+                    </div>
+                    {/* URL Ficha Técnica */}
+                    <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:4 }}>
+                      <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, whiteSpace:"nowrap" }}>🔗 Ficha:</span>
+                      <input
+                        value={line.fichaUrl||""}
+                        onChange={e=>updateLine(idx,"fichaUrl",e.target.value)}
+                        placeholder="https://..."
+                        style={{ flex:1, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"2px 6px", fontFamily:FONT, fontSize:10, color:COLORS.accent, outline:"none" }}
+                      />
+                      {line.fichaUrl && (
+                        <a href={line.fichaUrl} target="_blank" rel="noopener noreferrer"
+                          title="Abrir ficha técnica"
+                          style={{ color:COLORS.accent, fontSize:12, textDecoration:"none", flexShrink:0 }}>↗</a>
+                      )}
                     </div>
                     {/* Dropdown resultados */}
                     {lineDropOpen[idx] && resultados.length>0 && (
