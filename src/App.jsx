@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calculator, GanttChartSquare, CheckSquare, BarChart2, LogOut, Sun, Moon, Receipt, Wrench, FolderKanban } from "lucide-react";
+import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calculator, GanttChartSquare, CheckSquare, BarChart2, LogOut, Sun, Moon, Receipt, Wrench, Scale } from "lucide-react";
 
 // ── SUPABASE ────────────────────────────────────────────────────────────────
 const supabase = createClient(
@@ -555,9 +555,7 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
                       <div style={{ display:"flex", alignItems:"center", gap:8, padding:isCollapsed?"10px 12px":"12px 14px 8px" }}>
                         <button onClick={()=>toggleCollapse(d.id)} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:11, padding:0, flexShrink:0 }}>{isCollapsed?"▶":"▼"}</button>
                         <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-                            {d.quoteNumber ? `COT-${d.quoteNumber}` : d.title}
-                          </div>
+                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{d.title}</div>
                           {isCollapsed && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{d.company}</div>}
                         </div>
                         {isCollapsed && <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.green, fontWeight:700, flexShrink:0 }}>{fmt(d.value)}</div>}
@@ -739,75 +737,11 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
 
 // ── REPORTS ──────────────────────────────────────────────────────────────────
 function ReportsView({ contacts, deals, tasks, isMobile }) {
-  const [quotes, setQuotes] = useState([]);
-  const [yearFilter, setYearFilter] = useState(String(new Date().getFullYear()));
-
-  useEffect(()=>{
-    supabase.from("cotizaciones").select("numero,fecha,total,estado,razon_social,nombre_cliente,aplica_iva,iva_modo").order("fecha",{ascending:false})
-      .then(({data})=>setQuotes((data||[]).map(r=>({ number:r.numero, date:r.fecha, total:Number(r.total)||0, status:r.estado, client:r.razon_social||r.nombre_cliente||"", hasIva:r.aplica_iva, ivaMode:r.iva_modo||"empresa" }))));
-  },[]);
-
-  // Ingresos = deals cerrados + cotizaciones aprobadas (no vinculadas a deal cerrado)
-  const dealRevenue = deals.filter(d=>d.stage==="cerrado").reduce((s,d)=>s+Number(d.value),0);
-  const approvedQuotes = quotes.filter(q=>q.status==="aprobada");
-  // Para no duplicar: si una cotización tiene número que coincide con un deal cerrado, no sumarla
-  const closedDealQuoteNums = new Set(deals.filter(d=>d.stage==="cerrado"&&d.quoteNumber).map(d=>String(d.quoteNumber)));
-  const quoteRevenue = approvedQuotes.filter(q=>!closedDealQuoteNums.has(String(q.number))).reduce((s,q)=>s+q.total,0);
-  const totalRevenue = dealRevenue + quoteRevenue;
-
+  const totalRevenue = deals.filter(d=>d.stage==="cerrado").reduce((s,d)=>s+Number(d.value),0);
   const wonRate = deals.length>0?Math.round(deals.filter(d=>d.stage==="cerrado").length/deals.length*100):0;
   const avgDeal = deals.length>0?Math.round(deals.reduce((s,d)=>s+Number(d.value),0)/deals.length):0;
   const taskCompletion = tasks.length>0?Math.round(tasks.filter(t=>t.done).length/tasks.length*100):0;
   const totalPipeline = deals.reduce((s,d)=>s+Number(d.value),0);
-
-  // Años disponibles desde cotizaciones
-  const availableYears = [...new Set(approvedQuotes.map(q=>q.date?q.date.slice(0,4):"").filter(Boolean))].sort((a,b)=>b-a);
-  if (!availableYears.includes(yearFilter) && availableYears.length>0) {/* keep current */}
-
-  // Ingresos por mes del año seleccionado
-  const MONTHS = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-  const monthlyData = MONTHS.map((label,i)=>{
-    const month = String(i+1).padStart(2,"0");
-    const prefix = `${yearFilter}-${month}`;
-    const fromQuotes = approvedQuotes
-      .filter(q=>!closedDealQuoteNums.has(String(q.number)) && (q.date||"").startsWith(prefix))
-      .reduce((s,q)=>s+q.total,0);
-    const fromDeals = deals
-      .filter(d=>d.stage==="cerrado" && (d.closeDate||"").startsWith(prefix))
-      .reduce((s,d)=>s+Number(d.value),0);
-    return { label, total: fromQuotes + fromDeals };
-  });
-  const maxMonthly = Math.max(...monthlyData.map(m=>m.total), 1);
-
-  // Ingresos por año
-  const allYears = [...new Set([
-    ...approvedQuotes.map(q=>q.date?q.date.slice(0,4):"").filter(Boolean),
-    ...deals.filter(d=>d.stage==="cerrado"&&d.closeDate).map(d=>d.closeDate.slice(0,4)),
-  ])].sort((a,b)=>b-a).slice(0,5);
-
-  const yearlyData = allYears.map(yr=>{
-    const fromQ = approvedQuotes.filter(q=>!closedDealQuoteNums.has(String(q.number))&&(q.date||"").startsWith(yr)).reduce((s,q)=>s+q.total,0);
-    const fromD = deals.filter(d=>d.stage==="cerrado"&&(d.closeDate||"").startsWith(yr)).reduce((s,d)=>s+Number(d.value),0);
-    return { year:yr, total: fromQ+fromD };
-  });
-  const maxYearly = Math.max(...yearlyData.map(y=>y.total),1);
-
-  // IVA breakdown — solo cotizaciones aprobadas con IVA, no duplicadas con deals
-  // fromCosteo: aplica_iva=false pero ivaMode=empresa → total ya incluye IVA
-  const ivaQuotes = approvedQuotes.filter(q=>!closedDealQuoteNums.has(String(q.number)) && (q.hasIva || q.ivaMode==="empresa"));
-  const ivaYearlyData = allYears.map(yr=>{
-    const qs = ivaQuotes.filter(q=>(q.date||"").startsWith(yr));
-    const totalConIva = qs.reduce((s,q)=>s+q.total,0);
-    const fromCosteo = qs.filter(q=>!q.hasIva && q.ivaMode==="empresa");
-    const normal     = qs.filter(q=>q.hasIva);
-    // Para cotizaciones normales (hasIva): total = neto*(1.19) → neto = total/1.19, iva = total - neto
-    // Para fromCosteo: total ya incluye IVA implícito → mismo cálculo
-    const ivaTotal   = qs.reduce((s,q)=> s + (q.total - Math.round(q.total/1.19)), 0);
-    const netoTotal  = qs.reduce((s,q)=> s + Math.round(q.total/1.19), 0);
-    return { year:yr, totalConIva, netoTotal, ivaTotal, count: qs.length };
-  }).filter(y=>y.count>0);
-  const totalIvaAcumulado = ivaYearlyData.reduce((s,y)=>s+y.ivaTotal,0);
-  const totalNetoAcumulado = ivaYearlyData.reduce((s,y)=>s+y.netoTotal,0);
 
   return (
     <div>
@@ -815,117 +749,12 @@ function ReportsView({ contacts, deals, tasks, isMobile }) {
         <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Análisis</div>
         <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Reportes y Estadísticas</div>
       </div>
-      {/* KPIs */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20 }}>
-        <Stat label="Ingresos totales" value={fmt(totalRevenue)} sub={`Cotiz. aprobadas + deals cerrados`} color={COLORS.green} />
+        <Stat label="Ingresos cerrados" value={fmt(totalRevenue)} color={COLORS.green} />
         <Stat label="Tasa de cierre" value={`${wonRate}%`} color={wonRate>50?COLORS.green:COLORS.yellow} />
         <Stat label="Valor promedio deal" value={fmt(avgDeal)} color={COLORS.accent} />
         <Stat label="Tareas completadas" value={`${taskCompletion}%`} color={COLORS.text} />
       </div>
-
-      {/* Ingresos por mes */}
-      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20, marginBottom:16 }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, flexWrap:"wrap", gap:8 }}>
-          <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, fontSize:14 }}>Ingresos por mes</div>
-          <div style={{ display:"flex", gap:6 }}>
-            {(availableYears.length>0?availableYears:[String(new Date().getFullYear())]).map(yr=>(
-              <button key={yr} onClick={()=>setYearFilter(yr)}
-                style={{ padding:"4px 12px", borderRadius:5, fontFamily:FONT, fontSize:11, cursor:"pointer",
-                  background:yearFilter===yr?COLORS.accent:COLORS.bg, color:yearFilter===yr?COLORS.bg:COLORS.textMuted,
-                  border:`1px solid ${yearFilter===yr?COLORS.accent:COLORS.border}` }}>{yr}</button>
-            ))}
-          </div>
-        </div>
-        <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:120 }}>
-          {monthlyData.map((m,i)=>(
-            <div key={i} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
-              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textAlign:"center" }}>
-                {m.total>0?`$${Math.round(m.total/1000)}k`:""}
-              </div>
-              <div style={{ width:"100%", background:m.total>0?COLORS.green:COLORS.border, borderRadius:"3px 3px 0 0",
-                height:`${Math.max((m.total/maxMonthly)*90,m.total>0?4:0)}px`, minHeight:m.total>0?"4px":"0",
-                transition:"height 0.3s" }} />
-              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>{m.label}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Ingresos por año */}
-      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20, marginBottom:16 }}>
-        <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Ingresos acumulados por año</div>
-        {yearlyData.length===0 && <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin cotizaciones aprobadas aún.</div>}
-        {yearlyData.map(y=>(
-          <div key={y.year} style={{ marginBottom:12 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
-              <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, fontWeight:600 }}>{y.year}</span>
-              <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.green, fontWeight:700 }}>{fmt(y.total)}</span>
-            </div>
-            <div style={{ height:8, background:COLORS.border, borderRadius:4 }}>
-              <div style={{ height:8, borderRadius:4, background:`linear-gradient(90deg,${COLORS.green},${COLORS.accent})`, width:`${(y.total/maxYearly)*100}%`, transition:"width 0.4s" }} />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* IVA Breakdown */}
-      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20, marginBottom:16 }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, flexWrap:"wrap", gap:8 }}>
-          <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, fontSize:14 }}>IVA facturado (venta)</div>
-          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Solo cotizaciones aprobadas con IVA · No incluye IVA compra</div>
-        </div>
-        {ivaYearlyData.length===0 && <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin cotizaciones con IVA aprobadas aún.</div>}
-        {/* KPIs rápidos */}
-        {ivaYearlyData.length>0 && (
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:16 }}>
-            <div style={{ background:COLORS.bg, borderRadius:8, padding:"12px 14px", border:`1px solid ${COLORS.border}` }}>
-              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>Total neto (sin IVA)</div>
-              <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text }}>{fmt(totalNetoAcumulado)}</div>
-            </div>
-            <div style={{ background:COLORS.bg, borderRadius:8, padding:"12px 14px", border:`1px solid ${COLORS.red}44` }}>
-              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.red, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>IVA 19% acumulado</div>
-              <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.red }}>{fmt(totalIvaAcumulado)}</div>
-            </div>
-            <div style={{ background:COLORS.bg, borderRadius:8, padding:"12px 14px", border:`1px solid ${COLORS.green}44` }}>
-              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.green, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>Total bruto (c/IVA)</div>
-              <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.green }}>{fmt(totalNetoAcumulado+totalIvaAcumulado)}</div>
-            </div>
-          </div>
-        )}
-        {/* Breakdown por año */}
-        {ivaYearlyData.map(y=>(
-          <div key={y.year} style={{ marginBottom:14, paddingBottom:14, borderBottom:`1px solid ${COLORS.border}` }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-              <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text }}>{y.year}</span>
-              <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{y.count} cotización{y.count!==1?"es":""}</span>
-            </div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
-              <div>
-                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", marginBottom:3 }}>Neto</div>
-                <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text }}>{fmt(y.netoTotal)}</div>
-              </div>
-              <div>
-                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.red, textTransform:"uppercase", marginBottom:3 }}>IVA 19%</div>
-                <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.red }}>{fmt(y.ivaTotal)}</div>
-              </div>
-              <div>
-                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.green, textTransform:"uppercase", marginBottom:3 }}>Total c/IVA</div>
-                <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.green }}>{fmt(y.totalConIva)}</div>
-              </div>
-            </div>
-            {/* Mini barra proporcional neto vs iva */}
-            <div style={{ marginTop:8, height:6, background:COLORS.border, borderRadius:3, overflow:"hidden", display:"flex" }}>
-              <div style={{ height:"100%", background:COLORS.accent, width:`${y.totalConIva>0?(y.netoTotal/y.totalConIva)*100:0}%`, transition:"width 0.4s" }} />
-              <div style={{ height:"100%", background:COLORS.red, flex:1 }} />
-            </div>
-            <div style={{ display:"flex", gap:12, marginTop:4 }}>
-              <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.accent }}>■ Neto {y.totalConIva>0?Math.round((y.netoTotal/y.totalConIva)*100):0}%</span>
-              <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.red }}>■ IVA {y.totalConIva>0?Math.round((y.ivaTotal/y.totalConIva)*100):0}%</span>
-            </div>
-          </div>
-        ))}
-      </div>
-
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:16, marginBottom:16 }}>
         <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20 }}>
           <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Pipeline por etapa</div>
@@ -1045,65 +874,19 @@ function GanttBar({ task, calStart, calDays, cellW, today }) {
   );
 }
 
-// ─── Buscador de producto inline para Estimating ────────────────────────────
-function EstProductSearch({ item, products, onUpdate, s }) {
-  const [q, setQ] = useState(item.descripcion||"");
-  const [open, setOpen] = useState(false);
-  const results = q.length>=2 ? products.filter(p=>(p.name||"").toLowerCase().includes(q.toLowerCase())||(p.code||"").toLowerCase().includes(q.toLowerCase())).slice(0,6) : [];
-  return (
-    <div style={{ position:"relative", minWidth:220 }}>
-      <input value={q} onChange={e=>{ setQ(e.target.value); onUpdate("descripcion",e.target.value); setOpen(true); }}
-        onFocus={()=>setOpen(true)} placeholder="Descripción o buscar catálogo..."
-        style={{...s, width:"100%"}} />
-      {open && results.length>0 && (
-        <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:400, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:6, boxShadow:"0 4px 16px #0008", marginTop:2 }}>
-          {results.map(p=>(
-            <div key={p.id} onClick={()=>{ setQ(p.name); onUpdate("descripcion",p.name); onUpdate("precioUnit",p.priceNeto); onUpdate("productId",p.id); setOpen(false); }}
-              style={{ padding:"6px 10px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}22`, display:"flex", justifyContent:"space-between" }}
-              onMouseEnter={e=>e.currentTarget.style.background=COLORS.card}
-              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-              <div>
-                <div style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:600, color:COLORS.text }}>{p.name}</div>
-                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>{p.code} · {p.category}</div>
-              </div>
-              <div style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:COLORS.green, textAlign:"right" }}>
-                {fmt(p.priceNeto)}<div style={{fontSize:8,color:COLORS.textMuted}}>neto</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function GanttView({ isMobile }) {
-  const [planTab, setPlanTab] = useState("qto"); // qto | estimating | planning
   const [cotNum, setCotNum]       = useState("");
   const [searching, setSearching] = useState(false);
-  const [proyecto, setProyecto]   = useState(null);
+  const [proyecto, setProyecto]   = useState(null); // { nombre, cotNum }
   const [tasks, setTasks]         = useState([]);
   const [saving, setSaving]       = useState(false);
   const [ganttId, setGanttId]     = useState(null);
   const [calStart, setCalStart]   = useState(new Date().toISOString().slice(0,10));
   const [calDays, setCalDays]     = useState(60);
-  const [editRow, setEditRow]     = useState(null);
-
-  // QTO state
-  const [qtoItems, setQtoItems]   = useState([]); // { id, descripcion, cantidad, unidad, fuente }
-  // Estimating state
-  const [estItems, setEstItems]   = useState([]); // { id, descripcion, cantidad, unidad, precioUnit, total }
-  const [products, setProducts]   = useState([]);
-
-  const cellW = calDays <= 7 ? 60 : calDays <= 30 ? 36 : 28;
+  const [editRow, setEditRow]     = useState(null); // id de fila en edición inline
+  const cellW = 28;
   const today = new Date().toISOString().slice(0,10);
   const calCols = buildCalHeader(calStart, calDays);
-
-  // Load products for estimating
-  React.useEffect(()=>{
-    supabase.from("productos").select("id,codigo,nombre,precio,unidad,categoria").order("nombre")
-      .then(({data})=>setProducts((data||[]).map(mapProduct)));
-  },[]);
 
   // Agrupar meses para header
   const months = [];
@@ -1114,6 +897,7 @@ function GanttView({ isMobile }) {
     else months[months.length-1].count++;
   });
 
+  // Cargar Gantt existente desde Supabase
   const cargarGantt = async (num) => {
     setSearching(true);
     const { data: gantt } = await supabase.from("gantt_proyectos").select("*").eq("numero_cotizacion", Number(num)).single();
@@ -1129,29 +913,19 @@ function GanttView({ isMobile }) {
         hhPresup: r.hh_presup||0, hhReal: r.hh_real||0,
         depende: r.depende_de||"", orden: r.orden||0, parentId: r.parent_id||null,
       })));
-      // Cargar QTO y Estimating desde JSON guardado en gantt_proyectos
-      if(gantt.qto_items)  setQtoItems(gantt.qto_items);
-      if(gantt.est_items)  setEstItems(gantt.est_items);
     } else {
+      // Nueva: buscar cotización para obtener nombre e importar fases del costeo
       const { data: cot } = await supabase.from("cotizaciones").select("*").eq("numero", Number(num)).single();
       if(cot) {
         setProyecto({ nombre: cot.comentarios||cot.razon_social||`Proyecto Cot. ${num}`, cotNum: num });
+        // Buscar líneas tipo "item" para importar como fases
         const { data: lines } = await supabase.from("quote_lines").select("*").eq("quote_id", cot.id).eq("tipo_linea","item").order("orden");
         const imported = (lines||[]).map((l,i)=>({
           id: `new_${Date.now()}_${i}`, tipo:"F", nombre: l.descripcion||`Fase ${i+1}`,
           rol:"PM", responsable:"", inicio: today, fin: addDays(today, 14),
           pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, depende:"", orden:i, parentId:null,
         }));
-        // También pre-popular QTO desde líneas de cotización
-        const qtoImported = (lines||[]).map((l,i)=>({
-          id: `qto_${Date.now()}_${i}`,
-          descripcion: l.descripcion||"",
-          cantidad: Number(l.cantidad)||1,
-          unidad: "un",
-          fuente: "Cotización",
-        }));
         setTasks(imported);
-        setQtoItems(qtoImported);
         setGanttId(null);
       } else {
         alert(`No se encontró la cotización N° ${num}`);
@@ -1168,17 +942,14 @@ function GanttView({ isMobile }) {
       const { data } = await supabase.from("gantt_proyectos").insert({
         numero_cotizacion: Number(cotNum), nombre: proyecto.nombre,
         fecha_inicio: calStart, fecha_fin: addDays(calStart, calDays),
-        qto_items: qtoItems, est_items: estItems,
       }).select().single();
       gId = data?.id;
       setGanttId(gId);
     } else {
-      await supabase.from("gantt_proyectos").update({
-        nombre: proyecto.nombre, fecha_inicio: calStart,
-        qto_items: qtoItems, est_items: estItems,
-      }).eq("id", gId);
+      await supabase.from("gantt_proyectos").update({ nombre: proyecto.nombre, fecha_inicio: calStart }).eq("id", gId);
     }
     if(!gId) { setSaving(false); return; }
+    // Borrar y reinsertar tareas
     await supabase.from("gantt_tareas").delete().eq("gantt_id", gId);
     const rows = tasks.map((t,i)=>({
       gantt_id: gId, tipo: t.tipo, nombre: t.nombre, rol: t.rol,
@@ -1189,7 +960,7 @@ function GanttView({ isMobile }) {
     }));
     await supabase.from("gantt_tareas").insert(rows);
     setSaving(false);
-    alert("✅ Proyecto guardado");
+    alert("✅ Gantt guardada");
   };
 
   const addTask = (tipo="T") => {
@@ -1201,6 +972,7 @@ function GanttView({ isMobile }) {
       pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, depende:"", orden:t.length, parentId:null,
     }]);
   };
+
   const updateTask = (id, field, val) => setTasks(t=>t.map(r=>r.id===id?{...r,[field]:val}:r));
   const deleteTask = (id) => setTasks(t=>t.filter(r=>r.id!==id));
   const moveTask   = (id, dir) => {
@@ -1213,42 +985,15 @@ function GanttView({ isMobile }) {
     setTasks(arr);
   };
 
-  // QTO helpers
-  const addQtoItem = () => setQtoItems(q=>[...q,{ id:`q_${Date.now()}`, descripcion:"", cantidad:1, unidad:"un", fuente:"" }]);
-  const updateQto  = (id,f,v) => setQtoItems(q=>q.map(r=>r.id===id?{...r,[f]:v}:r));
-  const removeQto  = (id) => setQtoItems(q=>q.filter(r=>r.id!==id));
-  const sendToEst  = (item) => {
-    // Enviar ítem QTO a Estimating con precio desde catálogo si hay match
-    const prod = products.find(p=>(p.name||"").toLowerCase().includes((item.descripcion||"").toLowerCase().slice(0,8)));
-    setEstItems(e=>[...e,{
-      id:`e_${Date.now()}`, descripcion:item.descripcion, cantidad:item.cantidad,
-      unidad:item.unidad, precioUnit: prod ? prod.priceNeto : 0,
-      total: prod ? prod.priceNeto*item.cantidad : 0, productId: prod?.id||null,
-    }]);
-    setPlanTab("estimating");
-  };
-
-  // Estimating helpers
-  const addEstItem = () => setEstItems(e=>[...e,{ id:`e_${Date.now()}`, descripcion:"", cantidad:1, unidad:"un", precioUnit:0, total:0, productId:null }]);
-  const updateEst  = (id,f,v) => setEstItems(e=>e.map(r=>{ if(r.id!==id) return r; const u={...r,[f]:v}; u.total=Number(u.cantidad||0)*Number(u.precioUnit||0); return u; }));
-  const removeEst  = (id) => setEstItems(e=>e.filter(r=>r.id!==id));
-  const totalEst   = estItems.reduce((s,r)=>s+Number(r.total),0);
-
-  const s = {
+  const s = { // input style
     background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4,
     color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"3px 6px", outline:"none",
   };
 
-  const PLAN_TABS = [
-    { k:"qto",        label:"📦 Quantity Take-off",    desc:"Levantamiento de cantidades" },
-    { k:"estimating", label:"💰 Estimating",            desc:"Precio a las cantidades" },
-    { k:"planning",   label:"📅 Planning",              desc:"Gantt de ejecución" },
-  ];
-
   return (
     <div style={{ fontFamily:FONT, color:COLORS.text }}>
       {/* HEADER */}
-      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16, flexWrap:"wrap" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20, flexWrap:"wrap" }}>
         <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>
           📅 Control de <span style={{color:COLORS.accent}}>Proyecto</span>
         </div>
@@ -1264,13 +1009,9 @@ function GanttView({ isMobile }) {
         {proyecto && <>
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.accent }}>{proyecto.nombre}</div>
           <div style={{ display:"flex", gap:6, marginLeft:"auto" }}>
-            {planTab==="planning" && <>
-              <button onClick={()=>addTask("F")} style={{ padding:"5px 10px", background:`${GANTT_COLORS.fase}22`, border:`1px solid ${GANTT_COLORS.fase}44`, borderRadius:6, color:GANTT_COLORS.fase, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Fase</button>
-              <button onClick={()=>addTask("T")} style={{ padding:"5px 10px", background:`${GANTT_COLORS.tarea}22`, border:`1px solid ${GANTT_COLORS.tarea}44`, borderRadius:6, color:GANTT_COLORS.tarea, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Tarea</button>
-              <button onClick={()=>addTask("H")} style={{ padding:"5px 10px", background:`${GANTT_COLORS.hito}22`, border:`1px solid ${GANTT_COLORS.hito}44`, borderRadius:6, color:GANTT_COLORS.hito, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Hito</button>
-            </>}
-            {planTab==="qto" && <button onClick={addQtoItem} style={{ padding:"5px 12px", background:`${COLORS.accent}22`, border:`1px solid ${COLORS.accent}44`, borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Ítem</button>}
-            {planTab==="estimating" && <button onClick={addEstItem} style={{ padding:"5px 12px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:6, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Ítem</button>}
+            <button onClick={()=>addTask("F")} style={{ padding:"5px 10px", background:`${GANTT_COLORS.fase}22`, border:`1px solid ${GANTT_COLORS.fase}44`, borderRadius:6, color:GANTT_COLORS.fase, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Fase</button>
+            <button onClick={()=>addTask("T")} style={{ padding:"5px 10px", background:`${GANTT_COLORS.tarea}22`, border:`1px solid ${GANTT_COLORS.tarea}44`, borderRadius:6, color:GANTT_COLORS.tarea, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Tarea</button>
+            <button onClick={()=>addTask("H")} style={{ padding:"5px 10px", background:`${GANTT_COLORS.hito}22`, border:`1px solid ${GANTT_COLORS.hito}44`, borderRadius:6, color:GANTT_COLORS.hito, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Hito</button>
             <button onClick={saveGantt} disabled={saving} style={{ padding:"5px 14px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer", opacity:saving?0.6:1 }}>
               {saving?"Guardando...":"💾 Guardar"}
             </button>
@@ -1282,354 +1023,222 @@ function GanttView({ isMobile }) {
         <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:40, textAlign:"center" }}>
           <div style={{ fontSize:40, marginBottom:12 }}>📅</div>
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, color:COLORS.textMuted }}>Ingresa el número de cotización para cargar o crear un plan de proyecto</div>
-          <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginTop:8 }}>Las fases se importan automáticamente desde el costeo · El QTO se pre-llena desde las líneas de la cotización</div>
+          <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginTop:8 }}>Las fases se importan automáticamente desde el costeo</div>
         </div>
       )}
 
       {proyecto && (
         <>
-          {/* ── Sub-tabs Pre-proyecto ── */}
-          <div style={{ display:"flex", gap:0, borderBottom:`1px solid ${COLORS.border}`, marginBottom:20 }}>
-            {PLAN_TABS.map(({k,label,desc})=>(
-              <button key={k} onClick={()=>setPlanTab(k)} style={{
-                padding:"10px 22px", fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer",
-                border:"none", borderBottom: planTab===k?`2px solid ${COLORS.accent}`:"2px solid transparent",
-                background:"transparent", color: planTab===k?COLORS.accent:COLORS.textMuted,
-                fontWeight: planTab===k?700:400, transition:"all 0.15s",
-              }}>
-                {label}
-                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginTop:2 }}>{desc}</div>
-              </button>
+          {/* Controles de vista */}
+          <div style={{ display:"flex", gap:10, marginBottom:12, alignItems:"center", flexWrap:"wrap" }}>
+            <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Inicio calendario:</span>
+            <input type="date" value={calStart} onChange={e=>setCalStart(e.target.value)} style={{...s}} />
+            <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Días vista:</span>
+            {[30,60,90,120].map(d=>(
+              <button key={d} onClick={()=>setCalDays(d)} style={{ padding:"3px 10px", background: calDays===d?COLORS.accent:"transparent", border:`1px solid ${calDays===d?COLORS.accent:COLORS.border}`, borderRadius:5, color: calDays===d?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>{d}d</button>
             ))}
+            {/* Leyenda */}
+            <div style={{ display:"flex", gap:10, marginLeft:"auto", flexWrap:"wrap" }}>
+              {[["Fase","#3b82f6"],["Tarea","#6366f1"],["Hito","#f59e0b"],["Completado","#39ff14"],["Atrasado","#ef4444"]].map(([l,c])=>(
+                <span key={l} style={{ fontFamily:FONT, fontSize:10, color:c }}>● {l}</span>
+              ))}
+            </div>
           </div>
 
-          {/* ── TAB: QUANTITY TAKE-OFF ── */}
-          {planTab==="qto" && (
-            <div>
-              <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:14 }}>
-                Levanta todas las cantidades de materiales necesarios para el proyecto. Los ítems se pueden enviar directamente a <strong style={{color:COLORS.accent}}>Estimating</strong> para ponerles precio.
-              </div>
-              <div style={{ overflowX:"auto", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10 }}>
-                <table style={{ borderCollapse:"collapse", width:"100%", fontSize:11, fontFamily:FONT }}>
-                  <thead>
-                    <tr style={{ background:COLORS.surface }}>
-                      {["#","Descripción / Material","Cantidad","Unidad","Fuente / Referencia","→ Est.",""].map((h,i)=>(
-                        <th key={i} style={{ padding:"8px 10px", color:COLORS.textMuted, textAlign:i===0||i>=4?"center":"left", fontSize:9, letterSpacing:"0.07em", textTransform:"uppercase", borderBottom:`1px solid ${COLORS.border}`, whiteSpace:"nowrap" }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {qtoItems.map((item,idx)=>(
-                      <tr key={item.id} style={{ borderBottom:`1px solid ${COLORS.border}22` }}>
-                        <td style={{ padding:"6px 10px", textAlign:"center", color:COLORS.textMuted, fontSize:10, width:32 }}>{idx+1}</td>
-                        <td style={{ padding:"6px 6px" }}>
-                          <input value={item.descripcion} onChange={e=>updateQto(item.id,"descripcion",e.target.value)}
-                            placeholder="Ej: Cable UTP Cat6 exterior" style={{...s, width:"100%", minWidth:220}} />
-                        </td>
-                        <td style={{ padding:"6px 6px", width:80 }}>
-                          <input type="number" value={item.cantidad} onChange={e=>updateQto(item.id,"cantidad",e.target.value)}
-                            style={{...s, width:70, textAlign:"right"}} min={0} />
-                        </td>
-                        <td style={{ padding:"6px 6px", width:80 }}>
-                          <select value={item.unidad} onChange={e=>updateQto(item.id,"unidad",e.target.value)} style={{...s, width:70}}>
-                            {["un","m","m2","m3","kg","gl","hr","set","cj"].map(u=><option key={u} value={u}>{u}</option>)}
-                          </select>
-                        </td>
-                        <td style={{ padding:"6px 6px" }}>
-                          <input value={item.fuente} onChange={e=>updateQto(item.id,"fuente",e.target.value)}
-                            placeholder="Ej: Plano eléctrico Rev.2" style={{...s, width:180}} />
-                        </td>
-                        <td style={{ padding:"6px 10px", textAlign:"center" }}>
-                          <button onClick={()=>sendToEst(item)}
-                            title="Enviar a Estimating"
-                            style={{ padding:"3px 10px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:4, color:COLORS.green, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>→</button>
-                        </td>
-                        <td style={{ padding:"6px 6px", textAlign:"center" }}>
-                          <button onClick={()=>removeQto(item.id)} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>×</button>
-                        </td>
-                      </tr>
-                    ))}
-                    {qtoItems.length===0 && (
-                      <tr><td colSpan={7} style={{ padding:30, textAlign:"center", color:COLORS.textMuted, fontFamily:FONT, fontSize:12 }}>
-                        Sin ítems. Haz clic en "+ Ítem" para agregar o carga una cotización para importar automáticamente.
-                      </td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              <div style={{ marginTop:10, fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
-                💡 Total ítems QTO: <strong style={{color:COLORS.accent}}>{qtoItems.length}</strong> · Cantidad total de unidades: <strong style={{color:COLORS.accent}}>{qtoItems.reduce((s,r)=>s+Number(r.cantidad||0),0)}</strong>
-              </div>
-            </div>
-          )}
-
-          {/* ── TAB: ESTIMATING ── */}
-          {planTab==="estimating" && (
-            <div>
-              <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:14 }}>
-                Asigna precios a cada cantidad del Take-off usando el <strong style={{color:COLORS.accent}}>Maestro de Productos</strong>. El total estimado es el presupuesto base del proyecto.
-              </div>
-              <div style={{ overflowX:"auto", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10 }}>
-                <table style={{ borderCollapse:"collapse", width:"100%", fontSize:11, fontFamily:FONT }}>
-                  <thead>
-                    <tr style={{ background:COLORS.surface }}>
-                      {["#","Descripción","Cant.","Un.","Precio Unit. (neto)","Subtotal",""].map((h,i)=>(
-                        <th key={i} style={{ padding:"8px 10px", color:COLORS.textMuted, textAlign:i>=2?"right":i===0?"center":"left", fontSize:9, letterSpacing:"0.07em", textTransform:"uppercase", borderBottom:`1px solid ${COLORS.border}`, whiteSpace:"nowrap" }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {estItems.map((item,idx)=>(
-                      <tr key={item.id} style={{ borderBottom:`1px solid ${COLORS.border}22` }}>
-                        <td style={{ padding:"6px 10px", textAlign:"center", color:COLORS.textMuted, fontSize:10, width:32 }}>{idx+1}</td>
-                        <td style={{ padding:"6px 6px" }}>
-                          <EstProductSearch item={item} products={products} onUpdate={(f,v)=>updateEst(item.id,f,v)} s={s} />
-                        </td>
-                        <td style={{ padding:"6px 6px", width:70, textAlign:"right" }}>
-                          <input type="number" value={item.cantidad} onChange={e=>updateEst(item.id,"cantidad",e.target.value)}
-                            style={{...s, width:60, textAlign:"right"}} min={0} />
-                        </td>
-                        <td style={{ padding:"6px 6px", width:50, textAlign:"right" }}>
-                          <select value={item.unidad} onChange={e=>updateEst(item.id,"unidad",e.target.value)} style={{...s, width:50}}>
-                            {["un","m","m2","m3","kg","gl","hr","set","cj"].map(u=><option key={u} value={u}>{u}</option>)}
-                          </select>
-                        </td>
-                        <td style={{ padding:"6px 6px", width:120, textAlign:"right" }}>
-                          <input type="number" value={item.precioUnit} onChange={e=>updateEst(item.id,"precioUnit",e.target.value)}
-                            style={{...s, width:110, textAlign:"right", color:COLORS.accent}} min={0} />
-                        </td>
-                        <td style={{ padding:"6px 10px", textAlign:"right", width:110, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.green, whiteSpace:"nowrap" }}>
-                          {fmt(item.total)}
-                        </td>
-                        <td style={{ padding:"6px 6px", textAlign:"center" }}>
-                          <button onClick={()=>removeEst(item.id)} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>×</button>
-                        </td>
-                      </tr>
-                    ))}
-                    {estItems.length===0 && (
-                      <tr><td colSpan={7} style={{ padding:30, textAlign:"center", color:COLORS.textMuted, fontFamily:FONT, fontSize:12 }}>
-                        Sin ítems. Agrega desde "+ Ítem" o envía desde Quantity Take-off con →
-                      </td></tr>
-                    )}
-                  </tbody>
-                  {estItems.length>0 && (
-                    <tfoot>
-                      <tr style={{ background:COLORS.surface, borderTop:`2px solid ${COLORS.border}` }}>
-                        <td colSpan={5} style={{ padding:"10px 14px", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.text, textAlign:"right" }}>Total estimado neto:</td>
-                        <td style={{ padding:"10px 10px", fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.green, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(totalEst)}</td>
-                        <td />
-                      </tr>
-                      <tr style={{ background:COLORS.surface }}>
-                        <td colSpan={5} style={{ padding:"4px 14px", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textAlign:"right" }}>+ IVA 19%:</td>
-                        <td style={{ padding:"4px 10px", fontFamily:FONT, fontSize:12, color:COLORS.textMuted, textAlign:"right" }}>{fmt(Math.round(totalEst*0.19))}</td>
-                        <td />
-                      </tr>
-                      <tr style={{ background:COLORS.surface }}>
-                        <td colSpan={5} style={{ padding:"4px 14px 10px", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.text, textAlign:"right" }}>Total con IVA:</td>
-                        <td style={{ padding:"4px 10px 10px", fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.accent, textAlign:"right" }}>{fmt(Math.round(totalEst*1.19))}</td>
-                        <td />
-                      </tr>
-                    </tfoot>
-                  )}
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* ── TAB: PLANNING (Gantt) ── */}
-          {planTab==="planning" && (
-            <>
-              {/* Controles de vista */}
-              <div style={{ display:"flex", gap:10, marginBottom:12, alignItems:"center", flexWrap:"wrap" }}>
-                <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Inicio calendario:</span>
-                <input type="date" value={calStart} onChange={e=>setCalStart(e.target.value)} style={{...s}} />
-                <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Vista:</span>
-                {[[1,"1d"],[7,"7d"],[30,"30d"],[60,"60d"],[90,"90d"],[120,"120d"]].map(([d,label])=>(
-                  <button key={d} onClick={()=>setCalDays(d)} style={{ padding:"3px 10px", background: calDays===d?COLORS.accent:"transparent", border:`1px solid ${calDays===d?COLORS.accent:COLORS.border}`, borderRadius:5, color: calDays===d?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>{label}</button>
-                ))}
-                <div style={{ display:"flex", gap:10, marginLeft:"auto", flexWrap:"wrap" }}>
-                  {[["Fase","#3b82f6"],["Tarea","#6366f1"],["Hito","#f59e0b"],["Completado","#39ff14"],["Atrasado","#ef4444"]].map(([l,c])=>(
-                    <span key={l} style={{ fontFamily:FONT, fontSize:10, color:c }}>● {l}</span>
+          {/* TABLA GANTT */}
+          <div style={{ overflowX:"auto", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10 }}>
+            <table style={{ borderCollapse:"collapse", fontSize:11, fontFamily:FONT }}>
+              <thead>
+                {/* Fila meses */}
+                <tr style={{ background:COLORS.surface }}>
+                  {/* Columnas fijas */}
+                  {[["#",28],["Tipo",44],["Descripción",180],["Rol",50],["Responsable",90],["Inicio",88],["Fin",88],["Plan%",52],["Av.%",52],["HH Pres.",62],["HH Real",62],["Dep.",48],["",52]].map(([h,w])=>(
+                    <th key={h} style={{ padding:"6px 4px", color:COLORS.textMuted, whiteSpace:"nowrap", minWidth:w, maxWidth:w, borderRight:`1px solid ${COLORS.border}`, textAlign:"center", letterSpacing:"0.06em", fontSize:9 }}>{h}</th>
                   ))}
-                </div>
-              </div>
+                  {/* Meses */}
+                  {months.map((m,i)=>(
+                    <th key={i} colSpan={m.count} style={{ padding:"6px 4px", color:COLORS.accent, borderRight:`1px solid ${COLORS.border}`, textAlign:"center", fontFamily:FONT_DISPLAY, fontSize:10, textTransform:"uppercase", letterSpacing:"0.08em", whiteSpace:"nowrap", minWidth:m.count*cellW }}>
+                      {m.name}
+                    </th>
+                  ))}
+                </tr>
+                {/* Fila días */}
+                <tr style={{ background:COLORS.bg }}>
+                  {/* Columnas fijas vacías */}
+                  {Array(13).fill(0).map((_,i)=>(
+                    <th key={i} style={{ borderRight:`1px solid ${COLORS.border}`, borderBottom:`1px solid ${COLORS.border}` }} />
+                  ))}
+                  {/* Días */}
+                  {calCols.map((c,i)=>(
+                    <th key={i} style={{ width:cellW, minWidth:cellW, maxWidth:cellW, padding:"2px 0", textAlign:"center",
+                      background: c.date===today ? `${COLORS.accent}33` : c.isWeekend ? `${COLORS.border}44` : "transparent",
+                      borderRight:`1px solid ${COLORS.border}22`, borderBottom:`1px solid ${COLORS.border}`,
+                      color: c.date===today ? COLORS.accent : c.isWeekend ? COLORS.textMuted : COLORS.textMuted,
+                      fontSize:9, fontWeight: c.date===today?"700":"400" }}>
+                      <div>{c.dow}</div>
+                      <div>{c.day}</div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {tasks.map((t, idx)=>{
+                  const isFase = t.tipo==="F";
+                  const isHito = t.tipo==="H";
+                  const pct    = Number(t.pctAvance)||0;
+                  const isLate = t.fin < today && pct < 100;
+                  const rowBg  = isFase ? `${GANTT_COLORS.fase}11` : "transparent";
+                  const editing = editRow===t.id;
 
-              {/* TABLA GANTT */}
-              <div style={{ overflowX:"auto", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10 }}>
-                <table style={{ borderCollapse:"collapse", fontSize:11, fontFamily:FONT }}>
-                  <thead>
-                    <tr style={{ background:COLORS.surface }}>
-                      {[["#",28],["Tipo",44],["Descripción",180],["Rol",50],["Responsable",90],["Inicio",88],["Fin",88],["Plan%",52],["Av.%",52],["HH Pres.",62],["HH Real",62],["Dep.",48],["",52]].map(([h,w])=>(
-                        <th key={h} style={{ padding:"6px 4px", color:COLORS.textMuted, whiteSpace:"nowrap", minWidth:w, maxWidth:w, borderRight:`1px solid ${COLORS.border}`, textAlign:"center", letterSpacing:"0.06em", fontSize:9 }}>{h}</th>
-                      ))}
-                      {months.map((m,i)=>(
-                        <th key={i} colSpan={m.count} style={{ padding:"6px 4px", color:COLORS.accent, borderRight:`1px solid ${COLORS.border}`, textAlign:"center", fontFamily:FONT_DISPLAY, fontSize:10, textTransform:"uppercase", letterSpacing:"0.08em", whiteSpace:"nowrap", minWidth:m.count*cellW }}>
-                          {m.name}
-                        </th>
+                  return (
+                    <tr key={t.id} style={{ borderBottom:`1px solid ${COLORS.border}22`, background:rowBg }}
+                      onDoubleClick={()=>setEditRow(editing?null:t.id)}>
+                      {/* Nro */}
+                      <td style={{ padding:"4px 4px", textAlign:"center", color:COLORS.textMuted, fontSize:10, borderRight:`1px solid ${COLORS.border}` }}>
+                        <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
+                          <button onClick={()=>moveTask(t.id,-1)} style={{ background:"none",border:"none",color:COLORS.textMuted,cursor:"pointer",fontSize:8,padding:0,lineHeight:1 }}>▲</button>
+                          <span>{idx+1}</span>
+                          <button onClick={()=>moveTask(t.id,1)} style={{ background:"none",border:"none",color:COLORS.textMuted,cursor:"pointer",fontSize:8,padding:0,lineHeight:1 }}>▼</button>
+                        </div>
+                      </td>
+                      {/* Tipo */}
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                        {editing ? (
+                          <select value={t.tipo} onChange={e=>updateTask(t.id,"tipo",e.target.value)} style={{...s,width:50,padding:"2px 3px"}}>
+                            {Object.entries(TIPO_LABEL).map(([k,v])=><option key={k} value={k}>{v}</option>)}
+                          </select>
+                        ) : (
+                          <span style={{ padding:"2px 6px", borderRadius:4, fontSize:9, fontWeight:700,
+                            background: isFase?`${GANTT_COLORS.fase}22`:isHito?`${GANTT_COLORS.hito}22`:`${GANTT_COLORS.tarea}22`,
+                            color: isFase?GANTT_COLORS.fase:isHito?GANTT_COLORS.hito:GANTT_COLORS.tarea }}>
+                            {TIPO_LABEL[t.tipo]}
+                          </span>
+                        )}
+                      </td>
+                      {/* Descripción */}
+                      <td style={{ padding:"4px 6px", borderRight:`1px solid ${COLORS.border}`, maxWidth:180 }}>
+                        {editing ? (
+                          <input value={t.nombre} onChange={e=>updateTask(t.id,"nombre",e.target.value)} style={{...s,width:170}} />
+                        ) : (
+                          <span style={{ fontWeight:isFase?700:400, color:isFase?COLORS.text:COLORS.textMuted,
+                            paddingLeft: isFase?0:10, fontSize: isFase?12:11, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", display:"block", maxWidth:175 }}>
+                            {!isFase && <span style={{color:COLORS.border,marginRight:4}}>└</span>}{t.nombre}
+                          </span>
+                        )}
+                      </td>
+                      {/* Rol */}
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                        {editing ? (
+                          <select value={t.rol} onChange={e=>updateTask(t.id,"rol",e.target.value)} style={{...s,width:50,padding:"2px 3px"}}>
+                            {ROL_OPTS.map(r=><option key={r} value={r}>{r}</option>)}
+                          </select>
+                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.accent }}>{t.rol}</span>}
+                      </td>
+                      {/* Responsable */}
+                      <td style={{ padding:"4px 4px", borderRight:`1px solid ${COLORS.border}` }}>
+                        {editing ? (
+                          <input value={t.responsable} onChange={e=>updateTask(t.id,"responsable",e.target.value)} style={{...s,width:84}} />
+                        ) : <span style={{ fontSize:10, color:COLORS.textMuted }}>{t.responsable}</span>}
+                      </td>
+                      {/* Inicio */}
+                      <td style={{ padding:"4px 4px", borderRight:`1px solid ${COLORS.border}` }}>
+                        {editing ? (
+                          <input type="date" value={t.inicio} onChange={e=>updateTask(t.id,"inicio",e.target.value)} style={{...s,width:82}} />
+                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.text }}>{fmtShort(t.inicio)}</span>}
+                      </td>
+                      {/* Fin */}
+                      <td style={{ padding:"4px 4px", borderRight:`1px solid ${COLORS.border}` }}>
+                        {editing ? (
+                          <input type="date" value={t.fin} onChange={e=>updateTask(t.id,"fin",e.target.value)} style={{...s,width:82}} />
+                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:isLate?GANTT_COLORS.late:COLORS.text }}>{fmtShort(t.fin)}{isLate&&" ⚠"}</span>}
+                      </td>
+                      {/* Plan % */}
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                        {editing ? (
+                          <input type="number" value={t.pctPlan} onChange={e=>updateTask(t.id,"pctPlan",e.target.value)} style={{...s,width:44}} min={0} max={100} />
+                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.textMuted }}>{t.pctPlan}%</span>}
+                      </td>
+                      {/* Avance % */}
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                        {editing ? (
+                          <input type="number" value={t.pctAvance} onChange={e=>updateTask(t.id,"pctAvance",e.target.value)} style={{...s,width:44,color:COLORS.accent}} min={0} max={100} />
+                        ) : (
+                          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+                            <span style={{ fontFamily:"monospace", fontSize:10, color: pct===100?GANTT_COLORS.done:isLate?GANTT_COLORS.late:COLORS.accent, fontWeight:700 }}>{pct}%</span>
+                            <div style={{ width:40, height:3, background:COLORS.border, borderRadius:2 }}>
+                              <div style={{ width:`${pct}%`, height:"100%", background: pct===100?GANTT_COLORS.done:isLate?GANTT_COLORS.late:COLORS.accent, borderRadius:2 }} />
+                            </div>
+                          </div>
+                        )}
+                      </td>
+                      {/* HH Pres. */}
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                        {editing ? (
+                          <input type="number" value={t.hhPresup} onChange={e=>updateTask(t.id,"hhPresup",e.target.value)} style={{...s,width:54}} />
+                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.textMuted }}>{t.hhPresup>0?t.hhPresup:"-"}</span>}
+                      </td>
+                      {/* HH Real */}
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                        {editing ? (
+                          <input type="number" value={t.hhReal} onChange={e=>updateTask(t.id,"hhReal",e.target.value)} style={{...s,width:54,color:"#39ff14"}} />
+                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color: t.hhReal>t.hhPresup&&t.hhPresup>0?GANTT_COLORS.late:"#39ff14" }}>{t.hhReal>0?t.hhReal:"-"}</span>}
+                      </td>
+                      {/* Dependencia */}
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                        {editing ? (
+                          <input value={t.depende} onChange={e=>updateTask(t.id,"depende",e.target.value)} style={{...s,width:40}} placeholder="#" />
+                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.textMuted }}>{t.depende||"-"}</span>}
+                      </td>
+                      {/* Acciones */}
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                        <div style={{ display:"flex", gap:2, justifyContent:"center" }}>
+                          <button onClick={()=>setEditRow(editing?null:t.id)}
+                            style={{ background:editing?COLORS.accent:"none", border:`1px solid ${editing?COLORS.accent:COLORS.border}`, borderRadius:3, color:editing?COLORS.bg:COLORS.textMuted, cursor:"pointer", fontSize:9, padding:"1px 5px" }}>
+                            {editing?"✓":"✏"}
+                          </button>
+                          <button onClick={()=>deleteTask(t.id)}
+                            style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:12, padding:"0 2px" }}>×</button>
+                        </div>
+                      </td>
+                      {/* Barras Gantt */}
+                      {calCols.map((c,ci)=>(
+                        <td key={ci} style={{ width:cellW, minWidth:cellW, maxWidth:cellW, padding:0, position:"relative", height:32,
+                          background: c.date===today?`${COLORS.accent}18`:c.isWeekend?`${COLORS.border}22`:"transparent",
+                          borderRight:`1px solid ${COLORS.border}11` }}>
+                          {ci===0 && <GanttBar task={t} calStart={calStart} calDays={calDays} cellW={cellW} today={today} />}
+                        </td>
                       ))}
                     </tr>
-                    <tr style={{ background:COLORS.bg }}>
-                      {Array(13).fill(0).map((_,i)=>(
-                        <th key={i} style={{ borderRight:`1px solid ${COLORS.border}`, borderBottom:`1px solid ${COLORS.border}` }} />
-                      ))}
-                      {calCols.map((c,i)=>(
-                        <th key={i} style={{ width:cellW, minWidth:cellW, maxWidth:cellW, padding:"2px 0", textAlign:"center",
-                          background: c.date===today ? `${COLORS.accent}33` : c.isWeekend ? `${COLORS.border}44` : "transparent",
-                          borderRight:`1px solid ${COLORS.border}22`, borderBottom:`1px solid ${COLORS.border}`,
-                          color: c.date===today ? COLORS.accent : c.isWeekend ? COLORS.textMuted : COLORS.textMuted,
-                          fontSize:9, fontWeight: c.date===today?"700":"400" }}>
-                          <div>{c.dow}</div>
-                          <div>{c.day}</div>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tasks.map((t, idx)=>{
-                      const isFase = t.tipo==="F";
-                      const isHito = t.tipo==="H";
-                      const pct    = Number(t.pctAvance)||0;
-                      const isLate = t.fin < today && pct < 100;
-                      const rowBg  = isFase ? `${GANTT_COLORS.fase}11` : "transparent";
-                      const editing = editRow===t.id;
-                      return (
-                        <tr key={t.id} style={{ borderBottom:`1px solid ${COLORS.border}22`, background:rowBg }}
-                          onDoubleClick={()=>setEditRow(editing?null:t.id)}>
-                          <td style={{ padding:"4px 4px", textAlign:"center", color:COLORS.textMuted, fontSize:10, borderRight:`1px solid ${COLORS.border}` }}>
-                            <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
-                              <button onClick={()=>moveTask(t.id,-1)} style={{ background:"none",border:"none",color:COLORS.textMuted,cursor:"pointer",fontSize:8,padding:0,lineHeight:1 }}>▲</button>
-                              <span>{idx+1}</span>
-                              <button onClick={()=>moveTask(t.id,1)} style={{ background:"none",border:"none",color:COLORS.textMuted,cursor:"pointer",fontSize:8,padding:0,lineHeight:1 }}>▼</button>
-                            </div>
-                          </td>
-                          <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
-                            {editing ? (
-                              <select value={t.tipo} onChange={e=>updateTask(t.id,"tipo",e.target.value)} style={{...s,width:50,padding:"2px 3px"}}>
-                                {Object.entries(TIPO_LABEL).map(([k,v])=><option key={k} value={k}>{v}</option>)}
-                              </select>
-                            ) : (
-                              <span style={{ padding:"2px 6px", borderRadius:4, fontSize:9, fontWeight:700,
-                                background: isFase?`${GANTT_COLORS.fase}22`:isHito?`${GANTT_COLORS.hito}22`:`${GANTT_COLORS.tarea}22`,
-                                color: isFase?GANTT_COLORS.fase:isHito?GANTT_COLORS.hito:GANTT_COLORS.tarea }}>
-                                {TIPO_LABEL[t.tipo]}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ padding:"4px 6px", borderRight:`1px solid ${COLORS.border}`, maxWidth:180 }}>
-                            {editing ? (
-                              <input value={t.nombre} onChange={e=>updateTask(t.id,"nombre",e.target.value)} style={{...s,width:170}} />
-                            ) : (
-                              <span style={{ fontWeight:isFase?700:400, color:isFase?COLORS.text:COLORS.textMuted,
-                                paddingLeft: isFase?0:10, fontSize: isFase?12:11, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", display:"block", maxWidth:175 }}>
-                                {!isFase && <span style={{color:COLORS.border,marginRight:4}}>└</span>}{t.nombre}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
-                            {editing ? (
-                              <select value={t.rol} onChange={e=>updateTask(t.id,"rol",e.target.value)} style={{...s,width:50,padding:"2px 3px"}}>
-                                {ROL_OPTS.map(r=><option key={r} value={r}>{r}</option>)}
-                              </select>
-                            ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.accent }}>{t.rol}</span>}
-                          </td>
-                          <td style={{ padding:"4px 4px", borderRight:`1px solid ${COLORS.border}` }}>
-                            {editing ? (
-                              <input value={t.responsable} onChange={e=>updateTask(t.id,"responsable",e.target.value)} style={{...s,width:84}} />
-                            ) : <span style={{ fontSize:10, color:COLORS.textMuted }}>{t.responsable}</span>}
-                          </td>
-                          <td style={{ padding:"4px 4px", borderRight:`1px solid ${COLORS.border}` }}>
-                            {editing ? (
-                              <input type="date" value={t.inicio} onChange={e=>updateTask(t.id,"inicio",e.target.value)} style={{...s,width:82}} />
-                            ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.text }}>{fmtShort(t.inicio)}</span>}
-                          </td>
-                          <td style={{ padding:"4px 4px", borderRight:`1px solid ${COLORS.border}` }}>
-                            {editing ? (
-                              <input type="date" value={t.fin} onChange={e=>updateTask(t.id,"fin",e.target.value)} style={{...s,width:82}} />
-                            ) : <span style={{ fontFamily:"monospace", fontSize:10, color:isLate?GANTT_COLORS.late:COLORS.text }}>{fmtShort(t.fin)}{isLate&&" ⚠"}</span>}
-                          </td>
-                          <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
-                            {editing ? (
-                              <input type="number" value={t.pctPlan} onChange={e=>updateTask(t.id,"pctPlan",e.target.value)} style={{...s,width:44}} min={0} max={100} />
-                            ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.textMuted }}>{t.pctPlan}%</span>}
-                          </td>
-                          <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
-                            {editing ? (
-                              <input type="number" value={t.pctAvance} onChange={e=>updateTask(t.id,"pctAvance",e.target.value)} style={{...s,width:44,color:COLORS.accent}} min={0} max={100} />
-                            ) : (
-                              <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
-                                <span style={{ fontFamily:"monospace", fontSize:10, color: pct===100?GANTT_COLORS.done:isLate?GANTT_COLORS.late:COLORS.accent, fontWeight:700 }}>{pct}%</span>
-                                <div style={{ width:40, height:3, background:COLORS.border, borderRadius:2 }}>
-                                  <div style={{ width:`${pct}%`, height:"100%", background: pct===100?GANTT_COLORS.done:isLate?GANTT_COLORS.late:COLORS.accent, borderRadius:2 }} />
-                                </div>
-                              </div>
-                            )}
-                          </td>
-                          <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
-                            {editing ? (
-                              <input type="number" value={t.hhPresup} onChange={e=>updateTask(t.id,"hhPresup",e.target.value)} style={{...s,width:54}} />
-                            ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.textMuted }}>{t.hhPresup>0?t.hhPresup:"-"}</span>}
-                          </td>
-                          <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
-                            {editing ? (
-                              <input type="number" value={t.hhReal} onChange={e=>updateTask(t.id,"hhReal",e.target.value)} style={{...s,width:54,color:"#39ff14"}} />
-                            ) : <span style={{ fontFamily:"monospace", fontSize:10, color: t.hhReal>t.hhPresup&&t.hhPresup>0?GANTT_COLORS.late:"#39ff14" }}>{t.hhReal>0?t.hhReal:"-"}</span>}
-                          </td>
-                          <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
-                            {editing ? (
-                              <input value={t.depende} onChange={e=>updateTask(t.id,"depende",e.target.value)} style={{...s,width:40}} placeholder="#" />
-                            ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.textMuted }}>{t.depende||"-"}</span>}
-                          </td>
-                          <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
-                            <div style={{ display:"flex", gap:2, justifyContent:"center" }}>
-                              <button onClick={()=>setEditRow(editing?null:t.id)}
-                                style={{ background:editing?COLORS.accent:"none", border:`1px solid ${editing?COLORS.accent:COLORS.border}`, borderRadius:3, color:editing?COLORS.bg:COLORS.textMuted, cursor:"pointer", fontSize:9, padding:"1px 5px" }}>
-                                {editing?"✓":"✏"}
-                              </button>
-                              <button onClick={()=>deleteTask(t.id)}
-                                style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:12, padding:"0 2px" }}>×</button>
-                            </div>
-                          </td>
-                          {calCols.map((c,ci)=>(
-                            <td key={ci} style={{ width:cellW, minWidth:cellW, maxWidth:cellW, padding:0, position:"relative", height:32,
-                              background: c.date===today?`${COLORS.accent}18`:c.isWeekend?`${COLORS.border}22`:"transparent",
-                              borderRight:`1px solid ${COLORS.border}11` }}>
-                              {ci===0 && <GanttBar task={t} calStart={calStart} calDays={calDays} cellW={cellW} today={today} />}
-                            </td>
-                          ))}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
-              {/* RESUMEN KPIs */}
-              <div style={{ display:"flex", gap:12, marginTop:16, flexWrap:"wrap" }}>
-                {[
-                  { label:"Total Tareas", val: tasks.filter(t=>t.tipo==="T").length, color:GANTT_COLORS.tarea },
-                  { label:"Completadas", val: tasks.filter(t=>Number(t.pctAvance)===100).length, color:GANTT_COLORS.done },
-                  { label:"Atrasadas", val: tasks.filter(t=>t.fin<today&&Number(t.pctAvance)<100).length, color:GANTT_COLORS.late },
-                  { label:"HH Presup.", val: tasks.reduce((s,t)=>s+Number(t.hhPresup),0), color:COLORS.textMuted, suffix:"HH" },
-                  { label:"HH Real", val: tasks.reduce((s,t)=>s+Number(t.hhReal),0), color:"#39ff14", suffix:"HH" },
-                  { label:"Avance Prom.", val: tasks.filter(t=>t.tipo!=="H").length ? Math.round(tasks.filter(t=>t.tipo!=="H").reduce((s,t)=>s+Number(t.pctAvance),0)/tasks.filter(t=>t.tipo!=="H").length) : 0, color:COLORS.accent, suffix:"%" },
-                ].map(k=>(
-                  <div key={k.label} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 16px", flex:1, minWidth:100 }}>
-                    <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:4 }}>{k.label}</div>
-                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:k.color }}>{k.val}{k.suffix||""}</div>
-                  </div>
-                ))}
+          {/* RESUMEN KPIs */}
+          <div style={{ display:"flex", gap:12, marginTop:16, flexWrap:"wrap" }}>
+            {[
+              { label:"Total Tareas", val: tasks.filter(t=>t.tipo==="T").length, color:GANTT_COLORS.tarea },
+              { label:"Completadas", val: tasks.filter(t=>Number(t.pctAvance)===100).length, color:GANTT_COLORS.done },
+              { label:"Atrasadas", val: tasks.filter(t=>t.fin<today&&Number(t.pctAvance)<100).length, color:GANTT_COLORS.late },
+              { label:"HH Presup.", val: tasks.reduce((s,t)=>s+Number(t.hhPresup),0), color:COLORS.textMuted, suffix:"HH" },
+              { label:"HH Real", val: tasks.reduce((s,t)=>s+Number(t.hhReal),0), color:"#39ff14", suffix:"HH" },
+              { label:"Avance Prom.", val: tasks.filter(t=>t.tipo!=="H").length ? Math.round(tasks.filter(t=>t.tipo!=="H").reduce((s,t)=>s+Number(t.pctAvance),0)/tasks.filter(t=>t.tipo!=="H").length) : 0, color:COLORS.accent, suffix:"%" },
+            ].map(k=>(
+              <div key={k.label} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 16px", flex:1, minWidth:100 }}>
+                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:4 }}>{k.label}</div>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:k.color }}>{k.val}{k.suffix||""}</div>
               </div>
-              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:8 }}>
-                💡 Doble clic en una fila para editar · Enter en el campo cotización para cargar
-              </div>
-            </>
-          )}
+            ))}
+          </div>
+          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:8 }}>
+            💡 Doble clic en una fila para editar · Enter en el campo cotización para cargar
+          </div>
         </>
       )}
     </div>
   );
 }
-
 
 // ── MAPPERS COTIZACIONES ─────────────────────────────────────────────────────
 const mapProduct = (r) => ({
@@ -2186,7 +1795,7 @@ function ProductsDB({ isMobile }) {
 }
 
 // ── COTIZACIONES LIST ────────────────────────────────────────────────────────
-function QuotesView({ contacts, deals, setDeals, isMobile }) {
+function QuotesView({ contacts, isMobile }) {
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("list");
@@ -2217,57 +1826,11 @@ function QuotesView({ contacts, deals, setDeals, isMobile }) {
   const updateStatus = async (id, status) => {
     await supabase.from("cotizaciones").update({ estado: status }).eq("id", id);
     setQuotes(quotes.map(q=>q.id===id?{...q,status}:q));
-    // Auto-push al pipeline cuando se marca como enviada
-    if (status === "enviada") {
-      const q = quotes.find(q=>q.id===id);
-      if (q) {
-        const quoteNum = String(q.number);
-        const existing = deals.find(d=>String(d.quoteNumber)===quoteNum);
-        if (existing) {
-          await supabase.from("deals").update({ etapa:"propuesta" }).eq("id", existing.id);
-          setDeals(deals.map(d=>d.id===existing.id?{...d,stage:"propuesta"}:d));
-        } else {
-          const titulo = `COT-${quoteNum}`;
-          const { data: newDeal } = await supabase.from("deals").insert({
-            titulo,
-            valor: q.total||0,
-            etapa: "propuesta",
-            empresa: q.clientCompany||q.clientName||"",
-            numero_cotizacion: Number(quoteNum)||null,
-            probabilidad: 50,
-          }).select().single();
-          if (newDeal) setDeals(prev=>[...prev, mapDeal(newDeal)]);
-        }
-      }
-    }
   };
 
   const del = async (id) => {
     await supabase.from("cotizaciones").delete().eq("id", id);
     setQuotes(quotes.filter(q=>q.id!==id));
-  };
-
-  const duplicate = async (q) => {
-    const newNumber = nextNumber;
-    const today = new Date().toISOString().slice(0,10);
-    // Insert nueva cotización con datos del original pero nuevo número, fecha hoy y estado borrador
-    const newData = mapQuoteToDb({
-      ...q, number: newNumber, date: today, status: "borrador", total: q.total
-    });
-    const { data: savedQuote } = await supabase.from("cotizaciones").insert(newData).select().single();
-    if (!savedQuote) return;
-    // Copiar líneas
-    const { data: origLines } = await supabase.from("quote_lines").select("*").eq("quote_id", q.id).order("orden");
-    if (origLines && origLines.length > 0) {
-      const newLines = origLines.map(l => ({ ...l, id: undefined, quote_id: savedQuote.id }));
-      await supabase.from("quote_lines").insert(newLines);
-    }
-    const mapped = mapQuote(savedQuote);
-    setQuotes(prev=>[mapped,...prev]);
-    setNextNumber(n=>n+1);
-    // Abrir en edición para que ajuste datos del cliente
-    setSelectedQuote(mapped);
-    setView("detail");
   };
 
   if (view==="new") return <QuoteEditor contacts={contacts} nextNumber={nextNumber} onSave={(q)=>{ setQuotes([q,...quotes]); setNextNumber(n=>n+1); setSelectedQuote(q); setView("list"); }} onCancel={()=>setView("list")} />;
@@ -2348,7 +1911,6 @@ function QuotesView({ contacts, deals, setDeals, isMobile }) {
                     <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
                       <button onClick={(e)=>{ e.stopPropagation(); setSelectedQuote(q); setView("detail"); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>✏️ Editar</button>
                       <button onClick={(e)=>{ e.stopPropagation(); setSelectedQuote(q); setView("pdf"); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.green}44`, color:COLORS.green }}>📄 Ver PDF</button>
-                      <button onClick={(e)=>{ e.stopPropagation(); duplicate(q); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.yellow}44`, color:COLORS.yellow }}>⧉ Duplicar</button>
                       {["enviada","aprobada","rechazada"].map(s=>(
                         <button key={s} onClick={(e)=>{ e.stopPropagation(); updateStatus(q.id,s); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:q.status===s?STATUS_QUOTE[s].color+"22":"transparent", border:`1px solid ${STATUS_QUOTE[s].color}44`, color:STATUS_QUOTE[s].color }}>
                           {STATUS_QUOTE[s].label}
@@ -2939,9 +2501,10 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
     </div>
     <div class="foot">${isPF?`Polygonos SpA · RUT 77.180.437-3 · Sistema de Pre-Facturación Interna · No válido como documento legal · Emitido por ${form.responsable||"mhudson"} el ${new Date().toLocaleDateString("es-CL")} · ${numero}`:`Polygonos SpA · RUT 77.180.437-3 · Documento interno de gestión · Generado el ${new Date().toLocaleDateString("es-CL")} · ${numero}`}</div>
     <script>window.onload=()=>window.print();</script></body></html>`;
-    const clienteNombre = (selQuotes[0]?.clientCompany||selQuotes[0]?.clientName||"Cliente").replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ ]/g,"").trim();
+    const clienteNombre = (selQuotes[0]?.clientCompany||selQuotes[0]?.clientName||"Cliente").replace(/[^a-zA-Z0-9\u00C0-\u017E ]/g,"").trim();
+    const cotNumTitle = firstQ?.number||selQuotes[0]?.number||"00";
     const w=window.open("","_blank");
-    w.document.title=`${isPF?"PF":"CP"}-${cotNum}-${clienteNombre}`;
+    w.document.title=`${isPF?"PF":"CP"}-${cotNumTitle}-${clienteNombre}`;
     w.document.write(html);w.document.close();
   };
 
@@ -3177,78 +2740,6 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
 }
 
 
-// ── CRM CONTACT SEARCH ───────────────────────────────────────────────────────
-function ContactCRMSearch({ contacts, selectedId, onSelect }) {
-  const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
-  const selected = contacts.find(c=>c.id===selectedId);
-
-  const results = query.trim().length > 0
-    ? contacts.filter(c=>{
-        const q = query.toLowerCase();
-        return (c.name||"").toLowerCase().includes(q)
-          || (c.company||"").toLowerCase().includes(q)
-          || (c.rut||"").toLowerCase().includes(q);
-      }).slice(0,8)
-    : [];
-
-  const pick = (c) => { onSelect(c); setQuery(""); setOpen(false); };
-  const clear = () => { onSelect(null); setQuery(""); setOpen(false); };
-
-  return (
-    <div style={{ marginBottom:14, position:"relative" }}>
-      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Vincular Contacto CRM</div>
-      {selected && !open ? (
-        <div style={{ display:"flex", alignItems:"center", gap:10, background:COLORS.accentDim, border:`1px solid ${COLORS.accent}44`, borderRadius:6, padding:"9px 12px" }}>
-          <div style={{ flex:1 }}>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.accent }}>{selected.company||selected.name}</div>
-            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{selected.name}{selected.rut ? ` · ${selected.rut}` : ""}</div>
-          </div>
-          <button onClick={()=>setOpen(true)} style={{ background:"none", border:`1px solid ${COLORS.border}`, borderRadius:4, color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:11, padding:"2px 8px" }}>Cambiar</button>
-          <button onClick={clear} style={{ background:"none", border:"none", color:COLORS.textDim, cursor:"pointer", fontSize:14 }}>✕</button>
-        </div>
-      ) : (
-        <div>
-          <div style={{ position:"relative" }}>
-            <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", color:COLORS.textMuted, fontSize:13 }}>🔍</span>
-            <input
-              autoFocus={open}
-              value={query}
-              onChange={e=>{ setQuery(e.target.value); setOpen(true); }}
-              onFocus={()=>setOpen(true)}
-              onBlur={()=>setTimeout(()=>setOpen(false),150)}
-              placeholder="Buscar por nombre, razón social o RUT…"
-              style={{ width:"100%", background:COLORS.bg, border:`1px solid ${open?COLORS.accent:COLORS.border}`, borderRadius:6, padding:"9px 12px 9px 32px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box", transition:"border-color 0.15s" }}
-            />
-            {query && <button onMouseDown={e=>e.preventDefault()} onClick={()=>setQuery("")} style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:14 }}>✕</button>}
-          </div>
-          {open && results.length>0 && (
-            <div style={{ position:"absolute", top:"100%", left:0, right:0, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, zIndex:50, marginTop:4, boxShadow:"0 8px 24px #0006", overflow:"hidden" }}>
-              {results.map(c=>(
-                <div key={c.id} onMouseDown={e=>e.preventDefault()} onClick={()=>pick(c)}
-                  style={{ padding:"10px 14px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}
-                  onMouseEnter={e=>e.currentTarget.style.background=COLORS.accentDim}
-                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                  <div>
-                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text }}>{c.company||c.name}</div>
-                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{c.name}{c.rut?` · ${c.rut}`:""}</div>
-                  </div>
-                  <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim, textTransform:"uppercase" }}>{c.status}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          {open && query.trim().length>0 && results.length===0 && (
-            <div style={{ position:"absolute", top:"100%", left:0, right:0, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, zIndex:50, marginTop:4, padding:"12px 14px" }}>
-              <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin resultados para "{query}"</div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── QUOTE EDITOR ─────────────────────────────────────────────────────────────
 function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
   const isEdit = !!quote;
@@ -3414,16 +2905,10 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
       {/* CLIENTE */}
       <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20, marginBottom:16 }}>
         <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Cliente</div>
-        {/* Buscador CRM */}
-        <ContactCRMSearch contacts={contacts} selectedId={header.contactId} onSelect={c=>{
-          hf("contactId", c ? c.id : "");
-          if (c) {
-            hf("clientName",    c.name    || "");
-            hf("clientCompany", c.company || "");
-            hf("clientRut",     c.rut     || "");
-            hf("clientPhone",   c.phone   || "");
-          }
-        }} />
+        <Select label="Vincular contacto CRM" value={header.contactId} onChange={e=>hf("contactId",e.target.value)}>
+          <option value="">— Seleccionar contacto —</option>
+          {contacts.map(c=><option key={c.id} value={c.id}>{c.name} · {c.company}</option>)}
+        </Select>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px,1fr))", gap:12 }}>
           <Input label="Nombre cliente" value={header.clientName} onChange={e=>hf("clientName",e.target.value)} />
           <Input label="RUT" value={header.clientRut} onChange={e=>hf("clientRut",formatRut(e.target.value))} maxLength={12} />
@@ -3494,19 +2979,22 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
                       placeholder="Buscar producto..."
                       style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none", boxSizing:"border-box" }}
                     />
-                    {/* Margen calculado automáticamente desde precio vs costo */}
+                    {/* Margen inline debajo del buscador */}
                     <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:3 }}>
-                      {costoNetoProd>0 ? (() => {
-                        const precio = Number(line.unitPrice)||0;
-                        const margenCalc = precio>0 ? Math.round(((precio - costoNetoProd)/costoNetoProd)*100) : 0;
-                        const color = margenCalc<=0 ? COLORS.red : margenCalc<15 ? COLORS.yellow : COLORS.green;
-                        return (<>
-                          <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>Costo: ${costoNetoProd.toLocaleString("es-CL")}</span>
-                          <span style={{ fontFamily:FONT, fontSize:9, fontWeight:700, color, background:color+"18", border:`1px solid ${color}44`, borderRadius:3, padding:"1px 5px" }}>
-                            {margenCalc>0?"+":""}{margenCalc}% margen
-                          </span>
-                        </>);
-                      })() : null}
+                      <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>Margen %:</span>
+                      <input type="number" value={lineMargen[idx]||0}
+                        onChange={e=>{
+                          const m = Number(e.target.value)||0;
+                          setLineMargen(s=>({...s,[idx]:m}));
+                          // Recalcular precio si hay producto seleccionado
+                          if(costoNetoProd>0) {
+                            const newPrice = Math.round(costoNetoProd*(1+m/100));
+                            updateLine(idx,"unitPrice",newPrice);
+                          }
+                        }}
+                        style={{ width:48, background:COLORS.bg, border:`1px solid ${COLORS.accent}44`, borderRadius:4, padding:"2px 5px", fontFamily:FONT, fontSize:10, color:COLORS.accent, outline:"none" }}
+                      />
+                      {costoNetoProd>0 && <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>Costo: ${costoNetoProd.toLocaleString("es-CL")}</span>}
                     </div>
                     {/* Dropdown resultados */}
                     {lineDropOpen[idx] && resultados.length>0 && (
@@ -3783,7 +3271,7 @@ function QuotePDF({ quote, onBack }) {
           body * { visibility: hidden; }
           #print-area, #print-area * { visibility: visible; }
           #print-area {
-            position: absolute; left: 0; top: 0;
+            position: fixed; left: 0; top: 0;
             width: 100%; padding: 12mm 14mm;
             box-sizing: border-box;
             font-size: 11px;
@@ -3803,7 +3291,7 @@ function QuotePDF({ quote, onBack }) {
           #print-area .rut-label { color: #cc0000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           #print-area .totals-table { width: 220px; margin-left: auto; }
           #print-area .totals-table td { white-space: nowrap; }
-          @page { margin: 10mm 14mm; size: A4; }
+          @page { margin: 0; size: A4; }
         }
       `}</style>
     </div>
@@ -3814,14 +3302,15 @@ function QuotePDF({ quote, onBack }) {
 // ── COSTEO DE PROYECTOS ──────────────────────────────────────────────────────
 const CON_IVA = ["Equipos","Materiales"];
 const IVA = 1.19;
-const CAT_TIPOS = ["Equipos","Mano de Obra / HH","Materiales"];
-const CAT_COLOR = { "Equipos":"#3b82f6","Mano de Obra / HH":"#10b981","Materiales":"#f59e0b" };
+const CAT_TIPOS = ["Equipos","Mano de Obra / HH","Materiales","Costos Indirectos"];
+const CAT_COLOR = { "Equipos":"#3b82f6","Mano de Obra / HH":"#10b981","Materiales":"#f59e0b","Costos Indirectos":"#8b5cf6" };
 
 // Prefijo SAP por tipo de recurso
 const SAP_PREFIX = {
   "Equipos":           "E",
   "Materiales":        "M",
   "Mano de Obra / HH": "H",
+  "Costos Indirectos": "I",
 };
 
 // Genera código SAP automático: F{fi+1}-E001
@@ -3832,40 +3321,25 @@ function genSapCod(tipo, faseIdx, itemsDelTipo) {
 }
 
 function newItem(tipo) {
-  const base = { id: Date.now()+Math.random(), tipo, cod:"", descripcion:"", modelo:"", qty:1, costoUnitNeto:0, margen:30, ventaUnitNeta:null, aplicaIVA: true };
+  const base = { id: Date.now()+Math.random(), tipo, cod:"", descripcion:"", modelo:"", qty:1, costoUnitNeto:0, margen:30, aplicaIVA: tipo!=="Costos Indirectos" };
   if(tipo==="Mano de Obra / HH") return { ...base, hh:1, valorHH:15000, aplicaIVA:false };
+  if(tipo==="Costos Indirectos") return { ...base, costoUnit:0, aplicaIVA:false };
   return base;
 }
 
 function calcItem(it) {
   let costoNeto = 0;
-  if(it.tipo==="Mano de Obra / HH") costoNeto = (Number(it.hh)||0)*(Number(it.valorHH)||0)*(Number(it.qty)||1);
+  if(it.tipo==="Mano de Obra / HH")   costoNeto = (Number(it.hh)||0)*(Number(it.valorHH)||0)*(Number(it.qty)||1);
+  else if(it.tipo==="Costos Indirectos") costoNeto = (Number(it.costoUnit)||0)*(Number(it.qty)||1);
   else costoNeto = (Number(it.costoUnitNeto)||0)*(Number(it.qty)||1);
 
-  const qty = Number(it.qty)||1;
-  const costoUnitNeto = costoNeto / (qty||1);
-
-  // Si hay precio venta manual (ventaUnitNeta), úsalo; si no, deriva desde margen%
-  // Para MO: costoNeto ya incluye hh×valorHH×qty, así que ventaUnitNeta es el total directo
-  // Para Equipos/Mat: ventaUnitNeta es por unidad, multiplicar por qty
-  const esMO = it.tipo==="Mano de Obra / HH";
-  let ventaNeta;
-  let margenPct;
-  if(it.ventaUnitNeta !== undefined && it.ventaUnitNeta !== "" && it.ventaUnitNeta !== null) {
-    ventaNeta = esMO ? Number(it.ventaUnitNeta) : Number(it.ventaUnitNeta) * qty;
-    margenPct = costoNeto > 0 ? Math.round(((ventaNeta - costoNeto) / costoNeto) * 100) : 0;
-  } else {
-    margenPct  = Number(it.margen)||0;
-    ventaNeta  = costoNeto * (1 + margenPct/100);
-  }
-
-  const margenVal  = ventaNeta - costoNeto;
+  const margenPct  = Number(it.margen)||0;
+  const margenVal  = costoNeto*(margenPct/100);
+  const ventaNeta  = costoNeto+margenVal;
   const aplicaIVA  = !!it.aplicaIVA;
-  const ivaCompra  = aplicaIVA ? costoNeto*(IVA-1) : 0;   // IVA que pagas al proveedor (crédito fiscal)
-  const ivaVenta   = aplicaIVA ? ventaNeta*(IVA-1) : 0;   // IVA que cobras al cliente (débito fiscal)
-  const ivaNeto    = ivaVenta - ivaCompra;                 // IVA a pagar al SII (débito - crédito)
+  const ivaVenta   = aplicaIVA ? ventaNeta*(IVA-1) : 0;
   const ventaBruta = ventaNeta+ivaVenta;
-  return { ...it, costoNeto, costoUnitNeto, margenTotal:margenVal, margenPct, ventaNeta, ivaCompra, ivaVenta, ivaNeto, ventaBruta };
+  return { ...it, costoNeto, margenTotal:margenVal, ventaNeta, ivaVenta, ventaBruta };
 }
 
 function calcFase(fase) {
@@ -3873,30 +3347,29 @@ function calcFase(fase) {
   const costoNeto   = items.reduce((s,i)=>s+i.costoNeto,0);
   const margenTotal = items.reduce((s,i)=>s+i.margenTotal,0);
   const ventaNeta   = items.reduce((s,i)=>s+i.ventaNeta,0);
-  const ivaCompra   = items.reduce((s,i)=>s+i.ivaCompra,0);
   const ivaTotal    = items.reduce((s,i)=>s+i.ivaVenta,0);
-  const ivaNeto     = items.reduce((s,i)=>s+i.ivaNeto,0);
   const ventaBruta  = items.reduce((s,i)=>s+i.ventaBruta,0);
   return {
     ...fase, items,
-    costoNeto, costoTotal: costoNeto,
-    margenTotal, ventaNeta,
-    ivaCompra, ivaTotal, ivaNeto,
-    ventaBruta, ventaTotal: ventaBruta,
+    costoNeto, costoTotal: costoNeto,       // alias para compatibilidad
+    margenTotal,
+    ventaNeta,
+    ivaTotal,
+    ventaBruta, ventaTotal: ventaBruta,     // alias para compatibilidad
   };
 }
 
 function TotBox({ label, value, color, sub }) {
   return (
-    <div style={{ background:COLORS.card, border:`1px solid ${color}44`, borderRadius:8, padding:"10px 12px", minWidth:0 }}>
-      <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:3, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{label}</div>
-      <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>${value.toLocaleString("es-CL")}</div>
-      {sub && <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginTop:2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{sub}</div>}
+    <div style={{ background:COLORS.card, border:`1px solid ${color}44`, borderRadius:10, padding:"14px 20px", minWidth:160, flex:1 }}>
+      <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:4 }}>{label}</div>
+      <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color }}>${value.toLocaleString("es-CL")}</div>
+      {sub && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:2 }}>{sub}</div>}
     </div>
   );
 }
 
-function ItemRow({ item, onChange, onDelete, onReorder, productos }) {
+function ItemRow({ item, onChange, onDelete, productos }) {
   const [busqueda, setBusqueda] = useState("");
   const [showCat, setShowCat] = useState(false);
   const calc = calcItem(item);
@@ -3914,31 +3387,14 @@ function ItemRow({ item, onChange, onDelete, onReorder, productos }) {
     : [];
 
   const seleccionarProducto = (p) => {
-    // priceNeto ya viene calculado en mapProduct como Math.round(precio / 1.19)
-    // precio en catálogo = bruto c/IVA → neto = precio / 1.19
-    onChange({
-      ...item,
-      descripcion: p.name||"",
-      modelo: p.description||"",
-      costoUnitNeto: p.priceNeto || Math.round((p.price||0) / IVA),
-      ventaUnitNeta: null,   // reset precio venta para que el usuario lo defina
-      productId: p.id,
-      aplicaIVA: true,       // producto del catálogo siempre tiene IVA de compra
-    });
+    // Precio catálogo viene con IVA → guardamos neto
+    const netoUnit = (p.price||0) / IVA;
+    onChange({ ...item, descripcion: p.name||"", modelo: p.description||"", costoUnitNeto: Math.round(netoUnit), productId: p.id });
     setBusqueda(""); setShowCat(false);
   };
 
   return (
-    <tr
-      draggable
-      onDragStart={e=>{ e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain", item.id); }}
-      onDragOver={e=>{ e.preventDefault(); e.currentTarget.style.borderTop=`2px solid ${COLORS.accent}`; }}
-      onDragLeave={e=>{ e.currentTarget.style.borderTop=""; }}
-      onDrop={e=>{ e.preventDefault(); e.currentTarget.style.borderTop=""; const fromId=e.dataTransfer.getData("text/plain"); if(onReorder) onReorder(fromId, item.id); }}
-      style={{ borderBottom:`1px solid ${COLORS.border}22`, cursor:"grab" }}
-    >
-      {/* Drag handle */}
-      <td style={{ padding:"6px 2px", width:14, textAlign:"center", color:COLORS.textMuted, fontSize:13, userSelect:"none", cursor:"grab" }} title="Arrastrar para reordenar">⠿</td>
+    <tr style={{ borderBottom:`1px solid ${COLORS.border}22` }}>
       {/* COD */}
       <td style={{ padding:"6px 4px", width:55 }}>
         <input style={{...style, textAlign:"center", color:COLORS.accent, fontWeight:600}} value={item.cod||""} onChange={e=>inp("cod",e.target.value)} placeholder={`F?-${SAP_PREFIX[item.tipo]||"X"}001`} title={`Código SAP: POL-XXXX-${item.cod||"F?-"+SAP_PREFIX[item.tipo]+"001"} (se completa al generar cotización)`} />
@@ -3973,8 +3429,8 @@ function ItemRow({ item, onChange, onDelete, onReorder, productos }) {
                   <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{p.code} · {p.description||""}</div>
                 </div>
                 <div style={{ textAlign:"right" }}>
-                  <div style={{ fontFamily:FONT, fontSize:11, fontWeight:700, color:COLORS.text }}>${(p.priceNeto||Math.round((p.price||0)/IVA)).toLocaleString("es-CL")} <span style={{fontSize:9,color:COLORS.green,fontWeight:400}}>neto</span></div>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>${Math.round(p.price||0).toLocaleString("es-CL")} <span style={{fontSize:9}}>c/IVA</span></div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Neto: <strong style={{color:COLORS.text}}>${Math.round((p.price||0)/IVA).toLocaleString("es-CL")}</strong></div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Bruto: ${Math.round(p.price||0).toLocaleString("es-CL")}</div>
                 </div>
               </div>
             ))}
@@ -4002,6 +3458,10 @@ function ItemRow({ item, onChange, onDelete, onReorder, productos }) {
           </label>
         </td>
         <td style={{ padding:"6px 4px" }} />
+      </>) : item.tipo==="Costos Indirectos" ? (<>
+        <td style={{ padding:"6px 4px", width:40 }}><input style={style} type="number" value={item.qty} onChange={e=>inp("qty",e.target.value)} /></td>
+        <td style={{ padding:"6px 4px", width:95 }}><input style={style} type="number" value={item.costoUnit} onChange={e=>inp("costoUnit",e.target.value)} placeholder="Costo neto" /></td>
+        <td /><td /><td />
       </>) : (<>
         <td style={{ padding:"6px 4px", width:40 }}><input style={style} type="number" value={item.qty} onChange={e=>inp("qty",e.target.value)} /></td>
         <td style={{ padding:"6px 4px", width:100 }}><input style={{...style}} type="number" value={item.costoUnitNeto||0} onChange={e=>inp("costoUnitNeto",e.target.value)} placeholder="Neto unit." /></td>
@@ -4015,41 +3475,9 @@ function ItemRow({ item, onChange, onDelete, onReorder, productos }) {
         <td /><td />
       </>)}
 
-      {/* Precio Venta Neto Unit. + badge margen automático */}
-      <td style={{ padding:"6px 4px", width:110, position:"relative" }}>
-        {(esEquipoMat || esMO) && (() => {
-          const costoUnitCalc = item.tipo==="Mano de Obra / HH"
-            ? (Number(item.hh)||0)*(Number(item.valorHH)||0)
-            : Number(item.costoUnitNeto)||0;
-          const ventaUnit = item.ventaUnitNeta !== undefined && item.ventaUnitNeta !== "" && item.ventaUnitNeta !== null
-            ? Number(item.ventaUnitNeta)
-            : costoUnitCalc * (1 + (Number(item.margen)||0)/100);
-          const margenCalc = costoUnitCalc > 0
-            ? Math.round(((ventaUnit - costoUnitCalc) / costoUnitCalc) * 100)
-            : 0;
-          const badgeColor = margenCalc <= 0 ? COLORS.red : margenCalc < 15 ? "#f59e0b" : COLORS.green;
-          return (
-            <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-              <input
-                style={{...style, color:COLORS.accent, fontWeight:600}}
-                type="number"
-                value={item.ventaUnitNeta !== undefined && item.ventaUnitNeta !== null ? item.ventaUnitNeta : Math.round(ventaUnit)}
-                onChange={e=>inp("ventaUnitNeta", e.target.value===""?"":Number(e.target.value))}
-                placeholder="Precio venta"
-                title="Precio venta neto unitario"
-              />
-              {costoUnitCalc > 0 && (
-                <span style={{
-                  fontFamily:FONT, fontSize:9, fontWeight:700, color:badgeColor,
-                  background:badgeColor+"18", border:`1px solid ${badgeColor}44`,
-                  borderRadius:3, padding:"1px 5px", textAlign:"center", whiteSpace:"nowrap"
-                }}>
-                  {margenCalc > 0 ? "+" : ""}{margenCalc}% margen
-                </span>
-              )}
-            </div>
-          );
-        })()}
+      {/* Margen % */}
+      <td style={{ padding:"6px 4px", width:55 }}>
+        <input style={{...style, color:COLORS.accent}} type="number" value={item.margen} onChange={e=>inp("margen",e.target.value)} />
       </td>
       {/* Costo neto total */}
       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, whiteSpace:"nowrap" }}>{fmt(calc.costoNeto)}</td>
@@ -4057,10 +3485,8 @@ function ItemRow({ item, onChange, onDelete, onReorder, productos }) {
       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.green, whiteSpace:"nowrap" }}>{fmt(calc.margenTotal)}</td>
       {/* Venta neta */}
       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.text, whiteSpace:"nowrap" }}>{fmt(calc.ventaNeta)}</td>
-      {/* IVA Compra (lo que pagas al proveedor) */}
-      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:"#f59e0b", whiteSpace:"nowrap" }}>{calc.ivaCompra > 0 ? fmt(calc.ivaCompra) : <span style={{color:COLORS.textMuted,fontSize:9}}>—</span>}</td>
-      {/* IVA Venta (lo que cobras al cliente) */}
-      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:"#ef4444", whiteSpace:"nowrap" }}>{calc.ivaVenta > 0 ? fmt(calc.ivaVenta) : <span style={{color:COLORS.textMuted,fontSize:9}}>—</span>}</td>
+      {/* IVA $ */}
+      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:"#ef4444", whiteSpace:"nowrap" }}>{fmt(calc.ivaVenta)}</td>
       {/* Venta bruta */}
       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.accent, whiteSpace:"nowrap" }}>{fmt(calc.ventaBruta)}</td>
       <td style={{ padding:"6px 4px", textAlign:"center" }}>
@@ -4083,16 +3509,6 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
   };
   const updateItem = (id, item) => onChange({ ...fase, items: fase.items.map(i=>i.id===id?item:i) });
   const deleteItem = (id) => onChange({ ...fase, items: fase.items.filter(i=>i.id!==id) });
-  const reorderItem = (fromId, toId) => {
-    if(fromId===toId) return;
-    const items = [...(fase.items||[])];
-    const fromIdx = items.findIndex(i=>String(i.id)===String(fromId));
-    const toIdx   = items.findIndex(i=>String(i.id)===String(toId));
-    if(fromIdx<0||toIdx<0) return;
-    const [moved] = items.splice(fromIdx,1);
-    items.splice(toIdx,0,moved);
-    onChange({ ...fase, items });
-  };
   const grouped = CAT_TIPOS.reduce((acc,t)=>{ acc[t]=(fase.items||[]).filter(i=>i.tipo===t); return acc; },{});
   const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
 
@@ -4151,7 +3567,6 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
                     <table style={{ width:"100%", borderCollapse:"collapse", minWidth:700 }}>
                       <thead>
                         <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
-                          <th style={{ width:14 }} />
                           <th style={{ textAlign:"center", fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", width:55 }}>COD</th>
                           <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px" }}>DESCRIPCIÓN</th>
                           <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:100 }}>MODELO</th>
@@ -4161,34 +3576,36 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
                             <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:40 }}>PERS.</th>
                             <th style={{ fontFamily:FONT, fontSize:10, color:"#ef4444", padding:"4px", width:70, textAlign:"center" }}>IVA?</th>
                             <th style={{ padding:"4px" }} />
+                          </>) : tipo==="Costos Indirectos" ? (<>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:40 }}>QTY</th>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:95 }}>COSTO NETO U.</th>
+                            <th style={{ padding:"4px" }} /><th style={{ padding:"4px" }} /><th style={{ padding:"4px" }} />
                           </>) : (<>
                             <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:40 }}>QTY</th>
                             <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.text, padding:"4px", width:100 }}>COSTO NETO U.</th>
                             <th style={{ fontFamily:FONT, fontSize:10, color:"#ef4444", padding:"4px", width:70, textAlign:"center" }}>IVA?</th>
                             <th style={{ padding:"4px" }} /><th style={{ padding:"4px" }} />
                           </>)}
-                          <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", width:110 }}>P.VENTA / MRG</th>
+                          <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", width:55 }}>MARG%</th>
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:90 }}>COSTO NETO</th>
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.green, padding:"4px", width:85 }}>MARGEN $</th>
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.text, padding:"4px", width:90 }}>VENTA NETA</th>
-                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:"#f59e0b", padding:"4px", width:80 }}>IVA COMPRA</th>
-                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:"#ef4444", padding:"4px", width:80 }}>IVA VENTA</th>
+                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:"#ef4444", padding:"4px", width:80 }}>IVA $</th>
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", width:95 }}>VENTA c/IVA</th>
                           <th style={{ width:24 }} />
                         </tr>
                       </thead>
                       <tbody>
                         {grouped[tipo].map(it=>(
-                          <ItemRow key={it.id} item={esMO ? {...it, moConIVA: fase.moConIVA} : it} onChange={item=>updateItem(it.id, esMO ? {...item, moConIVA: undefined} : item)} onDelete={()=>deleteItem(it.id)} onReorder={reorderItem} productos={productos} />
+                          <ItemRow key={it.id} item={esMO ? {...it, moConIVA: fase.moConIVA} : it} onChange={item=>updateItem(it.id, esMO ? {...item, moConIVA: undefined} : item)} onDelete={()=>deleteItem(it.id)} productos={productos} />
                         ))}
                       </tbody>
                         <tfoot>
                           <tr style={{ borderTop:`1px solid ${COLORS.border}`, background:COLORS.surface }}>
-                            <td colSpan={9} style={{ padding:"6px 8px", fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Subtotal {tipo}</td>
+                            <td colSpan={8} style={{ padding:"6px 8px", fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Subtotal {tipo}</td>
                             <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.textMuted }}>${Math.round(calcItems.reduce((s,i)=>s+i.costoNeto,0)).toLocaleString("es-CL")}</td>
                             <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.green }}>${Math.round(calcItems.reduce((s,i)=>s+i.margenTotal,0)).toLocaleString("es-CL")}</td>
                             <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.text }}>${Math.round(calcItems.reduce((s,i)=>s+i.ventaNeta,0)).toLocaleString("es-CL")}</td>
-                            <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:"#f59e0b" }}>${Math.round(calcItems.reduce((s,i)=>s+(i.ivaCompra||0),0)).toLocaleString("es-CL")}</td>
                             <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:"#ef4444" }}>${Math.round(calcItems.reduce((s,i)=>s+i.ivaVenta,0)).toLocaleString("es-CL")}</td>
                             <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:700, color:COLORS.accent }}>${Math.round(calcItems.reduce((s,i)=>s+i.ventaBruta,0)).toLocaleString("es-CL")}</td>
                             <td />
@@ -4327,294 +3744,6 @@ function PartidaRow({ partida, fases, onChange, onDelete }) {
   );
 }
 
-// ── MAESTRO DE PROYECTOS ──────────────────────────────────────────────────────
-const ESTADOS_PRY = [
-  { key:"activo",        label:"Activo",        color:"#3b82f6" },
-  { key:"en_ejecucion",  label:"En Ejecución",  color:"#10b981" },
-  { key:"pausado",       label:"Pausado",       color:"#f59e0b" },
-  { key:"cerrado",       label:"Cerrado",       color:"#6b7280" },
-];
-
-const ESTADO_COLOR = Object.fromEntries(ESTADOS_PRY.map(e=>[e.key, e.color]));
-const ESTADO_LABEL = Object.fromEntries(ESTADOS_PRY.map(e=>[e.key, e.label]));
-
-const EMPTY_PRY = { nombre:"", cliente:"", rut_cliente:"", estado:"activo", numero_cotizacion:"", notas:"" };
-
-function MaestroProyectosView({ contacts }) {
-  const [proyectos, setProyectos]   = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [modal, setModal]           = useState(null);   // null | "new" | proyecto obj
-  const [form, setForm]             = useState(EMPTY_PRY);
-  const [saving, setSaving]         = useState(false);
-  const [search, setSearch]         = useState("");
-  const [filterEst, setFilterEst]   = useState("todos");
-  const [cotMatches, setCotMatches] = useState([]);
-
-  useEffect(() => { loadProyectos(); }, []);
-
-  const loadProyectos = async () => {
-    setLoading(true);
-    const { data } = await supabase.from("proyectos").select("*").order("created_at", { ascending: false });
-    setProyectos(data || []);
-    setLoading(false);
-  };
-
-  // Buscar cotización por número para autocompletar cliente
-  const buscarCotizacion = async (num) => {
-    setForm(f => ({ ...f, numero_cotizacion: num }));
-    if(!num || isNaN(num)) { setCotMatches([]); return; }
-    const { data } = await supabase.from("cotizaciones")
-      .select("id,numero,razon_social,nombre_cliente,rut_cliente,estado")
-      .eq("numero", Number(num)).limit(1);
-    if(data?.length) {
-      const c = data[0];
-      setForm(f => ({
-        ...f,
-        cotizacion_id: c.id,
-        cliente: c.razon_social || c.nombre_cliente || f.cliente,
-        rut_cliente: c.rut_cliente || f.rut_cliente,
-      }));
-      setCotMatches([c]);
-    } else {
-      setCotMatches([]);
-    }
-  };
-
-  const openNew = () => { setForm(EMPTY_PRY); setCotMatches([]); setModal("new"); };
-  const openEdit = (p) => { setForm({ ...p, numero_cotizacion: p.numero_cotizacion||"" }); setCotMatches([]); setModal(p); };
-
-  const save = async () => {
-    if(!form.nombre.trim()) return alert("El nombre es obligatorio");
-    setSaving(true);
-    const payload = {
-      nombre:            form.nombre.trim(),
-      cliente:           form.cliente||"",
-      rut_cliente:       form.rut_cliente||"",
-      estado:            form.estado||"activo",
-      numero_cotizacion: form.numero_cotizacion ? Number(form.numero_cotizacion) : null,
-      cotizacion_id:     form.cotizacion_id||null,
-      notas:             form.notas||"",
-      updated_at:        new Date().toISOString(),
-    };
-    if(modal === "new") {
-      // Generar código PR-XXXXXX desde el máximo existente (sin depender de RPC)
-      const { data: existing } = await supabase.from("proyectos").select("codigo").order("created_at", { ascending: false });
-      let nextNum = 1;
-      if(existing?.length) {
-        const nums = existing.map(p => {
-          const m = (p.codigo||"").match(/PR-(\d+)/);
-          return m ? parseInt(m[1]) : 0;
-        });
-        nextNum = Math.max(...nums) + 1;
-      }
-      const codigo = `PR-${String(nextNum).padStart(6,"0")}`;
-      const { data, error } = await supabase.from("proyectos").insert({ ...payload, codigo }).select().single();
-      if(error) { alert("Error al guardar: " + error.message); setSaving(false); return; }
-      if(data) setProyectos(p => [data, ...p]);
-    } else {
-      const { data, error } = await supabase.from("proyectos").update(payload).eq("id", modal.id).select().single();
-      if(error) { alert("Error al guardar: " + error.message); setSaving(false); return; }
-      if(data) setProyectos(p => p.map(x => x.id===data.id ? data : x));
-    }
-    setSaving(false);
-    setModal(null);
-  };
-
-  const deleteProyecto = async (id) => {
-    if(!window.confirm("¿Eliminar este proyecto?")) return;
-    await supabase.from("proyectos").delete().eq("id", id);
-    setProyectos(p => p.filter(x => x.id !== id));
-  };
-
-  const f = (k, v) => setForm(x => ({ ...x, [k]: v }));
-
-  const filtered = proyectos.filter(p => {
-    const q = search.toLowerCase();
-    const matchSearch = !q || (p.codigo||"").toLowerCase().includes(q) || (p.nombre||"").toLowerCase().includes(q) || (p.cliente||"").toLowerCase().includes(q);
-    const matchEst = filterEst==="todos" || p.estado===filterEst;
-    return matchSearch && matchEst;
-  });
-
-  const inputStyle = {
-    width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`,
-    borderRadius:6, padding:"8px 12px", fontFamily:FONT, fontSize:13,
-    color:COLORS.text, outline:"none", boxSizing:"border-box",
-  };
-
-  return (
-    <div>
-      {/* Header */}
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:24 }}>
-        <div>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Proyectos</div>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Maestro de Proyectos</div>
-        </div>
-        <button onClick={openNew} style={{ padding:"10px 20px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>
-          + Nuevo Proyecto
-        </button>
-      </div>
-
-      {/* Filtros */}
-      <div style={{ display:"flex", gap:10, marginBottom:18, flexWrap:"wrap", alignItems:"center" }}>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar código, nombre o cliente…"
-          style={{ ...inputStyle, width:280, padding:"8px 12px" }} />
-        <div style={{ display:"flex", gap:6 }}>
-          {[{key:"todos",label:"Todos"},...ESTADOS_PRY].map(e=>(
-            <button key={e.key} onClick={()=>setFilterEst(e.key)}
-              style={{ padding:"6px 14px", borderRadius:20, border:`1px solid ${filterEst===e.key?(e.color||COLORS.accent):COLORS.border}`,
-                background: filterEst===e.key?(e.color||COLORS.accent)+"22":"transparent",
-                color: filterEst===e.key?(e.color||COLORS.accent):COLORS.textMuted,
-                fontFamily:FONT, fontSize:11, cursor:"pointer", fontWeight:filterEst===e.key?700:400 }}>
-              {e.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Tabla */}
-      {loading ? (
-        <div style={{ textAlign:"center", padding:60, color:COLORS.textMuted, fontFamily:FONT }}>Cargando…</div>
-      ) : filtered.length === 0 ? (
-        <div style={{ textAlign:"center", padding:60, color:COLORS.textMuted, fontFamily:FONT, fontSize:13 }}>
-          {proyectos.length===0 ? "Sin proyectos aún. ¡Crea el primero!" : "Sin resultados para el filtro aplicado."}
-        </div>
-      ) : (
-        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, overflow:"hidden" }}>
-          <table style={{ width:"100%", borderCollapse:"collapse", fontFamily:FONT, fontSize:12 }}>
-            <thead>
-              <tr style={{ background:COLORS.surface, borderBottom:`1px solid ${COLORS.border}` }}>
-                {["CÓDIGO","NOMBRE","CLIENTE","ESTADO","COT. N°","CREADO",""].map((h,i)=>(
-                  <th key={i} style={{ padding:"10px 14px", textAlign:i>=5?"center":"left", fontSize:9, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", fontWeight:600, whiteSpace:"nowrap" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(p=>(
-                <tr key={p.id} style={{ borderBottom:`1px solid ${COLORS.border}22`, cursor:"pointer", transition:"background 0.1s" }}
-                  onMouseEnter={e=>e.currentTarget.style.background=COLORS.surface}
-                  onMouseLeave={e=>e.currentTarget.style.background=""}
-                  onClick={()=>openEdit(p)}>
-                  <td style={{ padding:"12px 14px", fontFamily:FONT_DISPLAY, fontWeight:700, color:COLORS.accent, fontSize:13 }}>{p.codigo}</td>
-                  <td style={{ padding:"12px 14px", color:COLORS.text, fontWeight:600 }}>{p.nombre}</td>
-                  <td style={{ padding:"12px 14px", color:COLORS.textMuted }}>
-                    <div>{p.cliente||"—"}</div>
-                    {p.rut_cliente && <div style={{ fontSize:10, color:COLORS.textMuted, marginTop:2 }}>{p.rut_cliente}</div>}
-                  </td>
-                  <td style={{ padding:"12px 14px" }}>
-                    <span style={{ padding:"3px 10px", borderRadius:12, background:(ESTADO_COLOR[p.estado]||"#6b7280")+"22",
-                      color:ESTADO_COLOR[p.estado]||"#6b7280", fontSize:11, fontWeight:600 }}>
-                      {ESTADO_LABEL[p.estado]||p.estado}
-                    </span>
-                  </td>
-                  <td style={{ padding:"12px 14px", color:COLORS.textMuted }}>
-                    {p.numero_cotizacion ? <span style={{ color:COLORS.accent, fontWeight:600 }}>COT-{p.numero_cotizacion}</span> : "—"}
-                  </td>
-                  <td style={{ padding:"12px 14px", color:COLORS.textMuted, fontSize:11, textAlign:"center" }}>
-                    {p.created_at ? new Date(p.created_at).toLocaleDateString("es-CL") : "—"}
-                  </td>
-                  <td style={{ padding:"12px 10px", textAlign:"center" }}>
-                    <button onClick={e=>{e.stopPropagation(); deleteProyecto(p.id);}}
-                      style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:16 }}>×</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Resumen */}
-      {proyectos.length > 0 && (
-        <div style={{ marginTop:14, display:"flex", gap:16, fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
-          {ESTADOS_PRY.map(e=>{
-            const count = proyectos.filter(p=>p.estado===e.key).length;
-            return count > 0 ? (
-              <span key={e.key}><span style={{ color:e.color, fontWeight:700 }}>●</span> {e.label}: {count}</span>
-            ) : null;
-          })}
-          <span style={{ marginLeft:"auto" }}>Total: <strong style={{ color:COLORS.text }}>{proyectos.length}</strong></span>
-        </div>
-      )}
-
-      {/* Modal nuevo / editar */}
-      {modal && (
-        <div style={{ position:"fixed", inset:0, background:"#00000088", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center" }}
-          onClick={e=>{ if(e.target===e.currentTarget) setModal(null); }}>
-          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:14, padding:32, width:480, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto" }}>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:17, fontWeight:700, color:COLORS.text, marginBottom:6 }}>
-              {modal==="new" ? "Nuevo Proyecto" : `Editar — ${modal.codigo}`}
-            </div>
-            {modal!=="new" && (
-              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, marginBottom:20, letterSpacing:"0.08em" }}>{modal.codigo}</div>
-            )}
-
-            {/* Nombre */}
-            <div style={{ marginBottom:14 }}>
-              <label style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, display:"block", marginBottom:5 }}>NOMBRE DEL PROYECTO *</label>
-              <input style={inputStyle} value={form.nombre} onChange={e=>f("nombre",e.target.value)} placeholder="Ej: Sistema CCTV Condominio Ossandón" />
-            </div>
-
-            {/* Cotización vinculada */}
-            <div style={{ marginBottom:14 }}>
-              <label style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, display:"block", marginBottom:5 }}>COTIZACIÓN VINCULADA (N°)</label>
-              <input style={inputStyle} type="number" value={form.numero_cotizacion} onChange={e=>buscarCotizacion(e.target.value)} placeholder="Ej: 81" />
-              {cotMatches.length > 0 && (
-                <div style={{ marginTop:6, padding:"8px 12px", background:COLORS.green+"11", border:`1px solid ${COLORS.green}33`, borderRadius:6, fontFamily:FONT, fontSize:11, color:COLORS.green }}>
-                  ✓ COT-{cotMatches[0].numero} — {cotMatches[0].razon_social||cotMatches[0].nombre_cliente} · {cotMatches[0].estado}
-                </div>
-              )}
-            </div>
-
-            {/* Cliente */}
-            <div style={{ marginBottom:14 }}>
-              <label style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, display:"block", marginBottom:5 }}>CLIENTE</label>
-              <input style={inputStyle} value={form.cliente} onChange={e=>f("cliente",e.target.value)} placeholder="Nombre o razón social" />
-            </div>
-
-            {/* RUT */}
-            <div style={{ marginBottom:14 }}>
-              <label style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, display:"block", marginBottom:5 }}>RUT CLIENTE</label>
-              <input style={inputStyle} value={form.rut_cliente} onChange={e=>f("rut_cliente",e.target.value)} placeholder="Ej: 65.066.845-6" />
-            </div>
-
-            {/* Estado */}
-            <div style={{ marginBottom:14 }}>
-              <label style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, display:"block", marginBottom:5 }}>ESTADO</label>
-              <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                {ESTADOS_PRY.map(e=>(
-                  <button key={e.key} onClick={()=>f("estado",e.key)}
-                    style={{ padding:"6px 16px", borderRadius:20, border:`1px solid ${form.estado===e.key?e.color:COLORS.border}`,
-                      background:form.estado===e.key?e.color+"33":"transparent",
-                      color:form.estado===e.key?e.color:COLORS.textMuted,
-                      fontFamily:FONT, fontSize:12, cursor:"pointer", fontWeight:form.estado===e.key?700:400 }}>
-                    {e.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Notas */}
-            <div style={{ marginBottom:24 }}>
-              <label style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, display:"block", marginBottom:5 }}>NOTAS</label>
-              <textarea style={{ ...inputStyle, minHeight:70, resize:"vertical" }} value={form.notas} onChange={e=>f("notas",e.target.value)} placeholder="Descripción, observaciones, alcance…" />
-            </div>
-
-            {/* Botones */}
-            <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
-              <button onClick={()=>setModal(null)} style={{ padding:"9px 20px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT, fontSize:13, cursor:"pointer" }}>
-                Cancelar
-              </button>
-              <button onClick={save} disabled={saving} style={{ padding:"9px 24px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer", opacity:saving?0.6:1 }}>
-                {saving ? "Guardando…" : modal==="new" ? "Crear Proyecto" : "Guardar Cambios"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function CosteoView({ contacts }) {
   const [proyectos, setProyectos] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -4626,21 +3755,14 @@ function CosteoView({ contacts }) {
   const [genTipo, setGenTipo] = useState("fases");
   const [genSaving, setGenSaving] = useState(false);
   const [genDone, setGenDone] = useState(null);
-  // Maestro de proyectos para vinculación
-  const [maestroProyectos, setMaestroProyectos] = useState([]);
-  const [showVincular, setShowVincular] = useState(false);
-  const [searchMaestro, setSearchMaestro] = useState("");
 
   useEffect(()=>{
     const saved = localStorage.getItem("costeo_proyectos");
     if(saved) try { setProyectos(JSON.parse(saved)); } catch{}
+    // Cargar catálogo desde Supabase
     supabase.from("products").select("*").then(({data})=>{
       if(data) setProductos(data.map(mapProduct));
     });
-    // Cargar maestro de proyectos para vincular
-    supabase.from("proyectos").select("id,codigo,nombre,cliente,estado,numero_cotizacion")
-      .order("created_at",{ascending:false})
-      .then(({data})=>{ if(data) setMaestroProyectos(data); });
   },[]);
 
   const save = (list) => { setProyectos(list); localStorage.setItem("costeo_proyectos",JSON.stringify(list)); };
@@ -4685,10 +3807,7 @@ function CosteoView({ contacts }) {
   const totalCosto      = fasesCalc.reduce((s,f)=>s+f.costoNeto,0);
   const totalMargen     = fasesCalc.reduce((s,f)=>s+f.margenTotal,0);
   const totalVentaNeta  = fasesCalc.reduce((s,f)=>s+f.ventaNeta,0);
-  const totalIVACompra  = fasesCalc.reduce((s,f)=>s+(f.ivaCompra||0),0);
-  const totalCostoBruto = totalCosto + totalIVACompra;
   const totalIVA        = fasesCalc.reduce((s,f)=>s+(f.ivaTotal||0),0);
-  const totalIVANeto    = totalIVA - totalIVACompra;
   const totalVentaBruta = fasesCalc.reduce((s,f)=>s+f.ventaBruta,0);
   const margenPct = totalCosto > 0 ? (totalMargen/totalCosto*100).toFixed(1) : 0;
 
@@ -4722,14 +3841,7 @@ function CosteoView({ contacts }) {
           return (
             <div key={p.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"16px 20px", display:"flex", alignItems:"center", gap:16, cursor:"pointer" }} onClick={()=>setSelected(p.id)}>
               <div style={{ flex:1 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>{p.nombre}</div>
-                  {p.proyectoCodigo && (
-                    <span style={{ padding:"2px 8px", background:COLORS.accent+"22", border:`1px solid ${COLORS.accent}44`, borderRadius:10, fontFamily:FONT_DISPLAY, fontSize:10, fontWeight:700, color:COLORS.accent }}>
-                      {p.proyectoCodigo}
-                    </span>
-                  )}
-                </div>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>{p.nombre}</div>
                 <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{p.cliente} · {p.fecha}</div>
               </div>
               <div style={{ display:"flex", gap:20 }}>
@@ -4786,7 +3898,7 @@ function CosteoView({ contacts }) {
     const fasesHTML = fases.map(f=>{
       const rows = (f.items||[]).map(calcItem).map(it=>{
         const tieneIVA = it.ivaVenta > 0;
-        const precioUnitDisplay = it.tipo==="Mano de Obra / HH" ? fmt(it.valorHH) : fmt(it.costoUnitNeto||(it.costoNeto/(Number(it.qty)||1)));
+        const precioUnitDisplay = it.tipo==="Mano de Obra / HH" ? fmt(it.valorHH) : it.tipo==="Costos Indirectos" ? fmt(it.costoUnit) : fmt(it.costoUnitNeto||(it.costoNeto/(Number(it.qty)||1)));
         const netoUnitDisplay = tieneIVA ? fmt(it.costoNeto/(Number(it.qty)||1)) : "-";
         return `<tr style="border-bottom:1px solid #f1f5f9">
           <td style="padding:4px 6px;color:#3b82f6;font-weight:600">${it.cod||""}</td>
@@ -5172,23 +4284,6 @@ function CosteoView({ contacts }) {
           <input value={proyecto.nombre} onChange={e=>updateProyecto({...proyecto,nombre:e.target.value})}
             style={{ background:"transparent", border:"none", color:COLORS.text, fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, outline:"none", width:"100%" }} />
         </div>
-
-        {/* Badge proyecto maestro vinculado */}
-        {proyecto.proyectoCodigo ? (
-          <div style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 12px", background:COLORS.accent+"22", border:`1px solid ${COLORS.accent}44`, borderRadius:20 }}>
-            <FolderKanban size={13} style={{ color:COLORS.accent }} />
-            <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.accent }}>{proyecto.proyectoCodigo}</span>
-            <button onClick={()=>updateProyecto({...proyecto, proyectoId:null, proyectoCodigo:null, proyectoNombre:null})}
-              title="Desvincular proyecto"
-              style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:13, lineHeight:1, padding:0, marginLeft:2 }}>×</button>
-          </div>
-        ) : (
-          <button onClick={()=>{ setShowVincular(true); setSearchMaestro(""); }}
-            style={{ padding:"6px 14px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:20, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer", display:"flex", alignItems:"center", gap:6 }}>
-            <FolderKanban size={13} /> Vincular a Proyecto
-          </button>
-        )}
-
         <input type="date" value={proyecto.fecha} onChange={e=>updateProyecto({...proyecto,fecha:e.target.value})}
           style={{ background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:12, padding:"5px 10px" }} />
         <button onClick={printInterno} style={{ padding:"8px 14px", background:"#1e293b", border:"none", borderRadius:7, color:"white", fontFamily:FONT, fontSize:11, cursor:"pointer" }}>📋 PDF Interno</button>
@@ -5198,54 +4293,6 @@ function CosteoView({ contacts }) {
           ✦ Generar Cotización
         </button>
       </div>
-
-      {/* Modal vincular a proyecto maestro */}
-      {showVincular && (
-        <div style={{ position:"fixed", inset:0, background:"#00000088", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center" }}
-          onClick={e=>{ if(e.target===e.currentTarget) setShowVincular(false); }}>
-          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:14, padding:28, width:460, maxWidth:"95vw", maxHeight:"80vh", display:"flex", flexDirection:"column" }}>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text, marginBottom:14 }}>
-              Vincular a Proyecto
-            </div>
-            <input value={searchMaestro} onChange={e=>setSearchMaestro(e.target.value)}
-              placeholder="Buscar por código, nombre o cliente…"
-              style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:7, color:COLORS.text, fontFamily:FONT, fontSize:13, padding:"8px 12px", marginBottom:12, outline:"none" }} />
-            <div style={{ overflowY:"auto", flex:1, display:"flex", flexDirection:"column", gap:6 }}>
-              {maestroProyectos
-                .filter(p=>{
-                  const q = searchMaestro.toLowerCase();
-                  return !q || (p.codigo||"").toLowerCase().includes(q) || (p.nombre||"").toLowerCase().includes(q) || (p.cliente||"").toLowerCase().includes(q);
-                })
-                .map(mp=>(
-                  <div key={mp.id} onClick={()=>{
-                    updateProyecto({ ...proyecto, proyectoId:mp.id, proyectoCodigo:mp.codigo, proyectoNombre:mp.nombre });
-                    setShowVincular(false);
-                  }}
-                    style={{ padding:"12px 14px", background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, cursor:"pointer", transition:"border-color 0.15s" }}
-                    onMouseEnter={e=>e.currentTarget.style.borderColor=COLORS.accent}
-                    onMouseLeave={e=>e.currentTarget.style.borderColor=COLORS.border}>
-                    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.accent }}>{mp.codigo}</span>
-                      <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, flex:1 }}>{mp.nombre}</span>
-                      <span style={{ padding:"2px 8px", borderRadius:10, background:(ESTADO_COLOR[mp.estado]||"#6b7280")+"22", color:ESTADO_COLOR[mp.estado]||"#6b7280", fontSize:10, fontWeight:600 }}>
-                        {ESTADO_LABEL[mp.estado]||mp.estado}
-                      </span>
-                    </div>
-                    {mp.cliente && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:4 }}>{mp.cliente}{mp.numero_cotizacion?` · COT-${mp.numero_cotizacion}`:""}</div>}
-                  </div>
-                ))}
-              {maestroProyectos.length === 0 && (
-                <div style={{ textAlign:"center", padding:30, color:COLORS.textMuted, fontFamily:FONT, fontSize:12 }}>
-                  Sin proyectos en el Maestro. Créalos primero en Proyectos → Maestro de Proyectos.
-                </div>
-              )}
-            </div>
-            <button onClick={()=>setShowVincular(false)} style={{ marginTop:14, padding:"9px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT, fontSize:13, cursor:"pointer" }}>
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Buscador RUT / Cliente */}
       <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"14px 18px", marginBottom:16, position:"relative" }}>
@@ -5294,14 +4341,11 @@ function CosteoView({ contacts }) {
       {page==="costeo" && (
         <>
           {/* Totales globales */}
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(8,1fr)", gap:8, marginBottom:24 }}>
+          <div style={{ display:"flex", gap:12, marginBottom:24, flexWrap:"wrap" }}>
             <TotBox label="Costo Neto Total" value={totalCosto} color={COLORS.textMuted} sub="Sin IVA" />
-            <TotBox label="Costo Bruto" value={totalCostoBruto} color={COLORS.textMuted} sub="Neto + IVA compra" />
-            <TotBox label="Margen Total" value={totalMargen} color={COLORS.green} sub={`${margenPct}% sobre costo`} />
+            <TotBox label="Margen Total" value={totalMargen} color={COLORS.green} sub={`${margenPct}% sobre costo neto`} />
             <TotBox label="Venta Neta" value={totalVentaNeta} color={COLORS.text} sub="Costo + Margen" />
-            <TotBox label="IVA Compra" value={totalIVACompra} color="#f59e0b" sub="Crédito fiscal" />
-            <TotBox label="IVA Venta" value={totalIVA} color="#ef4444" sub="Débito fiscal" />
-            <TotBox label="IVA Neto SII" value={totalIVANeto} color={totalIVANeto >= 0 ? "#ef4444" : COLORS.green} sub={totalIVANeto >= 0 ? "A pagar al SII" : "Crédito a favor"} />
+            <TotBox label="IVA Total" value={totalIVA} color="#ef4444" sub="19% s/líneas con IVA" />
             <TotBox label="Venta c/IVA" value={totalVentaBruta} color={COLORS.accent} sub="Precio al cliente" />
           </div>
 
@@ -6655,7 +5699,6 @@ function PurchaseView({ isMobile }) {
 
 // ── NAV GROUP COMPONENT (extracted so hooks work properly) ───────────────────
 function NavGroup({ g, view, navigate }) {
-  const YELLOW = "#fbee13";
   const childKeys = (g.children||[]).map(c=>c.key);
   const groupActive = childKeys.includes(view);
   const [open, setOpen] = useState(groupActive);
@@ -6667,14 +5710,14 @@ function NavGroup({ g, view, navigate }) {
           background: groupActive?"linear-gradient(120deg,#AC3AB311,#2954EC11)":"transparent",
           border: groupActive?"1px solid #AC3AB322":"1px solid transparent",
           cursor:"pointer", textAlign:"left", transition:"all 0.15s",
-          color: groupActive?"#fff":YELLOW, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:groupActive?700:500 }}>
+          color: groupActive?COLORS.text:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:groupActive?700:500 }}>
         <div style={{ width:28, height:28, borderRadius:8, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center",
           background: groupActive?"linear-gradient(135deg,#AC3AB366,#2954EC66)":COLORS.bg,
-          border: groupActive?"none":`1px solid ${COLORS.border}`, color:groupActive?"#fff":YELLOW }}>
+          border: groupActive?"none":`1px solid ${COLORS.border}`, color:groupActive?"#fff":COLORS.textMuted }}>
           <g.Icon size={13} strokeWidth={groupActive?2.5:1.8} />
         </div>
         <span style={{ flex:1 }}>{g.label}</span>
-        <span style={{ fontSize:9, color:YELLOW+"99", transition:"transform 0.2s", display:"inline-block", transform:open?"rotate(90deg)":"rotate(0deg)" }}>▶</span>
+        <span style={{ fontSize:9, color:COLORS.textDim, transition:"transform 0.2s", display:"inline-block", transform:open?"rotate(90deg)":"rotate(0deg)" }}>▶</span>
       </button>
       {open && (
         <div style={{ paddingLeft:16, marginTop:2, marginBottom:4, display:"flex", flexDirection:"column", gap:1 }}>
@@ -6686,10 +5729,10 @@ function NavGroup({ g, view, navigate }) {
                   background: active?"linear-gradient(120deg,#AC3AB322,#2954EC22)":"transparent",
                   border: active?"1px solid #AC3AB333":"1px solid transparent",
                   cursor:"pointer", textAlign:"left", transition:"all 0.15s",
-                  color: active?"#fff":YELLOW, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:active?700:400 }}>
+                  color: active?COLORS.text:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:active?700:400 }}>
                 <div style={{ width:24, height:24, borderRadius:6, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center",
                   background: active?"linear-gradient(135deg,#AC3AB3,#2954EC)":COLORS.card,
-                  border: active?"none":`1px solid ${COLORS.border}`, color:active?"#fff":YELLOW }}>
+                  border: active?"none":`1px solid ${COLORS.border}`, color:active?"#fff":COLORS.textMuted }}>
                   <c.Icon size={11} strokeWidth={active?2.5:1.8} />
                 </div>
                 {c.label}
@@ -6728,6 +5771,7 @@ const NAV_GROUPS = [
     key: "comercial", label: "Comercial", Icon: FileText, children: [
       { key:"quotes",        label:"Cotizar",      Icon: FileText },
       { key:"prestaciones",  label:"Prestaciones", Icon: Receipt  },
+      { key:"analisis",      label:"Análisis",     Icon: Scale    },
     ],
   },
   {
@@ -6738,10 +5782,9 @@ const NAV_GROUPS = [
   },
   {
     key: "proyectos", label: "Proyectos", Icon: GanttChartSquare, children: [
-      { key:"maestro_proyectos", label:"Maestro de Proyectos", Icon: FolderKanban },
-      { key:"costeo",    label:"Costeo",        Icon: Calculator       },
-      { key:"gantt",     label:"Planificación",  Icon: GanttChartSquare },
-      { key:"tasks",     label:"Tareas",         Icon: CheckSquare      },
+      { key:"costeo",    label:"Costeo",    Icon: Calculator       },
+      { key:"gantt",     label:"Gantt",     Icon: GanttChartSquare },
+      { key:"tasks",     label:"Tareas",    Icon: CheckSquare      },
     ],
   },
   {
@@ -7415,17 +6458,10 @@ const CHECKLIST_TEMPLATES = {
     { seccion:"4.0 Pruebas Finales",   items:["Acceso autorizado","Acceso no autorizado","Prueba de alarma","Backup de configuración"] },
   ],
   "CCTV / Cámaras": [
-    { seccion:"1.0 Servicio de Mantenimiento", items:["Limpieza general de cámaras y accesorios","Ajuste de ángulo y orientación","Revisión de soportes y fijaciones","Limpieza de lentes con paño óptico","Verificación de protección IP/intemperie"] },
-    { seccion:"2.0 Central CCTV / NVR-DVR",   items:["Estado físico NVR/DVR","Limpieza interna (polvo/ventilación)","Verificación de discos duros","Espacio disponible en disco","Retención de grabación configurada","Fecha y hora del sistema","Firmware actualizado","Estado de alarmas configuradas"] },
-    { seccion:"3.0 Recuperaciones Eléctricas", items:["Tensión de alimentación cámaras (12V/PoE)","Estado de fuentes de alimentación","UPS o respaldo eléctrico (si aplica)","Protecciones contra sobretensión","Bornes y conexiones eléctricas"] },
-    { seccion:"4.0 Conexiones UTP/UDP",        items:["Estado de cables UTP/coaxial visibles","Revisión de conectores RJ45/BNC","Prueba de continuidad en tramos críticos","Revisión de canaletas y ductos","Amarras y orden de cableado"] },
-    { seccion:"5.0 Verificaciones IP / Red",   items:["IP asignada correctamente por cámara","Comunicación NVR ↔ cámaras","Acceso desde red local LAN","Acceso remoto (app/web)","Ancho de banda verificado","Sin conflictos de IP en red"] },
-    { seccion:"6.0 Estado NVR (Sistema)",      items:["Grabación continua activa","Grabación por movimiento activa","Historial de eventos reciente","Canales activos vs canales perdidos","Exportación de clip de prueba"] },
-    { seccion:"7.0 Estado Cámaras (Sistema)",  items:["Imagen diurna sin artefactos","Imagen nocturna / IR funcional","Detección de movimiento activa","Sin cámaras offline en el sistema","Resolución configurada correctamente"] },
-    { seccion:"8.0 Estado Cámaras (Físico)",   items:["Sin daños físicos visibles","Vidrio/domo sin condensación","Sellado hermético en exteriores","Tornillos y tapa en buen estado","Sin obstrucción del campo visual"] },
-    { seccion:"9.0 Estado Cableado (si aplica)",items:["Sin tramos expuestos a la intemperie","Canaletas fijadas correctamente","Sin dobleces críticos ni aplastamientos","Identificación/etiquetado de cables","Distancias dentro de norma"] },
-    { seccion:"10.0 Estado Antenas (si aplica)",items:["Antenas alineadas y fijadas","Sin oxido ni daño físico","Señal WiFi/RF estable","Nivel de señal adecuado (>-70dBm)","Cableado de RF sin quiebres"] },
-    { seccion:"11.0 Log de Mantención",        items:["Registro fotográfico realizado","Incidencias documentadas","Equipos reemplazados registrados","Recomendaciones entregadas al cliente","Firma de conformidad obtenida"] },
+    { seccion:"1.0 Hardware",          items:["Estado físico cámaras","Limpieza de lentes","Ajuste de ángulo","Fijación y soporte","Cableado"] },
+    { seccion:"2.0 Grabación/NVR",     items:["Estado NVR/DVR","Espacio en disco","Retención de grabación","Estado de alarmas"] },
+    { seccion:"3.0 Video",             items:["Calidad de imagen diurna","Calidad de imagen nocturna","Cobertura correcta","Detección de movimiento"] },
+    { seccion:"4.0 Pruebas Finales",   items:["Acceso remoto","Calidad streaming","Respaldo de configuración"] },
   ],
 };
 
@@ -7477,7 +6513,7 @@ function OperacionesView({ isMobile }) {
     setLoading(true);
     const [{ data:opsData },{ data:qData },{ data:cData }] = await Promise.all([
       supabase.from("operaciones_terreno").select("*").order("created_at",{ascending:false}),
-      supabase.from("cotizaciones").select("id,numero,nombre_cliente,razon_social,rut_cliente,direccion,estado").order("numero",{ascending:false}),
+      supabase.from("cotizaciones").select("id,numero,nombre_cliente,razon_social,estado").order("numero",{ascending:false}),
       supabase.from("contactos").select("id,nombre,empresa"),
     ]);
     setOps(opsData||[]);
@@ -7780,11 +6816,7 @@ function OpModal({ op, quotes, contacts, onClose, onSaved, onPrint }) {
   React.useEffect(()=>{
     if(form.quote_id){
       const q = quotes.find(q=>q.id===form.quote_id);
-      if(q){
-        ff("cliente_nombre", q.razon_social||q.nombre_cliente||"");
-        if(q.rut_cliente)  ff("cliente_rut", q.rut_cliente);
-        if(q.direccion)    ff("lugar", q.direccion);
-      }
+      if(q){ ff("cliente_nombre", q.razon_social||q.nombre_cliente||""); }
     }
   },[form.quote_id]);
 
@@ -7840,15 +6872,8 @@ function OpModal({ op, quotes, contacts, onClose, onSaved, onPrint }) {
     try {
       const q    = quotes.find(q=>q.id===form.quote_id);
       const cotN = q?.numero||"00";
-      // Sanitizar campos integer y uuid — Supabase rechaza "" en columnas tipadas
-      const sanitizedForm = {
-        ...form,
-        quote_id:       form.quote_id||null,
-        revision:       form.revision===""||form.revision===null||form.revision===undefined ? 0 : Number(form.revision)||0,
-        garantia_meses: form.garantia_meses===""||form.garantia_meses===null||form.garantia_meses===undefined ? null : Number(form.garantia_meses)||null,
-      };
       const payload = {
-        tipo, ...sanitizedForm,
+        tipo, ...form,
         checklist: checklist||[],
         firma_imagen: firma.img||null,
         firma_nombre: firma.nombre||null,
@@ -8788,10 +7813,10 @@ export default function CRM() {
                       background: active?"linear-gradient(120deg,#AC3AB322,#2954EC22)":"transparent",
                       border: active?"1px solid #AC3AB333":"1px solid transparent",
                       cursor:"pointer", textAlign:"left", transition:"all 0.15s",
-                      color: active?"#fff":"#fbee13", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:active?700:400 }}>
+                      color: active?COLORS.text:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:active?700:400 }}>
                     <div style={{ width:28, height:28, borderRadius:8, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center",
                       background: active?"linear-gradient(135deg,#AC3AB3,#2954EC)":COLORS.bg,
-                      border: active?"none":`1px solid ${COLORS.border}`, color:active?"#fff":"#fbee13" }}>
+                      border: active?"none":`1px solid ${COLORS.border}`, color:active?"#fff":COLORS.textMuted }}>
                       <g.Icon size={13} strokeWidth={active?2.5:1.8} />
                     </div>
                     {g.label}
@@ -8829,11 +7854,10 @@ export default function CRM() {
           {view==="dashboard" && <Dashboard contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} />}
           {view==="contacts"  && <ContactsView contacts={contacts} setContacts={setContacts} isMobile={isMobile} />}
           {view==="pipeline"  && <PipelineView deals={deals} setDeals={setDeals} contacts={contacts} isMobile={isMobile} />}
-          {view==="quotes"       && <QuotesView contacts={contacts} deals={deals} setDeals={setDeals} isMobile={isMobile} />}
+          {view==="quotes"       && <QuotesView contacts={contacts} isMobile={isMobile} />}
           {view==="prestaciones" && <PrestacionesView isMobile={isMobile} />}
           {view==="products"  && <ProductsDB isMobile={isMobile} />}
           {view==="purchase"  && <PurchaseView isMobile={isMobile} />}
-          {view==="maestro_proyectos" && <MaestroProyectosView contacts={contacts} isMobile={isMobile} />}
           {view==="costeo"    && <CosteoView contacts={contacts} isMobile={isMobile} />}
           {view==="gantt"     && <GanttView isMobile={isMobile} />}
           {view==="operaciones" && <OperacionesView isMobile={isMobile} />}
