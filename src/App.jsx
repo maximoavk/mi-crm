@@ -4616,14 +4616,21 @@ function CosteoView({ contacts }) {
   const [genTipo, setGenTipo] = useState("fases");
   const [genSaving, setGenSaving] = useState(false);
   const [genDone, setGenDone] = useState(null);
+  // Maestro de proyectos para vinculación
+  const [maestroProyectos, setMaestroProyectos] = useState([]);
+  const [showVincular, setShowVincular] = useState(false);
+  const [searchMaestro, setSearchMaestro] = useState("");
 
   useEffect(()=>{
     const saved = localStorage.getItem("costeo_proyectos");
     if(saved) try { setProyectos(JSON.parse(saved)); } catch{}
-    // Cargar catálogo desde Supabase
     supabase.from("products").select("*").then(({data})=>{
       if(data) setProductos(data.map(mapProduct));
     });
+    // Cargar maestro de proyectos para vincular
+    supabase.from("proyectos").select("id,codigo,nombre,cliente,estado,numero_cotizacion")
+      .order("created_at",{ascending:false})
+      .then(({data})=>{ if(data) setMaestroProyectos(data); });
   },[]);
 
   const save = (list) => { setProyectos(list); localStorage.setItem("costeo_proyectos",JSON.stringify(list)); };
@@ -4705,7 +4712,14 @@ function CosteoView({ contacts }) {
           return (
             <div key={p.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"16px 20px", display:"flex", alignItems:"center", gap:16, cursor:"pointer" }} onClick={()=>setSelected(p.id)}>
               <div style={{ flex:1 }}>
-                <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>{p.nombre}</div>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>{p.nombre}</div>
+                  {p.proyectoCodigo && (
+                    <span style={{ padding:"2px 8px", background:COLORS.accent+"22", border:`1px solid ${COLORS.accent}44`, borderRadius:10, fontFamily:FONT_DISPLAY, fontSize:10, fontWeight:700, color:COLORS.accent }}>
+                      {p.proyectoCodigo}
+                    </span>
+                  )}
+                </div>
                 <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{p.cliente} · {p.fecha}</div>
               </div>
               <div style={{ display:"flex", gap:20 }}>
@@ -5148,6 +5162,23 @@ function CosteoView({ contacts }) {
           <input value={proyecto.nombre} onChange={e=>updateProyecto({...proyecto,nombre:e.target.value})}
             style={{ background:"transparent", border:"none", color:COLORS.text, fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, outline:"none", width:"100%" }} />
         </div>
+
+        {/* Badge proyecto maestro vinculado */}
+        {proyecto.proyectoCodigo ? (
+          <div style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 12px", background:COLORS.accent+"22", border:`1px solid ${COLORS.accent}44`, borderRadius:20 }}>
+            <FolderKanban size={13} style={{ color:COLORS.accent }} />
+            <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.accent }}>{proyecto.proyectoCodigo}</span>
+            <button onClick={()=>updateProyecto({...proyecto, proyectoId:null, proyectoCodigo:null, proyectoNombre:null})}
+              title="Desvincular proyecto"
+              style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:13, lineHeight:1, padding:0, marginLeft:2 }}>×</button>
+          </div>
+        ) : (
+          <button onClick={()=>{ setShowVincular(true); setSearchMaestro(""); }}
+            style={{ padding:"6px 14px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:20, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer", display:"flex", alignItems:"center", gap:6 }}>
+            <FolderKanban size={13} /> Vincular a Proyecto
+          </button>
+        )}
+
         <input type="date" value={proyecto.fecha} onChange={e=>updateProyecto({...proyecto,fecha:e.target.value})}
           style={{ background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:12, padding:"5px 10px" }} />
         <button onClick={printInterno} style={{ padding:"8px 14px", background:"#1e293b", border:"none", borderRadius:7, color:"white", fontFamily:FONT, fontSize:11, cursor:"pointer" }}>📋 PDF Interno</button>
@@ -5157,6 +5188,54 @@ function CosteoView({ contacts }) {
           ✦ Generar Cotización
         </button>
       </div>
+
+      {/* Modal vincular a proyecto maestro */}
+      {showVincular && (
+        <div style={{ position:"fixed", inset:0, background:"#00000088", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center" }}
+          onClick={e=>{ if(e.target===e.currentTarget) setShowVincular(false); }}>
+          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:14, padding:28, width:460, maxWidth:"95vw", maxHeight:"80vh", display:"flex", flexDirection:"column" }}>
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text, marginBottom:14 }}>
+              Vincular a Proyecto
+            </div>
+            <input value={searchMaestro} onChange={e=>setSearchMaestro(e.target.value)}
+              placeholder="Buscar por código, nombre o cliente…"
+              style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:7, color:COLORS.text, fontFamily:FONT, fontSize:13, padding:"8px 12px", marginBottom:12, outline:"none" }} />
+            <div style={{ overflowY:"auto", flex:1, display:"flex", flexDirection:"column", gap:6 }}>
+              {maestroProyectos
+                .filter(p=>{
+                  const q = searchMaestro.toLowerCase();
+                  return !q || (p.codigo||"").toLowerCase().includes(q) || (p.nombre||"").toLowerCase().includes(q) || (p.cliente||"").toLowerCase().includes(q);
+                })
+                .map(mp=>(
+                  <div key={mp.id} onClick={()=>{
+                    updateProyecto({ ...proyecto, proyectoId:mp.id, proyectoCodigo:mp.codigo, proyectoNombre:mp.nombre });
+                    setShowVincular(false);
+                  }}
+                    style={{ padding:"12px 14px", background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, cursor:"pointer", transition:"border-color 0.15s" }}
+                    onMouseEnter={e=>e.currentTarget.style.borderColor=COLORS.accent}
+                    onMouseLeave={e=>e.currentTarget.style.borderColor=COLORS.border}>
+                    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.accent }}>{mp.codigo}</span>
+                      <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, flex:1 }}>{mp.nombre}</span>
+                      <span style={{ padding:"2px 8px", borderRadius:10, background:(ESTADO_COLOR[mp.estado]||"#6b7280")+"22", color:ESTADO_COLOR[mp.estado]||"#6b7280", fontSize:10, fontWeight:600 }}>
+                        {ESTADO_LABEL[mp.estado]||mp.estado}
+                      </span>
+                    </div>
+                    {mp.cliente && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:4 }}>{mp.cliente}{mp.numero_cotizacion?` · COT-${mp.numero_cotizacion}`:""}</div>}
+                  </div>
+                ))}
+              {maestroProyectos.length === 0 && (
+                <div style={{ textAlign:"center", padding:30, color:COLORS.textMuted, fontFamily:FONT, fontSize:12 }}>
+                  Sin proyectos en el Maestro. Créalos primero en Proyectos → Maestro de Proyectos.
+                </div>
+              )}
+            </div>
+            <button onClick={()=>setShowVincular(false)} style={{ marginTop:14, padding:"9px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT, fontSize:13, cursor:"pointer" }}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Buscador RUT / Cliente */}
       <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"14px 18px", marginBottom:16, position:"relative" }}>
