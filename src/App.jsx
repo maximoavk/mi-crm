@@ -2472,6 +2472,17 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
   const [saving, setSaving] = useState(false);
 
   const ff=(k,v)=>setForm(p=>({...p,[k]:v}));
+
+  // Auto-preload period from first selected quote's date
+  useEffect(()=>{
+    const sq = quotes.filter(q=>selectedQuoteIds.includes(q.id));
+    if(sq.length>0 && sq[0].date && !existing){
+      const qDate = sq[0].date; // already ISO string YYYY-MM-DD or similar
+      const iso = qDate?.slice(0,10)||"";
+      if(iso) ff("periodo_desde", iso);
+    }
+  }, [selectedQuoteIds]);
+
   const addTx=()=>setTransacciones(p=>[...p,emptyTx()]);
   const removeTx=id=>setTransacciones(p=>p.filter(t=>t.id!==id));
   const updateTx=(id,k,v)=>setTransacciones(p=>p.map(t=>t.id===id?{...t,[k]:v}:t));
@@ -2751,7 +2762,7 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
 
         {/* Campos */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
-          <div><label style={lbl}>Fecha de pago</label><input type="date" value={form.fecha_pago} onChange={e=>ff("fecha_pago",e.target.value)} style={inp} /></div>
+          <div><label style={lbl}>Fecha de emisión</label><input type="date" value={form.fecha_pago} onChange={e=>ff("fecha_pago",e.target.value)} style={inp} /></div>
           <div><label style={lbl}>Responsable</label><input value={form.responsable} onChange={e=>ff("responsable",e.target.value)} placeholder="Ej: VARRIAGA" style={inp} /></div>
           <div><label style={lbl}>Período desde</label><input type="date" value={form.periodo_desde} onChange={e=>ff("periodo_desde",e.target.value)} style={inp} /></div>
           <div><label style={lbl}>Período hasta</label><input type="date" value={form.periodo_hasta} onChange={e=>ff("periodo_hasta",e.target.value)} style={inp} /></div>
