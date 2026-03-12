@@ -2861,6 +2861,46 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
 
 
 // ── QUOTE EDITOR ─────────────────────────────────────────────────────────────
+function ContactSearchBox({ contacts, onSelect }) {
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(false);
+  const results = q.length >= 2
+    ? (contacts||[]).filter(c => {
+        const s = q.toLowerCase().replace(/[.\-]/g,"");
+        return (c.name||"").toLowerCase().includes(s)
+          || (c.company||"").toLowerCase().includes(s)
+          || (c.rut||"").replace(/[.\-]/g,"").includes(s);
+      }).slice(0,6)
+    : [];
+  return (
+    <div style={{ position:"relative" }}>
+      <input
+        value={q}
+        onChange={e=>{ setQ(e.target.value); setOpen(true); }}
+        onFocus={()=>setOpen(true)}
+        onBlur={()=>setTimeout(()=>setOpen(false),180)}
+        placeholder="Buscar por nombre, RUT o empresa…"
+        style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:7,
+          color:COLORS.text, fontFamily:FONT, fontSize:13, padding:"9px 12px", outline:"none", boxSizing:"border-box" }}
+      />
+      {open && results.length > 0 && (
+        <div style={{ position:"absolute", left:0, right:0, top:"100%", marginTop:3, background:COLORS.surface,
+          border:`1px solid ${COLORS.border}`, borderRadius:8, zIndex:200, boxShadow:"0 4px 16px #0006" }}>
+          {results.map(c=>(
+            <div key={c.id} onMouseDown={()=>{ onSelect(c); setQ(""); setOpen(false); }}
+              style={{ padding:"10px 14px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}22` }}
+              onMouseEnter={e=>e.currentTarget.style.background=COLORS.card}
+              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text }}>{c.name}</div>
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{c.company} · {c.rut}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
   const isEdit = !!quote;
   const TERMS_DEFAULT = "1- El trabajo se ejecuta posterior a la aceptación de la cotización y coordinación de fecha.\n2- No refiere stock ni fecha de instalación.\n3- Cotización válida por 15 días.";
@@ -3025,10 +3065,33 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
       {/* CLIENTE */}
       <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20, marginBottom:16 }}>
         <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Cliente</div>
-        <Select label="Vincular contacto CRM" value={header.contactId} onChange={e=>hf("contactId",e.target.value)}>
-          <option value="">— Seleccionar contacto —</option>
-          {contacts.map(c=><option key={c.id} value={c.id}>{c.name} · {c.company}</option>)}
-        </Select>
+
+        {/* Buscador CRM */}
+        <div style={{ marginBottom:14, position:"relative" }}>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Vincular Contacto CRM</div>
+          {(() => {
+            const linked = header.contactId ? contacts.find(c=>c.id===header.contactId) : null;
+            if(linked) return (
+              <div style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 14px", background:COLORS.accentDim, border:`1px solid ${COLORS.accent}44`, borderRadius:8 }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.accent }}>{linked.name}</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{linked.company} · {linked.rut}</div>
+                </div>
+                <button onClick={()=>hf("contactId","")} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:16 }}>×</button>
+              </div>
+            );
+            return <ContactSearchBox contacts={contacts} onSelect={c=>{
+              hf("contactId", c.id);
+              if(c.name)    hf("clientName",    c.name);
+              if(c.rut)     hf("clientRut",     c.rut);
+              if(c.company) hf("clientCompany", c.company);
+              if(c.phone)   hf("clientPhone",   c.phone);
+              const addr = c.address ? [c.address.calle, c.address.comuna, c.address.region].filter(Boolean).join(", ") : "";
+              if(addr) hf("clientAddress", addr);
+            }} />;
+          })()}
+        </div>
+
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px,1fr))", gap:12 }}>
           <Input label="Nombre cliente" value={header.clientName} onChange={e=>hf("clientName",e.target.value)} />
           <Input label="RUT" value={header.clientRut} onChange={e=>hf("clientRut",formatRut(e.target.value))} maxLength={12} />
