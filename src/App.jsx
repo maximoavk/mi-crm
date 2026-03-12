@@ -3888,10 +3888,10 @@ function calcFase(fase) {
 
 function TotBox({ label, value, color, sub }) {
   return (
-    <div style={{ background:COLORS.card, border:`1px solid ${color}44`, borderRadius:10, padding:"14px 20px", minWidth:160, flex:1 }}>
-      <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:4 }}>{label}</div>
-      <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color }}>${value.toLocaleString("es-CL")}</div>
-      {sub && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:2 }}>{sub}</div>}
+    <div style={{ background:COLORS.card, border:`1px solid ${color}44`, borderRadius:8, padding:"10px 12px", minWidth:0 }}>
+      <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:3, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{label}</div>
+      <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>${value.toLocaleString("es-CL")}</div>
+      {sub && <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginTop:2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{sub}</div>}
     </div>
   );
 }
@@ -4916,12 +4916,12 @@ function CosteoView({ contacts }) {
       {page==="costeo" && (
         <>
           {/* Totales globales */}
-          <div style={{ display:"flex", gap:12, marginBottom:24, flexWrap:"wrap" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:8, marginBottom:24 }}>
             <TotBox label="Costo Neto Total" value={totalCosto} color={COLORS.textMuted} sub="Sin IVA" />
-            <TotBox label="Margen Total" value={totalMargen} color={COLORS.green} sub={`${margenPct}% sobre costo neto`} />
+            <TotBox label="Margen Total" value={totalMargen} color={COLORS.green} sub={`${margenPct}% sobre costo`} />
             <TotBox label="Venta Neta" value={totalVentaNeta} color={COLORS.text} sub="Costo + Margen" />
-            <TotBox label="IVA Compra" value={totalIVACompra} color="#f59e0b" sub="Crédito fiscal (pagas)" />
-            <TotBox label="IVA Venta" value={totalIVA} color="#ef4444" sub="Débito fiscal (cobras)" />
+            <TotBox label="IVA Compra" value={totalIVACompra} color="#f59e0b" sub="Crédito fiscal" />
+            <TotBox label="IVA Venta" value={totalIVA} color="#ef4444" sub="Débito fiscal" />
             <TotBox label="IVA Neto SII" value={totalIVANeto} color={totalIVANeto >= 0 ? "#ef4444" : COLORS.green} sub={totalIVANeto >= 0 ? "A pagar al SII" : "Crédito a favor"} />
             <TotBox label="Venta c/IVA" value={totalVentaBruta} color={COLORS.accent} sub="Precio al cliente" />
           </div>
