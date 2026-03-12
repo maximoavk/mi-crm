@@ -3369,14 +3369,27 @@ function QuotePDF({ quote, onBack }) {
           </thead>
           <tbody>
             {lines.filter(l=>l.lineType!=="hito").map((l,i)=>(
-              <tr key={l.id} style={{ background:i%2===0?"white":"#f9f9f9", borderBottom:"1px solid #e0e0e0" }}>
-                <td style={{ padding:"8px 10px", fontWeight:600, color:"#333" }}>{l.code}</td>
-                <td style={{ padding:"8px 10px" }}>{l.description}</td>
-                <td style={{ padding:"8px 10px", textAlign:"center" }}>{l.qty}</td>
-                <td style={{ padding:"8px 10px" }}>{fmt(l.unitPrice)}</td>
-                <td style={{ padding:"8px 10px", textAlign:"center" }}>{l.discount}%</td>
-                <td style={{ padding:"8px 10px", fontWeight:600 }}>{fmt(l.subtotal)}</td>
-              </tr>
+              <React.Fragment key={l.id}>
+                <tr style={{ background:i%2===0?"white":"#f9f9f9", borderBottom: l.fichaUrl ? "none" : "1px solid #e0e0e0" }}>
+                  <td style={{ padding:"8px 10px", fontWeight:600, color:"#333" }}>{l.code}</td>
+                  <td style={{ padding:"8px 10px" }}>{l.description}</td>
+                  <td style={{ padding:"8px 10px", textAlign:"center" }}>{l.qty}</td>
+                  <td style={{ padding:"8px 10px" }}>{fmt(l.unitPrice)}</td>
+                  <td style={{ padding:"8px 10px", textAlign:"center" }}>{l.discount}%</td>
+                  <td style={{ padding:"8px 10px", fontWeight:600 }}>{fmt(l.subtotal)}</td>
+                </tr>
+                {l.fichaUrl && (
+                  <tr style={{ background:i%2===0?"white":"#f9f9f9", borderBottom:"1px solid #e0e0e0" }}>
+                    <td colSpan={6} style={{ padding:"3px 10px 7px 10px", fontSize:10, color:"#555" }}>
+                      📄 Ficha técnica:{" "}
+                      <a href={l.fichaUrl} target="_blank" rel="noopener noreferrer"
+                        style={{ color:"#0066cc", textDecoration:"underline", wordBreak:"break-all" }}>
+                        {l.fichaUrl}
+                      </a>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
             ))}
           </tbody>
         </table>
