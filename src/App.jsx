@@ -113,10 +113,10 @@ function AddressSelector({ value, onChange }) {
 }
 
 const STAGES = [
-  { key: "contacto",    label: "Contacto",    color: COLORS.textMuted },
-  { key: "propuesta",   label: "Propuesta",   color: COLORS.yellow },
-  { key: "negociacion", label: "Negociación", color: COLORS.accent },
-  { key: "cerrado",     label: "Cerrado",     color: COLORS.green },
+  { key: "propuesta",    label: "Propuesta",    color: COLORS.yellow },
+  { key: "negociacion",  label: "Negociación",  color: COLORS.accent },
+  { key: "cerrado",      label: "Cerrado",      color: COLORS.green },
+  { key: "por_facturar", label: "Por Facturar", color: COLORS.secondary },
 ];
 const STATUS_CONFIG = {
   cliente:   { label: "Cliente",   color: COLORS.green },
@@ -462,14 +462,14 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
   const [editingId, setEditingId] = useState(null);
   const [collapsed, setCollapsed] = useState({});
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title:"", company:"", contactId:"", rut:"", value:"", stage:"contacto", probability:"20", closeDate:"", quoteNumber:"" });
+  const [form, setForm] = useState({ title:"", company:"", contactId:"", rut:"", value:"", stage:"propuesta", probability:"40", closeDate:"", quoteNumber:"" });
   const [quoteBusqueda, setQuoteBusqueda] = useState("");
   const [quoteFound, setQuoteFound] = useState(null);
   const [quoteSearching, setQuoteSearching] = useState(false);
   const grouped = useMemo(()=>{ const g={}; STAGES.forEach(s=>{g[s.key]=deals.filter(d=>d.stage===s.key);}); return g; },[deals]);
   const f = (k,v) => setForm(p=>({...p,[k]:v}));
 
-  const openNew = () => { setEditingId(null); setForm({ title:"", company:"", contactId:"", rut:"", value:"", stage:"contacto", probability:"20", closeDate:"", quoteNumber:"" }); setQuoteFound(null); setQuoteBusqueda(""); setShowModal(true); };
+  const openNew = () => { setEditingId(null); setForm({ title:"", company:"", contactId:"", rut:"", value:"", stage:"propuesta", probability:"40", closeDate:"", quoteNumber:"" }); setQuoteFound(null); setQuoteBusqueda(""); setShowModal(true); };
   const openEdit = (d) => { setEditingId(d.id); setForm({ title:d.title, company:d.company, contactId:d.contactId||"", rut:d.rut||"", value:String(d.value), stage:d.stage, probability:String(d.probability), closeDate:d.closeDate||"", quoteNumber:d.quoteNumber||"" }); setQuoteFound(null); setQuoteBusqueda(""); setShowModal(true); };
   const toggleCollapse = (id) => setCollapsed(p=>({...p,[id]:!p[id]}));
   const allCollapsed = Object.values(collapsed).filter(Boolean).length >= deals.length/2;
@@ -717,7 +717,7 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
             <option value="">— Sin contacto —</option>
             {contacts.map(c=><option key={c.id} value={c.id}>{c.name} ({c.company})</option>)}
           </Select>
-          <Input label="Empresa" value={form.company} onChange={e=>f("company",e.target.value)} placeholder="Ej: AdministARS" />
+          <Input label="Razón Social" value={form.company} onChange={e=>f("company",e.target.value)} placeholder="Ej: AdministARS" />
           <Input label="Fecha límite" value={form.dueDate} onChange={e=>f("dueDate",e.target.value)} type="date" />
           <Select label="Prioridad" value={form.priority} onChange={e=>f("priority",e.target.value)}>
             <option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option>
@@ -1826,6 +1826,27 @@ function QuotesView({ contacts, isMobile }) {
   const updateStatus = async (id, status) => {
     await supabase.from("cotizaciones").update({ estado: status }).eq("id", id);
     setQuotes(quotes.map(q=>q.id===id?{...q,status}:q));
+    // Auto-push to pipeline when quote is sent
+    if(status==="enviada"){
+      const q = quotes.find(x=>x.id===id);
+      if(q){
+        const { data:existing } = await supabase.from("deals").select("id").eq("quote_id",id).limit(1);
+        if(!existing||existing.length===0){
+          await supabase.from("deals").insert({
+            titulo: `COT °${q.number} – ${q.clientCompany||q.clientName||"Cliente"}`,
+            empresa: q.clientCompany||q.clientName||"",
+            rut_empresa: q.clientRut||"",
+            contact_id: q.contactId||null,
+            valor: q.total||0,
+            etapa: "propuesta",
+            probabilidad: 40,
+            quote_id: id,
+          });
+        } else {
+          await supabase.from("deals").update({ etapa:"propuesta" }).eq("id", existing[0].id);
+        }
+      }
+    }
   };
 
   const del = async (id) => {
@@ -1846,19 +1867,7 @@ function QuotesView({ contacts, isMobile }) {
         </div>
         {subTab==="cotizaciones" && <AddBtn onClick={()=>setView("new")} label="Nueva cotización" />}
       </div>
-      {/* Sub-tabs */}
-      <div style={{ display:"flex", gap:0, borderBottom:`1px solid ${COLORS.border}`, marginBottom:18 }}>
-        {[["cotizaciones","📄 Cotizaciones"],["analisis","📊 Análisis de Precios"]].map(([k,l])=>(
-          <button key={k} onClick={()=>setSubTab(k)}
-            style={{ padding:"9px 20px", fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", border:"none", background:"transparent",
-              color:subTab===k?COLORS.accent:COLORS.textMuted, borderBottom:`2px solid ${subTab===k?COLORS.accent:"transparent"}`, transition:"all 0.15s" }}>
-            {l}
-          </button>
-        ))}
-      </div>
-      {subTab==="analisis" && <AnalisisPrecios />}
-
-      {subTab==="cotizaciones" && loading ? <Loader /> : subTab==="cotizaciones" && (
+      {loading ? <Loader /> : (
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           {/* Buscador */}
           <div style={{ position:"relative", marginBottom:4 }}>
@@ -1935,7 +1944,7 @@ function QuotesView({ contacts, isMobile }) {
 // Shared card grid used by both tabs
 function DocGrid({ docs, quotes, tab, setEditDoc, setShowModal, deleteDoc }) {
   const [collapsed, setCollapsed] = useState({});
-  const toggleCollapse = (qId) => setCollapsed(prev=>({...prev,[qId]:!prev[qId]}));
+  const toggleCollapse = (id) => setCollapsed(prev=>({...prev,[id]:!prev[id]}));
 
   const lineSubtotal = l => {
     const qty=Number(l.qty||l.quantity||l.cantidad||1);
@@ -1943,28 +1952,41 @@ function DocGrid({ docs, quotes, tab, setEditDoc, setShowModal, deleteDoc }) {
     const d=Number(l.discount||l.descuento||0);
     return Math.round(p*(1-d/100)*qty);
   };
-
-  // For Pre-Facturas: total includes IVA
   const lineSubtotalBruto = l => {
     const neto = lineSubtotal(l);
     return tab==="pf" ? Math.round(neto*1.19) : neto;
   };
 
-  const grouped = quotes.map(q => {
+  // ── PF mode: group by DOCUMENT (each PF can span multiple COTs) ──────────
+  const isPF = tab==="pf";
+
+  const pfGrouped = isPF ? docs.map(doc => {
+    const docQuotes = quotes.filter(q=>(doc.quote_ids||[]).includes(q.id));
+    // Sum totals across ALL linked COTs
+    const cotTotal = docQuotes.reduce((s,q)=>{
+      return s + (q.total||0); // q.total already includes IVA for PF quotes
+    },0);
+    const totalPagado = Number(doc.monto_pagado||0);
+    const saldo  = cotTotal - totalPagado;
+    const pct    = cotTotal>0 ? Math.min((totalPagado/cotTotal)*100,100) : 0;
+    return { doc, docQuotes, cotTotal, totalPagado, saldo, pct };
+  }) : [];
+
+  // ── CP mode: group by QUOTE (original behavior) ──────────────────────────
+  const grouped = !isPF ? quotes.map(q => {
     const qDocs = docs.filter(d=>(d.quote_ids||[]).includes(q.id));
     if(qDocs.length===0) return null;
-    // Para PF: q.total ya incluye IVA — usar directamente para evitar doble IVA
-    const cotTotal   = tab==="pf" ? (q.total||0) : (q.lines||[]).reduce((s,l)=>s+lineSubtotalBruto(l),0);
+    const cotTotal   = (q.lines||[]).reduce((s,l)=>s+lineSubtotalBruto(l),0);
     const totalPagado= qDocs.reduce((s,d)=>s+Number(d.monto_pagado||0),0);
     const saldo      = cotTotal - totalPagado;
     const pct        = cotTotal>0 ? Math.min((totalPagado/cotTotal)*100,100) : 0;
     return { quote:q, docs:qDocs, cotTotal, totalPagado, saldo, pct };
-  }).filter(Boolean);
+  }).filter(Boolean) : [];
 
-  const orphanDocs = docs.filter(d=> {
+  const orphanDocs = !isPF ? docs.filter(d=> {
     const qids = d.quote_ids||[];
     return qids.length===0 || !quotes.find(q=>qids.includes(q.id));
-  });
+  }) : [];
 
   const MiniBar = ({pct,color,h=4}) => (
     <div style={{ height:h, background:"#1F2535", borderRadius:99, overflow:"hidden", flex:1 }}>
@@ -1975,22 +1997,155 @@ function DocGrid({ docs, quotes, tab, setEditDoc, setShowModal, deleteDoc }) {
   // Colors: pf tab uses secondary (blue) accent
   const AC = tab==="pf" ? COLORS.secondary : COLORS.accent;
 
-  if(grouped.length===0 && orphanDocs.length===0)
+  if(isPF && pfGrouped.length===0)
+    return <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>Sin pre-facturas aún.</div>;
+  if(!isPF && grouped.length===0 && orphanDocs.length===0)
     return <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>Sin documentos aún.</div>;
 
+  // ── PF render: group by DOC ───────────────────────────────────────────────
+  if(isPF) return (
+    <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+      {pfGrouped.map(({ doc, docQuotes, cotTotal, totalPagado, saldo, pct }) => {
+        const isOpen = !!collapsed[doc.id];
+        const clientName = docQuotes[0]?.clientCompany||docQuotes[0]?.clientName||"—";
+        const clientRut  = docQuotes[0]?.clientRut||"";
+        const R=52,r=34,cx=60,cy=60,circum=2*Math.PI*r;
+        const pagadoPct=cotTotal>0?Math.min(totalPagado/cotTotal,1):0;
+        const dashPagado=pagadoPct*circum; const dashSaldo=(1-pagadoPct)*circum;
+        return (
+          <div key={doc.id} style={{ background:COLORS.card, border:`1px solid ${saldo<=0?COLORS.green+"44":COLORS.border}`, borderRadius:14, overflow:"hidden" }}>
+            {/* Header */}
+            <div onClick={()=>toggleCollapse(doc.id)}
+              style={{ padding:"12px 18px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", userSelect:"none" }}>
+              <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, flexShrink:0, transition:"transform 0.2s", display:"inline-block", transform:isOpen?"rotate(90deg)":"rotate(0deg)" }}>▶</span>
+              <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:AC, flexShrink:0 }}>{doc.numero}</span>
+              <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{clientName}</span>
+              {clientRut && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, flexShrink:0 }}>{clientRut}</span>}
+              <Badge color={saldo<=0?COLORS.green:COLORS.yellow}>{saldo<=0?"Pagado":"Pendiente"}</Badge>
+              <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0, width:120 }}>
+                <MiniBar pct={pct} color={saldo<=0?COLORS.green:`linear-gradient(90deg,${AC},${COLORS.green})`} h={5} />
+                <span style={{ fontFamily:FONT, fontSize:10, color:saldo<=0?COLORS.green:AC, flexShrink:0, minWidth:32, textAlign:"right" }}>{pct.toFixed(0)}%</span>
+              </div>
+              <div style={{ textAlign:"right", flexShrink:0 }}>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:saldo<=0?COLORS.green:COLORS.text }}>{fmt(totalPagado)}</div>
+                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>de {fmt(cotTotal)}</div>
+              </div>
+              {/* COTs asociadas badge */}
+              {docQuotes.length>1 && <div style={{ background:`${AC}22`, border:`1px solid ${AC}33`, borderRadius:20, padding:"2px 9px", fontFamily:FONT, fontSize:10, color:AC, flexShrink:0 }}>
+                {docQuotes.length} COTs
+              </div>}
+            </div>
+
+            {/* Expanded panel */}
+            {isOpen && (
+              <div style={{ borderTop:`1px solid ${COLORS.border}`, padding:"14px 18px" }}>
+                {/* COTs asociadas */}
+                {docQuotes.length>0 && (
+                  <div style={{ marginBottom:14 }}>
+                    <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Cotizaciones incluidas</div>
+                    <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                      {docQuotes.map(q=>(
+                        <div key={q.id} style={{ padding:"4px 12px", background:`${AC}11`, border:`1px solid ${AC}33`, borderRadius:20, fontFamily:FONT_DISPLAY, fontSize:11, color:AC }}>
+                          COT °{q.number} · {q.clientCompany||q.clientName} · {fmt(q.total||0)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Dona + detalles */}
+                <div style={{ display:"flex", gap:16, alignItems:"flex-start", flexWrap:"wrap" }}>
+                  {/* Dona */}
+                  <div style={{ flexShrink:0, width:130, display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
+                    <svg width={120} height={120} viewBox="0 0 120 120">
+                      <circle cx={cx} cy={cy} r={r} fill="none" stroke={COLORS.border} strokeWidth={R-r} />
+                      {(1-pagadoPct)>0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke="url(#pfSaldo)" strokeWidth={R-r}
+                        strokeDasharray={`${dashSaldo} ${circum-dashSaldo}`} strokeDashoffset={-(pagadoPct*circum)}
+                        strokeLinecap="butt" transform={`rotate(-90 ${cx} ${cy})`} />}
+                      {pagadoPct>0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke="url(#pfPagado)" strokeWidth={R-r}
+                        strokeDasharray={`${dashPagado} ${circum-dashPagado}`} strokeDashoffset={0}
+                        strokeLinecap="butt" transform={`rotate(-90 ${cx} ${cy})`} />}
+                      <defs>
+                        <linearGradient id="pfPagado" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor={AC}/><stop offset="100%" stopColor={COLORS.green}/>
+                        </linearGradient>
+                        <linearGradient id="pfSaldo" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor={COLORS.yellow}/><stop offset="100%" stopColor={COLORS.red}/>
+                        </linearGradient>
+                      </defs>
+                      <text x={cx} y={cy-6} textAnchor="middle" fill={COLORS.text} fontSize="14" fontWeight="700" fontFamily="Space Grotesk,sans-serif">{(pagadoPct*100).toFixed(0)}%</text>
+                      <text x={cx} y={cy+10} textAnchor="middle" fill={COLORS.textMuted} fontSize="8" fontFamily="DM Mono,monospace">PAGADO</text>
+                    </svg>
+                    <div style={{ display:"flex", flexDirection:"column", gap:3, width:"100%" }}>
+                      {[
+                        {label:"Pagado",val:totalPagado,color:COLORS.green,grad:`linear-gradient(135deg,${AC},${COLORS.green})`},
+                        {label:"Saldo",val:saldo,color:COLORS.yellow,grad:`linear-gradient(135deg,${COLORS.yellow},${COLORS.red})`},
+                        {label:"Total",val:cotTotal,color:COLORS.text,grad:COLORS.border},
+                      ].map(({label,val,color,grad})=>(
+                        <div key={label} style={{ display:"flex", alignItems:"center", gap:5 }}>
+                          <div style={{ width:8,height:8,borderRadius:99,background:grad,flexShrink:0 }}/>
+                          <span style={{ fontFamily:FONT,fontSize:8,color:COLORS.textMuted }}>{label}</span>
+                          <span style={{ fontFamily:FONT_DISPLAY,fontSize:9,color,marginLeft:"auto",fontWeight:700 }}>{fmt(val)}</span>
+                        </div>
+                      ))}
+                      <div style={{ marginTop:3,paddingTop:3,borderTop:`1px solid ${COLORS.border}`,fontFamily:FONT,fontSize:8,color:COLORS.textMuted }}>incl. IVA 19%</div>
+                    </div>
+                  </div>
+                  {/* Detalles del doc */}
+                  <div style={{ flex:1, minWidth:220 }}>
+                    <div style={{ marginBottom:8 }}>
+                      <div style={{ fontFamily:FONT,fontSize:9,color:COLORS.textMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4 }}>Transacciones bancarias</div>
+                      {(doc.transacciones||[]).filter(t=>Number(t.monto)>0).map((t,i)=>(
+                        <div key={i} style={{ fontFamily:FONT,fontSize:10,color:COLORS.textMuted,marginBottom:3,display:"flex",justifyContent:"space-between" }}>
+                          <span>🏦 {t.fecha?new Date(t.fecha+"T00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit"}):"—"} · {t.codigo||"—"}</span>
+                          <span style={{ color:COLORS.green,fontWeight:700 }}>{fmt(Number(t.monto||0))}</span>
+                        </div>
+                      ))}
+                      {!(doc.transacciones||[]).some(t=>Number(t.monto)>0) && <div style={{ fontFamily:FONT,fontSize:10,color:COLORS.textDim,fontStyle:"italic" }}>Sin transacciones</div>}
+                    </div>
+                    <div style={{ display:"flex", gap:6, paddingTop:8, borderTop:`1px solid ${COLORS.border}` }}>
+                      <button onClick={()=>{ setEditDoc(doc); setShowModal(true); }}
+                        style={{ flex:1, padding:"5px 0", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:10, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.secondary}44`, color:COLORS.secondary }}>
+                        ✏️ Editar
+                      </button>
+                      <button onClick={()=>{ setEditDoc({...doc,_reprint:true}); setShowModal(true); }}
+                        style={{ flex:1, padding:"5px 0", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:10, cursor:"pointer", background:`${AC}22`, border:`1px solid ${AC}44`, color:AC }}>
+                        🖨 PDF
+                      </button>
+                      <button onClick={()=>deleteDoc(doc.id)}
+                        style={{ padding:"5px 10px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:10, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red }}>
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <div onClick={()=>{ setEditDoc(null); setShowModal(true); }}
+        style={{ border:`2px dashed ${COLORS.border}`, borderRadius:12, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:16, color:COLORS.textMuted, gap:8 }}>
+        <span style={{ fontSize:20 }}>+</span>
+        <span style={{ fontFamily:FONT, fontSize:11 }}>Nueva pre-factura</span>
+      </div>
+    </div>
+  );
+
+  // ── CP render: original group-by-quote ────────────────────────────────────
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
       {grouped.map(({ quote:q, docs:qDocs, cotTotal, totalPagado, saldo, pct }) => {
         const isOpen = !!collapsed[q.id];
+        const R=52,r=34,cx=60,cy=60,circum=2*Math.PI*r;
+        const pagadoPct=cotTotal>0?Math.min(totalPagado/cotTotal,1):0;
+        const dashPagado=pagadoPct*circum; const dashSaldo=(1-pagadoPct)*circum;
         return (
           <div key={q.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:14, overflow:"hidden" }}>
-            {/* ── Header ── */}
             <div onClick={()=>toggleCollapse(q.id)}
               style={{ padding:"12px 18px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", userSelect:"none" }}>
               <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, flexShrink:0, transition:"transform 0.2s", display:"inline-block", transform:isOpen?"rotate(90deg)":"rotate(0deg)" }}>▶</span>
               <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:AC, flexShrink:0 }}>COT °{q.number}</span>
               <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{q.clientCompany||q.clientName}</span>
-              {tab==="pf" && q.clientRut && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, flexShrink:0 }}>{q.clientRut}</span>}
               <Badge color={saldo<=0?COLORS.green:COLORS.yellow}>{saldo<=0?"Pagado":"Pendiente"}</Badge>
               <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0, width:120 }}>
                 <MiniBar pct={pct} color={saldo<=0?COLORS.green:`linear-gradient(90deg,${AC},${COLORS.green})`} h={5} />
@@ -2001,130 +2156,77 @@ function DocGrid({ docs, quotes, tab, setEditDoc, setShowModal, deleteDoc }) {
                 <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>de {fmt(cotTotal)}</div>
               </div>
               <div style={{ background:`${AC}22`, border:`1px solid ${AC}33`, borderRadius:20, padding:"2px 9px", fontFamily:FONT, fontSize:10, color:AC, flexShrink:0 }}>
-                {qDocs.length} {tab==="pf"?"PF":"CP"}
+                {qDocs.length} CP
               </div>
             </div>
-
-            {/* ── Panel expandido ── */}
             {isOpen && (
               <div style={{ borderTop:`1px solid ${COLORS.border}`, padding:"10px 14px 14px", overflowX:"auto" }}>
                 <div style={{ display:"flex", gap:10, minWidth:"max-content", alignItems:"flex-start" }}>
-
-                  {/* Dona SVG */}
-                  {(()=>{
-                    const R=52, r=34, cx=60, cy=60;
-                    const circum=2*Math.PI*r;
-                    const pagadoPct=cotTotal>0?Math.min(totalPagado/cotTotal,1):0;
-                    const saldoPct=1-pagadoPct;
-                    const dashPagado=pagadoPct*circum;
-                    const dashSaldo=saldoPct*circum;
-                    const offsetSaldo=-(pagadoPct*circum);
-                    return (
-                      <div style={{ flexShrink:0, width:130, display:"flex", flexDirection:"column", alignItems:"center", gap:6, paddingTop:4 }}>
-                        <svg width={120} height={120} viewBox="0 0 120 120">
-                          <circle cx={cx} cy={cy} r={r} fill="none" stroke={COLORS.border} strokeWidth={R-r} />
-                          {saldoPct>0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke="url(#dSaldo2)" strokeWidth={R-r}
-                            strokeDasharray={`${dashSaldo} ${circum-dashSaldo}`} strokeDashoffset={offsetSaldo}
-                            strokeLinecap="butt" transform={`rotate(-90 ${cx} ${cy})`} />}
-                          {pagadoPct>0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke="url(#dPagado2)" strokeWidth={R-r}
-                            strokeDasharray={`${dashPagado} ${circum-dashPagado}`} strokeDashoffset={0}
-                            strokeLinecap="butt" transform={`rotate(-90 ${cx} ${cy})`} />}
-                          <defs>
-                            <linearGradient id="dPagado2" x1="0%" y1="0%" x2="100%" y2="100%">
-                              <stop offset="0%" stopColor={AC} /><stop offset="100%" stopColor={COLORS.green} />
-                            </linearGradient>
-                            <linearGradient id="dSaldo2" x1="0%" y1="0%" x2="100%" y2="100%">
-                              <stop offset="0%" stopColor={COLORS.yellow} /><stop offset="100%" stopColor={COLORS.red} />
-                            </linearGradient>
-                          </defs>
-                          <text x={cx} y={cy-6} textAnchor="middle" fill={COLORS.text} fontSize="14" fontWeight="700" fontFamily="Space Grotesk, sans-serif">{(pagadoPct*100).toFixed(0)}%</text>
-                          <text x={cx} y={cy+10} textAnchor="middle" fill={COLORS.textMuted} fontSize="8" fontFamily="DM Mono, monospace">PAGADO</text>
-                        </svg>
-                        <div style={{ display:"flex", flexDirection:"column", gap:3, width:"100%" }}>
-                          {[
-                            { label:"Pagado", val:totalPagado, color:COLORS.green, grad:`linear-gradient(135deg,${AC},${COLORS.green})` },
-                            { label:"Saldo",  val:saldo,       color:COLORS.yellow, grad:`linear-gradient(135deg,${COLORS.yellow},${COLORS.red})` },
-                            { label:"Total COT", val:cotTotal, color:COLORS.text, grad:COLORS.border },
-                          ].map(({label,val,color,grad})=>(
-                            <div key={label} style={{ display:"flex", alignItems:"center", gap:5 }}>
-                              <div style={{ width:8, height:8, borderRadius:99, background:grad, flexShrink:0 }} />
-                              <span style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted }}>{label}</span>
-                              <span style={{ fontFamily:FONT_DISPLAY, fontSize:9, color, marginLeft:"auto", fontWeight:700 }}>{fmt(val)}</span>
-                            </div>
-                          ))}
-                          {tab==="pf" && <div style={{ marginTop:3, paddingTop:3, borderTop:`1px solid ${COLORS.border}`, fontFamily:FONT, fontSize:8, color:COLORS.textMuted }}>incl. IVA 19%</div>}
+                  {/* Dona CP */}
+                  <div style={{ flexShrink:0, width:130, display:"flex", flexDirection:"column", alignItems:"center", gap:6, paddingTop:4 }}>
+                    <svg width={120} height={120} viewBox="0 0 120 120">
+                      <circle cx={cx} cy={cy} r={r} fill="none" stroke={COLORS.border} strokeWidth={R-r} />
+                      {(1-pagadoPct)>0&&<circle cx={cx} cy={cy} r={r} fill="none" stroke="url(#dSaldo2)" strokeWidth={R-r} strokeDasharray={`${dashSaldo} ${circum-dashSaldo}`} strokeDashoffset={-(pagadoPct*circum)} strokeLinecap="butt" transform={`rotate(-90 ${cx} ${cy})`}/>}
+                      {pagadoPct>0&&<circle cx={cx} cy={cy} r={r} fill="none" stroke="url(#dPagado2)" strokeWidth={R-r} strokeDasharray={`${dashPagado} ${circum-dashPagado}`} strokeDashoffset={0} strokeLinecap="butt" transform={`rotate(-90 ${cx} ${cy})`}/>}
+                      <defs>
+                        <linearGradient id="dPagado2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor={AC}/><stop offset="100%" stopColor={COLORS.green}/></linearGradient>
+                        <linearGradient id="dSaldo2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor={COLORS.yellow}/><stop offset="100%" stopColor={COLORS.red}/></linearGradient>
+                      </defs>
+                      <text x={cx} y={cy-6} textAnchor="middle" fill={COLORS.text} fontSize="14" fontWeight="700" fontFamily="Space Grotesk,sans-serif">{(pagadoPct*100).toFixed(0)}%</text>
+                      <text x={cx} y={cy+10} textAnchor="middle" fill={COLORS.textMuted} fontSize="8" fontFamily="DM Mono,monospace">PAGADO</text>
+                    </svg>
+                    <div style={{ display:"flex", flexDirection:"column", gap:3, width:"100%" }}>
+                      {[
+                        {label:"Pagado",val:totalPagado,color:COLORS.green,grad:`linear-gradient(135deg,${AC},${COLORS.green})`},
+                        {label:"Saldo",val:saldo,color:COLORS.yellow,grad:`linear-gradient(135deg,${COLORS.yellow},${COLORS.red})`},
+                        {label:"Total COT",val:cotTotal,color:COLORS.text,grad:COLORS.border},
+                      ].map(({label,val,color,grad})=>(
+                        <div key={label} style={{ display:"flex", alignItems:"center", gap:5 }}>
+                          <div style={{ width:8,height:8,borderRadius:99,background:grad,flexShrink:0 }}/>
+                          <span style={{ fontFamily:FONT,fontSize:8,color:COLORS.textMuted }}>{label}</span>
+                          <span style={{ fontFamily:FONT_DISPLAY,fontSize:9,color,marginLeft:"auto",fontWeight:700 }}>{fmt(val)}</span>
                         </div>
-                      </div>
-                    );
-                  })()}
-
-                  {/* Sub-tarjetas */}
-                  {qDocs.map(doc => {
+                      ))}
+                    </div>
+                  </div>
+                  {/* Sub-tarjetas CP */}
+                  {qDocs.map(doc=>{
                     const txs=doc.transacciones||[];
                     const docPct=cotTotal>0?Math.min((Number(doc.monto_pagado||0)/cotTotal)*100,100):0;
                     const saldoDoc=Math.max(0,cotTotal-Number(doc.monto_pagado||0));
                     const saldoPct=cotTotal>0?Math.min((saldoDoc/cotTotal)*100,100):0;
                     return (
-                      <div key={doc.id} style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"12px 14px", width:250, flexShrink:0 }}>
+                      <div key={doc.id} style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"12px 14px", width:230, flexShrink:0 }}>
                         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:4 }}>
                           <div>
-                            <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:AC }}>{doc.numero}</div>
-                            <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>{fmtDate(doc.fecha_pago)} · {doc.responsable||""}</div>
+                            <div style={{ fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,color:AC }}>{doc.numero}</div>
+                            <div style={{ fontFamily:FONT,fontSize:9,color:COLORS.textMuted }}>{fmtDate(doc.fecha_pago)} · {doc.responsable||""}</div>
                           </div>
-                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.green }}>{fmt(doc.monto_pagado||0)}</div>
+                          <div style={{ fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,color:COLORS.green }}>{fmt(doc.monto_pagado||0)}</div>
                         </div>
-                        {/* RUT/Razón social para PF */}
-                        {tab==="pf" && (q.clientRut||q.clientCompany) && (
-                          <div style={{ marginBottom:6, padding:"4px 8px", background:`${COLORS.secondary}10`, border:`1px solid ${COLORS.secondary}22`, borderRadius:5 }}>
-                            <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.secondary, fontWeight:600 }}>{q.clientCompany||q.clientName}</div>
-                            <div style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted }}>{q.clientRut||""}</div>
-                          </div>
-                        )}
-                        {txs.length>0 && (
-                          <div style={{ marginBottom:8 }}>
-                            {txs.slice(0,3).map((t,i)=>(
-                              <div key={i} style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginBottom:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                                🏦 {t.codigo?t.codigo.slice(0,16)+"…":"—"} · {fmt(Number(t.monto||0))}
-                              </div>
-                            ))}
-                            {txs.length>3 && <div style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted }}>+{txs.length-3} más…</div>}
-                          </div>
-                        )}
+                        {txs.length>0&&<div style={{ marginBottom:8 }}>{txs.slice(0,3).map((t,i)=>(
+                          <div key={i} style={{ fontFamily:FONT,fontSize:9,color:COLORS.textMuted,marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>🏦 {t.codigo?t.codigo.slice(0,14)+"…":"—"} · {fmt(Number(t.monto||0))}</div>
+                        ))}{txs.length>3&&<div style={{ fontFamily:FONT,fontSize:8,color:COLORS.textMuted }}>+{txs.length-3} más…</div>}</div>}
                         <div style={{ marginBottom:8 }}>
-                          {[
-                            { label:"Pago/COT", pct:docPct,  color:`linear-gradient(90deg,${AC},${COLORS.green})` },
-                            { label:"Saldo",    pct:saldoPct, color:`linear-gradient(90deg,${COLORS.yellow},${COLORS.red})` },
-                          ].map(({label,pct:p,color})=>(
-                            <div key={label} style={{ display:"flex", alignItems:"center", gap:5, marginBottom:3 }}>
-                              <span style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted, width:50, flexShrink:0 }}>{label}</span>
-                              <MiniBar pct={p} color={color} />
-                              <span style={{ fontFamily:FONT, fontSize:8, color:AC, flexShrink:0, minWidth:28, textAlign:"right" }}>{p.toFixed(0)}%</span>
+                          {[{label:"Pago/COT",pct:docPct,color:`linear-gradient(90deg,${AC},${COLORS.green})`},{label:"Saldo",pct:saldoPct,color:`linear-gradient(90deg,${COLORS.yellow},${COLORS.red})`}].map(({label,pct:p,color})=>(
+                            <div key={label} style={{ display:"flex",alignItems:"center",gap:5,marginBottom:3 }}>
+                              <span style={{ fontFamily:FONT,fontSize:8,color:COLORS.textMuted,width:50,flexShrink:0 }}>{label}</span>
+                              <MiniBar pct={p} color={color}/>
+                              <span style={{ fontFamily:FONT,fontSize:8,color:AC,flexShrink:0,minWidth:28,textAlign:"right" }}>{p.toFixed(0)}%</span>
                             </div>
                           ))}
                         </div>
-                        <div style={{ display:"flex", gap:5, borderTop:`1px solid ${COLORS.border}`, paddingTop:8 }}>
-                          <button onClick={()=>{ setEditDoc(doc); setShowModal(true); }}
-                            style={{ flex:1, padding:"4px 0", borderRadius:5, fontFamily:FONT, fontSize:9, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.secondary}44`, color:COLORS.secondary }}>
-                            ✏️ Editar
-                          </button>
-                          <button onClick={()=>{ setEditDoc({...doc,_reprint:true}); setShowModal(true); }}
-                            style={{ flex:1, padding:"4px 0", borderRadius:5, fontFamily:FONT, fontSize:9, cursor:"pointer", background:"transparent", border:`1px solid ${AC}44`, color:AC }}>
-                            🖨 PDF
-                          </button>
-                          <button onClick={()=>deleteDoc(doc.id)}
-                            style={{ padding:"4px 7px", borderRadius:5, fontFamily:FONT, fontSize:10, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red }}>
-                            ✕
-                          </button>
+                        <div style={{ display:"flex",gap:5,borderTop:`1px solid ${COLORS.border}`,paddingTop:8 }}>
+                          <button onClick={()=>{ setEditDoc(doc); setShowModal(true); }} style={{ flex:1,padding:"4px 0",borderRadius:5,fontFamily:FONT,fontSize:9,cursor:"pointer",background:"transparent",border:`1px solid ${COLORS.secondary}44`,color:COLORS.secondary }}>✏️ Editar</button>
+                          <button onClick={()=>{ setEditDoc({...doc,_reprint:true}); setShowModal(true); }} style={{ flex:1,padding:"4px 0",borderRadius:5,fontFamily:FONT,fontSize:9,cursor:"pointer",background:"transparent",border:`1px solid ${AC}44`,color:AC }}>🖨 PDF</button>
+                          <button onClick={()=>deleteDoc(doc.id)} style={{ padding:"4px 7px",borderRadius:5,fontFamily:FONT,fontSize:10,cursor:"pointer",background:"transparent",border:`1px solid ${COLORS.red}44`,color:COLORS.red }}>✕</button>
                         </div>
                       </div>
                     );
                   })}
-
-                  {/* + Nuevo */}
-                  <div onClick={()=>{ setEditDoc(null); setShowModal(true); }}
-                    style={{ width:110, flexShrink:0, border:`2px dashed ${COLORS.border}`, borderRadius:10, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:14, color:COLORS.textMuted, gap:6 }}>
+                  <div onClick={()=>{ setEditDoc(null); setShowModal(true); }} style={{ width:110,flexShrink:0,border:`2px dashed ${COLORS.border}`,borderRadius:10,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",padding:14,color:COLORS.textMuted,gap:6 }}>
                     <span style={{ fontSize:22 }}>+</span>
-                    <span style={{ fontFamily:FONT, fontSize:9, textAlign:"center", lineHeight:1.4 }}>Nuevo {tab==="pf"?"pre-factura":"comprobante"}</span>
+                    <span style={{ fontFamily:FONT,fontSize:9,textAlign:"center",lineHeight:1.4 }}>Nuevo comprobante</span>
                   </div>
                 </div>
               </div>
@@ -2132,8 +2234,6 @@ function DocGrid({ docs, quotes, tab, setEditDoc, setShowModal, deleteDoc }) {
           </div>
         );
       })}
-
-      {/* Huérfanos */}
       {orphanDocs.length>0 && (
         <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:14, padding:"12px 18px" }}>
           <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>Sin cotización asociada</div>
@@ -2503,8 +2603,9 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
     <script>window.onload=()=>window.print();</script></body></html>`;
     const clienteNombre = (selQuotes[0]?.clientCompany||selQuotes[0]?.clientName||"Cliente").replace(/[^a-zA-Z0-9\u00C0-\u017E ]/g,"").trim();
     const cotNumTitle = firstQ?.number||selQuotes[0]?.number||"00";
+    const fechaDoc = form.fecha_pago ? new Date(form.fecha_pago+"T00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"-") : new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"-");
     const w=window.open("","_blank");
-    w.document.title=`${isPF?"PF":"CP"}-${cotNumTitle}-${clienteNombre}`;
+    w.document.title=isPF ? `${numero||"PF"} ${clienteNombre} ${fechaDoc}` : `CP-${cotNumTitle}-${clienteNombre} ${fechaDoc}`;
     w.document.write(html);w.document.close();
   };
 
@@ -2512,9 +2613,17 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
     setSaving(true);
     try {
       const cotNum = firstQ?.number||"00";
-      const {data:existing2} = await supabase.from("comprobantes_pago").select("numero").like("numero",`${prefix}-${cotNum}-%`);
-      const seq    = String((existing2?.length||0)+1).padStart(3,"0");
-      const numero = `${prefix}-${cotNum}-${seq}`;
+      let numero;
+      if(isPF){
+        // PF: global sequential number PF-001, PF-002...
+        const {data:allPF} = await supabase.from("comprobantes_pago").select("numero").or("estado.eq.pf,numero.like.PF-%");
+        const maxPF = (allPF||[]).reduce((max,d)=>{ const m=(d.numero||"").match(/^PF-(\d+)$/); return m?Math.max(max,parseInt(m[1])):max; },0);
+        numero = `PF-${String(maxPF+1).padStart(3,"0")}`;
+      } else {
+        const {data:existing2} = await supabase.from("comprobantes_pago").select("numero").like("numero",`CP-${cotNum}-%`);
+        const seq = String((existing2?.length||0)+1).padStart(3,"0");
+        numero = `CP-${cotNum}-${seq}`;
+      }
       const txsV   = transacciones.filter(t=>Number(t.monto)>0);
       const {data,error} = await supabase.from("comprobantes_pago").insert({
         numero, fecha_pago:form.fecha_pago||null, periodo_desde:form.periodo_desde||null,
@@ -3110,7 +3219,8 @@ function QuotePDF({ quote, onBack }) {
         <button onClick={()=>{
           const prev = document.title;
           const cliente = quote.clientCompany||quote.clientName||"Cliente";
-          document.title = `COT-${String(quote.number).padStart(3,"0")} ${cliente}`;
+          const hoy = new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"-");
+          document.title = `COT-${String(quote.number).padStart(3,"0")} ${cliente} ${hoy}`;
           window.print();
           setTimeout(()=>{ document.title = prev; }, 2000);
         }} style={{ padding:"8px 18px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>🖨️ Imprimir / PDF</button>
