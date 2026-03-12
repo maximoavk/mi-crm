@@ -4381,6 +4381,7 @@ function CosteoView({ contacts }) {
   const totalMargen     = fasesCalc.reduce((s,f)=>s+f.margenTotal,0);
   const totalVentaNeta  = fasesCalc.reduce((s,f)=>s+f.ventaNeta,0);
   const totalIVACompra  = fasesCalc.reduce((s,f)=>s+(f.ivaCompra||0),0);
+  const totalCostoBruto = totalCosto + totalIVACompra;
   const totalIVA        = fasesCalc.reduce((s,f)=>s+(f.ivaTotal||0),0);
   const totalIVANeto    = totalIVA - totalIVACompra;
   const totalVentaBruta = fasesCalc.reduce((s,f)=>s+f.ventaBruta,0);
@@ -4916,8 +4917,9 @@ function CosteoView({ contacts }) {
       {page==="costeo" && (
         <>
           {/* Totales globales */}
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:8, marginBottom:24 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(8,1fr)", gap:8, marginBottom:24 }}>
             <TotBox label="Costo Neto Total" value={totalCosto} color={COLORS.textMuted} sub="Sin IVA" />
+            <TotBox label="Costo Bruto" value={totalCostoBruto} color={COLORS.textMuted} sub="Neto + IVA compra" />
             <TotBox label="Margen Total" value={totalMargen} color={COLORS.green} sub={`${margenPct}% sobre costo`} />
             <TotBox label="Venta Neta" value={totalVentaNeta} color={COLORS.text} sub="Costo + Margen" />
             <TotBox label="IVA Compra" value={totalIVACompra} color="#f59e0b" sub="Crédito fiscal" />
