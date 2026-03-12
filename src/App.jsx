@@ -3914,9 +3914,17 @@ function ItemRow({ item, onChange, onDelete, productos }) {
     : [];
 
   const seleccionarProducto = (p) => {
-    // Precio catálogo viene con IVA → guardamos neto
-    const netoUnit = (p.price||0) / IVA;
-    onChange({ ...item, descripcion: p.name||"", modelo: p.description||"", costoUnitNeto: Math.round(netoUnit), productId: p.id });
+    // priceNeto ya viene calculado en mapProduct como Math.round(precio / 1.19)
+    // precio en catálogo = bruto c/IVA → neto = precio / 1.19
+    onChange({
+      ...item,
+      descripcion: p.name||"",
+      modelo: p.description||"",
+      costoUnitNeto: p.priceNeto || Math.round((p.price||0) / IVA),
+      ventaUnitNeta: null,   // reset precio venta para que el usuario lo defina
+      productId: p.id,
+      aplicaIVA: true,       // producto del catálogo siempre tiene IVA de compra
+    });
     setBusqueda(""); setShowCat(false);
   };
 
@@ -3956,8 +3964,8 @@ function ItemRow({ item, onChange, onDelete, productos }) {
                   <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{p.code} · {p.description||""}</div>
                 </div>
                 <div style={{ textAlign:"right" }}>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Neto: <strong style={{color:COLORS.text}}>${Math.round((p.price||0)/IVA).toLocaleString("es-CL")}</strong></div>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Bruto: ${Math.round(p.price||0).toLocaleString("es-CL")}</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, fontWeight:700, color:COLORS.text }}>${(p.priceNeto||Math.round((p.price||0)/IVA)).toLocaleString("es-CL")} <span style={{fontSize:9,color:COLORS.green,fontWeight:400}}>neto</span></div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>${Math.round(p.price||0).toLocaleString("es-CL")} <span style={{fontSize:9}}>c/IVA</span></div>
                 </div>
               </div>
             ))}
