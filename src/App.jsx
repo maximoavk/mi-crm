@@ -3849,10 +3849,13 @@ function calcItem(it) {
   const costoUnitNeto = costoNeto / (qty||1);
 
   // Si hay precio venta manual (ventaUnitNeta), úsalo; si no, deriva desde margen%
+  // Para MO: costoNeto ya incluye hh×valorHH×qty, así que ventaUnitNeta es el total directo
+  // Para Equipos/Mat: ventaUnitNeta es por unidad, multiplicar por qty
+  const esMO = it.tipo==="Mano de Obra / HH";
   let ventaNeta;
   let margenPct;
   if(it.ventaUnitNeta !== undefined && it.ventaUnitNeta !== "" && it.ventaUnitNeta !== null) {
-    ventaNeta = Number(it.ventaUnitNeta) * qty;
+    ventaNeta = esMO ? Number(it.ventaUnitNeta) : Number(it.ventaUnitNeta) * qty;
     margenPct = costoNeto > 0 ? Math.round(((ventaNeta - costoNeto) / costoNeto) * 100) : 0;
   } else {
     margenPct  = Number(it.margen)||0;
@@ -3896,7 +3899,7 @@ function TotBox({ label, value, color, sub }) {
   );
 }
 
-function ItemRow({ item, onChange, onDelete, productos }) {
+function ItemRow({ item, onChange, onDelete, onReorder, productos }) {
   const [busqueda, setBusqueda] = useState("");
   const [showCat, setShowCat] = useState(false);
   const calc = calcItem(item);
@@ -3929,7 +3932,16 @@ function ItemRow({ item, onChange, onDelete, productos }) {
   };
 
   return (
-    <tr style={{ borderBottom:`1px solid ${COLORS.border}22` }}>
+    <tr
+      draggable
+      onDragStart={e=>{ e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain", item.id); }}
+      onDragOver={e=>{ e.preventDefault(); e.currentTarget.style.borderTop=`2px solid ${COLORS.accent}`; }}
+      onDragLeave={e=>{ e.currentTarget.style.borderTop=""; }}
+      onDrop={e=>{ e.preventDefault(); e.currentTarget.style.borderTop=""; const fromId=e.dataTransfer.getData("text/plain"); if(onReorder) onReorder(fromId, item.id); }}
+      style={{ borderBottom:`1px solid ${COLORS.border}22`, cursor:"grab" }}
+    >
+      {/* Drag handle */}
+      <td style={{ padding:"6px 2px", width:14, textAlign:"center", color:COLORS.textMuted, fontSize:13, userSelect:"none", cursor:"grab" }} title="Arrastrar para reordenar">⠿</td>
       {/* COD */}
       <td style={{ padding:"6px 4px", width:55 }}>
         <input style={{...style, textAlign:"center", color:COLORS.accent, fontWeight:600}} value={item.cod||""} onChange={e=>inp("cod",e.target.value)} placeholder={`F?-${SAP_PREFIX[item.tipo]||"X"}001`} title={`Código SAP: POL-XXXX-${item.cod||"F?-"+SAP_PREFIX[item.tipo]+"001"} (se completa al generar cotización)`} />
@@ -4080,6 +4092,16 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
   };
   const updateItem = (id, item) => onChange({ ...fase, items: fase.items.map(i=>i.id===id?item:i) });
   const deleteItem = (id) => onChange({ ...fase, items: fase.items.filter(i=>i.id!==id) });
+  const reorderItem = (fromId, toId) => {
+    if(fromId===toId) return;
+    const items = [...(fase.items||[])];
+    const fromIdx = items.findIndex(i=>String(i.id)===String(fromId));
+    const toIdx   = items.findIndex(i=>String(i.id)===String(toId));
+    if(fromIdx<0||toIdx<0) return;
+    const [moved] = items.splice(fromIdx,1);
+    items.splice(toIdx,0,moved);
+    onChange({ ...fase, items });
+  };
   const grouped = CAT_TIPOS.reduce((acc,t)=>{ acc[t]=(fase.items||[]).filter(i=>i.tipo===t); return acc; },{});
   const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
 
@@ -4138,6 +4160,7 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
                     <table style={{ width:"100%", borderCollapse:"collapse", minWidth:700 }}>
                       <thead>
                         <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                          <th style={{ width:14 }} />
                           <th style={{ textAlign:"center", fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", width:55 }}>COD</th>
                           <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px" }}>DESCRIPCIÓN</th>
                           <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:100 }}>MODELO</th>
@@ -4169,12 +4192,12 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
                       </thead>
                       <tbody>
                         {grouped[tipo].map(it=>(
-                          <ItemRow key={it.id} item={esMO ? {...it, moConIVA: fase.moConIVA} : it} onChange={item=>updateItem(it.id, esMO ? {...item, moConIVA: undefined} : item)} onDelete={()=>deleteItem(it.id)} productos={productos} />
+                          <ItemRow key={it.id} item={esMO ? {...it, moConIVA: fase.moConIVA} : it} onChange={item=>updateItem(it.id, esMO ? {...item, moConIVA: undefined} : item)} onDelete={()=>deleteItem(it.id)} onReorder={reorderItem} productos={productos} />
                         ))}
                       </tbody>
                         <tfoot>
                           <tr style={{ borderTop:`1px solid ${COLORS.border}`, background:COLORS.surface }}>
-                            <td colSpan={8} style={{ padding:"6px 8px", fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Subtotal {tipo}</td>
+                            <td colSpan={9} style={{ padding:"6px 8px", fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Subtotal {tipo}</td>
                             <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.textMuted }}>${Math.round(calcItems.reduce((s,i)=>s+i.costoNeto,0)).toLocaleString("es-CL")}</td>
                             <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.green }}>${Math.round(calcItems.reduce((s,i)=>s+i.margenTotal,0)).toLocaleString("es-CL")}</td>
                             <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.text }}>${Math.round(calcItems.reduce((s,i)=>s+i.ventaNeta,0)).toLocaleString("es-CL")}</td>
