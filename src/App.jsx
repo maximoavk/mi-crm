@@ -6301,6 +6301,7 @@ function PurchaseView({ isMobile }) {
 
 // ── NAV GROUP COMPONENT (extracted so hooks work properly) ───────────────────
 function NavGroup({ g, view, navigate }) {
+  const YELLOW = "#fbee13";
   const childKeys = (g.children||[]).map(c=>c.key);
   const groupActive = childKeys.includes(view);
   const [open, setOpen] = useState(groupActive);
@@ -6312,14 +6313,14 @@ function NavGroup({ g, view, navigate }) {
           background: groupActive?"linear-gradient(120deg,#AC3AB311,#2954EC11)":"transparent",
           border: groupActive?"1px solid #AC3AB322":"1px solid transparent",
           cursor:"pointer", textAlign:"left", transition:"all 0.15s",
-          color: groupActive?COLORS.text:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:groupActive?700:500 }}>
+          color: groupActive?"#fff":YELLOW, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:groupActive?700:500 }}>
         <div style={{ width:28, height:28, borderRadius:8, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center",
           background: groupActive?"linear-gradient(135deg,#AC3AB366,#2954EC66)":COLORS.bg,
-          border: groupActive?"none":`1px solid ${COLORS.border}`, color:groupActive?"#fff":COLORS.textMuted }}>
+          border: groupActive?"none":`1px solid ${COLORS.border}`, color:groupActive?"#fff":YELLOW }}>
           <g.Icon size={13} strokeWidth={groupActive?2.5:1.8} />
         </div>
         <span style={{ flex:1 }}>{g.label}</span>
-        <span style={{ fontSize:9, color:COLORS.textDim, transition:"transform 0.2s", display:"inline-block", transform:open?"rotate(90deg)":"rotate(0deg)" }}>▶</span>
+        <span style={{ fontSize:9, color:YELLOW+"99", transition:"transform 0.2s", display:"inline-block", transform:open?"rotate(90deg)":"rotate(0deg)" }}>▶</span>
       </button>
       {open && (
         <div style={{ paddingLeft:16, marginTop:2, marginBottom:4, display:"flex", flexDirection:"column", gap:1 }}>
@@ -6331,10 +6332,10 @@ function NavGroup({ g, view, navigate }) {
                   background: active?"linear-gradient(120deg,#AC3AB322,#2954EC22)":"transparent",
                   border: active?"1px solid #AC3AB333":"1px solid transparent",
                   cursor:"pointer", textAlign:"left", transition:"all 0.15s",
-                  color: active?COLORS.text:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:active?700:400 }}>
+                  color: active?"#fff":YELLOW, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:active?700:400 }}>
                 <div style={{ width:24, height:24, borderRadius:6, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center",
                   background: active?"linear-gradient(135deg,#AC3AB3,#2954EC)":COLORS.card,
-                  border: active?"none":`1px solid ${COLORS.border}`, color:active?"#fff":COLORS.textMuted }}>
+                  border: active?"none":`1px solid ${COLORS.border}`, color:active?"#fff":YELLOW }}>
                   <c.Icon size={11} strokeWidth={active?2.5:1.8} />
                 </div>
                 {c.label}
@@ -8432,10 +8433,10 @@ export default function CRM() {
                       background: active?"linear-gradient(120deg,#AC3AB322,#2954EC22)":"transparent",
                       border: active?"1px solid #AC3AB333":"1px solid transparent",
                       cursor:"pointer", textAlign:"left", transition:"all 0.15s",
-                      color: active?COLORS.text:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:active?700:400 }}>
+                      color: active?"#fff":"#fbee13", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:active?700:400 }}>
                     <div style={{ width:28, height:28, borderRadius:8, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center",
                       background: active?"linear-gradient(135deg,#AC3AB3,#2954EC)":COLORS.bg,
-                      border: active?"none":`1px solid ${COLORS.border}`, color:active?"#fff":COLORS.textMuted }}>
+                      border: active?"none":`1px solid ${COLORS.border}`, color:active?"#fff":"#fbee13" }}>
                       <g.Icon size={13} strokeWidth={active?2.5:1.8} />
                     </div>
                     {g.label}
