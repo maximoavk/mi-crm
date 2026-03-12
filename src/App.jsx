@@ -3833,7 +3833,7 @@ function genSapCod(tipo, faseIdx, itemsDelTipo) {
 }
 
 function newItem(tipo) {
-  const base = { id: Date.now()+Math.random(), tipo, cod:"", descripcion:"", modelo:"", qty:1, costoUnitNeto:0, margen:30, aplicaIVA: tipo!=="Costos Indirectos" };
+  const base = { id: Date.now()+Math.random(), tipo, cod:"", descripcion:"", modelo:"", qty:1, costoUnitNeto:0, margen:30, ventaUnitNeta:null, aplicaIVA: tipo!=="Costos Indirectos" };
   if(tipo==="Mano de Obra / HH") return { ...base, hh:1, valorHH:15000, aplicaIVA:false };
   if(tipo==="Costos Indirectos") return { ...base, costoUnit:0, aplicaIVA:false };
   return base;
@@ -3845,13 +3845,25 @@ function calcItem(it) {
   else if(it.tipo==="Costos Indirectos") costoNeto = (Number(it.costoUnit)||0)*(Number(it.qty)||1);
   else costoNeto = (Number(it.costoUnitNeto)||0)*(Number(it.qty)||1);
 
-  const margenPct  = Number(it.margen)||0;
-  const margenVal  = costoNeto*(margenPct/100);
-  const ventaNeta  = costoNeto+margenVal;
+  const qty = Number(it.qty)||1;
+  const costoUnitNeto = costoNeto / (qty||1);
+
+  // Si hay precio venta manual (ventaUnitNeta), úsalo; si no, deriva desde margen%
+  let ventaNeta;
+  let margenPct;
+  if(it.ventaUnitNeta !== undefined && it.ventaUnitNeta !== "" && it.ventaUnitNeta !== null) {
+    ventaNeta = Number(it.ventaUnitNeta) * qty;
+    margenPct = costoNeto > 0 ? Math.round(((ventaNeta - costoNeto) / costoNeto) * 100) : 0;
+  } else {
+    margenPct  = Number(it.margen)||0;
+    ventaNeta  = costoNeto * (1 + margenPct/100);
+  }
+
+  const margenVal  = ventaNeta - costoNeto;
   const aplicaIVA  = !!it.aplicaIVA;
   const ivaVenta   = aplicaIVA ? ventaNeta*(IVA-1) : 0;
   const ventaBruta = ventaNeta+ivaVenta;
-  return { ...it, costoNeto, margenTotal:margenVal, ventaNeta, ivaVenta, ventaBruta };
+  return { ...it, costoNeto, costoUnitNeto, margenTotal:margenVal, margenPct, ventaNeta, ivaVenta, ventaBruta };
 }
 
 function calcFase(fase) {
@@ -3987,9 +3999,43 @@ function ItemRow({ item, onChange, onDelete, productos }) {
         <td /><td />
       </>)}
 
-      {/* Margen % */}
-      <td style={{ padding:"6px 4px", width:55 }}>
-        <input style={{...style, color:COLORS.accent}} type="number" value={item.margen} onChange={e=>inp("margen",e.target.value)} />
+      {/* Precio Venta Neto Unit. + badge margen automático */}
+      <td style={{ padding:"6px 4px", width:110, position:"relative" }}>
+        {(esEquipoMat || esMO || item.tipo==="Costos Indirectos") && (() => {
+          const costoUnitCalc = item.tipo==="Mano de Obra / HH"
+            ? (Number(item.hh)||0)*(Number(item.valorHH)||0)
+            : item.tipo==="Costos Indirectos"
+              ? Number(item.costoUnit)||0
+              : Number(item.costoUnitNeto)||0;
+          const ventaUnit = item.ventaUnitNeta !== undefined && item.ventaUnitNeta !== "" && item.ventaUnitNeta !== null
+            ? Number(item.ventaUnitNeta)
+            : costoUnitCalc * (1 + (Number(item.margen)||0)/100);
+          const margenCalc = costoUnitCalc > 0
+            ? Math.round(((ventaUnit - costoUnitCalc) / costoUnitCalc) * 100)
+            : 0;
+          const badgeColor = margenCalc <= 0 ? COLORS.red : margenCalc < 15 ? "#f59e0b" : COLORS.green;
+          return (
+            <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+              <input
+                style={{...style, color:COLORS.accent, fontWeight:600}}
+                type="number"
+                value={item.ventaUnitNeta !== undefined && item.ventaUnitNeta !== null ? item.ventaUnitNeta : Math.round(ventaUnit)}
+                onChange={e=>inp("ventaUnitNeta", e.target.value===""?"":Number(e.target.value))}
+                placeholder="Precio venta"
+                title="Precio venta neto unitario"
+              />
+              {costoUnitCalc > 0 && (
+                <span style={{
+                  fontFamily:FONT, fontSize:9, fontWeight:700, color:badgeColor,
+                  background:badgeColor+"18", border:`1px solid ${badgeColor}44`,
+                  borderRadius:3, padding:"1px 5px", textAlign:"center", whiteSpace:"nowrap"
+                }}>
+                  {margenCalc > 0 ? "+" : ""}{margenCalc}% margen
+                </span>
+              )}
+            </div>
+          );
+        })()}
       </td>
       {/* Costo neto total */}
       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, whiteSpace:"nowrap" }}>{fmt(calc.costoNeto)}</td>
@@ -4098,7 +4144,7 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
                             <th style={{ fontFamily:FONT, fontSize:10, color:"#ef4444", padding:"4px", width:70, textAlign:"center" }}>IVA?</th>
                             <th style={{ padding:"4px" }} /><th style={{ padding:"4px" }} />
                           </>)}
-                          <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", width:55 }}>MARG%</th>
+                          <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", width:110 }}>P.VENTA / MRG</th>
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:90 }}>COSTO NETO</th>
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.green, padding:"4px", width:85 }}>MARGEN $</th>
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.text, padding:"4px", width:90 }}>VENTA NETA</th>
