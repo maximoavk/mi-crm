@@ -4397,13 +4397,23 @@ function MaestroProyectosView({ contacts }) {
       updated_at:        new Date().toISOString(),
     };
     if(modal === "new") {
-      // Generar código PR-XXXXXX
-      const { data: seqData } = await supabase.rpc("next_proyecto_codigo");
-      const codigo = seqData || `PR-${String(Date.now()).slice(-6)}`;
-      const { data } = await supabase.from("proyectos").insert({ ...payload, codigo }).select().single();
+      // Generar código PR-XXXXXX desde el máximo existente (sin depender de RPC)
+      const { data: existing } = await supabase.from("proyectos").select("codigo").order("created_at", { ascending: false });
+      let nextNum = 1;
+      if(existing?.length) {
+        const nums = existing.map(p => {
+          const m = (p.codigo||"").match(/PR-(\d+)/);
+          return m ? parseInt(m[1]) : 0;
+        });
+        nextNum = Math.max(...nums) + 1;
+      }
+      const codigo = `PR-${String(nextNum).padStart(6,"0")}`;
+      const { data, error } = await supabase.from("proyectos").insert({ ...payload, codigo }).select().single();
+      if(error) { alert("Error al guardar: " + error.message); setSaving(false); return; }
       if(data) setProyectos(p => [data, ...p]);
     } else {
-      const { data } = await supabase.from("proyectos").update(payload).eq("id", modal.id).select().single();
+      const { data, error } = await supabase.from("proyectos").update(payload).eq("id", modal.id).select().single();
+      if(error) { alert("Error al guardar: " + error.message); setSaving(false); return; }
       if(data) setProyectos(p => p.map(x => x.id===data.id ? data : x));
     }
     setSaving(false);
