@@ -1262,7 +1262,7 @@ const mapProductToDb = (f) => ({
 });
 
 const mapQuote = (r) => ({
-  id: r.id, number: r.numero, date: r.fecha, contactId: r.contact_id,
+  id: r.id, number: r.numero, serie: r.serie||"COT", date: r.fecha, contactId: r.contact_id,
   clientName: r.nombre_cliente, clientRut: r.rut_cliente,
   clientCompany: r.razon_social, clientAddress: r.direccion,
   clientPhone: r.telefono, paymentMethod: r.forma_pago,
@@ -1271,7 +1271,7 @@ const mapQuote = (r) => ({
   type: r.tipo || "productos", total: r.total || 0,
 });
 const mapQuoteToDb = (f) => ({
-  numero: f.number, fecha: f.date,
+  numero: f.number, serie: f.serie||"COT", fecha: f.date,
   contact_id: f.contactId || null,
   nombre_cliente: f.clientName, rut_cliente: f.clientRut,
   razon_social: f.clientCompany, direccion: f.clientAddress,
@@ -1802,8 +1802,10 @@ function QuotesView({ contacts, isMobile }) {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("list");
   const [selectedQuote, setSelectedQuote] = useState(null);
-  const [nextNumber, setNextNumber] = useState(1);
+  const [nextCOT, setNextCOT] = useState(1);
+  const [nextSIN, setNextSIN] = useState(1);
   const [search, setSearch] = useState("");
+  const [filterSerie, setFilterSerie] = useState("todos");
   const [collapsed, setCollapsed] = useState({});
   const toggleQ = (id) => setCollapsed(p=>({...p,[id]:!p[id]}));
   const [subTab, setSubTab] = useState("cotizaciones");
@@ -1813,8 +1815,10 @@ function QuotesView({ contacts, isMobile }) {
     const { data } = await supabase.from("cotizaciones").select("*").order("numero", { ascending: false });
     const mapped = (data||[]).map(mapQuote);
     setQuotes(mapped);
-    const maxNum = mapped.length > 0 ? Math.max(...mapped.map(q=>q.number||0)) : 0;
-    setNextNumber(maxNum + 1);
+    const cotNums = mapped.filter(q=>(q.serie||"COT")==="COT").map(q=>q.number||0);
+    const sinNums = mapped.filter(q=>q.serie==="SIN").map(q=>q.number||0);
+    setNextCOT(cotNums.length > 0 ? Math.max(...cotNums)+1 : 1);
+    setNextSIN(sinNums.length > 0 ? Math.max(...sinNums)+1 : 1);
     setLoading(false);
   };
 
@@ -1856,8 +1860,8 @@ function QuotesView({ contacts, isMobile }) {
     setQuotes(quotes.filter(q=>q.id!==id));
   };
 
-  if (view==="new") return <QuoteEditor contacts={contacts} nextNumber={nextNumber} onSave={(q)=>{ setQuotes([q,...quotes]); setNextNumber(n=>n+1); setSelectedQuote(q); setView("list"); }} onCancel={()=>setView("list")} />;
-  if (view==="detail" && selectedQuote) return <QuoteEditor contacts={contacts} quote={selectedQuote} onSave={(q)=>{ setQuotes(quotes.map(x=>x.id===q.id?q:x)); setSelectedQuote(q); setView("list"); }} onCancel={()=>setView("list")} />;
+  if (view==="new") return <QuoteEditor contacts={contacts} nextCOT={nextCOT} nextSIN={nextSIN} onSave={(q)=>{ setQuotes([q,...quotes]); if((q.serie||"COT")==="COT") setNextCOT(n=>n+1); else setNextSIN(n=>n+1); setSelectedQuote(q); setView("list"); }} onCancel={()=>setView("list")} />;
+  if (view==="detail" && selectedQuote) return <QuoteEditor contacts={contacts} quote={selectedQuote} nextCOT={nextCOT} nextSIN={nextSIN} onSave={(q)=>{ setQuotes(quotes.map(x=>x.id===q.id?q:x)); setSelectedQuote(q); setView("list"); }} onCancel={()=>setView("list")} />;
   if (view==="pdf" && selectedQuote) return <QuotePDF quote={selectedQuote} onBack={()=>setView("list")} />;
 
   return (
@@ -1879,27 +1883,51 @@ function QuotesView({ contacts, isMobile }) {
               style={{ width:"100%", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 36px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
             {search && <button onClick={()=>setSearch("")} style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:14 }}>✕</button>}
           </div>
-          {search && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:4 }}>
-            {quotes.filter(q=>{const s=search.toLowerCase(); return String(q.number).includes(s)||(q.clientRut||"").toLowerCase().includes(s)||(q.clientName||"").toLowerCase().includes(s)||(q.clientCompany||"").toLowerCase().includes(s);}).length} resultado(s) para <span style={{color:COLORS.accent}}>"{search}"</span>
-          </div>}
+          {/* Filtro Serie */}
+          <div style={{ display:"flex", gap:8, marginBottom:4 }}>
+            {[
+              { k:"todos", label:"Todas", color:COLORS.textMuted },
+              { k:"COT",   label:`COT · Con IVA (${quotes.filter(q=>(q.serie||"COT")==="COT").length})`, color:"#06b6d4" },
+              { k:"SIN",   label:`SIN · Sin IVA (${quotes.filter(q=>q.serie==="SIN").length})`,          color:"#f59e0b" },
+            ].map(opt=>{
+              const active = filterSerie===opt.k;
+              return (
+                <button key={opt.k} onClick={()=>setFilterSerie(opt.k)}
+                  style={{ padding:"6px 14px", borderRadius:20, fontFamily:FONT, fontSize:11, fontWeight:active?700:400,
+                    background:active?opt.color+"22":"transparent",
+                    border:`1px solid ${active?opt.color:COLORS.border}`,
+                    color:active?opt.color:COLORS.textMuted, cursor:"pointer" }}>
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
           {quotes.length===0 && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>Sin cotizaciones aún.</div>}
           {quotes.filter(q=>{
-            if(!search) return true;
+            const matchSerie = filterSerie==="todos" || (q.serie||"COT")===filterSerie;
+            if(!search) return matchSerie;
             const s = search.toLowerCase();
-            return String(q.number).includes(s) ||
+            const matchSearch = String(q.number).includes(s) ||
+              (q.serie||"COT").toLowerCase().includes(s) ||
               (q.clientRut||"").toLowerCase().includes(s) ||
               (q.clientName||"").toLowerCase().includes(s) ||
               (q.clientCompany||"").toLowerCase().includes(s);
+            return matchSerie && matchSearch;
           }).map(q=>{
             const sc = STATUS_QUOTE[q.status]||STATUS_QUOTE.borrador;
             const isOpen = !!collapsed[q.id];
+            const serie = q.serie||"COT";
+            const serieColor = serie==="COT" ? "#06b6d4" : "#f59e0b";
+            const serieLabel = serie==="COT" ? "COT · Con IVA" : "SIN · Sin IVA";
+            const codigoDisplay = `${serie}-${String(q.number).padStart(3,"0")}`;
             return (
-              <div key={q.id} style={{ background:COLORS.card, border:`1px solid ${isOpen?COLORS.accent+"44":COLORS.border}`, borderRadius:10, overflow:"hidden", transition:"border-color 0.2s" }}>
+              <div key={q.id} style={{ background:COLORS.card, border:`1px solid ${isOpen?COLORS.accent+"44":COLORS.border}`, borderLeft:`3px solid ${serieColor}`, borderRadius:10, overflow:"hidden", transition:"border-color 0.2s" }}>
                 {/* ── Header siempre visible ── */}
                 <div onClick={()=>toggleQ(q.id)} style={{ padding:"14px 20px", cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center", gap:10 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:10, flex:1, minWidth:0, flexWrap:"wrap" }}>
                     <span style={{ fontFamily:FONT, fontSize:13, color:COLORS.accent, fontWeight:700, flexShrink:0, display:"inline-block", transform:isOpen?"rotate(90deg)":"rotate(0deg)", transition:"transform 0.2s" }}>▶</span>
-                    <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.accent, fontWeight:700, flexShrink:0 }}>N° {q.number}</div>
+                    <div style={{ fontFamily:FONT, fontSize:13, color:serieColor, fontWeight:700, flexShrink:0 }}>{codigoDisplay}</div>
+                    <div style={{ padding:"2px 8px", borderRadius:10, background:serieColor+"22", border:`1px solid ${serieColor}44`, fontFamily:FONT, fontSize:10, color:serieColor, flexShrink:0 }}>{serieLabel}</div>
                     <Badge color={sc.color}>{sc.label}</Badge>
                     <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, flexShrink:0 }}>{fmtDate(q.date)}</div>
                     <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
@@ -1909,7 +1937,7 @@ function QuotesView({ contacts, isMobile }) {
                   </div>
                   <div style={{ textAlign:"right", flexShrink:0 }}>
                     <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, color:COLORS.green, fontWeight:700 }}>{fmt(q.total)}</div>
-                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{q.hasIva?"IVA incluido":"Sin IVA"}</div>
+                    <div style={{ fontFamily:FONT, fontSize:10, color:serieColor, fontWeight:600 }}>{serie==="COT"?"Con factura":"Sin factura"}</div>
                   </div>
                 </div>
                 {/* ── Cuerpo expandible ── */}
@@ -2903,7 +2931,7 @@ function ContactSearchBox({ contacts, onSelect }) {
   );
 }
 
-function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
+function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
   const isEdit = !!quote;
   const TERMS_DEFAULT = "1- El trabajo se ejecuta posterior a la aceptación de la cotización y coordinación de fecha.\n2- No refiere stock ni fecha de instalación.\n3- Cotización válida por 15 días.";
 
@@ -2913,7 +2941,7 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
   };
 
   const [header, setHeader] = useState(isEdit ? {
-    number: quote.number, date: quote.date,
+    number: quote.number, serie: quote.serie||"COT", date: quote.date,
     contactId: quote.contactId||"", clientName: quote.clientName||"",
     clientRut: quote.clientRut||"", clientCompany: quote.clientCompany||"",
     clientAddress: quote.clientAddress||"", clientPhone: quote.clientPhone||"",
@@ -2922,7 +2950,7 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
     terms: quote.terms||TERMS_DEFAULT, status: quote.status||"borrador",
     type: quote.type||"productos",
   } : {
-    number: nextNumber, date: new Date().toISOString().slice(0,10),
+    number: nextCOT, serie:"COT", date: new Date().toISOString().slice(0,10),
     contactId:"", clientName:"", clientRut:"", clientCompany:"",
     clientAddress:"", clientPhone:"", paymentMethod:"Al finalizar",
     hasIva:true, ivaMode:"empresa", comments:"", terms:TERMS_DEFAULT, status:"borrador", type:"productos",
@@ -3038,7 +3066,12 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
         <div>
           <button onClick={onCancel} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12, marginBottom:4 }}>← Volver</button>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:COLORS.text }}>{isEdit?"Editar":"Nueva"} Cotización N° {header.number}</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:COLORS.text }}>
+            {isEdit?"Editar":"Nueva"} Cotización{" "}
+            <span style={{ color:(header.serie||"COT")==="COT"?"#06b6d4":"#f59e0b" }}>
+              {header.serie||"COT"}-{String(header.number||"").padStart(3,"0")}
+            </span>
+          </div>
         </div>
         <button onClick={save} disabled={saving} style={{ padding:"10px 24px", background:COLORS.accent, border:"none", borderRadius:7, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>
           {saving?"Guardando…":"💾 Guardar"}
@@ -3048,8 +3081,51 @@ function QuoteEditor({ contacts, nextNumber, quote, onSave, onCancel }) {
       {/* ENCABEZADO */}
       <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20, marginBottom:16 }}>
         <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Encabezado</div>
+
+        {/* Selector de Serie */}
+        {!isEdit && (
+          <div style={{ marginBottom:14 }}>
+            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>Serie de Cotización</div>
+            <div style={{ display:"flex", gap:10 }}>
+              {[
+                { k:"COT", label:"COT · Con IVA", sub:"Polygonos SPA · Factura", color:"#06b6d4", ivaMode:"empresa", hasIva:true,  num: nextCOT },
+                { k:"SIN", label:"SIN · Sin IVA",  sub:"Maximo Hudson · Sin factura", color:"#f59e0b", ivaMode:"personal", hasIva:false, num: nextSIN },
+              ].map(opt=>{
+                const active = header.serie===opt.k;
+                return (
+                  <button key={opt.k} onClick={()=>{
+                    hf("serie", opt.k);
+                    hf("number", opt.num);
+                    hf("ivaMode", opt.ivaMode);
+                    hf("hasIva", opt.hasIva);
+                  }}
+                    style={{ flex:1, padding:"12px 16px", borderRadius:8, cursor:"pointer", textAlign:"left",
+                      background:active?opt.color+"22":"transparent",
+                      border:`2px solid ${active?opt.color:COLORS.border}` }}>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:active?opt.color:COLORS.text }}>{opt.label}</div>
+                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:2 }}>{opt.sub}</div>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:opt.color, marginTop:4, fontWeight:600 }}>Próximo: {opt.k}-{String(opt.num).padStart(3,"0")}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px,1fr))", gap:12 }}>
-          <Input label="N° Cotización" value={header.number} onChange={e=>hf("number",e.target.value)} type="number" />
+          <div>
+            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>N° Cotización</div>
+            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+              <div style={{ padding:"8px 10px", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6,
+                fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700,
+                color: (header.serie||"COT")==="COT"?"#06b6d4":"#f59e0b" }}>
+                {header.serie||"COT"}-{String(header.number||"").padStart(3,"0")}
+              </div>
+              <input type="number" value={header.number} onChange={e=>hf("number",e.target.value)}
+                style={{ width:70, background:COLORS.bg, border:`1px solid ${COLORS.border}44`, borderRadius:6,
+                  padding:"8px 10px", fontFamily:FONT, fontSize:12, color:COLORS.textMuted, outline:"none" }} />
+            </div>
+          </div>
           <Input label="Fecha" value={header.date} onChange={e=>hf("date",e.target.value)} type="date" />
           <Select label="Tipo" value={header.type} onChange={e=>hf("type",e.target.value)}>
             <option value="productos">Productos y Servicios</option>
@@ -3310,7 +3386,7 @@ function QuotePDF({ quote, onBack }) {
           const prev = document.title;
           const cliente = quote.clientCompany||quote.clientName||"Cliente";
           const hoy = new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"-");
-          document.title = `COT-${String(quote.number).padStart(3,"0")} ${cliente} ${hoy}`;
+          document.title = `${quote.serie||"COT"}-${String(quote.number).padStart(3,"0")} ${cliente} ${hoy}`;
           window.print();
           setTimeout(()=>{ document.title = prev; }, 2000);
         }} style={{ padding:"8px 18px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>🖨️ Imprimir / PDF</button>
@@ -3341,7 +3417,9 @@ function QuotePDF({ quote, onBack }) {
             )}
             <div className="quote-box" style={{ border:"2px solid #cc0000", textAlign:"center", minWidth:160, padding:"10px 20px" }}>
               <div className="quote-number-label" style={{ fontSize:11, fontWeight:700, letterSpacing:"0.05em", color:"#cc0000", marginBottom:4 }}>N° Cotización:</div>
-              <div className="quote-number" style={{ fontSize:36, fontWeight:700, color:"#cc0000", lineHeight:1.1 }}>{quote.number}</div>
+              <div className="quote-number" style={{ fontSize:30, fontWeight:700, color:"#cc0000", lineHeight:1.1 }}>
+                {quote.serie||"COT"}-{String(quote.number).padStart(3,"0")}
+              </div>
             </div>
             <div style={{ fontSize:11, color:"#555", marginTop:8 }}>Fecha de Cotización: {fmtDate(quote.date)}</div>
           </div>
