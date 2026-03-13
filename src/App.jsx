@@ -3506,9 +3506,9 @@ function PrestacionesView({ isMobile }) {
       setPfQuotes(cotSerie.map(q=>({...q,lines:(byQ[q.id]||[]).filter(l=>l.lineType!=="hito")})));
     } else { setQuotes([]); setPfQuotes([]); }
 
-    // Separar pedidos por tipo (campo "tipo": "cp" | "pf")
+    // Separar pedidos por tipo (campo "tipo": "cp" | "pf"). Default "cp" si null.
     const allPedidos = pedidosData||[];
-    setPedidos(allPedidos.filter(p=>p.tipo!=="pf"));
+    setPedidos(allPedidos.filter(p=>(p.tipo||"cp")==="cp"));
     setPfPedidos(allPedidos.filter(p=>p.tipo==="pf"));
     setLoading(false);
   };
