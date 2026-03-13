@@ -1832,14 +1832,15 @@ function QuotesView({ contacts, isMobile }) {
   const updateStatus = async (id, status) => {
     await supabase.from("cotizaciones").update({ estado: status }).eq("id", id);
     setQuotes(quotes.map(q=>q.id===id?{...q,status}:q));
-    // Auto-push to pipeline when quote is sent
+    // Auto-push to pipeline SOLO cotizaciones COT (con factura)
     if(status==="enviada"){
       const q = quotes.find(x=>x.id===id);
-      if(q){
+      if(q && (q.serie||"COT")==="COT"){
+        const codigo = `COT-${String(q.number).padStart(3,"0")}`;
         const { data:existing } = await supabase.from("deals").select("id").eq("quote_id",id).limit(1);
         if(!existing||existing.length===0){
           await supabase.from("deals").insert({
-            titulo: `COT °${q.number} – ${q.clientCompany||q.clientName||"Cliente"}`,
+            titulo: `${codigo} – ${q.clientCompany||q.clientName||"Cliente"}`,
             empresa: q.clientCompany||q.clientName||"",
             rut_empresa: q.clientRut||"",
             contact_id: q.contactId||null,
@@ -1849,10 +1850,51 @@ function QuotesView({ contacts, isMobile }) {
             quote_id: id,
           });
         } else {
-          await supabase.from("deals").update({ etapa:"propuesta" }).eq("id", existing[0].id);
+          await supabase.from("deals").update({
+            etapa:"propuesta",
+            titulo:`${codigo} – ${q.clientCompany||q.clientName||"Cliente"}`,
+            valor: q.total||0,
+          }).eq("id", existing[0].id);
         }
       }
     }
+  };
+
+  // Convierte COT → SIN y empuja directo a Pipeline → Por Facturar
+  const convertirASIN = async (q) => {
+    const codigoActual = `${q.serie||"COT"}-${String(q.number).padStart(3,"0")}`;
+    if(!window.confirm(`¿Convertir ${codigoActual} a serie SIN (sin factura) y mover al Pipeline → Por Facturar?`)) return;
+    const newNum = nextSIN;
+    await supabase.from("cotizaciones").update({
+      serie: "SIN", numero: newNum,
+      aplica_iva: false, iva_modo: "personal", estado: "aprobada",
+    }).eq("id", q.id);
+    setNextSIN(n=>n+1);
+    setQuotes(prev=>prev.map(x=>x.id===q.id
+      ? { ...x, serie:"SIN", number:newNum, hasIva:false, ivaMode:"personal", status:"aprobada" }
+      : x
+    ));
+    const codigo = `SIN-${String(newNum).padStart(3,"0")}`;
+    const { data:existing } = await supabase.from("deals").select("id").eq("quote_id", q.id).limit(1);
+    if(!existing||existing.length===0){
+      await supabase.from("deals").insert({
+        titulo: `${codigo} – ${q.clientCompany||q.clientName||"Cliente"}`,
+        empresa: q.clientCompany||q.clientName||"",
+        rut_empresa: q.clientRut||"",
+        contact_id: q.contactId||null,
+        valor: q.total||0,
+        etapa: "por_facturar",
+        probabilidad: 100,
+        quote_id: q.id,
+      });
+    } else {
+      await supabase.from("deals").update({
+        etapa:"por_facturar",
+        titulo:`${codigo} – ${q.clientCompany||q.clientName||"Cliente"}`,
+        probabilidad:100,
+      }).eq("id", existing[0].id);
+    }
+    alert(`✅ Convertido a ${codigo} → Pipeline: Por Facturar`);
   };
 
   const del = async (id) => {
@@ -3061,6 +3103,21 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
     onSave({ ...mapQuote(savedQuote), lines });
   };
 
+  const [asignandoSIN, setAsignandoSIN] = useState(false);
+
+  const asignarSerie = async () => {
+    if(!window.confirm(`¿Asignar número SIN-${String(nextSIN).padStart(3,"0")} a esta cotización?`)) return;
+    setAsignandoSIN(true);
+    await supabase.from("cotizaciones").update({
+      serie: "SIN",
+      numero: nextSIN,
+    }).eq("id", quote.id);
+    hf("serie", "SIN");
+    hf("number", nextSIN);
+    setAsignandoSIN(false);
+    alert(`✅ Asignado SIN-${String(nextSIN).padStart(3,"0")}`);
+  };
+
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
@@ -3073,9 +3130,19 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
             </span>
           </div>
         </div>
-        <button onClick={save} disabled={saving} style={{ padding:"10px 24px", background:COLORS.accent, border:"none", borderRadius:7, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>
-          {saving?"Guardando…":"💾 Guardar"}
-        </button>
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          {/* Botón asignar SIN: aparece en edición de cotizaciones sin IVA que aún no tienen serie SIN */}
+          {isEdit && !header.hasIva && (header.serie||"COT")!=="SIN" && (
+            <button onClick={asignarSerie} disabled={asignandoSIN}
+              style={{ padding:"10px 18px", background:"#f59e0b22", border:"1px solid #f59e0b88",
+                borderRadius:7, color:"#f59e0b", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>
+              {asignandoSIN ? "Asignando…" : `📋 Asignar SIN-${String(nextSIN).padStart(3,"0")}`}
+            </button>
+          )}
+          <button onClick={save} disabled={saving} style={{ padding:"10px 24px", background:COLORS.accent, border:"none", borderRadius:7, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+            {saving?"Guardando…":"💾 Guardar"}
+          </button>
+        </div>
       </div>
 
       {/* ENCABEZADO */}
