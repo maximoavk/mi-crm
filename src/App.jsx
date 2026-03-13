@@ -2990,7 +2990,10 @@ function printResumenPedido({ ped, cotCompensated, pedidoTotal, pedidoPagado, pe
   </style></head><body>
 
   <div class="header">
-    <div><div class="logo">Polygonos <span>360</span></div><div style="font-size:8.5px;color:#888;margin-top:2px;">Polygonos SpA · RUT 77.180.437-3</div></div>
+    <div>
+      <div class="logo">Polygonos <span>360</span></div>
+      <div style="font-size:8.5px;color:#888;margin-top:2px;">${isPF?"Polygonos SpA · RUT 77.180.437-3":"Máximo Hudson · Especialista en Seguridad Electrónica"}</div>
+    </div>
     <div class="doc-title">
       <div class="tipo">Resumen de ${isPF?"Pre-Factura":"Pedido"}</div>
       <div class="nombre">${ped.nombre}</div>
@@ -3055,7 +3058,7 @@ function printResumenPedido({ ped, cotCompensated, pedidoTotal, pedidoPagado, pe
 
   ${ped.notas?`<div style="margin-bottom:5mm;padding:6px 10px;border-left:3px solid #ddd;font-size:9.5px;color:#555"><strong style="font-size:8px;text-transform:uppercase;letter-spacing:.07em;color:#888;display:block;margin-bottom:2px;">Notas</strong>${ped.notas}</div>`:""}
 
-  <div class="foot">Polygonos SpA · RUT 77.180.437-3 · Documento interno de gestión · Generado el ${fechaHoy} · ${ped.nombre}</div>
+  <div class="foot">${isPF?"Polygonos SpA · RUT 77.180.437-3 · Documento interno de gestión":"Máximo Hudson · Especialista en Seguridad Electrónica · Polygonos 360"} · Generado el ${fechaHoy} · ${ped.nombre}</div>
   <script>window.onload=()=>window.print();</script>
   </body></html>`;
 
