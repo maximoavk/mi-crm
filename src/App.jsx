@@ -2647,55 +2647,99 @@ function DocGrid({ docs, quotes, tab, setEditDoc, setShowModal, deleteDoc }) {
     </div>
   );
 
-  // ── CP render: original group-by-quote ────────────────────────────────────
+  // ── CP render: PEDIDO container → COTs → CPs ─────────────────────────────
+  // Group quotes by client to form "Pedidos"
+  const pedidos = !isPF ? (() => {
+    // Each quote is its own pedido (can be extended later to group by client)
+    return grouped.map(({ quote:q, docs:qDocs, cotTotal, totalPagado, saldo, pct }) => ({
+      id: q.id,
+      clientName: q.clientCompany||q.clientName||"—",
+      clientRut:  q.clientRut||"",
+      cots: [{ quote:q, docs:qDocs, cotTotal, totalPagado, saldo, pct }],
+      pedidoTotal: cotTotal,
+      pedidoPagado: totalPagado,
+      pedidoSaldo: saldo,
+      pedidoPct: pct,
+    }));
+  })() : [];
+
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-      {grouped.map(({ quote:q, docs:qDocs, cotTotal, totalPagado, saldo, pct }) => {
-        const isOpen = !!collapsed[q.id];
-        const R=52,r=34,cx=60,cy=60,circum=2*Math.PI*r;
-        const pagadoPct=cotTotal>0?Math.min(totalPagado/cotTotal,1):0;
-        const dashPagado=pagadoPct*circum; const dashSaldo=(1-pagadoPct)*circum;
+      {pedidos.map(pedido => {
+        const isOpen = !!collapsed[pedido.id];
+        const { clientName, clientRut, cots, pedidoTotal, pedidoPagado, pedidoSaldo, pedidoPct } = pedido;
+        const R=52, r=34, cx=60, cy=60, circum=2*Math.PI*r;
+        const pagadoPct = pedidoTotal>0 ? Math.min(pedidoPagado/pedidoTotal,1) : 0;
+        const dashPagado = pagadoPct*circum;
+        const dashSaldo  = (1-pagadoPct)*circum;
+        const isPaid = pedidoSaldo <= 0;
+
         return (
-          <div key={q.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:14, overflow:"hidden" }}>
-            <div onClick={()=>toggleCollapse(q.id)}
-              style={{ padding:"12px 18px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", userSelect:"none" }}>
-              <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, flexShrink:0, transition:"transform 0.2s", display:"inline-block", transform:isOpen?"rotate(90deg)":"rotate(0deg)" }}>▶</span>
-              <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:AC, flexShrink:0 }}>COT °{q.number}</span>
-              <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{q.clientCompany||q.clientName}</span>
-              <Badge color={saldo<=0?COLORS.green:COLORS.yellow}>{saldo<=0?"Pagado":"Pendiente"}</Badge>
-              <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0, width:120 }}>
-                <MiniBar pct={pct} color={saldo<=0?COLORS.green:`linear-gradient(90deg,${AC},${COLORS.green})`} h={5} />
-                <span style={{ fontFamily:FONT, fontSize:10, color:saldo<=0?COLORS.green:AC, flexShrink:0, minWidth:32, textAlign:"right" }}>{pct.toFixed(0)}%</span>
+          <div key={pedido.id} style={{ background:COLORS.card, border:`1px solid ${isPaid?COLORS.green+"55":COLORS.border}`, borderRadius:14, overflow:"hidden" }}>
+            {/* ── Pedido header ── */}
+            <div onClick={()=>toggleCollapse(pedido.id)}
+              style={{ padding:"13px 18px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", userSelect:"none",
+                borderLeft:`3px solid ${isPaid?COLORS.green:AC}` }}>
+              <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, flexShrink:0, transition:"transform 0.2s", display:"inline-block", transform:isOpen?"rotate(90deg)":"rotate(0deg)" }}>▶</span>
+              {/* Pedido label */}
+              <div style={{ flexShrink:0 }}>
+                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase" }}>Pedido</div>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:AC }}>
+                  {cots.map(c=>`SIN-${String(c.quote.number).padStart(3,"0")}`).join(" + ")}
+                </div>
               </div>
+              <div style={{ flex:1, overflow:"hidden" }}>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{clientName}</div>
+                {clientRut && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{clientRut}</div>}
+              </div>
+              <Badge color={isPaid?COLORS.green:COLORS.yellow}>{isPaid?"Pagado":"Pendiente"}</Badge>
+              {/* Mini barra */}
+              <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0, width:110 }}>
+                <MiniBar pct={pedidoPct} color={isPaid?COLORS.green:`linear-gradient(90deg,${AC},${COLORS.green})`} h={5} />
+                <span style={{ fontFamily:FONT, fontSize:10, color:isPaid?COLORS.green:AC, flexShrink:0, minWidth:30, textAlign:"right" }}>{pedidoPct.toFixed(0)}%</span>
+              </div>
+              {/* Total */}
               <div style={{ textAlign:"right", flexShrink:0 }}>
-                <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:saldo<=0?COLORS.green:COLORS.text }}>{fmt(totalPagado)}</div>
-                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>de {fmt(cotTotal)}</div>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:isPaid?COLORS.green:COLORS.text }}>{fmt(pedidoPagado)}</div>
+                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>de {fmt(pedidoTotal)}</div>
               </div>
-              <div style={{ background:`${AC}22`, border:`1px solid ${AC}33`, borderRadius:20, padding:"2px 9px", fontFamily:FONT, fontSize:10, color:AC, flexShrink:0 }}>
-                {qDocs.length} CP
+              {/* CPs badge */}
+              <div style={{ background:`${AC}22`, border:`1px solid ${AC}33`, borderRadius:20, padding:"2px 10px", fontFamily:FONT, fontSize:10, color:AC, flexShrink:0 }}>
+                {cots.reduce((s,c)=>s+c.docs.length,0)} CP
               </div>
             </div>
+
+            {/* ── Pedido expanded ── */}
             {isOpen && (
-              <div style={{ borderTop:`1px solid ${COLORS.border}`, padding:"10px 14px 14px", overflowX:"auto" }}>
-                <div style={{ display:"flex", gap:10, minWidth:"max-content", alignItems:"flex-start" }}>
-                  {/* Dona CP */}
-                  <div style={{ flexShrink:0, width:130, display:"flex", flexDirection:"column", alignItems:"center", gap:6, paddingTop:4 }}>
+              <div style={{ borderTop:`1px solid ${COLORS.border}22`, padding:"14px 18px 18px", background:COLORS.surface+"44" }}>
+                <div style={{ display:"flex", gap:16, alignItems:"flex-start", flexWrap:"wrap" }}>
+
+                  {/* Dona del Pedido */}
+                  <div style={{ flexShrink:0, width:130, display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
                     <svg width={120} height={120} viewBox="0 0 120 120">
                       <circle cx={cx} cy={cy} r={r} fill="none" stroke={COLORS.border} strokeWidth={R-r} />
-                      {(1-pagadoPct)>0&&<circle cx={cx} cy={cy} r={r} fill="none" stroke="url(#dSaldo2)" strokeWidth={R-r} strokeDasharray={`${dashSaldo} ${circum-dashSaldo}`} strokeDashoffset={-(pagadoPct*circum)} strokeLinecap="butt" transform={`rotate(-90 ${cx} ${cy})`}/>}
-                      {pagadoPct>0&&<circle cx={cx} cy={cy} r={r} fill="none" stroke="url(#dPagado2)" strokeWidth={R-r} strokeDasharray={`${dashPagado} ${circum-dashPagado}`} strokeDashoffset={0} strokeLinecap="butt" transform={`rotate(-90 ${cx} ${cy})`}/>}
+                      {(1-pagadoPct)>0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke="url(#cpSaldo)" strokeWidth={R-r}
+                        strokeDasharray={`${dashSaldo} ${circum-dashSaldo}`} strokeDashoffset={-(pagadoPct*circum)}
+                        strokeLinecap="butt" transform={`rotate(-90 ${cx} ${cy})`} />}
+                      {pagadoPct>0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke="url(#cpPagado)" strokeWidth={R-r}
+                        strokeDasharray={`${dashPagado} ${circum-dashPagado}`} strokeDashoffset={0}
+                        strokeLinecap="butt" transform={`rotate(-90 ${cx} ${cy})`} />}
                       <defs>
-                        <linearGradient id="dPagado2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor={AC}/><stop offset="100%" stopColor={COLORS.green}/></linearGradient>
-                        <linearGradient id="dSaldo2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor={COLORS.yellow}/><stop offset="100%" stopColor={COLORS.red}/></linearGradient>
+                        <linearGradient id="cpPagado" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor={AC}/><stop offset="100%" stopColor={COLORS.green}/>
+                        </linearGradient>
+                        <linearGradient id="cpSaldo" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor={COLORS.yellow}/><stop offset="100%" stopColor={COLORS.red}/>
+                        </linearGradient>
                       </defs>
                       <text x={cx} y={cy-6} textAnchor="middle" fill={COLORS.text} fontSize="14" fontWeight="700" fontFamily="Space Grotesk,sans-serif">{(pagadoPct*100).toFixed(0)}%</text>
                       <text x={cx} y={cy+10} textAnchor="middle" fill={COLORS.textMuted} fontSize="8" fontFamily="DM Mono,monospace">PAGADO</text>
                     </svg>
                     <div style={{ display:"flex", flexDirection:"column", gap:3, width:"100%" }}>
                       {[
-                        {label:"Pagado",val:totalPagado,color:COLORS.green,grad:`linear-gradient(135deg,${AC},${COLORS.green})`},
-                        {label:"Saldo",val:saldo,color:COLORS.yellow,grad:`linear-gradient(135deg,${COLORS.yellow},${COLORS.red})`},
-                        {label:"Total COT",val:cotTotal,color:COLORS.text,grad:COLORS.border},
+                        {label:"Pagado", val:pedidoPagado, color:COLORS.green, grad:`linear-gradient(135deg,${AC},${COLORS.green})`},
+                        {label:"Saldo",  val:pedidoSaldo,  color:COLORS.yellow, grad:`linear-gradient(135deg,${COLORS.yellow},${COLORS.red})`},
+                        {label:"Total",  val:pedidoTotal,  color:COLORS.text,   grad:COLORS.border},
                       ].map(({label,val,color,grad})=>(
                         <div key={label} style={{ display:"flex", alignItems:"center", gap:5 }}>
                           <div style={{ width:8,height:8,borderRadius:99,background:grad,flexShrink:0 }}/>
@@ -2705,44 +2749,110 @@ function DocGrid({ docs, quotes, tab, setEditDoc, setShowModal, deleteDoc }) {
                       ))}
                     </div>
                   </div>
-                  {/* Sub-tarjetas CP */}
-                  {qDocs.map(doc=>{
-                    const txs=doc.transacciones||[];
-                    const docPct=cotTotal>0?Math.min((Number(doc.monto_pagado||0)/cotTotal)*100,100):0;
-                    const saldoDoc=Math.max(0,cotTotal-Number(doc.monto_pagado||0));
-                    const saldoPct=cotTotal>0?Math.min((saldoDoc/cotTotal)*100,100):0;
-                    return (
-                      <div key={doc.id} style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"12px 14px", width:230, flexShrink:0 }}>
-                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:4 }}>
-                          <div>
-                            <div style={{ fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,color:AC }}>{doc.numero}</div>
-                            <div style={{ fontFamily:FONT,fontSize:9,color:COLORS.textMuted }}>{fmtDate(doc.fecha_pago)} · {doc.responsable||""}</div>
-                          </div>
-                          <div style={{ fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,color:COLORS.green }}>{fmt(doc.monto_pagado||0)}</div>
-                        </div>
-                        {txs.length>0&&<div style={{ marginBottom:8 }}>{txs.slice(0,3).map((t,i)=>(
-                          <div key={i} style={{ fontFamily:FONT,fontSize:9,color:COLORS.textMuted,marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>🏦 {t.codigo?t.codigo.slice(0,14)+"…":"—"} · {fmt(Number(t.monto||0))}</div>
-                        ))}{txs.length>3&&<div style={{ fontFamily:FONT,fontSize:8,color:COLORS.textMuted }}>+{txs.length-3} más…</div>}</div>}
-                        <div style={{ marginBottom:8 }}>
-                          {[{label:"Pago/COT",pct:docPct,color:`linear-gradient(90deg,${AC},${COLORS.green})`},{label:"Saldo",pct:saldoPct,color:`linear-gradient(90deg,${COLORS.yellow},${COLORS.red})`}].map(({label,pct:p,color})=>(
-                            <div key={label} style={{ display:"flex",alignItems:"center",gap:5,marginBottom:3 }}>
-                              <span style={{ fontFamily:FONT,fontSize:8,color:COLORS.textMuted,width:50,flexShrink:0 }}>{label}</span>
-                              <MiniBar pct={p} color={color}/>
-                              <span style={{ fontFamily:FONT,fontSize:8,color:AC,flexShrink:0,minWidth:28,textAlign:"right" }}>{p.toFixed(0)}%</span>
+
+                  {/* COTs + CPs */}
+                  <div style={{ flex:1, display:"flex", flexDirection:"column", gap:10 }}>
+                    {cots.map(({ quote:q, docs:qDocs, cotTotal:qTotal, totalPagado:qPagado }) => {
+                      const cotKey = `cot-${q.id}`;
+                      const isCotOpen = !!collapsed[cotKey];
+                      const qSaldo = qTotal - qPagado;
+                      const qPct   = qTotal>0 ? Math.min((qPagado/qTotal)*100,100) : 0;
+                      const qPaid  = qSaldo <= 0;
+                      return (
+                        <div key={q.id} style={{ background:COLORS.card, border:`1px solid ${qPaid?COLORS.green+"33":COLORS.border}`, borderRadius:10, overflow:"hidden" }}>
+                          {/* COT header */}
+                          <div onClick={()=>toggleCollapse(cotKey)}
+                            style={{ padding:"9px 14px", display:"flex", alignItems:"center", gap:10, cursor:"pointer", userSelect:"none",
+                              borderLeft:`3px solid ${qPaid?COLORS.green:COLORS.accent+"88"}` }}>
+                            <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, flexShrink:0, display:"inline-block", transition:"transform 0.2s", transform:isCotOpen?"rotate(90deg)":"rotate(0deg)" }}>▶</span>
+                            <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:AC }}>
+                              SIN-{String(q.number).padStart(3,"0")}
+                            </span>
+                            <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                              {q.clientCompany||q.clientName}
+                            </span>
+                            <Badge color={qPaid?COLORS.green:COLORS.yellow} size="sm">{qPaid?"Pagado":"Pendiente"}</Badge>
+                            <div style={{ display:"flex", alignItems:"center", gap:5, width:90, flexShrink:0 }}>
+                              <MiniBar pct={qPct} color={qPaid?COLORS.green:`linear-gradient(90deg,${AC},${COLORS.green})`} h={4}/>
+                              <span style={{ fontFamily:FONT, fontSize:9, color:qPaid?COLORS.green:AC, minWidth:26, textAlign:"right" }}>{qPct.toFixed(0)}%</span>
                             </div>
-                          ))}
+                            <div style={{ textAlign:"right", flexShrink:0 }}>
+                              <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:qPaid?COLORS.green:COLORS.text }}>{fmt(qPagado)}</div>
+                              <div style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted }}>de {fmt(qTotal)}</div>
+                            </div>
+                            <div style={{ background:`${AC}22`, border:`1px solid ${AC}33`, borderRadius:20, padding:"1px 8px", fontFamily:FONT, fontSize:9, color:AC, flexShrink:0 }}>
+                              {qDocs.length} CP
+                            </div>
+                          </div>
+
+                          {/* CPs dentro de la COT */}
+                          {isCotOpen && (
+                            <div style={{ borderTop:`1px solid ${COLORS.border}22`, padding:"10px 12px", background:COLORS.surface+"66" }}>
+                              <div style={{ display:"flex", gap:10, flexWrap:"wrap", alignItems:"flex-start" }}>
+                                {qDocs.map(doc => {
+                                  const txs = doc.transacciones||[];
+                                  const docPct = qTotal>0 ? Math.min((Number(doc.monto_pagado||0)/qTotal)*100,100) : 0;
+                                  const saldoDocPct = qTotal>0 ? Math.min((Math.max(0,qTotal-Number(doc.monto_pagado||0))/qTotal)*100,100) : 0;
+                                  return (
+                                    <div key={doc.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:9, padding:"11px 13px", width:220, flexShrink:0 }}>
+                                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:6 }}>
+                                        <div>
+                                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:AC }}>{doc.numero}</div>
+                                          <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>{fmtDate(doc.fecha_pago)} · {doc.responsable||""}</div>
+                                        </div>
+                                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.green }}>{fmt(doc.monto_pagado||0)}</div>
+                                      </div>
+                                      {txs.length>0 && (
+                                        <div style={{ marginBottom:8 }}>
+                                          {txs.slice(0,3).map((t,i)=>(
+                                            <div key={i} style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginBottom:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                                              🏦 {t.codigo?t.codigo.slice(0,14)+"…":"—"} · {fmt(Number(t.monto||0))}
+                                            </div>
+                                          ))}
+                                          {txs.length>3 && <div style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted }}>+{txs.length-3} más…</div>}
+                                        </div>
+                                      )}
+                                      <div style={{ marginBottom:8 }}>
+                                        {[
+                                          {label:"Pago/COT", pct:docPct,    color:`linear-gradient(90deg,${AC},${COLORS.green})`},
+                                          {label:"Saldo",    pct:saldoDocPct,color:`linear-gradient(90deg,${COLORS.yellow},${COLORS.red})`},
+                                        ].map(({label,pct:p,color})=>(
+                                          <div key={label} style={{ display:"flex", alignItems:"center", gap:5, marginBottom:3 }}>
+                                            <span style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted, width:50, flexShrink:0 }}>{label}</span>
+                                            <MiniBar pct={p} color={color}/>
+                                            <span style={{ fontFamily:FONT, fontSize:8, color:AC, flexShrink:0, minWidth:28, textAlign:"right" }}>{p.toFixed(0)}%</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <div style={{ display:"flex", gap:5, borderTop:`1px solid ${COLORS.border}`, paddingTop:8 }}>
+                                        <button onClick={()=>{ setEditDoc(doc); setShowModal(true); }}
+                                          style={{ flex:1, padding:"4px 0", borderRadius:5, fontFamily:FONT, fontSize:9, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.secondary}44`, color:COLORS.secondary }}>
+                                          ✏️ Editar
+                                        </button>
+                                        <button onClick={()=>{ setEditDoc({...doc,_reprint:true}); setShowModal(true); }}
+                                          style={{ flex:1, padding:"4px 0", borderRadius:5, fontFamily:FONT, fontSize:9, cursor:"pointer", background:"transparent", border:`1px solid ${AC}44`, color:AC }}>
+                                          🖨 PDF
+                                        </button>
+                                        <button onClick={()=>deleteDoc(doc.id)}
+                                          style={{ padding:"4px 7px", borderRadius:5, fontFamily:FONT, fontSize:10, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red }}>
+                                          ✕
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                                {/* Añadir CP */}
+                                <div onClick={()=>{ setEditDoc(null); setShowModal(true); }}
+                                  style={{ width:100, flexShrink:0, border:`2px dashed ${COLORS.border}`, borderRadius:9, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:12, color:COLORS.textMuted, gap:5 }}>
+                                  <span style={{ fontSize:20 }}>+</span>
+                                  <span style={{ fontFamily:FONT, fontSize:9, textAlign:"center", lineHeight:1.4 }}>Nuevo comprobante</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <div style={{ display:"flex",gap:5,borderTop:`1px solid ${COLORS.border}`,paddingTop:8 }}>
-                          <button onClick={()=>{ setEditDoc(doc); setShowModal(true); }} style={{ flex:1,padding:"4px 0",borderRadius:5,fontFamily:FONT,fontSize:9,cursor:"pointer",background:"transparent",border:`1px solid ${COLORS.secondary}44`,color:COLORS.secondary }}>✏️ Editar</button>
-                          <button onClick={()=>{ setEditDoc({...doc,_reprint:true}); setShowModal(true); }} style={{ flex:1,padding:"4px 0",borderRadius:5,fontFamily:FONT,fontSize:9,cursor:"pointer",background:"transparent",border:`1px solid ${AC}44`,color:AC }}>🖨 PDF</button>
-                          <button onClick={()=>deleteDoc(doc.id)} style={{ padding:"4px 7px",borderRadius:5,fontFamily:FONT,fontSize:10,cursor:"pointer",background:"transparent",border:`1px solid ${COLORS.red}44`,color:COLORS.red }}>✕</button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <div onClick={()=>{ setEditDoc(null); setShowModal(true); }} style={{ width:110,flexShrink:0,border:`2px dashed ${COLORS.border}`,borderRadius:10,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",padding:14,color:COLORS.textMuted,gap:6 }}>
-                    <span style={{ fontSize:22 }}>+</span>
-                    <span style={{ fontFamily:FONT,fontSize:9,textAlign:"center",lineHeight:1.4 }}>Nuevo comprobante</span>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -2750,6 +2860,7 @@ function DocGrid({ docs, quotes, tab, setEditDoc, setShowModal, deleteDoc }) {
           </div>
         );
       })}
+
       {orphanDocs.length>0 && (
         <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:14, padding:"12px 18px" }}>
           <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>Sin cotización asociada</div>
@@ -2830,10 +2941,10 @@ function PrestacionesView({ isMobile }) {
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:20, flexWrap:"wrap", gap:10 }}>
         <div>
           <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>
-            {isCP ? "Sin IVA · Prestación de Servicios" : "Con IVA · No válido como documento legal"}
+            {isCP ? "Sin IVA · Comprobantes de Pago" : "Con IVA · No válido como documento legal"}
           </div>
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>
-            {isCP ? "Prestaciones de Servicios" : "Pre-Facturas"}
+            {isCP ? "Pedidos · Comprobantes de Pago" : "Pre-Facturas"}
           </div>
         </div>
         <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
@@ -6716,7 +6827,7 @@ const NAV_GROUPS = [
   {
     key: "comercial", label: "Comercial", Icon: FileText, children: [
       { key:"quotes",        label:"Cotizar",      Icon: FileText },
-      { key:"prestaciones",  label:"Prestaciones", Icon: Receipt  },
+      { key:"prestaciones",  label:"Pedidos", Icon: Receipt  },
       { key:"analisis",      label:"Análisis",     Icon: Scale    },
     ],
   },
