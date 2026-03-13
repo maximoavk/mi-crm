@@ -4185,12 +4185,25 @@ function TotBox({ label, value, color, sub }) {
 function ItemRow({ item, onChange, onDelete, productos }) {
   const [busqueda, setBusqueda] = useState("");
   const [showCat, setShowCat] = useState(false);
+  const [pVentaInput, setPVentaInput] = useState(""); // input manual precio venta bruto
   const calc = calcItem(item);
   const inp = (k,v) => onChange({ ...item, [k]:v });
   const esMO = item.tipo==="Mano de Obra / HH";
   const esEquipoMat = item.tipo==="Equipos" || item.tipo==="Materiales";
   const style = { background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"4px 6px", width:"100%" };
   const fmt = v => v>0 ? "$"+Math.round(v).toLocaleString("es-CL") : "-";
+
+  // Cuando el usuario escribe precio venta bruto → calcula margen automático
+  const aplicarPVenta = (raw) => {
+    const pVentaBruto = Number(raw.replace(/\./g,"").replace(",","."));
+    if(!pVentaBruto || !calc.costoNeto) return;
+    const pVentaNeto = item.aplicaIVA !== false ? pVentaBruto / IVA : pVentaBruto;
+    const nuevoMargen = calc.costoNeto > 0 ? Math.round((pVentaNeto - calc.costoNeto) / calc.costoNeto * 100) : 0;
+    onChange({ ...item, margen: nuevoMargen });
+    setPVentaInput("");
+  };
+
+  const margenActual = calc.costoNeto > 0 ? Math.round(calc.margenTotal / calc.costoNeto * 100) : 0;
 
   const resultados = busqueda.length >= 2
     ? (productos||[]).filter(p => {
@@ -4288,7 +4301,26 @@ function ItemRow({ item, onChange, onDelete, productos }) {
         <td /><td />
       </>)}
 
-      {/* Margen % */}
+      {/* P.VENTA / MRG — input precio venta, muestra margen automático */}
+      <td style={{ padding:"6px 4px", width:110 }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
+          <input
+            style={{...style, color:"#a855f7", fontWeight:600, textAlign:"right"}}
+            type="text"
+            value={pVentaInput}
+            onChange={e=>setPVentaInput(e.target.value)}
+            onBlur={e=>{ if(e.target.value) aplicarPVenta(e.target.value); }}
+            onKeyDown={e=>{ if(e.key==="Enter" && pVentaInput) aplicarPVenta(pVentaInput); }}
+            placeholder={fmt(calc.ventaBruta)}
+          />
+          <div style={{ textAlign:"center", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:4, padding:"1px 4px" }}>
+            <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.green, fontWeight:700 }}>
+              +{margenActual}% margen
+            </span>
+          </div>
+        </div>
+      </td>
+      {/* Margen % editable */}
       <td style={{ padding:"6px 4px", width:55 }}>
         <input style={{...style, color:COLORS.accent}} type="number" value={item.margen} onChange={e=>inp("margen",e.target.value)} />
       </td>
@@ -4420,6 +4452,7 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
                             <th style={{ fontFamily:FONT, fontSize:10, color:"#ef4444", padding:"4px", width:70, textAlign:"center" }}>IVA?</th>
                             <th style={{ padding:"4px" }} /><th style={{ padding:"4px" }} />
                           </>)}
+                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:"#a855f7", padding:"4px", width:110 }}>P.VENTA / MRG</th>
                           <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", width:55 }}>MARG%</th>
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:90 }}>COSTO NETO</th>
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.green, padding:"4px", width:85 }}>MARGEN $</th>
@@ -4437,7 +4470,7 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
                       </tbody>
                         <tfoot>
                           <tr style={{ borderTop:`1px solid ${COLORS.border}`, background:COLORS.surface }}>
-                            <td colSpan={8} style={{ padding:"6px 8px", fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Subtotal {tipo}</td>
+                            <td colSpan={9} style={{ padding:"6px 8px", fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Subtotal {tipo}</td>
                             <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.textMuted }}>${Math.round(calcItems.reduce((s,i)=>s+i.costoNeto,0)).toLocaleString("es-CL")}</td>
                             <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.green }}>${Math.round(calcItems.reduce((s,i)=>s+i.margenTotal,0)).toLocaleString("es-CL")}</td>
                             <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.text }}>${Math.round(calcItems.reduce((s,i)=>s+i.ventaNeta,0)).toLocaleString("es-CL")}</td>
