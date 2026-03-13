@@ -2880,7 +2880,7 @@ function DocGrid({ docs, quotes, tab, setEditDoc, setShowModal, deleteDoc }) {
 }
 
 // ── PEDIDO MODAL ─────────────────────────────────────────────────────────────
-function PedidoModal({ pedido, quotes, onSave, onClose }) {
+function PedidoModal({ pedido, quotes, isPF, onSave, onClose }) {
   const [form, setForm] = useState({
     nombre:    pedido?.nombre||"",
     cliente:   pedido?.cliente||"",
@@ -2910,7 +2910,7 @@ function PedidoModal({ pedido, quotes, onSave, onClose }) {
     <div style={{ position:"fixed", inset:0, background:"#000a", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center" }}>
       <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:14, padding:28, width:520, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto" }}>
         <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text, marginBottom:18 }}>
-          {pedido?.id ? "Editar Pedido" : "Nuevo Pedido"}
+          {pedido?.id ? `Editar ${isPF?"grupo Pre-Factura":"Pedido"}` : `Nuevo ${isPF?"grupo Pre-Factura":"Pedido"}`}
         </div>
 
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
@@ -2936,7 +2936,7 @@ function PedidoModal({ pedido, quotes, onSave, onClose }) {
           {/* Cotizaciones SIN vinculadas */}
           <div>
             <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>
-              Cotizaciones SIN vinculadas ({form.quote_ids.length})
+              Cotizaciones {isPF?"COT":"SIN"} vinculadas ({form.quote_ids.length})
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:6, maxHeight:250, overflowY:"auto" }}>
               {quotes.length===0 && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, fontStyle:"italic" }}>No hay cotizaciones SIN disponibles</div>}
@@ -2954,7 +2954,7 @@ function PedidoModal({ pedido, quotes, onSave, onClose }) {
                       {sel && <span style={{ color:COLORS.bg, fontSize:10, fontWeight:900 }}>✓</span>}
                     </div>
                     <div style={{ flex:1 }}>
-                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:sel?COLORS.accent:COLORS.text }}>SIN-{String(q.number).padStart(3,"0")}</span>
+                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:sel?COLORS.accent:COLORS.text }}>{isPF?"COT":"SIN"}-{String(q.number).padStart(3,"0")}</span>
                       <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginLeft:8 }}>{q.clientCompany||q.clientName}</span>
                     </div>
                     <span style={{ fontFamily:FONT_DISPLAY, fontSize:11, color:COLORS.text }}>${qTotal.toLocaleString("es-CL")}</span>
@@ -2976,67 +2976,74 @@ function PedidoModal({ pedido, quotes, onSave, onClose }) {
   );
 }
 
-// ── PEDIDOS GRID ─────────────────────────────────────────────────────────────
-function PedidosGrid({ pedidos, quotes, docs, onEditPedido, onDeletePedido, onNuevoCP, onEditCP, onReprintCP, onDeleteCP }) {
+// ── PEDIDOS GRID (CP + PF unificado) ─────────────────────────────────────────
+function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditPedido, onDeletePedido, onNuevoDoc, onEditDoc, onReprintDoc, onDeleteDoc }) {
   const [collapsed, setCollapsed] = useState({});
   const toggle = (k) => setCollapsed(p=>({...p,[k]:!p[k]}));
-  const AC = COLORS.accent;
 
   const lineSubtotal = l => {
     const qty=Number(l.qty||1), p=Number(l.unitPrice||0), d=Number(l.discount||0);
-    return Math.round(p*(1-d/100)*qty);
+    const neto = Math.round(p*(1-d/100)*qty);
+    return isPF ? Math.round(neto*1.19) : neto;
   };
   const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
-
-  // Build pedidos enriquecidos con sus COTs y métricas de compensación
-  const pedidosEnrich = pedidos.map(ped => {
-    const pedQuotes = quotes.filter(q=>(ped.quote_ids||[]).includes(q.id));
-    const pedDocs   = docs.filter(d=>(d.quote_ids||[]).some(qid=>(ped.quote_ids||[]).includes(qid)));
-
-    // Total por COT
-    const cotData = pedQuotes.map(q=>{
-      const qTotal   = (q.lines||[]).reduce((s,l)=>s+lineSubtotal(l),0);
-      const qDocs    = docs.filter(d=>(d.quote_ids||[]).includes(q.id));
-      const qPagado  = qDocs.reduce((s,d)=>s+Number(d.monto_pagado||0),0);
-      return { quote:q, docs:qDocs, qTotal, qPagado };
-    });
-
-    const pedidoTotal  = cotData.reduce((s,c)=>s+c.qTotal,0);
-    const pedidoPagado = pedDocs.reduce((s,d)=>s+Number(d.monto_pagado||0),0); // global, con compensación
-
-    // Compensación: distribuir pedidoPagado contra las COTs en orden
-    let saldoPool = pedidoPagado;
-    const cotCompensated = cotData.map(c=>{
-      const pagadoEfectivo = Math.min(saldoPool, c.qTotal);
-      saldoPool = Math.max(0, saldoPool - c.qTotal);
-      const saldo = Math.max(0, c.qTotal - pagadoEfectivo);
-      const pct   = c.qTotal>0 ? Math.min((pagadoEfectivo/c.qTotal)*100,100) : 0;
-      return { ...c, pagadoEfectivo, saldo, pct };
-    });
-    const pedidoSaldo = Math.max(0, pedidoTotal - pedidoPagado);
-    const pedidoPct   = pedidoTotal>0 ? Math.min((pedidoPagado/pedidoTotal)*100,100) : 0;
-    const isPaid      = pedidoSaldo <= 0 && pedidoTotal > 0;
-
-    return { ped, cotCompensated, pedidoTotal, pedidoPagado, pedidoSaldo, pedidoPct, isPaid };
-  });
-
-  // COTs SIN sin pedido (huérfanas) — con CPs
-  const assignedQIds = new Set(pedidos.flatMap(p=>p.quote_ids||[]));
-  const orphanQuotes = quotes.filter(q=>!assignedQIds.has(q.id) && docs.some(d=>(d.quote_ids||[]).includes(q.id)));
-
-  if(pedidosEnrich.length===0 && orphanQuotes.length===0)
-    return (
-      <div style={{ textAlign:"center", padding:60 }}>
-        <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, color:COLORS.textMuted, marginBottom:8 }}>Sin pedidos aún</div>
-        <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Crea tu primer Pedido para agrupar cotizaciones SIN y sus comprobantes.</div>
-      </div>
-    );
 
   const MiniBar = ({pct,color,h=4}) => (
     <div style={{ height:h, background:"#1F2535", borderRadius:99, overflow:"hidden", flex:1 }}>
       <div style={{ height:"100%", width:`${Math.min(pct,100)}%`, background:color, borderRadius:99, transition:"width 0.3s" }} />
     </div>
   );
+
+  // ── Enriquecer pedidos con COTs y compensación ─────────────────────────────
+  const pedidosEnrich = pedidos.map(ped => {
+    const pedQuotes = quotes.filter(q=>(ped.quote_ids||[]).includes(q.id));
+    const pedDocs   = docs.filter(d=>(d.quote_ids||[]).some(qid=>(ped.quote_ids||[]).includes(qid)));
+
+    const cotData = pedQuotes.map(q=>{
+      const qTotal  = (q.lines||[]).reduce((s,l)=>s+lineSubtotal(l),0);
+      const qDocs   = docs.filter(d=>(d.quote_ids||[]).includes(q.id));
+      const qPagado = qDocs.reduce((s,d)=>s+Number(d.monto_pagado||0),0);
+      return { quote:q, docs:qDocs, qTotal, qPagado };
+    });
+
+    const pedidoTotal  = cotData.reduce((s,c)=>s+c.qTotal,0);
+    const pedidoPagado = pedDocs.reduce((s,d)=>s+Number(d.monto_pagado||0),0);
+
+    // Compensación global: pool distribuido en orden
+    let pool = pedidoPagado;
+    const cotCompensated = cotData.map(c=>{
+      const efectivo = Math.min(pool, c.qTotal);
+      pool = Math.max(0, pool - c.qTotal);
+      const saldo = Math.max(0, c.qTotal - efectivo);
+      const pct   = c.qTotal>0 ? Math.min((efectivo/c.qTotal)*100,100) : 0;
+      return { ...c, efectivo, saldo, pct };
+    });
+
+    const pedidoSaldo = Math.max(0, pedidoTotal - pedidoPagado);
+    const pedidoPct   = pedidoTotal>0 ? Math.min((pedidoPagado/pedidoTotal)*100,100) : 0;
+    const isPaid      = pedidoSaldo <= 0 && pedidoTotal > 0;
+    return { ped, cotCompensated, pedidoTotal, pedidoPagado, pedidoSaldo, pedidoPct, isPaid };
+  });
+
+  // COTs sin pedido que tienen documentos
+  const assignedIds = new Set(pedidos.flatMap(p=>p.quote_ids||[]));
+  const orphanQuotes = quotes.filter(q=>!assignedIds.has(q.id) && docs.some(d=>(d.quote_ids||[]).includes(q.id)));
+
+  const serieLabel = isPF ? "COT" : "SIN";
+  const qPrefix    = (q) => `${serieLabel}-${String(q.number).padStart(3,"0")}`;
+
+  if(pedidosEnrich.length===0 && orphanQuotes.length===0)
+    return (
+      <div style={{ textAlign:"center", padding:70 }}>
+        <div style={{ fontSize:32, marginBottom:10 }}>{isPF?"🧾":"📦"}</div>
+        <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, color:COLORS.textMuted, marginBottom:6 }}>
+          Sin {isPF?"pre-facturas":"pedidos"} aún
+        </div>
+        <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>
+          {isPF ? "Crea una Pre-Factura para agrupar cotizaciones COT." : "Crea tu primer Pedido y vincula cotizaciones SIN."}
+        </div>
+      </div>
+    );
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
@@ -3050,72 +3057,77 @@ function PedidosGrid({ pedidos, quotes, docs, onEditPedido, onDeletePedido, onNu
         return (
           <div key={ped.id} style={{ background:COLORS.card, border:`1px solid ${isPaid?COLORS.green+"55":COLORS.border}`, borderRadius:16, overflow:"hidden" }}>
 
-            {/* ── PEDIDO HEADER ── */}
-            <div onClick={()=>toggle(ped.id)}
-              style={{ padding:"14px 20px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", userSelect:"none",
-                borderLeft:`4px solid ${isPaid?COLORS.green:AC}` }}>
-              <span style={{ fontSize:11, color:COLORS.textMuted, flexShrink:0, display:"inline-block", transition:"transform 0.2s", transform:isOpen?"rotate(90deg)":"rotate(0deg)" }}>▶</span>
-              <div style={{ flexShrink:0 }}>
-                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase" }}>Pedido</div>
-                <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:AC }}>{ped.nombre}</div>
-              </div>
-              <div style={{ flex:1, overflow:"hidden" }}>
-                <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                  {ped.cliente||cotCompensated[0]?.quote.clientCompany||cotCompensated[0]?.quote.clientName||""}
-                  {(ped.rut||cotCompensated[0]?.quote.clientRut) && <span style={{ marginLeft:8, fontSize:10 }}>{ped.rut||cotCompensated[0]?.quote.clientRut}</span>}
+            {/* ── HEADER ── */}
+            <div style={{ padding:"0 16px 0 0", display:"flex", alignItems:"stretch", borderLeft:`4px solid ${isPaid?COLORS.green:AC}` }}>
+              {/* Área clickeable para expandir */}
+              <div onClick={()=>toggle(ped.id)} style={{ flex:1, display:"flex", alignItems:"center", gap:12, padding:"14px 12px 14px 16px", cursor:"pointer", userSelect:"none", minWidth:0 }}>
+                <span style={{ fontSize:11, color:COLORS.textMuted, flexShrink:0, display:"inline-block", transition:"transform 0.2s", transform:isOpen?"rotate(90deg)":"rotate(0deg)" }}>▶</span>
+                <div style={{ flexShrink:0 }}>
+                  <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase" }}>{isPF?"Pre-Factura":"Pedido"}</div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:AC }}>{ped.nombre}</div>
                 </div>
-                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:1 }}>
-                  {cotCompensated.map(c=>`SIN-${String(c.quote.number).padStart(3,"0")}`).join(" · ")}
+                <div style={{ flex:1, overflow:"hidden", minWidth:0 }}>
+                  <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    {ped.cliente||cotCompensated[0]?.quote.clientCompany||cotCompensated[0]?.quote.clientName||""}
+                    {(ped.rut||cotCompensated[0]?.quote.clientRut) && <span style={{ marginLeft:8, fontSize:10 }}>{ped.rut||cotCompensated[0]?.quote.clientRut}</span>}
+                  </div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:1 }}>
+                    {cotCompensated.map(c=>qPrefix(c.quote)).join(" · ")}
+                  </div>
+                </div>
+                <Badge color={isPaid?COLORS.green:pedidoPct>0?COLORS.yellow:COLORS.textMuted}>
+                  {isPaid?"Pagado":pedidoPct>0?"Parcial":"Pendiente"}
+                </Badge>
+                <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0, width:100 }}>
+                  <MiniBar pct={pedidoPct} color={isPaid?COLORS.green:`linear-gradient(90deg,${AC},${COLORS.green})`} h={5}/>
+                  <span style={{ fontFamily:FONT, fontSize:10, color:isPaid?COLORS.green:AC, minWidth:28, textAlign:"right" }}>{pedidoPct.toFixed(0)}%</span>
+                </div>
+                <div style={{ textAlign:"right", flexShrink:0 }}>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:isPaid?COLORS.green:COLORS.text }}>{fmt(pedidoPagado)}</div>
+                  <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>de {fmt(pedidoTotal)}</div>
+                </div>
+                <div style={{ background:`${AC}22`, border:`1px solid ${AC}33`, borderRadius:20, padding:"2px 10px", fontFamily:FONT, fontSize:10, color:AC, flexShrink:0 }}>
+                  {cotCompensated.length} {serieLabel}
                 </div>
               </div>
-              <Badge color={isPaid?COLORS.green:pedidoPct>0?COLORS.yellow:COLORS.textMuted}>{isPaid?"Pagado":pedidoPct>0?"Parcial":"Pendiente"}</Badge>
-              <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0, width:110 }}>
-                <MiniBar pct={pedidoPct} color={isPaid?COLORS.green:`linear-gradient(90deg,${AC},${COLORS.green})`} h={5}/>
-                <span style={{ fontFamily:FONT, fontSize:10, color:isPaid?COLORS.green:AC, minWidth:30, textAlign:"right" }}>{pedidoPct.toFixed(0)}%</span>
-              </div>
-              <div style={{ textAlign:"right", flexShrink:0 }}>
-                <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:isPaid?COLORS.green:COLORS.text }}>{fmt(pedidoPagado)}</div>
-                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>de {fmt(pedidoTotal)}</div>
-              </div>
-              <div style={{ background:`${AC}22`, border:`1px solid ${AC}33`, borderRadius:20, padding:"2px 10px", fontFamily:FONT, fontSize:10, color:AC, flexShrink:0 }}>
-                {cotCompensated.length} COT
-              </div>
-              {/* Acciones pedido */}
-              <div style={{ display:"flex", gap:5, flexShrink:0 }} onClick={e=>e.stopPropagation()}>
-                <button onClick={()=>onEditPedido(ped)}
-                  style={{ padding:"4px 10px", borderRadius:6, fontFamily:FONT, fontSize:9, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.secondary}44`, color:COLORS.secondary }}>
-                  ✏️
-                </button>
-                <button onClick={()=>onDeletePedido(ped.id)}
-                  style={{ padding:"4px 8px", borderRadius:6, fontFamily:FONT, fontSize:10, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red }}>
-                  ✕
-                </button>
-              </div>
+              {/* Botones de acción — fuera del área expandible */}
+              {onEditPedido && (
+                <div style={{ display:"flex", alignItems:"center", gap:6, padding:"0 4px 0 8px", borderLeft:`1px solid ${COLORS.border}22` }}>
+                  <button onClick={()=>onEditPedido(ped)}
+                    style={{ padding:"6px 12px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:10, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.secondary}55`, color:COLORS.secondary, whiteSpace:"nowrap" }}>
+                    ✏️ Editar
+                  </button>
+                  <button onClick={()=>onDeletePedido(ped.id)}
+                    style={{ padding:"6px 10px", borderRadius:7, fontFamily:FONT, fontSize:12, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red }}>
+                    ✕
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* ── PEDIDO EXPANDIDO ── */}
+            {/* ── EXPANDIDO ── */}
             {isOpen && (
-              <div style={{ borderTop:`1px solid ${COLORS.border}22`, padding:"16px 20px 20px", background:COLORS.surface+"33" }}>
+              <div style={{ borderTop:`1px solid ${COLORS.border}22`, padding:"16px 20px 20px", background:COLORS.surface+"28" }}>
                 <div style={{ display:"flex", gap:18, alignItems:"flex-start", flexWrap:"wrap" }}>
 
-                  {/* Dona del Pedido */}
+                  {/* Dona */}
                   <div style={{ flexShrink:0, width:130 }}>
                     <svg width={120} height={120} viewBox="0 0 120 120">
                       <circle cx={cx} cy={cy} r={r} fill="none" stroke={COLORS.border} strokeWidth={R-r}/>
-                      {(1-pagadoPct)>0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke="url(#pedSaldo)" strokeWidth={R-r}
+                      {(1-pagadoPct)>0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke="url(#pgSaldo)" strokeWidth={R-r}
                         strokeDasharray={`${dashSaldo} ${circum-dashSaldo}`} strokeDashoffset={-(pagadoPct*circum)}
                         strokeLinecap="butt" transform={`rotate(-90 ${cx} ${cy})`}/>}
-                      {pagadoPct>0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke="url(#pedPagado)" strokeWidth={R-r}
+                      {pagadoPct>0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke="url(#pgPagado)" strokeWidth={R-r}
                         strokeDasharray={`${dashPagado} ${circum-dashPagado}`}
                         strokeLinecap="butt" transform={`rotate(-90 ${cx} ${cy})`}/>}
                       <defs>
-                        <linearGradient id="pedPagado" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor={AC}/><stop offset="100%" stopColor={COLORS.green}/></linearGradient>
-                        <linearGradient id="pedSaldo"  x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor={COLORS.yellow}/><stop offset="100%" stopColor={COLORS.red}/></linearGradient>
+                        <linearGradient id="pgPagado" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor={AC}/><stop offset="100%" stopColor={COLORS.green}/></linearGradient>
+                        <linearGradient id="pgSaldo"  x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor={COLORS.yellow}/><stop offset="100%" stopColor={COLORS.red}/></linearGradient>
                       </defs>
                       <text x={cx} y={cy-6} textAnchor="middle" fill={COLORS.text} fontSize="14" fontWeight="700" fontFamily="Space Grotesk,sans-serif">{pedidoPct.toFixed(0)}%</text>
                       <text x={cx} y={cy+10} textAnchor="middle" fill={COLORS.textMuted} fontSize="8" fontFamily="DM Mono,monospace">PAGADO</text>
                     </svg>
-                    <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                    <div style={{ display:"flex", flexDirection:"column", gap:3, marginTop:4 }}>
                       {[
                         {label:"Pagado", val:pedidoPagado, color:COLORS.green,  grad:`linear-gradient(135deg,${AC},${COLORS.green})`},
                         {label:"Saldo",  val:pedidoSaldo,  color:COLORS.yellow, grad:`linear-gradient(135deg,${COLORS.yellow},${COLORS.red})`},
@@ -3127,11 +3139,9 @@ function PedidosGrid({ pedidos, quotes, docs, onEditPedido, onDeletePedido, onNu
                           <span style={{ fontFamily:FONT_DISPLAY,fontSize:9,color,marginLeft:"auto",fontWeight:700 }}>{fmt(val)}</span>
                         </div>
                       ))}
-                      {pedidoPagado > pedidoTotal && pedidoTotal>0 && (
-                        <div style={{ marginTop:4, padding:"3px 6px", borderRadius:5, background:`${COLORS.accent}22`, border:`1px solid ${COLORS.accent}44` }}>
-                          <span style={{ fontFamily:FONT, fontSize:8, color:COLORS.accent }}>
-                            ↑ Sobrepago: {fmt(pedidoPagado-pedidoTotal)}
-                          </span>
+                      {pedidoPagado>pedidoTotal && pedidoTotal>0 && (
+                        <div style={{ marginTop:4,padding:"3px 6px",borderRadius:5,background:`${AC}22`,border:`1px solid ${AC}44` }}>
+                          <span style={{ fontFamily:FONT,fontSize:8,color:AC }}>↑ Sobrepago: {fmt(pedidoPagado-pedidoTotal)}</span>
                         </div>
                       )}
                     </div>
@@ -3139,50 +3149,46 @@ function PedidosGrid({ pedidos, quotes, docs, onEditPedido, onDeletePedido, onNu
 
                   {/* COTs */}
                   <div style={{ flex:1, display:"flex", flexDirection:"column", gap:10, minWidth:280 }}>
-                    {cotCompensated.map(({ quote:q, docs:qDocs, qTotal, pagadoEfectivo, saldo, pct }) => {
+                    {cotCompensated.map(({ quote:q, docs:qDocs, qTotal, efectivo, saldo, pct }) => {
                       const cotKey = `cot-${ped.id}-${q.id}`;
                       const isCotOpen = !!collapsed[cotKey];
-                      const qPaid = saldo <= 0;
+                      const qPaid = saldo<=0 && qTotal>0;
+                      const isComp = efectivo > qDocs.reduce((s,d)=>s+Number(d.monto_pagado||0),0);
                       return (
-                        <div key={q.id} style={{ background:COLORS.card, border:`1px solid ${qPaid?COLORS.green+"33":COLORS.border}`, borderRadius:10, overflow:"hidden" }}>
-                          {/* COT header */}
-                          <div onClick={()=>toggle(cotKey)}
-                            style={{ padding:"9px 14px", display:"flex", alignItems:"center", gap:10, cursor:"pointer", userSelect:"none",
-                              borderLeft:`3px solid ${qPaid?COLORS.green:COLORS.accent+"88"}` }}>
-                            <span style={{ fontSize:10, color:COLORS.textMuted, flexShrink:0, display:"inline-block", transition:"transform 0.2s", transform:isCotOpen?"rotate(90deg)":"rotate(0deg)" }}>▶</span>
-                            <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:AC }}>
-                              SIN-{String(q.number).padStart(3,"0")}
-                            </span>
-                            <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                              {q.clientCompany||q.clientName}
-                            </span>
-                            {pagadoEfectivo > q.lines?.reduce?.((s,l)=>s+lineSubtotal(l),0)||0 && qDocs.reduce((s,d)=>s+Number(d.monto_pagado||0),0) > qTotal && (
-                              <span style={{ fontFamily:FONT, fontSize:8, color:COLORS.accent, background:`${COLORS.accent}22`, borderRadius:4, padding:"1px 5px", flexShrink:0 }}>⇄ compensado</span>
-                            )}
-                            <Badge color={qPaid?COLORS.green:COLORS.yellow} size="sm">{qPaid?"Pagado":"Pendiente"}</Badge>
-                            <div style={{ display:"flex", alignItems:"center", gap:5, width:90, flexShrink:0 }}>
-                              <MiniBar pct={pct} color={qPaid?COLORS.green:`linear-gradient(90deg,${AC},${COLORS.green})`} h={4}/>
-                              <span style={{ fontFamily:FONT, fontSize:9, color:qPaid?COLORS.green:AC, minWidth:26, textAlign:"right" }}>{pct.toFixed(0)}%</span>
-                            </div>
-                            <div style={{ textAlign:"right", flexShrink:0 }}>
-                              <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:qPaid?COLORS.green:COLORS.text }}>{fmt(pagadoEfectivo)}</div>
-                              <div style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted }}>de {fmt(qTotal)}</div>
-                            </div>
-                            <div style={{ background:`${AC}22`, border:`1px solid ${AC}33`, borderRadius:20, padding:"1px 8px", fontFamily:FONT, fontSize:9, color:AC, flexShrink:0 }}>
-                              {qDocs.length} CP
+                        <div key={q.id} style={{ background:COLORS.card, border:`1px solid ${qPaid?COLORS.green+"44":COLORS.border}`, borderRadius:10, overflow:"hidden" }}>
+                          {/* COT row */}
+                          <div style={{ display:"flex", alignItems:"stretch", borderLeft:`3px solid ${qPaid?COLORS.green:AC+"88"}` }}>
+                            <div onClick={()=>toggle(cotKey)}
+                              style={{ flex:1, display:"flex", alignItems:"center", gap:10, padding:"9px 12px", cursor:"pointer", userSelect:"none", minWidth:0 }}>
+                              <span style={{ fontSize:10, color:COLORS.textMuted, flexShrink:0, display:"inline-block", transition:"transform 0.2s", transform:isCotOpen?"rotate(90deg)":"rotate(0deg)" }}>▶</span>
+                              <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:AC, flexShrink:0 }}>{qPrefix(q)}</span>
+                              <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{q.clientCompany||q.clientName}</span>
+                              {isComp && <span style={{ fontFamily:FONT, fontSize:8, color:AC, background:`${AC}22`, borderRadius:4, padding:"1px 5px", flexShrink:0 }}>⇄ comp.</span>}
+                              <Badge color={qPaid?COLORS.green:COLORS.yellow} size="sm">{qPaid?"Pagado":"Pendiente"}</Badge>
+                              <div style={{ display:"flex", alignItems:"center", gap:5, width:85, flexShrink:0 }}>
+                                <MiniBar pct={pct} color={qPaid?COLORS.green:`linear-gradient(90deg,${AC},${COLORS.green})`} h={4}/>
+                                <span style={{ fontFamily:FONT, fontSize:9, color:qPaid?COLORS.green:AC, minWidth:24, textAlign:"right" }}>{pct.toFixed(0)}%</span>
+                              </div>
+                              <div style={{ textAlign:"right", flexShrink:0 }}>
+                                <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:qPaid?COLORS.green:COLORS.text }}>{fmt(efectivo)}</div>
+                                <div style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted }}>de {fmt(qTotal)}</div>
+                              </div>
+                              <div style={{ background:`${AC}22`, border:`1px solid ${AC}33`, borderRadius:20, padding:"1px 8px", fontFamily:FONT, fontSize:9, color:AC, flexShrink:0 }}>
+                                {qDocs.length} {docLabel}
+                              </div>
                             </div>
                           </div>
 
-                          {/* CPs dentro de la COT */}
+                          {/* Documentos dentro de la COT */}
                           {isCotOpen && (
-                            <div style={{ borderTop:`1px solid ${COLORS.border}22`, padding:"10px 12px", background:COLORS.surface+"55" }}>
+                            <div style={{ borderTop:`1px solid ${COLORS.border}22`, padding:"10px 12px", background:COLORS.surface+"44" }}>
                               <div style={{ display:"flex", gap:10, flexWrap:"wrap", alignItems:"flex-start" }}>
                                 {qDocs.map(doc=>{
                                   const txs = doc.transacciones||[];
                                   const docMonto = Number(doc.monto_pagado||0);
                                   const docPct   = qTotal>0 ? Math.min((docMonto/qTotal)*100,100) : 0;
                                   return (
-                                    <div key={doc.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:9, padding:"11px 13px", width:210, flexShrink:0 }}>
+                                    <div key={doc.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:9, padding:"11px 13px", width:215, flexShrink:0 }}>
                                       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:5 }}>
                                         <div>
                                           <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:AC }}>{doc.numero}</div>
@@ -3193,33 +3199,31 @@ function PedidosGrid({ pedidos, quotes, docs, onEditPedido, onDeletePedido, onNu
                                       {txs.length>0 && (
                                         <div style={{ marginBottom:7 }}>
                                           {txs.slice(0,3).map((t,i)=>(
-                                            <div key={i} style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginBottom:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                                            <div key={i} style={{ fontFamily:FONT,fontSize:9,color:COLORS.textMuted,marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
                                               🏦 {t.codigo?t.codigo.slice(0,14)+"…":"—"} · {fmt(Number(t.monto||0))}
                                             </div>
                                           ))}
-                                          {txs.length>3 && <div style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted }}>+{txs.length-3} más…</div>}
+                                          {txs.length>3 && <div style={{ fontFamily:FONT,fontSize:8,color:COLORS.textMuted }}>+{txs.length-3} más…</div>}
                                         </div>
                                       )}
-                                      <div style={{ marginBottom:7 }}>
-                                        <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                                          <span style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted, width:45, flexShrink:0 }}>% COT</span>
-                                          <MiniBar pct={docPct} color={`linear-gradient(90deg,${AC},${COLORS.green})`}/>
-                                          <span style={{ fontFamily:FONT, fontSize:8, color:AC, minWidth:28, textAlign:"right" }}>{docPct.toFixed(0)}%</span>
-                                        </div>
+                                      <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:7 }}>
+                                        <span style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted, width:40, flexShrink:0 }}>% COT</span>
+                                        <MiniBar pct={docPct} color={`linear-gradient(90deg,${AC},${COLORS.green})`}/>
+                                        <span style={{ fontFamily:FONT, fontSize:8, color:AC, minWidth:26, textAlign:"right" }}>{docPct.toFixed(0)}%</span>
                                       </div>
                                       <div style={{ display:"flex", gap:5, borderTop:`1px solid ${COLORS.border}`, paddingTop:7 }}>
-                                        <button onClick={()=>onEditCP(doc)} style={{ flex:1, padding:"4px 0", borderRadius:5, fontFamily:FONT, fontSize:9, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.secondary}44`, color:COLORS.secondary }}>✏️ Editar</button>
-                                        <button onClick={()=>onReprintCP(doc)} style={{ flex:1, padding:"4px 0", borderRadius:5, fontFamily:FONT, fontSize:9, cursor:"pointer", background:"transparent", border:`1px solid ${AC}44`, color:AC }}>🖨 PDF</button>
-                                        <button onClick={()=>onDeleteCP(doc.id)} style={{ padding:"4px 7px", borderRadius:5, fontFamily:FONT, fontSize:10, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red }}>✕</button>
+                                        <button onClick={()=>onEditDoc(doc)} style={{ flex:1,padding:"4px 0",borderRadius:5,fontFamily:FONT,fontSize:9,cursor:"pointer",background:"transparent",border:`1px solid ${COLORS.secondary}44`,color:COLORS.secondary }}>✏️ Editar</button>
+                                        <button onClick={()=>onReprintDoc(doc)} style={{ flex:1,padding:"4px 0",borderRadius:5,fontFamily:FONT,fontSize:9,cursor:"pointer",background:"transparent",border:`1px solid ${AC}44`,color:AC }}>🖨 PDF</button>
+                                        <button onClick={()=>onDeleteDoc(doc.id)} style={{ padding:"4px 7px",borderRadius:5,fontFamily:FONT,fontSize:10,cursor:"pointer",background:"transparent",border:`1px solid ${COLORS.red}44`,color:COLORS.red }}>✕</button>
                                       </div>
                                     </div>
                                   );
                                 })}
-                                {/* + Nuevo CP para esta COT */}
-                                <div onClick={()=>onNuevoCP(q.id)}
-                                  style={{ width:95, flexShrink:0, border:`2px dashed ${COLORS.border}`, borderRadius:9, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", cursor:"pointer", padding:12, color:COLORS.textMuted, gap:5, minHeight:80 }}>
+                                {/* + Nuevo doc */}
+                                <div onClick={()=>onNuevoDoc(q.id)}
+                                  style={{ width:90,flexShrink:0,border:`2px dashed ${COLORS.border}`,borderRadius:9,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",padding:12,color:COLORS.textMuted,gap:5,minHeight:80 }}>
                                   <span style={{ fontSize:20 }}>+</span>
-                                  <span style={{ fontFamily:FONT, fontSize:9, textAlign:"center", lineHeight:1.4 }}>Nuevo CP</span>
+                                  <span style={{ fontFamily:FONT,fontSize:9,textAlign:"center",lineHeight:1.4 }}>Nuevo {docLabel}</span>
                                 </div>
                               </div>
                             </div>
@@ -3227,11 +3231,9 @@ function PedidosGrid({ pedidos, quotes, docs, onEditPedido, onDeletePedido, onNu
                         </div>
                       );
                     })}
-
-                    {/* Nota de compensación si aplica */}
-                    {pedidoPagado > pedidoTotal && pedidoTotal>0 && (
-                      <div style={{ padding:"7px 12px", borderRadius:8, background:`${COLORS.accent}11`, border:`1px solid ${COLORS.accent}33`, fontFamily:FONT, fontSize:10, color:COLORS.accent }}>
-                        ⇄ Hay un sobrepago de <strong>{fmt(pedidoPagado-pedidoTotal)}</strong> en este pedido que compensa saldos entre cotizaciones.
+                    {pedidoPagado>pedidoTotal && pedidoTotal>0 && (
+                      <div style={{ padding:"7px 12px",borderRadius:8,background:`${AC}11`,border:`1px solid ${AC}33`,fontFamily:FONT,fontSize:10,color:AC }}>
+                        ⇄ Sobrepago de <strong>{fmt(pedidoPagado-pedidoTotal)}</strong> — compensa saldos entre cotizaciones de este pedido.
                       </div>
                     )}
                   </div>
@@ -3242,24 +3244,24 @@ function PedidosGrid({ pedidos, quotes, docs, onEditPedido, onDeletePedido, onNu
         );
       })}
 
-      {/* COTs huérfanas (con CPs pero sin pedido) */}
+      {/* COTs huérfanas */}
       {orphanQuotes.length>0 && (
         <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:14, padding:"12px 18px" }}>
           <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>
-            Sin pedido asignado
+            Sin {isPF?"pre-factura":"pedido"} asignado
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {orphanQuotes.map(q=>{
-              const qDocs = docs.filter(d=>(d.quote_ids||[]).includes(q.id));
-              const qTotal   = (q.lines||[]).reduce((s,l)=>s+lineSubtotal(l),0);
-              const qPagado  = qDocs.reduce((s,d)=>s+Number(d.monto_pagado||0),0);
+              const qDocs  = docs.filter(d=>(d.quote_ids||[]).includes(q.id));
+              const qTotal  = (q.lines||[]).reduce((s,l)=>s+lineSubtotal(l),0);
+              const qPagado = qDocs.reduce((s,d)=>s+Number(d.monto_pagado||0),0);
               return (
-                <div key={q.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 12px", borderRadius:8, background:COLORS.surface, border:`1px solid ${COLORS.border}` }}>
-                  <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:AC }}>SIN-{String(q.number).padStart(3,"0")}</span>
-                  <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, flex:1 }}>{q.clientCompany||q.clientName}</span>
-                  <span style={{ fontFamily:FONT_DISPLAY, fontSize:11, color:COLORS.green }}>{fmt(qPagado)}</span>
-                  <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>de {fmt(qTotal)}</span>
-                  <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, background:COLORS.border+"44", borderRadius:4, padding:"2px 6px" }}>{qDocs.length} CP</span>
+                <div key={q.id} style={{ display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:8,background:COLORS.surface,border:`1px solid ${COLORS.border}` }}>
+                  <span style={{ fontFamily:FONT_DISPLAY,fontSize:12,fontWeight:700,color:AC }}>{qPrefix(q)}</span>
+                  <span style={{ fontFamily:FONT,fontSize:11,color:COLORS.textMuted,flex:1 }}>{q.clientCompany||q.clientName}</span>
+                  <span style={{ fontFamily:FONT_DISPLAY,fontSize:11,color:COLORS.green }}>{fmt(qPagado)}</span>
+                  <span style={{ fontFamily:FONT,fontSize:10,color:COLORS.textMuted }}>de {fmt(qTotal)}</span>
+                  <span style={{ fontFamily:FONT,fontSize:9,color:COLORS.textMuted,background:COLORS.border+"44",borderRadius:4,padding:"2px 6px" }}>{qDocs.length} {docLabel}</span>
                 </div>
               );
             })}
@@ -3273,16 +3275,17 @@ function PedidosGrid({ pedidos, quotes, docs, onEditPedido, onDeletePedido, onNu
 function PrestacionesView({ isMobile }) {
   const [tab, setTab]             = useState("cp"); // "cp" | "pf"
   const [docs, setDocs]           = useState([]);
-  const [pfDocs, setPfDocs]       = useState([]);
-  const [quotes, setQuotes]       = useState([]);   // serie SIN
-  const [pfQuotes, setPfQuotes]   = useState([]);   // serie COT
-  const [pedidos, setPedidos]     = useState([]);   // tabla pedidos
-  const [loading, setLoading]     = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [editDoc, setEditDoc]     = useState(null);
+  const [pfDocs, setPfDocs]           = useState([]);
+  const [quotes, setQuotes]           = useState([]);   // serie SIN
+  const [pfQuotes, setPfQuotes]       = useState([]);   // serie COT
+  const [pedidos, setPedidos]         = useState([]);   // pedidos CP (serie SIN)
+  const [pfPedidos, setPfPedidos]     = useState([]);   // pedidos PF (serie COT)
+  const [loading, setLoading]         = useState(true);
+  const [showModal, setShowModal]     = useState(false);
+  const [editDoc, setEditDoc]         = useState(null);
   const [showPedidoModal, setShowPedidoModal] = useState(false);
   const [editPedido, setEditPedido]           = useState(null);
-  const [cpContext, setCpContext]             = useState(null); // { quoteId } para pre-seleccionar COT al crear CP
+  const [docContext, setDocContext]           = useState(null); // { quoteId }
 
   useEffect(()=>{ loadAll(); },[]);
 
@@ -3313,31 +3316,43 @@ function PrestacionesView({ isMobile }) {
       setPfQuotes(cotSerie.map(q=>({...q,lines:(byQ[q.id]||[]).filter(l=>l.lineType!=="hito")})));
     } else { setQuotes([]); setPfQuotes([]); }
 
-    setPedidos(pedidosData||[]);
+    // Separar pedidos por tipo (campo "tipo": "cp" | "pf")
+    const allPedidos = pedidosData||[];
+    setPedidos(allPedidos.filter(p=>p.tipo!=="pf"));
+    setPfPedidos(allPedidos.filter(p=>p.tipo==="pf"));
     setLoading(false);
   };
 
   const deleteDoc = async (id) => {
-    if(!window.confirm("¿Eliminar este comprobante?")) return;
+    if(!window.confirm("¿Eliminar este documento?")) return;
     await supabase.from("comprobantes_pago").delete().eq("id",id);
     setDocs(prev=>prev.filter(d=>d.id!==id));
     setPfDocs(prev=>prev.filter(d=>d.id!==id));
   };
 
   const deletePedido = async (id) => {
-    if(!window.confirm("¿Eliminar este Pedido? Los comprobantes existentes no se eliminan.")) return;
+    const isCP = tab==="cp";
+    if(!window.confirm(`¿Eliminar este ${isCP?"Pedido":"grupo Pre-Factura"}? Los documentos existentes no se eliminan.`)) return;
     await supabase.from("pedidos").delete().eq("id",id);
-    setPedidos(prev=>prev.filter(p=>p.id!==id));
+    if(isCP) setPedidos(prev=>prev.filter(p=>p.id!==id));
+    else     setPfPedidos(prev=>prev.filter(p=>p.id!==id));
   };
 
   const savePedido = async (form) => {
-    // form: { nombre, cliente, rut, notas, quote_ids[] }
+    const isCP = tab==="cp";
+    const payload = { ...form, tipo: isCP ? "cp" : "pf" };
     if(editPedido?.id){
-      const { data } = await supabase.from("pedidos").update({...form, updated_at:new Date().toISOString()}).eq("id",editPedido.id).select().single();
-      if(data) setPedidos(prev=>prev.map(p=>p.id===data.id?data:p));
+      const { data } = await supabase.from("pedidos").update({...payload, updated_at:new Date().toISOString()}).eq("id",editPedido.id).select().single();
+      if(data){
+        if(isCP) setPedidos(prev=>prev.map(p=>p.id===data.id?data:p));
+        else     setPfPedidos(prev=>prev.map(p=>p.id===data.id?data:p));
+      }
     } else {
-      const { data } = await supabase.from("pedidos").insert(form).select().single();
-      if(data) setPedidos(prev=>[data,...prev]);
+      const { data } = await supabase.from("pedidos").insert(payload).select().single();
+      if(data){
+        if(isCP) setPedidos(prev=>[data,...prev]);
+        else     setPfPedidos(prev=>[data,...prev]);
+      }
     }
     setShowPedidoModal(false); setEditPedido(null);
   };
@@ -3349,9 +3364,11 @@ function PrestacionesView({ isMobile }) {
     transition:"all 0.15s",
   });
 
-  const isCP = tab==="cp";
-  const activeDocs   = isCP ? docs   : pfDocs;
-  const activeQuotes = isCP ? quotes : pfQuotes;
+  const isCP  = tab==="cp";
+  const AC    = isCP ? COLORS.accent : COLORS.secondary;
+  const activeDocs    = isCP ? docs    : pfDocs;
+  const activeQuotes  = isCP ? quotes  : pfQuotes;
+  const activePedidos = isCP ? pedidos : pfPedidos;
 
   return (
     <div>
@@ -3362,7 +3379,7 @@ function PrestacionesView({ isMobile }) {
             {isCP ? "Sin IVA · Comprobantes de Pago" : "Con IVA · No válido como documento legal"}
           </div>
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>
-            {isCP ? "Pedidos · Comprobantes de Pago" : "Pre-Facturas"}
+            {isCP ? "Pedidos · Comprobantes de Pago" : "Pedidos · Pre-Facturas"}
           </div>
         </div>
         <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
@@ -3370,12 +3387,8 @@ function PrestacionesView({ isMobile }) {
             <button style={TAB_STYLE(isCP, COLORS.accent)} onClick={()=>setTab("cp")}>📋 Prestaciones</button>
             <button style={TAB_STYLE(!isCP, COLORS.secondary)} onClick={()=>setTab("pf")}>🧾 Pre-Facturas</button>
           </div>
-          {isCP && (
-            <AddBtn onClick={()=>{ setEditPedido(null); setShowPedidoModal(true); }} label="Nuevo Pedido" />
-          )}
-          {!isCP && (
-            <AddBtn onClick={()=>{ setEditDoc(null); setShowModal(true); }} label="Nueva pre-factura" />
-          )}
+          <AddBtn onClick={()=>{ setEditPedido(null); setShowPedidoModal(true); }}
+            label={isCP?"Nuevo Pedido":"Nuevo grupo PF"} />
         </div>
       </div>
 
@@ -3387,40 +3400,35 @@ function PrestacionesView({ isMobile }) {
         </div>
       )}
 
-      {loading ? <Loader /> : isCP ? (
+      {loading ? <Loader /> : (
         <PedidosGrid
-          pedidos={pedidos}
-          quotes={quotes}
-          docs={docs}
+          pedidos={activePedidos}
+          quotes={activeQuotes}
+          docs={activeDocs}
+          isPF={!isCP}
+          AC={AC}
+          docLabel={isCP?"CP":"PF"}
           onEditPedido={(p)=>{ setEditPedido(p); setShowPedidoModal(true); }}
           onDeletePedido={deletePedido}
-          onNuevoCP={(quoteId)=>{ setCpContext({quoteId}); setEditDoc(null); setShowModal(true); }}
-          onEditCP={(doc)=>{ setEditDoc(doc); setShowModal(true); }}
-          onReprintCP={(doc)=>{ setEditDoc({...doc,_reprint:true}); setShowModal(true); }}
-          onDeleteCP={deleteDoc}
-        />
-      ) : (
-        <DocGrid
-          docs={activeDocs}
-          quotes={activeQuotes}
-          tab={tab}
-          setEditDoc={setEditDoc}
-          setShowModal={setShowModal}
-          deleteDoc={deleteDoc}
+          onNuevoDoc={(quoteId)=>{ setDocContext({quoteId}); setEditDoc(null); setShowModal(true); }}
+          onEditDoc={(doc)=>{ setEditDoc(doc); setShowModal(true); }}
+          onReprintDoc={(doc)=>{ setEditDoc({...doc,_reprint:true}); setShowModal(true); }}
+          onDeleteDoc={deleteDoc}
         />
       )}
 
-      {/* Modal Pedido */}
+      {/* Modal Pedido/PF */}
       {showPedidoModal && (
         <PedidoModal
           pedido={editPedido}
-          quotes={quotes}
+          quotes={activeQuotes}
+          isPF={!isCP}
           onSave={savePedido}
           onClose={()=>{ setShowPedidoModal(false); setEditPedido(null); }}
         />
       )}
 
-      {/* Modal CP */}
+      {/* Modal documento */}
       {showModal && editDoc && !editDoc._reprint && (
         <EditTxModal
           doc={editDoc}
@@ -3438,12 +3446,12 @@ function PrestacionesView({ isMobile }) {
           existing={editDoc}
           allDocs={activeDocs}
           tab={tab}
-          preselectedQuoteId={cpContext?.quoteId||null}
-          onClose={()=>{ setShowModal(false); setEditDoc(null); setCpContext(null); }}
+          preselectedQuoteId={docContext?.quoteId||null}
+          onClose={()=>{ setShowModal(false); setEditDoc(null); setDocContext(null); }}
           onSaved={(doc)=>{
             if(tab==="pf") setPfDocs(prev=>[doc,...prev]);
-            else { setDocs(prev=>[doc,...prev]); }
-            setShowModal(false); setEditDoc(null); setCpContext(null);
+            else setDocs(prev=>[doc,...prev]);
+            setShowModal(false); setEditDoc(null); setDocContext(null);
           }}
         />
       )}
