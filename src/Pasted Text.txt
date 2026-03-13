@@ -1,0 +1,3 @@
+git add src/App.jsx
+git commit -m "feat: resumen CP con nombre Maximo Hudson, PF mantiene razon social"
+git push

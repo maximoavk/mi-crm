@@ -7795,6 +7795,882 @@ const NAV_FLAT = [
   { key:"operaciones", label:"Operaciones", Icon: Wrench           },
 ];
 
+// ── PROPOSALS VIEW ────────────────────────────────────────────────────────────
+// Módulo: Propuestas Técnico-Comerciales
+// Integración: Agregar al NAV_GROUPS bajo "comercial" → key:"proposals"
+// Supabase: tabla "propuestas" (ver SQL al final del archivo)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// SQL para crear la tabla en Supabase:
+//
+// create table propuestas (
+//   id uuid primary key default gen_random_uuid(),
+//   numero_cotizacion text not null,
+//   revision integer default 0,
+//   titulo text,
+//   cliente text,
+//   rut_cliente text,
+//   contact_id uuid references contactos(id),
+//   elaborado_por text default 'Maximo Hudson',
+//   fecha_elaboracion date default now(),
+//   antecedentes text,
+//   propuesta_tecnica text,
+//   garantias text default '3 meses por instalación · 6 meses por producto',
+//   condiciones_pago text default '50% anticipo · 50% al finalizar',
+//   dias_entrega integer default 12,
+//   partidas jsonb default '[]',
+//   fichas_tecnicas jsonb default '[]',
+//   historial_revisiones jsonb default '[]',
+//   google_docs_url text,
+//   estado text default 'borrador',
+//   created_at timestamptz default now(),
+//   updated_at timestamptz default now()
+// );
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+// INSTRUCCIONES DE INTEGRACIÓN EN App.jsx:
+//
+// 1. Pegar este archivo completo justo antes de la línea "const NAV_GROUPS = ["
+//
+// 2. Agregar al NAV_GROUPS en el grupo "comercial":
+//    { key:"proposals", label:"Propuestas", Icon: FileText },
+//
+// 3. Agregar en el <main> del CRM (junto a los otros views):
+//    {view==="proposals" && <ProposalsView contacts={contacts} isMobile={isMobile} />}
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ProposalsView({ contacts, isMobile }) {
+  const [proposals, setProposals] = useState([]);
+  const [costeos, setCosteos]     = useState([]);
+  const [quotes, setQuotes]       = useState([]);
+  const [products, setProducts]   = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [screen, setScreen]       = useState("list"); // list | editor | diff
+  const [current, setCurrent]     = useState(null);
+  const [diffA, setDiffA]         = useState(null);
+  const [diffB, setDiffB]         = useState(null);
+
+  useEffect(() => { loadAll(); }, []);
+
+  const loadAll = async () => {
+    setLoading(true);
+    const [{ data: props }, { data: cos }, { data: qs }, { data: prods }] = await Promise.all([
+      supabase.from("propuestas").select("*").order("created_at", { ascending: false }),
+      supabase.from("costeos").select("*").order("created_at", { ascending: false }),
+      supabase.from("cotizaciones").select("*").order("created_at", { ascending: false }),
+      supabase.from("productos").select("*").order("nombre"),
+    ]);
+    setProposals(props || []);
+    setCosteos(cos || []);
+    setQuotes(qs || []);
+    setProducts(prods || []);
+    setLoading(false);
+  };
+
+  const openNew = () => {
+    setCurrent(null);
+    setScreen("editor");
+  };
+
+  const openEdit = (p) => {
+    setCurrent(p);
+    setScreen("editor");
+  };
+
+  const openDiff = (p) => {
+    const hist = p.historial_revisiones || [];
+    if (hist.length < 2) return;
+    setDiffA(hist[hist.length - 2]);
+    setDiffB(hist[hist.length - 1]);
+    setCurrent(p);
+    setScreen("diff");
+  };
+
+  const handleSaved = (updated) => {
+    setProposals(prev => {
+      const idx = prev.findIndex(p => p.id === updated.id);
+      if (idx >= 0) { const n = [...prev]; n[idx] = updated; return n; }
+      return [updated, ...prev];
+    });
+    setCurrent(updated);
+    setScreen("list");
+  };
+
+  if (loading) return <Loader />;
+
+  // ── LIST VIEW ──────────────────────────────────────────────────────────────
+  if (screen === "list") return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <div style={{ fontFamily: FONT, fontSize: 11, color: COLORS.textMuted, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4 }}>Módulo Comercial</div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 24, fontWeight: 700, color: COLORS.text }}>Propuestas</div>
+        </div>
+        <AddBtn onClick={openNew} label="Nueva Propuesta" />
+      </div>
+
+      {proposals.length === 0 && (
+        <div style={{ textAlign: "center", padding: "60px 20px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12 }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>📄</div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 16, fontWeight: 600, color: COLORS.text, marginBottom: 8 }}>Sin propuestas aún</div>
+          <div style={{ fontFamily: FONT, fontSize: 13, color: COLORS.textMuted }}>Crea tu primera propuesta técnico-comercial</div>
+        </div>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {proposals.map(p => {
+          const stateColor = { borrador: COLORS.textMuted, enviada: COLORS.accent, aprobada: COLORS.green, rechazada: COLORS.red }[p.estado] || COLORS.textMuted;
+          const hist = p.historial_revisiones || [];
+          const total = (p.partidas || []).reduce((s, i) => s + (Number(i.total) || 0), 0);
+          return (
+            <div key={p.id} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: "16px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 160 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
+                  <span style={{ fontFamily: FONT_DISPLAY, fontSize: 14, fontWeight: 700, color: COLORS.text }}>{p.titulo || `Propuesta #${p.numero_cotizacion}`}</span>
+                  <Badge color={stateColor}>{p.estado}</Badge>
+                  <span style={{ fontFamily: FONT, fontSize: 11, color: COLORS.textMuted }}>Rev. {p.revision}</span>
+                </div>
+                <div style={{ fontFamily: FONT, fontSize: 12, color: COLORS.textMuted }}>
+                  {p.cliente} · COT-{p.numero_cotizacion} · {fmtDate(p.fecha_elaboracion)}
+                </div>
+              </div>
+              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 15, fontWeight: 700, color: COLORS.accent }}>{fmt(total)}</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button onClick={() => openEdit(p)} style={{ padding: "7px 14px", borderRadius: 7, fontFamily: FONT_DISPLAY, fontSize: 12, cursor: "pointer", background: COLORS.accentDim, border: `1px solid ${COLORS.accentGlow}`, color: COLORS.accent }}>Editar</button>
+                {hist.length >= 2 && (
+                  <button onClick={() => openDiff(p)} style={{ padding: "7px 14px", borderRadius: 7, fontFamily: FONT_DISPLAY, fontSize: 12, cursor: "pointer", background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted }}>Ver cambios</button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  // ── DIFF VIEW ──────────────────────────────────────────────────────────────
+  if (screen === "diff") return (
+    <DiffView proposal={current} revA={diffA} revB={diffB} onBack={() => setScreen("list")} />
+  );
+
+  // ── EDITOR ─────────────────────────────────────────────────────────────────
+  return (
+    <ProposalEditor
+      proposal={current}
+      contacts={contacts}
+      costeos={costeos}
+      quotes={quotes}
+      products={products}
+      onSaved={handleSaved}
+      onCancel={() => setScreen("list")}
+      isMobile={isMobile}
+    />
+  );
+}
+
+// ── PROPOSAL EDITOR ────────────────────────────────────────────────────────────
+function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved, onCancel, isMobile }) {
+  const isNew = !proposal;
+  const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [activeTab, setActiveTab] = useState("portada");
+
+  const EMPTY_PARTIDA = () => ({ id: Date.now() + Math.random(), descripcion: "", cant: 1, precio_unit: 0, total: 0 });
+  const EMPTY_FICHA   = () => ({ id: Date.now() + Math.random(), producto: "", modelo: "", descripcion: "", enlace: "" });
+
+  const [form, setForm] = useState({
+    numero_cotizacion: proposal?.numero_cotizacion || "",
+    revision:          proposal?.revision ?? 0,
+    titulo:            proposal?.titulo || "",
+    cliente:           proposal?.cliente || "",
+    rut_cliente:       proposal?.rut_cliente || "",
+    contact_id:        proposal?.contact_id || "",
+    elaborado_por:     proposal?.elaborado_por || "Maximo Hudson",
+    fecha_elaboracion: proposal?.fecha_elaboracion || new Date().toISOString().slice(0, 10),
+    estado:            proposal?.estado || "borrador",
+    antecedentes:      proposal?.antecedentes || "",
+    propuesta_tecnica: proposal?.propuesta_tecnica || "",
+    garantias:         proposal?.garantias || "3 meses por concepto de instalación · 6 meses por concepto de producto",
+    condiciones_pago:  proposal?.condiciones_pago || "50% anticipo al inicio · 50% al finalizar",
+    dias_entrega:      proposal?.dias_entrega ?? 12,
+    google_docs_url:   proposal?.google_docs_url || "",
+    partidas:          proposal?.partidas?.length ? proposal.partidas : [EMPTY_PARTIDA()],
+    fichas_tecnicas:   proposal?.fichas_tecnicas?.length ? proposal.fichas_tecnicas : [EMPTY_FICHA()],
+  });
+
+  const ff = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  // ── Calcular totales partidas ──
+  const subtotal = form.partidas.reduce((s, p) => s + (Number(p.total) || 0), 0);
+  const iva      = Math.round(subtotal * 0.19);
+  const total    = subtotal + iva;
+
+  const updatePartida = (id, key, val) => {
+    setForm(prev => ({
+      ...prev,
+      partidas: prev.partidas.map(p => {
+        if (p.id !== id) return p;
+        const updated = { ...p, [key]: val };
+        if (key === "cant" || key === "precio_unit") {
+          updated.total = Math.round(Number(updated.cant || 0) * Number(updated.precio_unit || 0));
+        }
+        return updated;
+      })
+    }));
+  };
+
+  const addPartida = () => setForm(p => ({ ...p, partidas: [...p.partidas, EMPTY_PARTIDA()] }));
+  const removePartida = (id) => setForm(p => ({ ...p, partidas: p.partidas.filter(x => x.id !== id) }));
+
+  const updateFicha = (id, key, val) => setForm(prev => ({
+    ...prev,
+    fichas_tecnicas: prev.fichas_tecnicas.map(f => f.id !== id ? f : { ...f, [key]: val })
+  }));
+  const addFicha    = () => setForm(p => ({ ...p, fichas_tecnicas: [...p.fichas_tecnicas, EMPTY_FICHA()] }));
+  const removeFicha = (id) => setForm(p => ({ ...p, fichas_tecnicas: p.fichas_tecnicas.filter(x => x.id !== id) }));
+
+  // ── Importar desde Costeo ──
+  const importFromCosteo = (costeoId) => {
+    const costeo = costeos.find(c => c.id === costeoId);
+    if (!costeo) return;
+    const items = costeo.items || costeo.partidas || [];
+    const newPartidas = items.map(i => ({
+      id: Date.now() + Math.random(),
+      descripcion: i.descripcion || i.nombre || "",
+      cant:        Number(i.cantidad || i.cant || 1),
+      precio_unit: Number(i.precio_venta || i.precio_unit || i.precio || 0),
+      total:       Math.round(Number(i.cantidad || 1) * Number(i.precio_venta || i.precio_unit || i.precio || 0)),
+    }));
+    setForm(p => ({
+      ...p,
+      partidas:   newPartidas.length ? newPartidas : p.partidas,
+      titulo:     p.titulo || costeo.nombre || costeo.titulo || p.titulo,
+      antecedentes: p.antecedentes || costeo.descripcion || "",
+    }));
+  };
+
+  // ── Importar desde Cotización ──
+  const importFromQuote = (quoteId) => {
+    const q = quotes.find(x => x.id === quoteId);
+    if (!q) return;
+    const items = q.items || q.lineas || [];
+    const newPartidas = items.map(i => ({
+      id: Date.now() + Math.random(),
+      descripcion: i.descripcion || i.nombre || "",
+      cant:        Number(i.cantidad || i.cant || 1),
+      precio_unit: Number(i.precio_unit || i.precio || 0),
+      total:       Math.round(Number(i.cantidad || 1) * Number(i.precio_unit || i.precio || 0)),
+    }));
+    if (newPartidas.length) setForm(p => ({ ...p, partidas: newPartidas }));
+    if (q.numero_cotizacion) ff("numero_cotizacion", String(q.numero_cotizacion));
+  };
+
+  // ── Guardar en Supabase ──
+  const save = async (newEstado) => {
+    setSaving(true);
+    const estado = newEstado || form.estado;
+
+    // Construir snapshot para historial
+    const snapshot = {
+      revision:    form.revision,
+      fecha:       new Date().toISOString(),
+      elaborado_por: form.elaborado_por,
+      estado,
+      titulo:       form.titulo,
+      antecedentes: form.antecedentes,
+      propuesta_tecnica: form.propuesta_tecnica,
+      garantias:    form.garantias,
+      condiciones_pago: form.condiciones_pago,
+      partidas:     form.partidas,
+      subtotal,
+      total,
+    };
+
+    const hist = proposal?.historial_revisiones || [];
+    const payload = {
+      ...form,
+      estado,
+      revision: isNew ? 0 : form.revision,
+      updated_at: new Date().toISOString(),
+      historial_revisiones: [...hist, snapshot],
+    };
+
+    let result;
+    if (isNew) {
+      const { data, error } = await supabase.from("propuestas").insert(payload).select().single();
+      result = data;
+    } else {
+      const { data, error } = await supabase.from("propuestas").update(payload).eq("id", proposal.id).select().single();
+      result = data;
+    }
+    setSaving(false);
+    if (result) onSaved(result);
+  };
+
+  // ── Nueva revisión ──
+  const newRevision = async () => {
+    const snapshot = {
+      revision:    form.revision,
+      fecha:       new Date().toISOString(),
+      elaborado_por: form.elaborado_por,
+      estado:      form.estado,
+      titulo:      form.titulo,
+      antecedentes: form.antecedentes,
+      propuesta_tecnica: form.propuesta_tecnica,
+      garantias:   form.garantias,
+      condiciones_pago: form.condiciones_pago,
+      partidas:    form.partidas,
+      subtotal,
+      total,
+    };
+    const hist = proposal?.historial_revisiones || [];
+    const newRev = form.revision + 1;
+    const payload = {
+      ...form,
+      revision: newRev,
+      updated_at: new Date().toISOString(),
+      historial_revisiones: [...hist, snapshot],
+    };
+    setSaving(true);
+    const { data } = await supabase.from("propuestas").update(payload).eq("id", proposal.id).select().single();
+    setSaving(false);
+    if (data) { ff("revision", newRev); onSaved(data); }
+  };
+
+  // ── Exportar DOCX ──
+  const exportDocx = async () => {
+    setExporting(true);
+    try {
+      const res = await fetch("/api/generate-docx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ form, subtotal, iva, total }),
+      });
+      if (!res.ok) throw new Error("API not available");
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `Propuesta_${form.numero_cotizacion}_Rev${form.revision}.docx`;
+      a.click();
+    } catch {
+      // Fallback: generar HTML imprimible si la API no está disponible
+      exportHtmlPrint();
+    }
+    setExporting(false);
+  };
+
+  const exportHtmlPrint = () => {
+    const partidasRows = form.partidas.map(p => `
+      <tr>
+        <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;">${p.descripcion}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;text-align:center;">${p.cant}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;text-align:right;">${fmt(p.precio_unit)}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;">${fmt(p.total)}</td>
+      </tr>`).join("");
+
+    const fichasHtml = form.fichas_tecnicas.filter(f => f.producto).map(f => `
+      <div style="margin-bottom:12px;padding:10px 14px;border:1px solid #e2e8f0;border-radius:6px;">
+        <div style="font-weight:700;font-size:13px;color:#1e293b;">${f.producto} ${f.modelo ? `— ${f.modelo}` : ""}</div>
+        ${f.descripcion ? `<div style="font-size:12px;color:#475569;margin-top:4px;">${f.descripcion}</div>` : ""}
+        ${f.enlace ? `<a href="${f.enlace}" style="font-size:11px;color:#0096cc;">Ver ficha técnica →</a>` : ""}
+      </div>`).join("");
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:'Space Grotesk',Arial,sans-serif;color:#1e293b;background:#fff;padding:20mm 18mm;font-size:12px;line-height:1.6}
+      .logo{height:40px;margin-bottom:24px}
+      .portada-title{font-size:28px;font-weight:700;color:#1e293b;margin:40px 0 8px}
+      .portada-sub{font-size:14px;color:#64748b;margin-bottom:32px}
+      .meta-table{width:100%;border-collapse:collapse;margin-bottom:32px}
+      .meta-table td{padding:8px 12px;border:1px solid #e2e8f0;font-size:12px}
+      .meta-table td:first-child{background:#f8fafc;font-weight:600;width:160px}
+      h2{font-size:16px;font-weight:700;color:#0f1623;margin:28px 0 10px;padding-bottom:6px;border-bottom:2px solid #00c2ff}
+      p{font-size:12px;color:#334155;margin-bottom:8px;white-space:pre-wrap}
+      table.partidas{width:100%;border-collapse:collapse;margin-top:8px}
+      table.partidas thead th{background:#0f1623;color:#fff;padding:8px 10px;text-align:left;font-size:11px;font-weight:600}
+      table.partidas thead th:last-child,table.partidas thead th:nth-child(2),table.partidas thead th:nth-child(3){text-align:right}
+      .totales{margin-top:0;text-align:right}
+      .totales td{padding:5px 10px;font-size:12px}
+      .totales .total-row{font-weight:700;font-size:14px;color:#0f1623;border-top:2px solid #0f1623}
+      .footer{margin-top:40px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;text-align:center}
+      @media print{body{padding:10mm 12mm}@page{margin:0}}
+    </style></head><body>
+    <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" class="logo" />
+    <div class="portada-title">${form.titulo || "Propuesta Técnico-Comercial"}</div>
+    <div class="portada-sub">Cotización N° ${form.numero_cotizacion} · Rev. ${form.revision}</div>
+    <table class="meta-table">
+      <tr><td>Cliente</td><td>${form.cliente || "—"}</td></tr>
+      <tr><td>RUT</td><td>${form.rut_cliente || "—"}</td></tr>
+      <tr><td>Elaborado por</td><td>${form.elaborado_por}</td></tr>
+      <tr><td>Fecha</td><td>${fmtDate(form.fecha_elaboracion)}</td></tr>
+      <tr><td>Revisión</td><td>${form.revision}</td></tr>
+      <tr><td>Estado</td><td>${form.estado}</td></tr>
+    </table>
+    ${form.antecedentes ? `<h2>Antecedentes</h2><p>${form.antecedentes}</p>` : ""}
+    ${form.propuesta_tecnica ? `<h2>Propuesta Técnica</h2><p>${form.propuesta_tecnica}</p>` : ""}
+    ${form.fichas_tecnicas.some(f=>f.producto) ? `<h2>Fichas Técnicas</h2>${fichasHtml}` : ""}
+    <h2>Propuesta Económica</h2>
+    <table class="partidas">
+      <thead><tr><th>Descripción</th><th style="text-align:right">Cant.</th><th style="text-align:right">Precio Unit.</th><th style="text-align:right">Total</th></tr></thead>
+      <tbody>${partidasRows}</tbody>
+    </table>
+    <table class="totales" style="width:280px;margin-left:auto;margin-top:8px">
+      <tr><td>Subtotal neto</td><td style="text-align:right">${fmt(subtotal)}</td></tr>
+      <tr><td>IVA (19%)</td><td style="text-align:right">${fmt(iva)}</td></tr>
+      <tr class="total-row"><td><b>Total</b></td><td style="text-align:right"><b>${fmt(total)}</b></td></tr>
+    </table>
+    <h2>Garantías</h2><p>${form.garantias}</p>
+    <h2>Forma de Pago</h2><p>${form.condiciones_pago}</p>
+    <div class="footer">Polygonos SpA · RUT 77.180.437-3 · ventas@polygonos.cl · +56 9 6426 6356 · Innovación | Tecnología | Seguridad</div>
+    <script>window.onload=()=>window.print();</script>
+    </body></html>`;
+    const w = window.open("", "_blank");
+    w.document.write(html);
+    w.document.close();
+  };
+
+  // ── Generar Google Docs URL ──
+  const openGoogleDocsTemplate = () => {
+    const encoded = encodeURIComponent(form.titulo || "Propuesta Polygonos");
+    window.open(`https://docs.google.com/document/create?title=${encoded}`, "_blank");
+  };
+
+  // ── STYLES ──
+  const inp  = { width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" };
+  const ta   = { ...inp, resize:"vertical", minHeight:100, lineHeight:1.6 };
+  const lbl  = { display:"block", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 };
+  const card = { background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"20px 22px", marginBottom:16 };
+
+  const TABS = [
+    { key:"portada",  label:"📋 Portada" },
+    { key:"tecnica",  label:"🔧 Técnica" },
+    { key:"fichas",   label:"📎 Fichas" },
+    { key:"economica",label:"💰 Económica" },
+    { key:"cond",     label:"📄 Condiciones" },
+  ];
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20, gap:12, flexWrap:"wrap" }}>
+        <div>
+          <button onClick={onCancel} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12, display:"flex", alignItems:"center", gap:5, padding:0, marginBottom:8 }}>
+            ← Volver a propuestas
+          </button>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:COLORS.text }}>
+            {isNew ? "Nueva Propuesta" : `Editando: ${form.titulo || "Sin título"}`}
+          </div>
+          {!isNew && (
+            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:3 }}>
+              COT-{form.numero_cotizacion} · Revisión {form.revision} · <span style={{ color:{borrador:COLORS.textMuted,enviada:COLORS.accent,aprobada:COLORS.green,rechazada:COLORS.red}[form.estado] }}>{form.estado}</span>
+            </div>
+          )}
+        </div>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          {!isNew && (
+            <button onClick={newRevision} disabled={saving} style={{ padding:"8px 14px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:COLORS.card, border:`1px solid ${COLORS.border}`, color:COLORS.textMuted }}>
+              ＋ Nueva revisión
+            </button>
+          )}
+          <button onClick={exportHtmlPrint} disabled={exporting} style={{ padding:"8px 14px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, color:COLORS.green }}>
+            🖨 Imprimir / PDF
+          </button>
+          <button onClick={openGoogleDocsTemplate} style={{ padding:"8px 14px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:"#4285F422", border:"1px solid #4285F444", color:"#4285F4" }}>
+            📝 Google Docs
+          </button>
+          <button onClick={() => save()} disabled={saving} style={{ padding:"8px 18px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer", background:COLORS.accent, border:"none", color:"#fff" }}>
+            {saving ? "Guardando…" : "Guardar"}
+          </button>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display:"flex", gap:4, marginBottom:20, flexWrap:"wrap" }}>
+        {TABS.map(t => (
+          <button key={t.key} onClick={() => setActiveTab(t.key)}
+            style={{ padding:"8px 16px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer",
+              background: activeTab === t.key ? COLORS.accent : COLORS.card,
+              border: `1px solid ${activeTab === t.key ? COLORS.accent : COLORS.border}`,
+              color: activeTab === t.key ? "#fff" : COLORS.textMuted, fontWeight: activeTab === t.key ? 700 : 400 }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── TAB PORTADA ── */}
+      {activeTab === "portada" && (
+        <div>
+          <div style={card}>
+            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:14 }}>Identificación del documento</div>
+            <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:12 }}>
+              <div>
+                <label style={lbl}>N° Cotización *</label>
+                <input value={form.numero_cotizacion} onChange={e => ff("numero_cotizacion", e.target.value)} placeholder="Ej: 41" style={inp} />
+              </div>
+              <div>
+                <label style={lbl}>Revisión</label>
+                <input type="number" value={form.revision} onChange={e => ff("revision", Number(e.target.value))} style={inp} />
+              </div>
+              <div style={{ gridColumn: isMobile ? "auto" : "span 2" }}>
+                <label style={lbl}>Título de la propuesta *</label>
+                <input value={form.titulo} onChange={e => ff("titulo", e.target.value)} placeholder="Ej: Propuesta CCTV IP Condominio Golf III" style={inp} />
+              </div>
+              <div>
+                <label style={lbl}>Cliente</label>
+                <input value={form.cliente} onChange={e => ff("cliente", e.target.value)} placeholder="Nombre o razón social" style={inp} />
+                <div style={{ marginTop:6 }}>
+                  <select value={form.contact_id} onChange={e => {
+                    ff("contact_id", e.target.value);
+                    const c = contacts.find(x => x.id === e.target.value);
+                    if (c) { ff("cliente", c.company || c.name); ff("rut_cliente", c.rut || ""); }
+                  }} style={{ ...inp, fontSize:11 }}>
+                    <option value="">— O seleccionar desde contactos —</option>
+                    {contacts.map(c => <option key={c.id} value={c.id}>{c.name} · {c.company}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label style={lbl}>RUT Cliente</label>
+                <input value={form.rut_cliente} onChange={e => ff("rut_cliente", e.target.value)} placeholder="Ej: 12.345.678-9" style={inp} />
+              </div>
+              <div>
+                <label style={lbl}>Elaborado por</label>
+                <input value={form.elaborado_por} onChange={e => ff("elaborado_por", e.target.value)} style={inp} />
+              </div>
+              <div>
+                <label style={lbl}>Fecha de elaboración</label>
+                <input type="date" value={form.fecha_elaboracion} onChange={e => ff("fecha_elaboracion", e.target.value)} style={inp} />
+              </div>
+              <div>
+                <label style={lbl}>Estado</label>
+                <select value={form.estado} onChange={e => ff("estado", e.target.value)} style={inp}>
+                  <option value="borrador">Borrador</option>
+                  <option value="enviada">Enviada</option>
+                  <option value="aprobada">Aprobada</option>
+                  <option value="rechazada">Rechazada</option>
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Días de entrega</label>
+                <input type="number" value={form.dias_entrega} onChange={e => ff("dias_entrega", Number(e.target.value))} style={inp} />
+              </div>
+            </div>
+          </div>
+
+          {/* Historial de revisiones */}
+          {(proposal?.historial_revisiones || []).length > 0 && (
+            <div style={card}>
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:12 }}>Control de cambios</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                {(proposal.historial_revisiones || []).map((h, i) => (
+                  <div key={i} style={{ display:"flex", alignItems:"center", gap:12, padding:"9px 14px", background:COLORS.bg, borderRadius:8, border:`1px solid ${COLORS.border}` }}>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, fontWeight:700, minWidth:50 }}>Rev. {h.revision}</div>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, flex:1 }}>
+                      {h.fecha ? new Date(h.fecha).toLocaleDateString("es-CL", { day:"2-digit", month:"short", year:"numeric" }) : "—"} · {h.elaborado_por}
+                    </div>
+                    <Badge color={{ borrador:COLORS.textMuted, enviada:COLORS.accent, aprobada:COLORS.green, rechazada:COLORS.red }[h.estado] || COLORS.textMuted}>{h.estado}</Badge>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{fmt(h.total || 0)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Enlace Google Docs */}
+          <div style={card}>
+            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:12 }}>Documento externo (Google Docs)</div>
+            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+              <input value={form.google_docs_url} onChange={e => ff("google_docs_url", e.target.value)} placeholder="Pega aquí el enlace de Google Docs una vez creado" style={{ ...inp, flex:1 }} />
+              {form.google_docs_url && (
+                <button onClick={() => window.open(form.google_docs_url, "_blank")} style={{ padding:"9px 14px", borderRadius:7, background:"#4285F422", border:"1px solid #4285F444", color:"#4285F4", fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", flexShrink:0 }}>
+                  Abrir
+                </button>
+              )}
+            </div>
+            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:8 }}>
+              Flujo recomendado: Imprimir / PDF → abrir en Google Docs → editar → pegar enlace aquí.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB TÉCNICA ── */}
+      {activeTab === "tecnica" && (
+        <div>
+          <div style={card}>
+            <label style={lbl}>Antecedentes del proyecto</label>
+            <textarea value={form.antecedentes} onChange={e => ff("antecedentes", e.target.value)}
+              placeholder="Describe el contexto del proyecto, necesidades del cliente, condiciones del sitio, requerimientos específicos..."
+              style={ta} rows={6} />
+          </div>
+          <div style={card}>
+            <label style={lbl}>Propuesta técnica / Solución</label>
+            <textarea value={form.propuesta_tecnica} onChange={e => ff("propuesta_tecnica", e.target.value)}
+              placeholder="Detalla la solución propuesta: equipos a instalar, topología de red, método de instalación, alcance del servicio..."
+              style={ta} rows={8} />
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB FICHAS TÉCNICAS ── */}
+      {activeTab === "fichas" && (
+        <div>
+          <div style={{ ...card }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em" }}>Fichas técnicas de productos</div>
+              <button onClick={addFicha} style={{ padding:"6px 14px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, color:COLORS.accent }}>
+                + Agregar producto
+              </button>
+            </div>
+            {form.fichas_tecnicas.map((f, idx) => (
+              <div key={f.id} style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"14px 16px", marginBottom:10 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+                  <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Producto {idx + 1}</span>
+                  <button onClick={() => removeFicha(f.id)} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>✕</button>
+                </div>
+                <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:10 }}>
+                  <div>
+                    <label style={lbl}>Nombre / Tipo</label>
+                    <input value={f.producto} onChange={e => updateFicha(f.id, "producto", e.target.value)} placeholder="Ej: Cámara Bullet Dahua 4MP" style={inp} />
+                  </div>
+                  <div>
+                    <label style={lbl}>Modelo</label>
+                    <input value={f.modelo} onChange={e => updateFicha(f.id, "modelo", e.target.value)} placeholder="Ej: IPC-HFW1439S1-LED" style={inp} />
+                  </div>
+                  <div style={{ gridColumn: isMobile ? "auto" : "span 2" }}>
+                    <label style={lbl}>Descripción / Características clave</label>
+                    <textarea value={f.descripcion} onChange={e => updateFicha(f.id, "descripcion", e.target.value)}
+                      placeholder="Resolución, codec, protección IP, alimentación..." rows={2} style={{ ...ta, minHeight:60 }} />
+                  </div>
+                  <div style={{ gridColumn: isMobile ? "auto" : "span 2" }}>
+                    <label style={lbl}>Enlace ficha técnica / datasheet</label>
+                    <div style={{ display:"flex", gap:8 }}>
+                      <input value={f.enlace} onChange={e => updateFicha(f.id, "enlace", e.target.value)} placeholder="https://..." style={{ ...inp, flex:1 }} />
+                      {f.enlace && <button onClick={() => window.open(f.enlace, "_blank")} style={{ padding:"9px 12px", borderRadius:6, background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, color:COLORS.accent, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>Abrir →</button>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB ECONÓMICA ── */}
+      {activeTab === "economica" && (
+        <div>
+          {/* Importadores */}
+          {(costeos.length > 0 || quotes.length > 0) && (
+            <div style={{ ...card, background:`${COLORS.accent}08`, border:`1px solid ${COLORS.accent}22` }}>
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:12 }}>Importar partidas desde</div>
+              <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+                {costeos.length > 0 && (
+                  <div style={{ flex:1, minWidth:200 }}>
+                    <label style={lbl}>Costeo de proyecto</label>
+                    <select onChange={e => { if(e.target.value) importFromCosteo(e.target.value); e.target.value=""; }} style={inp}>
+                      <option value="">— Seleccionar costeo —</option>
+                      {costeos.map(c => <option key={c.id} value={c.id}>{c.nombre || c.titulo || c.id}</option>)}
+                    </select>
+                  </div>
+                )}
+                {quotes.length > 0 && (
+                  <div style={{ flex:1, minWidth:200 }}>
+                    <label style={lbl}>Cotización existente</label>
+                    <select onChange={e => { if(e.target.value) importFromQuote(e.target.value); e.target.value=""; }} style={inp}>
+                      <option value="">— Seleccionar cotización —</option>
+                      {quotes.map(q => <option key={q.id} value={q.id}>COT-{q.numero_cotizacion} · {q.titulo || q.cliente || q.id}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div style={card}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em" }}>Partidas del servicio</div>
+              <button onClick={addPartida} style={{ padding:"6px 14px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, color:COLORS.accent }}>
+                + Agregar partida
+              </button>
+            </div>
+
+            {/* Header tabla */}
+            {!isMobile && (
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 80px 130px 120px 36px", gap:8, marginBottom:6, padding:"0 4px" }}>
+                {["Descripción","Cant","Precio Unit.","Total",""].map((h, i) => (
+                  <div key={i} style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", textAlign: i > 0 ? "right" : "left" }}>{h}</div>
+                ))}
+              </div>
+            )}
+
+            {form.partidas.map(p => (
+              <div key={p.id} style={{ display: isMobile ? "flex" : "grid", flexDirection: isMobile ? "column" : undefined, gridTemplateColumns:"1fr 80px 130px 120px 36px", gap:8, marginBottom:8, alignItems:"center" }}>
+                <input value={p.descripcion} onChange={e => updatePartida(p.id, "descripcion", e.target.value)} placeholder="Descripción de la partida" style={inp} />
+                <input type="number" value={p.cant} onChange={e => updatePartida(p.id, "cant", e.target.value)} placeholder="Cant." style={{ ...inp, textAlign:"right" }} />
+                <input type="number" value={p.precio_unit} onChange={e => updatePartida(p.id, "precio_unit", e.target.value)} placeholder="Precio unitario" style={{ ...inp, textAlign:"right" }} />
+                <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.accent, fontWeight:700, textAlign:"right", padding:"9px 12px", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6 }}>{fmt(p.total)}</div>
+                <button onClick={() => removePartida(p.id)} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:16, padding:"0 6px" }}>✕</button>
+              </div>
+            ))}
+
+            {/* Totales */}
+            <div style={{ marginTop:16, borderTop:`1px solid ${COLORS.border}`, paddingTop:14, display:"flex", flexDirection:"column", gap:6, alignItems:"flex-end" }}>
+              <div style={{ display:"flex", gap:40, fontFamily:FONT, fontSize:13 }}>
+                <span style={{ color:COLORS.textMuted }}>Subtotal neto</span>
+                <span style={{ color:COLORS.text, fontWeight:600, minWidth:120, textAlign:"right" }}>{fmt(subtotal)}</span>
+              </div>
+              <div style={{ display:"flex", gap:40, fontFamily:FONT, fontSize:13 }}>
+                <span style={{ color:COLORS.textMuted }}>IVA (19%)</span>
+                <span style={{ color:COLORS.text, minWidth:120, textAlign:"right" }}>{fmt(iva)}</span>
+              </div>
+              <div style={{ display:"flex", gap:40, fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, borderTop:`2px solid ${COLORS.border}`, paddingTop:8, marginTop:4 }}>
+                <span style={{ color:COLORS.text }}>Total</span>
+                <span style={{ color:COLORS.accent, minWidth:120, textAlign:"right" }}>{fmt(total)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB CONDICIONES ── */}
+      {activeTab === "cond" && (
+        <div>
+          <div style={card}>
+            <label style={lbl}>Garantías</label>
+            <textarea value={form.garantias} onChange={e => ff("garantias", e.target.value)} rows={4} style={ta} />
+          </div>
+          <div style={card}>
+            <label style={lbl}>Forma de pago</label>
+            <textarea value={form.condiciones_pago} onChange={e => ff("condiciones_pago", e.target.value)} rows={3} style={ta} />
+          </div>
+          <div style={card}>
+            <label style={lbl}>Días de entrega estimados</label>
+            <input type="number" value={form.dias_entrega} onChange={e => ff("dias_entrega", Number(e.target.value))} style={{ ...inp, maxWidth:160 }} />
+          </div>
+        </div>
+      )}
+
+      {/* Bottom save bar */}
+      <div style={{ display:"flex", justifyContent:"flex-end", gap:10, marginTop:24, paddingTop:16, borderTop:`1px solid ${COLORS.border}` }}>
+        <button onClick={onCancel} style={{ padding:"10px 20px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.border}`, color:COLORS.textMuted }}>
+          Cancelar
+        </button>
+        <button onClick={() => save("borrador")} disabled={saving} style={{ padding:"10px 20px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer", background:COLORS.card, border:`1px solid ${COLORS.border}`, color:COLORS.text }}>
+          Guardar borrador
+        </button>
+        <button onClick={() => save("enviada")} disabled={saving} style={{ padding:"10px 24px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer", background:COLORS.accent, border:"none", color:"#fff" }}>
+          {saving ? "Guardando…" : "Guardar y marcar enviada"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── DIFF VIEW ──────────────────────────────────────────────────────────────────
+function DiffView({ proposal, revA, revB, onBack }) {
+  if (!revA || !revB) return null;
+
+  const fields = [
+    { key:"titulo",           label:"Título" },
+    { key:"antecedentes",     label:"Antecedentes" },
+    { key:"propuesta_tecnica",label:"Propuesta técnica" },
+    { key:"garantias",        label:"Garantías" },
+    { key:"condiciones_pago", label:"Forma de pago" },
+  ];
+
+  const diffText = (a, b) => {
+    if (a === b) return null;
+    return (
+      <div>
+        <div style={{ background:"#FF4D6A18", border:"1px solid #FF4D6A33", borderRadius:6, padding:"8px 12px", marginBottom:6 }}>
+          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.red, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>Rev. {revA.revision} (anterior)</div>
+          <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, whiteSpace:"pre-wrap" }}>{a || "—"}</div>
+        </div>
+        <div style={{ background:"#00E5A018", border:"1px solid #00E5A033", borderRadius:6, padding:"8px 12px" }}>
+          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.green, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>Rev. {revB.revision} (actual)</div>
+          <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, whiteSpace:"pre-wrap" }}>{b || "—"}</div>
+        </div>
+      </div>
+    );
+  };
+
+  const totalDiff = (revB.total || 0) - (revA.total || 0);
+
+  return (
+    <div>
+      <button onClick={onBack} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12, marginBottom:16, display:"flex", alignItems:"center", gap:5, padding:0 }}>
+        ← Volver
+      </button>
+      <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:COLORS.text, marginBottom:4 }}>Control de cambios</div>
+      <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:24 }}>
+        {proposal.titulo} · Rev. {revA.revision} → Rev. {revB.revision}
+      </div>
+
+      {/* Resumen numérico */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:12, marginBottom:20 }}>
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"14px 18px" }}>
+          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Total Rev. {revA.revision}</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text }}>{fmt(revA.total || 0)}</div>
+        </div>
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"14px 18px" }}>
+          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Total Rev. {revB.revision}</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text }}>{fmt(revB.total || 0)}</div>
+        </div>
+        <div style={{ background: totalDiff > 0 ? `${COLORS.red}15` : totalDiff < 0 ? `${COLORS.green}15` : COLORS.card, border:`1px solid ${totalDiff > 0 ? COLORS.red : totalDiff < 0 ? COLORS.green : COLORS.border}33`, borderRadius:10, padding:"14px 18px" }}>
+          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Variación</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color: totalDiff > 0 ? COLORS.red : totalDiff < 0 ? COLORS.green : COLORS.textMuted }}>
+            {totalDiff > 0 ? "+" : ""}{fmt(totalDiff)}
+          </div>
+        </div>
+      </div>
+
+      {/* Diff de campos de texto */}
+      {fields.map(f => {
+        const a = revA[f.key] || "";
+        const b = revB[f.key] || "";
+        if (a === b) return null;
+        return (
+          <div key={f.key} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"16px 18px", marginBottom:12 }}>
+            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>{f.label}</div>
+            {diffText(a, b)}
+          </div>
+        );
+      })}
+
+      {/* Diff de partidas */}
+      {JSON.stringify(revA.partidas) !== JSON.stringify(revB.partidas) && (
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"16px 18px" }}>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12 }}>Partidas económicas</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+            <div>
+              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.red, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:8 }}>Rev. {revA.revision}</div>
+              {(revA.partidas || []).map((p, i) => (
+                <div key={i} style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, padding:"5px 10px", background:`${COLORS.red}10`, borderRadius:4, marginBottom:4, display:"flex", justifyContent:"space-between" }}>
+                  <span>{p.descripcion}</span><span>{fmt(p.total)}</span>
+                </div>
+              ))}
+            </div>
+            <div>
+              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.green, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:8 }}>Rev. {revB.revision}</div>
+              {(revB.partidas || []).map((p, i) => (
+                <div key={i} style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, padding:"5px 10px", background:`${COLORS.green}10`, borderRadius:4, marginBottom:4, display:"flex", justifyContent:"space-between" }}>
+                  <span>{p.descripcion}</span><span>{fmt(p.total)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 // Grouped nav for desktop sidebar
 const NAV_GROUPS = [
   {
@@ -7809,8 +8685,9 @@ const NAV_GROUPS = [
   {
     key: "comercial", label: "Comercial", Icon: FileText, children: [
       { key:"quotes",        label:"Cotizar",      Icon: FileText },
-      { key:"prestaciones",  label:"Pedidos", Icon: Receipt  },
+      { key:"prestaciones",  label:"Pedidos",      Icon: Receipt  },
       { key:"analisis",      label:"Análisis",     Icon: Scale    },
+      { key:"proposals",     label:"Propuestas",   Icon: FileText },
     ],
   },
   {
@@ -9904,6 +10781,7 @@ export default function CRM() {
           {view==="operaciones" && <OperacionesView isMobile={isMobile} />}
           {view==="analisis"    && <AnalisisPreciosView isMobile={isMobile} />}
           {view==="tasks"     && <TasksView tasks={tasks} setTasks={setTasks} contacts={contacts} isMobile={isMobile} />}
+          {view==="proposals" && <ProposalsView contacts={contacts} isMobile={isMobile} />}
           {view==="reports"   && <ReportsView contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} />}
         </div>
       </main>
