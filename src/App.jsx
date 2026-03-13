@@ -3379,50 +3379,131 @@ function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditPedido, 
 
                           {/* Documentos dentro de la COT */}
                           {isCotOpen && (
-                            <div style={{ borderTop:`1px solid ${COLORS.border}22`, padding:"10px 12px", background:COLORS.surface+"44" }}>
-                              <div style={{ display:"flex", gap:10, flexWrap:"wrap", alignItems:"flex-start" }}>
-                                {qDocs.map(doc=>{
-                                  const txs = doc.transacciones||[];
-                                  const docMonto = Number(doc.monto_pagado||0);
-                                  const docPct   = qTotal>0 ? Math.min((docMonto/qTotal)*100,100) : 0;
-                                  return (
-                                    <div key={doc.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:9, padding:"11px 13px", width:215, flexShrink:0 }}>
-                                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:5 }}>
-                                        <div>
-                                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:AC }}>{doc.numero}</div>
-                                          <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>{fmtDate(doc.fecha_pago)} · {doc.responsable||""}</div>
-                                        </div>
-                                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.green }}>{fmt(docMonto)}</div>
-                                      </div>
-                                      {txs.length>0 && (
-                                        <div style={{ marginBottom:7 }}>
-                                          {txs.slice(0,3).map((t,i)=>(
-                                            <div key={i} style={{ fontFamily:FONT,fontSize:9,color:COLORS.textMuted,marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
-                                              🏦 {t.codigo?t.codigo.slice(0,14)+"…":"—"} · {fmt(Number(t.monto||0))}
+                            <div style={{ borderTop:`1px solid ${COLORS.border}22`, padding:"14px 14px 14px", background:COLORS.surface+"44" }}>
+                              <div style={{ display:"flex", gap:14, alignItems:"flex-start", flexWrap:"wrap" }}>
+
+                                {/* Dona COT */}
+                                <div style={{ flexShrink:0, width:120, display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
+                                  {(() => {
+                                    const R2=44,r2=28,cx2=52,cy2=52,circ2=2*Math.PI*r2;
+                                    const pPct = qTotal>0 ? Math.min(efectivo/qTotal,1) : 0;
+                                    const dP = pPct*circ2, dS = (1-pPct)*circ2;
+                                    const qPagadoReal = qDocs.reduce((s,d)=>s+Number(d.monto_pagado||0),0);
+                                    return (
+                                      <>
+                                        <svg width={104} height={104} viewBox="0 0 104 104">
+                                          <circle cx={cx2} cy={cy2} r={r2} fill="none" stroke={COLORS.border} strokeWidth={R2-r2}/>
+                                          {(1-pPct)>0 && <circle cx={cx2} cy={cy2} r={r2} fill="none" stroke="url(#cotSaldo)" strokeWidth={R2-r2}
+                                            strokeDasharray={`${dS} ${circ2-dS}`} strokeDashoffset={-(pPct*circ2)}
+                                            strokeLinecap="butt" transform={`rotate(-90 ${cx2} ${cy2})`}/>}
+                                          {pPct>0 && <circle cx={cx2} cy={cy2} r={r2} fill="none" stroke="url(#cotPagado)" strokeWidth={R2-r2}
+                                            strokeDasharray={`${dP} ${circ2-dP}`}
+                                            strokeLinecap="butt" transform={`rotate(-90 ${cx2} ${cy2})`}/>}
+                                          <defs>
+                                            <linearGradient id="cotPagado" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor={AC}/><stop offset="100%" stopColor={COLORS.green}/></linearGradient>
+                                            <linearGradient id="cotSaldo"  x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor={COLORS.yellow}/><stop offset="100%" stopColor={COLORS.red}/></linearGradient>
+                                          </defs>
+                                          <text x={cx2} y={cy2-5} textAnchor="middle" fill={COLORS.text} fontSize="13" fontWeight="700" fontFamily="Space Grotesk,sans-serif">{(pPct*100).toFixed(0)}%</text>
+                                          <text x={cx2} y={cy2+9} textAnchor="middle" fill={COLORS.textMuted} fontSize="7" fontFamily="DM Mono,monospace">PAGADO</text>
+                                        </svg>
+                                        <div style={{ display:"flex", flexDirection:"column", gap:3, width:"100%" }}>
+                                          {[
+                                            {label:"Pagado", val:efectivo,           color:COLORS.green,  grad:`linear-gradient(135deg,${AC},${COLORS.green})`},
+                                            {label:"Saldo",  val:Math.max(0,saldo),  color:COLORS.yellow, grad:`linear-gradient(135deg,${COLORS.yellow},${COLORS.red})`},
+                                            {label:"Total",  val:qTotal,             color:COLORS.text,   grad:COLORS.border},
+                                          ].map(({label,val,color,grad})=>(
+                                            <div key={label} style={{ display:"flex", alignItems:"center", gap:4 }}>
+                                              <div style={{ width:7,height:7,borderRadius:99,background:grad,flexShrink:0 }}/>
+                                              <span style={{ fontFamily:FONT,fontSize:8,color:COLORS.textMuted }}>{label}</span>
+                                              <span style={{ fontFamily:FONT_DISPLAY,fontSize:8,color,marginLeft:"auto",fontWeight:700 }}>{fmt(val)}</span>
                                             </div>
                                           ))}
-                                          {txs.length>3 && <div style={{ fontFamily:FONT,fontSize:8,color:COLORS.textMuted }}>+{txs.length-3} más…</div>}
+                                          {qPagadoReal>qTotal && qTotal>0 && (
+                                            <div style={{ marginTop:3,padding:"2px 5px",borderRadius:4,background:`${AC}22`,border:`1px solid ${AC}44` }}>
+                                              <span style={{ fontFamily:FONT,fontSize:7,color:AC }}>⇄ comp. {fmt(qPagadoReal-qTotal)}</span>
+                                            </div>
+                                          )}
                                         </div>
-                                      )}
-                                      <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:7 }}>
-                                        <span style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted, width:40, flexShrink:0 }}>% COT</span>
-                                        <MiniBar pct={docPct} color={`linear-gradient(90deg,${AC},${COLORS.green})`}/>
-                                        <span style={{ fontFamily:FONT, fontSize:8, color:AC, minWidth:26, textAlign:"right" }}>{docPct.toFixed(0)}%</span>
-                                      </div>
-                                      <div style={{ display:"flex", gap:5, borderTop:`1px solid ${COLORS.border}`, paddingTop:7 }}>
-                                        <button onClick={()=>onEditDoc(doc)} style={{ flex:1,padding:"4px 0",borderRadius:5,fontFamily:FONT,fontSize:9,cursor:"pointer",background:"transparent",border:`1px solid ${COLORS.secondary}44`,color:COLORS.secondary }}>✏️ Editar</button>
-                                        <button onClick={()=>onReprintDoc(doc)} style={{ flex:1,padding:"4px 0",borderRadius:5,fontFamily:FONT,fontSize:9,cursor:"pointer",background:"transparent",border:`1px solid ${AC}44`,color:AC }}>🖨 PDF</button>
-                                        <button onClick={()=>onDeleteDoc(doc.id)} style={{ padding:"4px 7px",borderRadius:5,fontFamily:FONT,fontSize:10,cursor:"pointer",background:"transparent",border:`1px solid ${COLORS.red}44`,color:COLORS.red }}>✕</button>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                                {/* + Nuevo doc */}
-                                <div onClick={()=>onNuevoDoc(q.id)}
-                                  style={{ width:90,flexShrink:0,border:`2px dashed ${COLORS.border}`,borderRadius:9,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",padding:12,color:COLORS.textMuted,gap:5,minHeight:80 }}>
-                                  <span style={{ fontSize:20 }}>+</span>
-                                  <span style={{ fontFamily:FONT,fontSize:9,textAlign:"center",lineHeight:1.4 }}>Nuevo {docLabel}</span>
+                                      </>
+                                    );
+                                  })()}
                                 </div>
+
+                                {/* Líneas de la COT */}
+                                {(q.lines||[]).length > 0 && (
+                                  <div style={{ flexShrink:0, minWidth:200, maxWidth:280 }}>
+                                    <div style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Líneas de cotización</div>
+                                    <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                                      {q.lines.slice(0,6).map((l,i)=>{
+                                        const qty=Number(l.qty||1), p=Number(l.unitPrice||0), d=Number(l.discount||0);
+                                        const sub=Math.round(p*(1-d/100)*qty);
+                                        return (
+                                          <div key={i} style={{ display:"flex", alignItems:"center", gap:6, padding:"3px 0", borderBottom:`1px solid ${COLORS.border}22` }}>
+                                            <span style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted, width:16, flexShrink:0, textAlign:"right" }}>{qty}×</span>
+                                            <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.text, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{l.description||l.descripcion||"—"}</span>
+                                            <span style={{ fontFamily:FONT_DISPLAY, fontSize:9, color:COLORS.text, flexShrink:0 }}>{fmt(sub)}</span>
+                                          </div>
+                                        );
+                                      })}
+                                      {q.lines.length>6 && <div style={{ fontFamily:FONT,fontSize:8,color:COLORS.textMuted,marginTop:2 }}>+{q.lines.length-6} líneas más…</div>}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* CPs / PFs */}
+                                <div style={{ flex:1, display:"flex", gap:10, flexWrap:"wrap", alignItems:"flex-start", minWidth:200 }}>
+                                  {qDocs.map(doc=>{
+                                    const txs = doc.transacciones||[];
+                                    const docMonto = Number(doc.monto_pagado||0);
+                                    const docPct   = qTotal>0 ? Math.min((docMonto/qTotal)*100,100) : 0;
+                                    const saldoPct = qTotal>0 ? Math.min((Math.max(0,qTotal-docMonto)/qTotal)*100,100) : 0;
+                                    return (
+                                      <div key={doc.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:9, padding:"11px 13px", width:210, flexShrink:0 }}>
+                                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:5 }}>
+                                          <div>
+                                            <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:AC }}>{doc.numero}</div>
+                                            <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>{fmtDate(doc.fecha_pago)} · {doc.responsable||""}</div>
+                                          </div>
+                                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.green }}>{fmt(docMonto)}</div>
+                                        </div>
+                                        {txs.length>0 && (
+                                          <div style={{ marginBottom:7 }}>
+                                            {txs.slice(0,3).map((t,i)=>(
+                                              <div key={i} style={{ fontFamily:FONT,fontSize:9,color:COLORS.textMuted,marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
+                                                🏦 {t.codigo?t.codigo.slice(0,14)+"…":"—"} · {fmt(Number(t.monto||0))}
+                                              </div>
+                                            ))}
+                                            {txs.length>3 && <div style={{ fontFamily:FONT,fontSize:8,color:COLORS.textMuted }}>+{txs.length-3} más…</div>}
+                                          </div>
+                                        )}
+                                        <div style={{ marginBottom:7 }}>
+                                          {[
+                                            {label:"Pago/COT", pct:docPct,   color:`linear-gradient(90deg,${AC},${COLORS.green})`},
+                                            {label:"Saldo",    pct:saldoPct, color:`linear-gradient(90deg,${COLORS.yellow},${COLORS.red})`},
+                                          ].map(({label,pct:p,color})=>(
+                                            <div key={label} style={{ display:"flex",alignItems:"center",gap:5,marginBottom:3 }}>
+                                              <span style={{ fontFamily:FONT,fontSize:8,color:COLORS.textMuted,width:46,flexShrink:0 }}>{label}</span>
+                                              <MiniBar pct={p} color={color}/>
+                                              <span style={{ fontFamily:FONT,fontSize:8,color:AC,flexShrink:0,minWidth:26,textAlign:"right" }}>{p.toFixed(0)}%</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                        <div style={{ display:"flex", gap:5, borderTop:`1px solid ${COLORS.border}`, paddingTop:7 }}>
+                                          <button onClick={()=>onEditDoc(doc)} style={{ flex:1,padding:"4px 0",borderRadius:5,fontFamily:FONT,fontSize:9,cursor:"pointer",background:"transparent",border:`1px solid ${COLORS.secondary}44`,color:COLORS.secondary }}>✏️ Editar</button>
+                                          <button onClick={()=>onReprintDoc(doc)} style={{ flex:1,padding:"4px 0",borderRadius:5,fontFamily:FONT,fontSize:9,cursor:"pointer",background:"transparent",border:`1px solid ${AC}44`,color:AC }}>🖨 PDF</button>
+                                          <button onClick={()=>onDeleteDoc(doc.id)} style={{ padding:"4px 7px",borderRadius:5,fontFamily:FONT,fontSize:10,cursor:"pointer",background:"transparent",border:`1px solid ${COLORS.red}44`,color:COLORS.red }}>✕</button>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                  {/* + Nuevo doc */}
+                                  <div onClick={()=>onNuevoDoc(q.id)}
+                                    style={{ width:90,flexShrink:0,border:`2px dashed ${COLORS.border}`,borderRadius:9,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",padding:12,color:COLORS.textMuted,gap:5,minHeight:80 }}>
+                                    <span style={{ fontSize:20 }}>+</span>
+                                    <span style={{ fontFamily:FONT,fontSize:9,textAlign:"center",lineHeight:1.4 }}>Nuevo {docLabel}</span>
+                                  </div>
+                                </div>
+
                               </div>
                             </div>
                           )}
