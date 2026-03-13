@@ -3244,55 +3244,60 @@ function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditPedido, 
           <div key={ped.id} style={{ background:COLORS.card, border:`1px solid ${isPaid?COLORS.green+"55":COLORS.border}`, borderRadius:16, overflow:"hidden" }}>
 
             {/* ── HEADER ── */}
-            <div style={{ padding:"0 16px 0 0", display:"flex", alignItems:"stretch", borderLeft:`4px solid ${isPaid?COLORS.green:AC}` }}>
-              {/* Área clickeable para expandir */}
-              <div onClick={()=>toggle(ped.id)} style={{ flex:1, display:"flex", alignItems:"center", gap:12, padding:"14px 12px 14px 16px", cursor:"pointer", userSelect:"none", minWidth:0 }}>
-                <span style={{ fontSize:11, color:COLORS.textMuted, flexShrink:0, display:"inline-block", transition:"transform 0.2s", transform:isOpen?"rotate(90deg)":"rotate(0deg)" }}>▶</span>
+            <div style={{ borderLeft:`4px solid ${isPaid?COLORS.green:AC}`, display:"flex", alignItems:"center" }}>
+
+              {/* Área expandible */}
+              <div onClick={()=>toggle(ped.id)} style={{ flex:1, display:"flex", alignItems:"center", gap:12, padding:"13px 14px", cursor:"pointer", userSelect:"none", minWidth:0 }}>
+                <span style={{ fontSize:10, color:COLORS.textMuted, flexShrink:0, display:"inline-block", transition:"transform 0.2s", transform:isOpen?"rotate(90deg)":"rotate(0deg)" }}>▶</span>
                 <div style={{ flexShrink:0 }}>
-                  <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase" }}>{isPF?"Pre-Factura":"Pedido"}</div>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:AC }}>{ped.nombre}</div>
+                  <div style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase" }}>{isPF?"Pre-Factura":"Pedido"}</div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:AC }}>{ped.nombre}</div>
                 </div>
                 <div style={{ flex:1, overflow:"hidden", minWidth:0 }}>
-                  <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                     {ped.cliente||cotCompensated[0]?.quote.clientCompany||cotCompensated[0]?.quote.clientName||""}
-                    {(ped.rut||cotCompensated[0]?.quote.clientRut) && <span style={{ marginLeft:8, fontSize:10 }}>{ped.rut||cotCompensated[0]?.quote.clientRut}</span>}
                   </div>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:1 }}>
+                  <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginTop:1 }}>
                     {cotCompensated.map(c=>qPrefix(c.quote)).join(" · ")}
                   </div>
                 </div>
                 <Badge color={isPaid?COLORS.green:pedidoPct>0?COLORS.yellow:COLORS.textMuted}>
                   {isPaid?"Pagado":pedidoPct>0?"Parcial":"Pendiente"}
                 </Badge>
-                <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0, width:100 }}>
-                  <MiniBar pct={pedidoPct} color={isPaid?COLORS.green:`linear-gradient(90deg,${AC},${COLORS.green})`} h={5}/>
-                  <span style={{ fontFamily:FONT, fontSize:10, color:isPaid?COLORS.green:AC, minWidth:28, textAlign:"right" }}>{pedidoPct.toFixed(0)}%</span>
+                <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0, width:95 }}>
+                  <MiniBar pct={pedidoPct} color={isPaid?COLORS.green:`linear-gradient(90deg,${AC},${COLORS.green})`} h={4}/>
+                  <span style={{ fontFamily:FONT, fontSize:10, color:isPaid?COLORS.green:AC, minWidth:26, textAlign:"right" }}>{pedidoPct.toFixed(0)}%</span>
                 </div>
                 <div style={{ textAlign:"right", flexShrink:0 }}>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:isPaid?COLORS.green:COLORS.text }}>{fmt(pedidoPagado)}</div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:isPaid?COLORS.green:COLORS.text }}>{fmt(pedidoPagado)}</div>
                   <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>de {fmt(pedidoTotal)}</div>
                 </div>
-                <div style={{ background:`${AC}22`, border:`1px solid ${AC}33`, borderRadius:20, padding:"2px 10px", fontFamily:FONT, fontSize:10, color:AC, flexShrink:0 }}>
+                <div style={{ background:`${AC}22`, border:`1px solid ${AC}33`, borderRadius:20, padding:"2px 9px", fontFamily:FONT, fontSize:9, color:AC, flexShrink:0 }}>
                   {cotCompensated.length} {serieLabel}
                 </div>
               </div>
-              {/* Botones de acción — fuera del área expandible */}
-              {onEditPedido && (
-                <div style={{ display:"flex", alignItems:"center", gap:6, padding:"0 4px 0 8px", borderLeft:`1px solid ${COLORS.border}22` }}>
-                  <button onClick={()=>printResumenPedido({ ped, cotCompensated, pedidoTotal, pedidoPagado, pedidoSaldo, pedidoPct, isPaid }, docs, isPF)}
-                    style={{ padding:"6px 12px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:10, cursor:"pointer", background:`${AC}22`, border:`1px solid ${AC}55`, color:AC, whiteSpace:"nowrap" }}>
-                    🖨 Resumen
-                  </button>
-                  <button onClick={()=>onEditPedido(ped)}
-                    style={{ padding:"6px 12px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:10, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.secondary}55`, color:COLORS.secondary, whiteSpace:"nowrap" }}>
-                    ✏️ Editar
-                  </button>
-                  <button onClick={()=>onDeletePedido(ped.id)}
-                    style={{ padding:"6px 10px", borderRadius:7, fontFamily:FONT, fontSize:12, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red }}>
-                    ✕
-                  </button>
-                </div>
-              )}
+
+              {/* Botones compactos — siempre visibles */}
+              <div style={{ display:"flex", alignItems:"center", gap:4, padding:"0 12px", flexShrink:0 }}>
+                <button
+                  title="Imprimir resumen"
+                  onClick={()=>printResumenPedido({ ped, cotCompensated, pedidoTotal, pedidoPagado, pedidoSaldo, pedidoPct, isPaid }, docs, isPF)}
+                  style={{ padding:"6px 10px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer", background:`${AC}22`, border:`1px solid ${AC}55`, color:AC }}>
+                  🖨
+                </button>
+                <button
+                  title="Editar pedido"
+                  onClick={()=>onEditPedido(ped)}
+                  style={{ padding:"6px 10px", borderRadius:7, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.secondary}44`, color:COLORS.secondary }}>
+                  ✏️
+                </button>
+                <button
+                  title="Eliminar pedido"
+                  onClick={()=>onDeletePedido(ped.id)}
+                  style={{ padding:"6px 9px", borderRadius:7, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red }}>
+                  ✕
+                </button>
+              </div>
             </div>
 
             {/* ── EXPANDIDO ── */}
