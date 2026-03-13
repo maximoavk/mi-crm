@@ -4151,13 +4151,18 @@ function calcFase(fase) {
   const ventaNeta   = items.reduce((s,i)=>s+i.ventaNeta,0);
   const ivaTotal    = items.reduce((s,i)=>s+i.ivaVenta,0);
   const ventaBruta  = items.reduce((s,i)=>s+i.ventaBruta,0);
+  // Descuento a nivel de fase (sobre venta c/IVA)
+  const descPct     = Number(fase.descuento)||0;
+  const descMonto   = Math.round(ventaBruta * (descPct/100));
+  const ventaConDesc = Math.round(ventaBruta - descMonto);
   return {
     ...fase, items,
-    costoNeto, costoTotal: costoNeto,       // alias para compatibilidad
+    costoNeto, costoTotal: costoNeto,
     margenTotal,
     ventaNeta,
     ivaTotal,
-    ventaBruta, ventaTotal: ventaBruta,     // alias para compatibilidad
+    ventaBruta, ventaTotal: ventaBruta,
+    descPct, descMonto, ventaConDesc,
   };
 }
 
@@ -4338,6 +4343,23 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
           <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Margen: <strong style={{color:COLORS.green}}>{fmt(calc.margenTotal)} ({margenPct}%)</strong></span>
           <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Venta neta: <strong style={{color:COLORS.text}}>{fmt(calc.ventaNeta)}</strong></span>
           <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Venta c/IVA: <strong style={{color:COLORS.accent}}>{fmt(calc.ventaBruta)}</strong></span>
+          {/* Descuento de fase */}
+          <div style={{ display:"flex", alignItems:"center", gap:6, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"3px 8px" }}>
+            <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Desc.</span>
+            <input
+              type="number" min={0} max={100}
+              value={fase.descuento||""}
+              onChange={e=>onChange({...fase, descuento: e.target.value===""?"":Math.min(100,Math.max(0,Number(e.target.value)))})}
+              placeholder="0"
+              style={{ width:38, background:"transparent", border:"none", color:"#f59e0b", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, outline:"none", textAlign:"center" }}
+            />
+            <span style={{ fontFamily:FONT, fontSize:10, color:"#f59e0b" }}>%</span>
+            {calc.descPct > 0 && (
+              <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.green, fontWeight:700, marginLeft:4 }}>
+                → {fmt(calc.ventaConDesc)}
+              </span>
+            )}
+          </div>
         </div>
         <button onClick={onDuplicate} title="Duplicar fase" style={{ background:"none", border:`1px solid ${COLORS.accent}44`, borderRadius:5, color:COLORS.accent, cursor:"pointer", fontSize:12, padding:"3px 8px" }}>⧉ Duplicar</button>
         <button onClick={onDelete} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:16 }}>×</button>
@@ -4606,11 +4628,14 @@ function CosteoView({ contacts }) {
 
   // Totales globales
   const fasesCalc = proyecto ? (proyecto.fases||[]).map(calcFase) : [];
-  const totalCosto      = fasesCalc.reduce((s,f)=>s+f.costoNeto,0);
-  const totalMargen     = fasesCalc.reduce((s,f)=>s+f.margenTotal,0);
-  const totalVentaNeta  = fasesCalc.reduce((s,f)=>s+f.ventaNeta,0);
-  const totalIVA        = fasesCalc.reduce((s,f)=>s+(f.ivaTotal||0),0);
-  const totalVentaBruta = fasesCalc.reduce((s,f)=>s+f.ventaBruta,0);
+  const totalCosto        = fasesCalc.reduce((s,f)=>s+f.costoNeto,0);
+  const totalMargen       = fasesCalc.reduce((s,f)=>s+f.margenTotal,0);
+  const totalVentaNeta    = fasesCalc.reduce((s,f)=>s+f.ventaNeta,0);
+  const totalIVA          = fasesCalc.reduce((s,f)=>s+(f.ivaTotal||0),0);
+  const totalVentaBruta   = fasesCalc.reduce((s,f)=>s+f.ventaBruta,0);
+  const totalDescuento    = fasesCalc.reduce((s,f)=>s+(f.descMonto||0),0);
+  const totalVentaFinal   = fasesCalc.reduce((s,f)=>s+f.ventaConDesc,0); // con descuento aplicado
+  const hayDescuento      = totalDescuento > 0;
   const margenPct = totalCosto > 0 ? (totalMargen/totalCosto*100).toFixed(1) : 0;
 
   // Totales partidas
@@ -5148,7 +5173,9 @@ function CosteoView({ contacts }) {
             <TotBox label="Margen Total" value={totalMargen} color={COLORS.green} sub={`${margenPct}% sobre costo neto`} />
             <TotBox label="Venta Neta" value={totalVentaNeta} color={COLORS.text} sub="Costo + Margen" />
             <TotBox label="IVA Total" value={totalIVA} color="#ef4444" sub="19% s/líneas con IVA" />
-            <TotBox label="Venta c/IVA" value={totalVentaBruta} color={COLORS.accent} sub="Precio al cliente" />
+            <TotBox label="Venta c/IVA" value={totalVentaBruta} color={COLORS.accent} sub="Antes de descuento" />
+            {hayDescuento && <TotBox label="Descuento" value={totalDescuento} color="#f59e0b" sub={`${fasesCalc.filter(f=>f.descPct>0).map(f=>`${f.nombre} −${f.descPct}%`).join(" · ")}`} />}
+            {hayDescuento && <TotBox label="Venta Final" value={totalVentaFinal} color="#22c55e" sub="Con descuento aplicado" />}
           </div>
 
           {/* Fases */}
