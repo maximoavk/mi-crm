@@ -4193,11 +4193,10 @@ function ItemRow({ item, onChange, onDelete, productos }) {
   const style = { background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"4px 6px", width:"100%" };
   const fmt = v => v>0 ? "$"+Math.round(v).toLocaleString("es-CL") : "-";
 
-  // Cuando el usuario escribe precio venta bruto → calcula margen automático
+  // Cuando el usuario escribe precio venta NETO → calcula margen automático
   const aplicarPVenta = (raw) => {
-    const pVentaBruto = Number(raw.replace(/\./g,"").replace(",","."));
-    if(!pVentaBruto || !calc.costoNeto) return;
-    const pVentaNeto = item.aplicaIVA !== false ? pVentaBruto / IVA : pVentaBruto;
+    const pVentaNeto = Number(String(raw).replace(/\./g,"").replace(",","."));
+    if(!pVentaNeto || !calc.costoNeto) return;
     const nuevoMargen = calc.costoNeto > 0 ? Math.round((pVentaNeto - calc.costoNeto) / calc.costoNeto * 100) : 0;
     onChange({ ...item, margen: nuevoMargen });
     setPVentaInput("");
@@ -4311,11 +4310,12 @@ function ItemRow({ item, onChange, onDelete, productos }) {
             onChange={e=>setPVentaInput(e.target.value)}
             onBlur={e=>{ if(e.target.value) aplicarPVenta(e.target.value); }}
             onKeyDown={e=>{ if(e.key==="Enter" && pVentaInput) aplicarPVenta(pVentaInput); }}
-            placeholder={fmt(calc.ventaBruta)}
+            placeholder={fmt(calc.ventaNeta)}
+            title="Ingresa precio neto de venta — el margen se calcula automáticamente"
           />
-          <div style={{ textAlign:"center", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:4, padding:"1px 4px" }}>
-            <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.green, fontWeight:700 }}>
-              +{margenActual}% margen
+          <div style={{ textAlign:"center", background:`${margenActual>=0?COLORS.green:"#ef4444"}22`, border:`1px solid ${margenActual>=0?COLORS.green:"#ef4444"}44`, borderRadius:4, padding:"1px 4px" }}>
+            <span style={{ fontFamily:FONT, fontSize:10, color:margenActual>=0?COLORS.green:"#ef4444", fontWeight:700 }}>
+              {margenActual>=0?"+":""}{margenActual}% margen
             </span>
           </div>
         </div>
@@ -4324,14 +4324,14 @@ function ItemRow({ item, onChange, onDelete, productos }) {
       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, whiteSpace:"nowrap" }}>{fmt(calc.costoNeto)}</td>
       {/* Margen $ */}
       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.green, whiteSpace:"nowrap" }}>{fmt(calc.margenTotal)}</td>
-      {/* Venta neta */}
-      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.text, whiteSpace:"nowrap" }}>{fmt(calc.ventaNeta)}</td>
+      {/* Venta neta — bloqueada, calculada desde margen */}
+      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.text, whiteSpace:"nowrap", opacity:0.7 }}>{fmt(calc.ventaNeta)}</td>
       {/* IVA Compra */}
       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:"#06b6d4", whiteSpace:"nowrap" }}>{calc.ivaCompra > 0 ? fmt(calc.ivaCompra) : <span style={{color:COLORS.border}}>—</span>}</td>
       {/* IVA Venta */}
       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:"#ef4444", whiteSpace:"nowrap" }}>{calc.ivaVenta > 0 ? fmt(calc.ivaVenta) : <span style={{color:COLORS.border}}>—</span>}</td>
-      {/* Venta bruta */}
-      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.accent, whiteSpace:"nowrap" }}>{fmt(calc.ventaBruta)}</td>
+      {/* Venta bruta — bloqueada */}
+      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.accent, whiteSpace:"nowrap", opacity:0.8 }}>{fmt(calc.ventaBruta)}</td>
       <td style={{ padding:"6px 4px", textAlign:"center" }}>
         <button onClick={onDelete} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>×</button>
       </td>
@@ -4448,7 +4448,7 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
                             <th style={{ fontFamily:FONT, fontSize:10, color:"#ef4444", padding:"4px", width:70, textAlign:"center" }}>IVA?</th>
                             <th style={{ padding:"4px" }} /><th style={{ padding:"4px" }} />
                           </>)}
-                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:"#a855f7", padding:"4px", width:110 }}>P.VENTA / MRG</th>
+                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:"#a855f7", padding:"4px", width:110 }}>P.VENTA NETO</th>
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:90 }}>COSTO NETO</th>
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.green, padding:"4px", width:85 }}>MARGEN $</th>
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.text, padding:"4px", width:90 }}>VENTA NETA</th>
