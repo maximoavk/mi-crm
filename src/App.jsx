@@ -3109,11 +3109,14 @@ function PedidoModal({ pedido, quotes, docs, isPF, onSave, onClose, onEditDoc, o
     return isPF ? Math.round(neto*1.19) : neto;
   };
 
+  // Suma solo transacciones bancarias reales
+  const txPagado = doc => (doc.transacciones||[]).reduce((s,t)=>s+Number(t.monto||0),0);
+
   // Calcula totales por COT para el tab pagos
   const cotDataModal = selQuotes.map(q => {
     const qTotal  = (q.lines||[]).reduce((s,l)=>s+lineSubtotal(l),0);
     const qDocs   = (docs||[]).filter(d=>(d.quote_ids||[]).includes(q.id));
-    const qPagado = qDocs.reduce((s,d)=>s+Number(d.monto_pagado||0),0);
+    const qPagado = qDocs.reduce((s,d)=>s+txPagado(d),0);  // ← transacciones reales
     const pct     = qTotal>0 ? Math.min((qPagado/qTotal)*100,100) : 0;
     const saldo   = Math.max(0, qTotal-qPagado);
     return { q, qTotal, qDocs, qPagado, pct, saldo };
@@ -3290,7 +3293,8 @@ function PedidoModal({ pedido, quotes, docs, isPF, onSave, onClose, onEditDoc, o
                             <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                               {qDocs.map(doc=>{
                                 const txs     = (doc.transacciones||[]).filter(t=>Number(t.monto)>0);
-                                const dMonto  = Number(doc.monto_pagado||0);
+                                const dMonto  = txs.reduce((s,t)=>s+Number(t.monto||0),0); // ← solo tx reales
+                                const dNominal= Number(doc.monto_pagado||0); // monto declarado
                                 const dPct    = qTotal>0 ? Math.min((dMonto/qTotal)*100,100) : 0;
                                 const hasTx   = txs.length>0;
                                 return (
@@ -3301,7 +3305,12 @@ function PedidoModal({ pedido, quotes, docs, isPF, onSave, onClose, onEditDoc, o
                                         <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginLeft:8 }}>{fmtDate(doc.fecha_pago)} · {doc.responsable||""}</span>
                                       </div>
                                       <div style={{ textAlign:"right" }}>
-                                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:hasTx?COLORS.green:COLORS.yellow }}>{fmt(dMonto)}</div>
+                                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:hasTx?COLORS.green:COLORS.yellow }}>
+                                          {hasTx ? fmt(dMonto) : fmt(dNominal)}
+                                        </div>
+                                        {hasTx && dNominal!==dMonto && (
+                                          <div style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted }}>declarado: {fmt(dNominal)}</div>
+                                        )}
                                         <div style={{ fontFamily:FONT, fontSize:8, color:hasTx?COLORS.green:COLORS.yellow }}>{hasTx?"Pagado":"Sin pago bancario"}</div>
                                       </div>
                                     </div>
@@ -3388,6 +3397,9 @@ function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditPedido, 
   };
   const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
 
+  // Suma SOLO las transacciones bancarias reales del documento
+  const txPagado = doc => (doc.transacciones||[]).reduce((s,t)=>s+Number(t.monto||0),0);
+
   const MiniBar = ({pct,color,h=4}) => (
     <div style={{ height:h, background:"#1F2535", borderRadius:99, overflow:"hidden", flex:1 }}>
       <div style={{ height:"100%", width:`${Math.min(pct,100)}%`, background:color, borderRadius:99, transition:"width 0.3s" }} />
@@ -3402,12 +3414,12 @@ function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditPedido, 
     const cotData = pedQuotes.map(q=>{
       const qTotal  = (q.lines||[]).reduce((s,l)=>s+lineSubtotal(l),0);
       const qDocs   = docs.filter(d=>(d.quote_ids||[]).includes(q.id));
-      const qPagado = qDocs.reduce((s,d)=>s+Number(d.monto_pagado||0),0);
+      const qPagado = qDocs.reduce((s,d)=>s+txPagado(d),0);  // ← transacciones reales
       return { quote:q, docs:qDocs, qTotal, qPagado };
     });
 
     const pedidoTotal  = cotData.reduce((s,c)=>s+c.qTotal,0);
-    const pedidoPagado = pedDocs.reduce((s,d)=>s+Number(d.monto_pagado||0),0);
+    const pedidoPagado = cotData.reduce((s,c)=>s+c.qPagado,0);  // ← transacciones reales
 
     // Compensación global: pool distribuido en orden
     let pool = pedidoPagado;
@@ -3664,13 +3676,13 @@ function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditPedido, 
                                 {/* CPs / PFs */}
                                 <div style={{ flex:1, display:"flex", gap:10, flexWrap:"wrap", alignItems:"flex-start", minWidth:200 }}>
                                   {qDocs.map(doc=>{
-                                    const txs      = doc.transacciones||[];
-                                    const docMonto = Number(doc.monto_pagado||0);
-                                    // Pct respecto al total de ESTA COT (usando efectivo compensado)
-                                    const docPct   = qTotal>0 ? Math.min((efectivo/qTotal)*100, 100) : 0;
-                                    const saldoPct = qTotal>0 ? Math.min((saldo/qTotal)*100, 100) : 0;
+                                    const txs      = (doc.transacciones||[]).filter(t=>Number(t.monto)>0);
                                     const txTot    = txs.reduce((s,t)=>s+Number(t.monto||0),0);
-                                    const docPagado= txTot>0; // tiene transacciones bancarias
+                                    const docNominal = Number(doc.monto_pagado||0);
+                                    // Barras basadas en transacciones reales vs total COT
+                                    const docPct   = qTotal>0 ? Math.min((txTot/qTotal)*100, 100) : 0;
+                                    const saldoPct = qTotal>0 ? Math.min((Math.max(0,qTotal-txTot)/qTotal)*100, 100) : 0;
+                                    const docPagado= txTot>0;
                                     const docEstado= docPagado ? "Pagado" : "Sin pago";
                                     return (
                                       <div key={doc.id} style={{ background:COLORS.card, border:`1px solid ${docPagado?COLORS.green+"44":COLORS.yellow+"44"}`, borderRadius:9, padding:"11px 13px", width:215, flexShrink:0 }}>
@@ -3681,7 +3693,12 @@ function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditPedido, 
                                             <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>{fmtDate(doc.fecha_pago)} · {doc.responsable||""}</div>
                                           </div>
                                           <div style={{ textAlign:"right" }}>
-                                            <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:docPagado?COLORS.green:COLORS.yellow }}>{fmt(docMonto)}</div>
+                                            <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:docPagado?COLORS.green:COLORS.yellow }}>
+                                              {docPagado ? fmt(txTot) : fmt(docNominal)}
+                                            </div>
+                                            {docPagado && docNominal!==txTot && (
+                                              <div style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted }}>decl: {fmt(docNominal)}</div>
+                                            )}
                                             <div style={{ fontFamily:FONT, fontSize:8, padding:"1px 5px", borderRadius:4, background:docPagado?`${COLORS.green}22`:`${COLORS.yellow}22`, color:docPagado?COLORS.green:COLORS.yellow, marginTop:2 }}>
                                               {docEstado}
                                             </div>
