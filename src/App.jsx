@@ -3453,43 +3453,66 @@ function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditPedido, 
                                 {/* CPs / PFs */}
                                 <div style={{ flex:1, display:"flex", gap:10, flexWrap:"wrap", alignItems:"flex-start", minWidth:200 }}>
                                   {qDocs.map(doc=>{
-                                    const txs = doc.transacciones||[];
+                                    const txs      = doc.transacciones||[];
                                     const docMonto = Number(doc.monto_pagado||0);
-                                    const docPct   = qTotal>0 ? Math.min((docMonto/qTotal)*100,100) : 0;
-                                    const saldoPct = qTotal>0 ? Math.min((Math.max(0,qTotal-docMonto)/qTotal)*100,100) : 0;
+                                    // Pct respecto al total de ESTA COT (usando efectivo compensado)
+                                    const docPct   = qTotal>0 ? Math.min((efectivo/qTotal)*100, 100) : 0;
+                                    const saldoPct = qTotal>0 ? Math.min((saldo/qTotal)*100, 100) : 0;
+                                    const txTot    = txs.reduce((s,t)=>s+Number(t.monto||0),0);
+                                    const docPagado= txTot>0; // tiene transacciones bancarias
+                                    const docEstado= docPagado ? "Pagado" : "Sin pago";
                                     return (
-                                      <div key={doc.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:9, padding:"11px 13px", width:210, flexShrink:0 }}>
-                                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:5 }}>
+                                      <div key={doc.id} style={{ background:COLORS.card, border:`1px solid ${docPagado?COLORS.green+"44":COLORS.yellow+"44"}`, borderRadius:9, padding:"11px 13px", width:215, flexShrink:0 }}>
+                                        {/* Header doc */}
+                                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:4 }}>
                                           <div>
                                             <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:AC }}>{doc.numero}</div>
                                             <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>{fmtDate(doc.fecha_pago)} · {doc.responsable||""}</div>
                                           </div>
-                                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.green }}>{fmt(docMonto)}</div>
+                                          <div style={{ textAlign:"right" }}>
+                                            <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:docPagado?COLORS.green:COLORS.yellow }}>{fmt(docMonto)}</div>
+                                            <div style={{ fontFamily:FONT, fontSize:8, padding:"1px 5px", borderRadius:4, background:docPagado?`${COLORS.green}22`:`${COLORS.yellow}22`, color:docPagado?COLORS.green:COLORS.yellow, marginTop:2 }}>
+                                              {docEstado}
+                                            </div>
+                                          </div>
                                         </div>
-                                        {txs.length>0 && (
-                                          <div style={{ marginBottom:7 }}>
+
+                                        {/* Transacciones bancarias */}
+                                        {txs.length>0 ? (
+                                          <div style={{ marginBottom:7, padding:"5px 7px", background:COLORS.surface, borderRadius:5 }}>
                                             {txs.slice(0,3).map((t,i)=>(
-                                              <div key={i} style={{ fontFamily:FONT,fontSize:9,color:COLORS.textMuted,marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
-                                                🏦 {t.codigo?t.codigo.slice(0,14)+"…":"—"} · {fmt(Number(t.monto||0))}
+                                              <div key={i} style={{ fontFamily:FONT,fontSize:8,color:COLORS.textMuted,marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
+                                                🏦 {t.codigo?t.codigo.slice(0,16)+"…":"—"} · {fmt(Number(t.monto||0))}
                                               </div>
                                             ))}
                                             {txs.length>3 && <div style={{ fontFamily:FONT,fontSize:8,color:COLORS.textMuted }}>+{txs.length-3} más…</div>}
                                           </div>
+                                        ) : (
+                                          <div style={{ marginBottom:7, padding:"5px 7px", background:`${COLORS.yellow}11`, border:`1px dashed ${COLORS.yellow}44`, borderRadius:5 }}>
+                                            <span style={{ fontFamily:FONT, fontSize:8, color:COLORS.yellow }}>⚠ Sin transacciones bancarias</span>
+                                          </div>
                                         )}
+
+                                        {/* Barras — respecto al total de la COT */}
                                         <div style={{ marginBottom:7 }}>
                                           {[
-                                            {label:"Pago/COT", pct:docPct,   color:`linear-gradient(90deg,${AC},${COLORS.green})`},
-                                            {label:"Saldo",    pct:saldoPct, color:`linear-gradient(90deg,${COLORS.yellow},${COLORS.red})`},
+                                            {label:"Pagado", pct:docPct,   color:`linear-gradient(90deg,${AC},${COLORS.green})`},
+                                            {label:"Saldo",  pct:saldoPct, color:`linear-gradient(90deg,${COLORS.yellow},${COLORS.red})`},
                                           ].map(({label,pct:p,color})=>(
                                             <div key={label} style={{ display:"flex",alignItems:"center",gap:5,marginBottom:3 }}>
-                                              <span style={{ fontFamily:FONT,fontSize:8,color:COLORS.textMuted,width:46,flexShrink:0 }}>{label}</span>
+                                              <span style={{ fontFamily:FONT,fontSize:8,color:COLORS.textMuted,width:40,flexShrink:0 }}>{label}</span>
                                               <MiniBar pct={p} color={color}/>
                                               <span style={{ fontFamily:FONT,fontSize:8,color:AC,flexShrink:0,minWidth:26,textAlign:"right" }}>{p.toFixed(0)}%</span>
                                             </div>
                                           ))}
                                         </div>
+
+                                        {/* Acciones */}
                                         <div style={{ display:"flex", gap:5, borderTop:`1px solid ${COLORS.border}`, paddingTop:7 }}>
-                                          <button onClick={()=>onEditDoc(doc)} style={{ flex:1,padding:"4px 0",borderRadius:5,fontFamily:FONT,fontSize:9,cursor:"pointer",background:"transparent",border:`1px solid ${COLORS.secondary}44`,color:COLORS.secondary }}>✏️ Editar</button>
+                                          <button onClick={()=>onEditDoc(doc)}
+                                            style={{ flex:1,padding:"4px 0",borderRadius:5,fontFamily:FONT,fontSize:9,cursor:"pointer",background:docPagado?"transparent":`${COLORS.yellow}22`,border:`1px solid ${docPagado?COLORS.secondary+"44":COLORS.yellow+"66"}`,color:docPagado?COLORS.secondary:COLORS.yellow, fontWeight:docPagado?400:700 }}>
+                                            {docPagado?"✏️ Editar":"💳 Registrar pago"}
+                                          </button>
                                           <button onClick={()=>onReprintDoc(doc)} style={{ flex:1,padding:"4px 0",borderRadius:5,fontFamily:FONT,fontSize:9,cursor:"pointer",background:"transparent",border:`1px solid ${AC}44`,color:AC }}>🖨 PDF</button>
                                           <button onClick={()=>onDeleteDoc(doc.id)} style={{ padding:"4px 7px",borderRadius:5,fontFamily:FONT,fontSize:10,cursor:"pointer",background:"transparent",border:`1px solid ${COLORS.red}44`,color:COLORS.red }}>✕</button>
                                         </div>
