@@ -4320,10 +4320,6 @@ function ItemRow({ item, onChange, onDelete, productos }) {
           </div>
         </div>
       </td>
-      {/* Margen % editable */}
-      <td style={{ padding:"6px 4px", width:55 }}>
-        <input style={{...style, color:COLORS.accent}} type="number" value={item.margen} onChange={e=>inp("margen",e.target.value)} />
-      </td>
       {/* Costo neto total */}
       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, whiteSpace:"nowrap" }}>{fmt(calc.costoNeto)}</td>
       {/* Margen $ */}
@@ -4453,7 +4449,6 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
                             <th style={{ padding:"4px" }} /><th style={{ padding:"4px" }} />
                           </>)}
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:"#a855f7", padding:"4px", width:110 }}>P.VENTA / MRG</th>
-                          <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", width:55 }}>MARG%</th>
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:90 }}>COSTO NETO</th>
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.green, padding:"4px", width:85 }}>MARGEN $</th>
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.text, padding:"4px", width:90 }}>VENTA NETA</th>
