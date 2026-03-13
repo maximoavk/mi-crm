@@ -4104,8 +4104,8 @@ function QuotePDF({ quote, onBack }) {
 // ── COSTEO DE PROYECTOS ──────────────────────────────────────────────────────
 const CON_IVA = ["Equipos","Materiales"];
 const IVA = 1.19;
-const CAT_TIPOS = ["Equipos","Mano de Obra / HH","Materiales","Costos Indirectos"];
-const CAT_COLOR = { "Equipos":"#3b82f6","Mano de Obra / HH":"#10b981","Materiales":"#f59e0b","Costos Indirectos":"#8b5cf6" };
+const CAT_TIPOS = ["Equipos","Mano de Obra / HH","Materiales"];
+const CAT_COLOR = { "Equipos":"#3b82f6","Mano de Obra / HH":"#10b981","Materiales":"#f59e0b" };
 
 // Prefijo SAP por tipo de recurso
 const SAP_PREFIX = {
