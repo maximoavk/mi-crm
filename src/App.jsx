@@ -2789,17 +2789,19 @@ function PrestacionesView({ isMobile }) {
     setPfDocs(allDocs.filter(d=> d.estado==="pf" || (d.numero||"").startsWith("PF-")));
 
     const { data: quotesData } = await supabase.from("cotizaciones").select("*").order("numero",{ascending:false});
-    const sinIva  = (quotesData||[]).filter(q=>q.aplica_iva===false).map(mapQuote);
-    const conIva  = (quotesData||[]).filter(q=>q.aplica_iva!==false).map(mapQuote);
-    const allMapped = [...sinIva, ...conIva];
+    // CP (Comprobante de Pago) ← cotizaciones serie SIN (sin IVA / sin factura)
+    // PF (Pre-Factura)        ← cotizaciones serie COT (con IVA / con factura)
+    const sinSerie = (quotesData||[]).filter(q=>(q.serie||"COT")==="SIN").map(mapQuote);
+    const cotSerie = (quotesData||[]).filter(q=>(q.serie||"COT")==="COT").map(mapQuote);
+    const allMapped = [...sinSerie, ...cotSerie];
     if(allMapped.length>0){
       const { data: linesData } = await supabase.from("quote_lines")
         .select("*").in("quote_id", allMapped.map(q=>q.id))
         .order("orden");
       // All lines (items + hitos), only price items for subtotals
       const byQ=(linesData||[]).reduce((acc,l)=>{ if(!acc[l.quote_id])acc[l.quote_id]=[]; acc[l.quote_id].push(mapQuoteLine(l)); return acc; },{});
-      setQuotes(sinIva.map(q=>({...q,lines:(byQ[q.id]||[]).filter(l=>l.lineType!=="hito")})));
-      setPfQuotes(conIva.map(q=>({...q,lines:(byQ[q.id]||[]).filter(l=>l.lineType!=="hito")})));
+      setQuotes(sinSerie.map(q=>({...q,lines:(byQ[q.id]||[]).filter(l=>l.lineType!=="hito")})));
+      setPfQuotes(cotSerie.map(q=>({...q,lines:(byQ[q.id]||[]).filter(l=>l.lineType!=="hito")})));
     } else { setQuotes([]); setPfQuotes([]); }
     setLoading(false);
   };
@@ -3030,7 +3032,7 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
   const fmtDL      = d=>d?new Date(d+"T00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"}):"—";
 
   const doPrint = (numero) => {
-    const quoteRefs  = selQuotes.map(q=>`COT °${q.number}`).join(", ");
+    const quoteRefs  = selQuotes.map(q=>`${q.serie||"COT"}-${String(q.number).padStart(3,"0")}`).join(", ");
     const periodoStr = form.periodo_desde?`${fmtDL(form.periodo_desde)}${form.periodo_hasta?" – "+fmtDL(form.periodo_hasta):""}` :"—";
     const txsV       = transacciones.filter(t=>Number(t.monto)>0);
     const txTot      = txsV.reduce((s,t)=>s+Number(t.monto),0);
