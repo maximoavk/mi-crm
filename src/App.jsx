@@ -4139,14 +4139,19 @@ function calcItem(it) {
   const margenVal  = costoNeto*(margenPct/100);
   const ventaNeta  = costoNeto+margenVal;
   const aplicaIVA  = !!it.aplicaIVA;
+  // IVA compra: solo equipos/servicios con IVA (no MO sin IVA, no CI sin IVA)
+  const ivaCompra  = aplicaIVA ? costoNeto*(IVA-1) : 0;
   const ivaVenta   = aplicaIVA ? ventaNeta*(IVA-1) : 0;
+  const costoBruto = costoNeto + ivaCompra;
   const ventaBruta = ventaNeta+ivaVenta;
-  return { ...it, costoNeto, margenTotal:margenVal, ventaNeta, ivaVenta, ventaBruta };
+  return { ...it, costoNeto, costoBruto, ivaCompra, margenTotal:margenVal, ventaNeta, ivaVenta, ventaBruta };
 }
 
 function calcFase(fase) {
   const items = (fase.items||[]).map(calcItem);
   const costoNeto   = items.reduce((s,i)=>s+i.costoNeto,0);
+  const costoBruto  = items.reduce((s,i)=>s+i.costoBruto,0);
+  const ivaCompra   = items.reduce((s,i)=>s+i.ivaCompra,0);
   const margenTotal = items.reduce((s,i)=>s+i.margenTotal,0);
   const ventaNeta   = items.reduce((s,i)=>s+i.ventaNeta,0);
   const ivaTotal    = items.reduce((s,i)=>s+i.ivaVenta,0);
@@ -4158,6 +4163,7 @@ function calcFase(fase) {
   return {
     ...fase, items,
     costoNeto, costoTotal: costoNeto,
+    costoBruto, ivaCompra,
     margenTotal,
     ventaNeta,
     ivaTotal,
@@ -4292,8 +4298,10 @@ function ItemRow({ item, onChange, onDelete, productos }) {
       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.green, whiteSpace:"nowrap" }}>{fmt(calc.margenTotal)}</td>
       {/* Venta neta */}
       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.text, whiteSpace:"nowrap" }}>{fmt(calc.ventaNeta)}</td>
-      {/* IVA $ */}
-      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:"#ef4444", whiteSpace:"nowrap" }}>{fmt(calc.ivaVenta)}</td>
+      {/* IVA Compra */}
+      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:"#06b6d4", whiteSpace:"nowrap" }}>{calc.ivaCompra > 0 ? fmt(calc.ivaCompra) : <span style={{color:COLORS.border}}>—</span>}</td>
+      {/* IVA Venta */}
+      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:"#ef4444", whiteSpace:"nowrap" }}>{calc.ivaVenta > 0 ? fmt(calc.ivaVenta) : <span style={{color:COLORS.border}}>—</span>}</td>
       {/* Venta bruta */}
       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.accent, whiteSpace:"nowrap" }}>{fmt(calc.ventaBruta)}</td>
       <td style={{ padding:"6px 4px", textAlign:"center" }}>
@@ -4342,6 +4350,8 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
           <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Costo neto: <strong style={{color:COLORS.text}}>{fmt(calc.costoNeto)}</strong></span>
           <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Margen: <strong style={{color:COLORS.green}}>{fmt(calc.margenTotal)} ({margenPct}%)</strong></span>
           <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Venta neta: <strong style={{color:COLORS.text}}>{fmt(calc.ventaNeta)}</strong></span>
+          {calc.ivaCompra > 0 && <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>IVA compra: <strong style={{color:"#06b6d4"}}>{fmt(calc.ivaCompra)}</strong></span>}
+          {calc.ivaTotal  > 0 && <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>IVA venta: <strong style={{color:"#ef4444"}}>{fmt(calc.ivaTotal)}</strong></span>}
           <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Venta c/IVA: <strong style={{color:COLORS.accent}}>{fmt(calc.ventaBruta)}</strong></span>
           {/* Descuento de fase */}
           <div style={{ display:"flex", alignItems:"center", gap:6, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"3px 8px" }}>
@@ -4414,7 +4424,8 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:90 }}>COSTO NETO</th>
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.green, padding:"4px", width:85 }}>MARGEN $</th>
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.text, padding:"4px", width:90 }}>VENTA NETA</th>
-                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:"#ef4444", padding:"4px", width:80 }}>IVA $</th>
+                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:"#06b6d4", padding:"4px", width:80 }}>IVA COMPRA</th>
+                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:"#ef4444", padding:"4px", width:80 }}>IVA VENTA</th>
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", width:95 }}>VENTA c/IVA</th>
                           <th style={{ width:24 }} />
                         </tr>
@@ -4430,6 +4441,7 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
                             <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.textMuted }}>${Math.round(calcItems.reduce((s,i)=>s+i.costoNeto,0)).toLocaleString("es-CL")}</td>
                             <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.green }}>${Math.round(calcItems.reduce((s,i)=>s+i.margenTotal,0)).toLocaleString("es-CL")}</td>
                             <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.text }}>${Math.round(calcItems.reduce((s,i)=>s+i.ventaNeta,0)).toLocaleString("es-CL")}</td>
+                            <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:"#06b6d4" }}>{calcItems.some(i=>i.ivaCompra>0)?`$${Math.round(calcItems.reduce((s,i)=>s+i.ivaCompra,0)).toLocaleString("es-CL")}`:""}</td>
                             <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:"#ef4444" }}>${Math.round(calcItems.reduce((s,i)=>s+i.ivaVenta,0)).toLocaleString("es-CL")}</td>
                             <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:700, color:COLORS.accent }}>${Math.round(calcItems.reduce((s,i)=>s+i.ventaBruta,0)).toLocaleString("es-CL")}</td>
                             <td />
@@ -4629,10 +4641,13 @@ function CosteoView({ contacts }) {
   // Totales globales
   const fasesCalc = proyecto ? (proyecto.fases||[]).map(calcFase) : [];
   const totalCosto        = fasesCalc.reduce((s,f)=>s+f.costoNeto,0);
+  const totalCostoBruto   = fasesCalc.reduce((s,f)=>s+f.costoBruto,0);
+  const totalIvaCompra    = fasesCalc.reduce((s,f)=>s+f.ivaCompra,0);
   const totalMargen       = fasesCalc.reduce((s,f)=>s+f.margenTotal,0);
   const totalVentaNeta    = fasesCalc.reduce((s,f)=>s+f.ventaNeta,0);
   const totalIVA          = fasesCalc.reduce((s,f)=>s+(f.ivaTotal||0),0);
   const totalVentaBruta   = fasesCalc.reduce((s,f)=>s+f.ventaBruta,0);
+  const totalIvaNetoSII   = totalIVA - totalIvaCompra; // débito - crédito fiscal
   const totalDescuento    = fasesCalc.reduce((s,f)=>s+(f.descMonto||0),0);
   const totalVentaFinal   = fasesCalc.reduce((s,f)=>s+f.ventaConDesc,0); // con descuento aplicado
   const hayDescuento      = totalDescuento > 0;
@@ -5167,13 +5182,16 @@ function CosteoView({ contacts }) {
 
       {page==="costeo" && (
         <>
-          {/* Totales globales */}
-          <div style={{ display:"flex", gap:12, marginBottom:24, flexWrap:"wrap" }}>
-            <TotBox label="Costo Neto Total" value={totalCosto} color={COLORS.textMuted} sub="Sin IVA" />
-            <TotBox label="Margen Total" value={totalMargen} color={COLORS.green} sub={`${margenPct}% sobre costo neto`} />
-            <TotBox label="Venta Neta" value={totalVentaNeta} color={COLORS.text} sub="Costo + Margen" />
-            <TotBox label="IVA Total" value={totalIVA} color="#ef4444" sub="19% s/líneas con IVA" />
-            <TotBox label="Venta c/IVA" value={totalVentaBruta} color={COLORS.accent} sub="Antes de descuento" />
+          {/* Totales globales — 8 tarjetas */}
+          <div style={{ display:"flex", gap:10, marginBottom:24, flexWrap:"wrap" }}>
+            <TotBox label="Costo Neto Total" value={totalCosto}      color={COLORS.textMuted} sub="Sin IVA" />
+            <TotBox label="Costo Bruto"      value={totalCostoBruto} color={COLORS.text}      sub="Neto + IVA compra" />
+            <TotBox label="Margen Total"     value={totalMargen}     color={COLORS.green}     sub={`${margenPct}% sobre costo`} />
+            <TotBox label="Venta Neta"       value={totalVentaNeta}  color={COLORS.text}      sub="Costo + Margen" />
+            <TotBox label="IVA Compra"       value={totalIvaCompra}  color="#06b6d4"          sub="Crédito fiscal" />
+            <TotBox label="IVA Venta"        value={totalIVA}        color="#ef4444"          sub="Débito fiscal" />
+            <TotBox label="IVA Neto SII"     value={totalIvaNetoSII} color="#f59e0b"          sub="A pagar al SII" />
+            <TotBox label="Venta c/IVA"      value={totalVentaBruta} color={COLORS.accent}    sub={hayDescuento?"Antes de descuento":"Precio al cliente"} />
             {hayDescuento && <TotBox label="Descuento" value={totalDescuento} color="#f59e0b" sub={`${fasesCalc.filter(f=>f.descPct>0).map(f=>`${f.nombre} −${f.descPct}%`).join(" · ")}`} />}
             {hayDescuento && <TotBox label="Venta Final" value={totalVentaFinal} color="#22c55e" sub="Con descuento aplicado" />}
           </div>
