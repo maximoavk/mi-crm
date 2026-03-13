@@ -4130,21 +4130,26 @@ function newItem(tipo) {
 }
 
 function calcItem(it) {
-  let costoNeto = 0;
-  if(it.tipo==="Mano de Obra / HH")   costoNeto = (Number(it.hh)||0)*(Number(it.valorHH)||0)*(Number(it.qty)||1);
-  else if(it.tipo==="Costos Indirectos") costoNeto = (Number(it.costoUnit)||0)*(Number(it.qty)||1);
-  else costoNeto = (Number(it.costoUnitNeto)||0)*(Number(it.qty)||1);
-
-  const margenPct  = Number(it.margen)||0;
-  const margenVal  = costoNeto*(margenPct/100);
-  const ventaNeta  = costoNeto+margenVal;
+  const qty = Number(it.qty)||1;
+  const _costoUnit = it.tipo==="Mano de Obra / HH"
+    ? (Number(it.hh)||0)*(Number(it.valorHH)||0)
+    : it.tipo==="Costos Indirectos"
+      ? Number(it.costoUnit)||0
+      : Number(it.costoUnitNeto)||0;
+  const costoNeto = _costoUnit * qty;
+  let ventaNeta;
+  if(it.ventaUnitNeta !== undefined && it.ventaUnitNeta !== "" && it.ventaUnitNeta !== null) {
+    ventaNeta = Number(it.ventaUnitNeta) * qty;
+  } else {
+    ventaNeta = costoNeto * (1 + (Number(it.margen)||0)/100);
+  }
+  const margenVal  = ventaNeta - costoNeto;
   const aplicaIVA  = !!it.aplicaIVA;
-  // IVA compra: solo equipos/servicios con IVA (no MO sin IVA, no CI sin IVA)
   const ivaCompra  = aplicaIVA ? costoNeto*(IVA-1) : 0;
   const ivaVenta   = aplicaIVA ? ventaNeta*(IVA-1) : 0;
   const costoBruto = costoNeto + ivaCompra;
-  const ventaBruta = ventaNeta+ivaVenta;
-  return { ...it, costoNeto, costoBruto, ivaCompra, margenTotal:margenVal, ventaNeta, ivaVenta, ventaBruta };
+  const ventaBruta = ventaNeta + ivaVenta;
+  return { ...it, _costoUnit, costoNeto, costoBruto, ivaCompra, margenTotal:margenVal, ventaNeta, ivaVenta, ventaBruta };
 }
 
 function calcFase(fase) {
@@ -4182,10 +4187,9 @@ function TotBox({ label, value, color, sub }) {
   );
 }
 
-function ItemRow({ item, onChange, onDelete, productos }) {
+function ItemRow({ item, onChange, onDelete, onReorder, productos }) {
   const [busqueda, setBusqueda] = useState("");
   const [showCat, setShowCat] = useState(false);
-  const [pVentaInput, setPVentaInput] = useState(""); // input manual precio venta bruto
   const calc = calcItem(item);
   const inp = (k,v) => onChange({ ...item, [k]:v });
   const esMO = item.tipo==="Mano de Obra / HH";
@@ -4193,16 +4197,26 @@ function ItemRow({ item, onChange, onDelete, productos }) {
   const style = { background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"4px 6px", width:"100%" };
   const fmt = v => v>0 ? "$"+Math.round(v).toLocaleString("es-CL") : "-";
 
-  // Cuando el usuario escribe precio venta NETO → calcula margen automático
-  const aplicarPVenta = (raw) => {
-    const pVentaNeto = Number(String(raw).replace(/\./g,"").replace(",","."));
-    if(!pVentaNeto || !calc.costoNeto) return;
-    const nuevoMargen = calc.costoNeto > 0 ? Math.round((pVentaNeto - calc.costoNeto) / calc.costoNeto * 100) : 0;
-    onChange({ ...item, margen: nuevoMargen });
-    setPVentaInput("");
+  const resultados = busqueda.length >= 2
+    ? (productos||[]).filter(p => {
+        const q = busqueda.toLowerCase();
+        return (p.name||"").toLowerCase().includes(q) || (p.code||"").toLowerCase().includes(q) || (p.description||"").toLowerCase().includes(q);
+      }).slice(0,6)
+    : [];
+
+  const seleccionarProducto = (p) => {
+    const netoUnit = (p.price||0) / IVA;
+    onChange({ ...item, descripcion: p.name||"", modelo: p.description||"", costoUnitNeto: Math.round(netoUnit), productId: p.id });
+    setBusqueda(""); setShowCat(false);
   };
 
-  const margenActual = calc.costoNeto > 0 ? Math.round(calc.margenTotal / calc.costoNeto * 100) : 0;
+  // Badge semaforo margen
+  const costoUnit = calc._costoUnit || 0;
+  const ventaUnit = item.ventaUnitNeta !== undefined && item.ventaUnitNeta !== "" && item.ventaUnitNeta !== null
+    ? Number(item.ventaUnitNeta)
+    : costoUnit * (1 + (Number(item.margen)||0)/100);
+  const margenCalc = costoUnit > 0 ? Math.round((ventaUnit - costoUnit) / costoUnit * 100) : 0;
+  const badgeColor = margenCalc <= 0 ? COLORS.red : margenCalc < 15 ? "#f59e0b" : COLORS.green;
 
   const resultados = busqueda.length >= 2
     ? (productos||[]).filter(p => {
@@ -4219,7 +4233,16 @@ function ItemRow({ item, onChange, onDelete, productos }) {
   };
 
   return (
-    <tr style={{ borderBottom:`1px solid ${COLORS.border}22` }}>
+    <tr
+      draggable
+      onDragStart={e=>{ e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain", String(item.id)); }}
+      onDragOver={e=>{ e.preventDefault(); e.currentTarget.style.borderTop=`2px solid ${COLORS.accent}`; }}
+      onDragLeave={e=>{ e.currentTarget.style.borderTop=""; }}
+      onDrop={e=>{ e.preventDefault(); e.currentTarget.style.borderTop=""; const fromId=e.dataTransfer.getData("text/plain"); if(onReorder) onReorder(fromId, String(item.id)); }}
+      style={{ borderBottom:`1px solid ${COLORS.border}22`, cursor:"grab" }}
+    >
+      {/* Drag handle */}
+      <td style={{ padding:"6px 2px", width:14, textAlign:"center", color:COLORS.textMuted, fontSize:13, userSelect:"none", cursor:"grab" }} title="Arrastrar para reordenar">&#9895;</td>
       {/* COD */}
       <td style={{ padding:"6px 4px", width:55 }}>
         <input style={{...style, textAlign:"center", color:COLORS.accent, fontWeight:600}} value={item.cod||""} onChange={e=>inp("cod",e.target.value)} placeholder={`F?-${SAP_PREFIX[item.tipo]||"X"}001`} title={`Código SAP: POL-XXXX-${item.cod||"F?-"+SAP_PREFIX[item.tipo]+"001"} (se completa al generar cotización)`} />
@@ -4300,38 +4323,38 @@ function ItemRow({ item, onChange, onDelete, productos }) {
         <td /><td />
       </>)}
 
-      {/* P.VENTA / MRG — input precio venta, muestra margen automático */}
+      {/* P.VENTA / MRG — precio venta neto unitario + badge semaforo */}
       <td style={{ padding:"6px 4px", width:110 }}>
-        <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <input
-            style={{...style, color:"#a855f7", fontWeight:600, textAlign:"right"}}
-            type="text"
-            value={pVentaInput}
-            onChange={e=>setPVentaInput(e.target.value)}
-            onBlur={e=>{ if(e.target.value) aplicarPVenta(e.target.value); }}
-            onKeyDown={e=>{ if(e.key==="Enter" && pVentaInput) aplicarPVenta(pVentaInput); }}
-            placeholder={fmt(calc.ventaNeta)}
-            title="Ingresa precio neto de venta — el margen se calcula automáticamente"
+            style={{...style, color:COLORS.accent, fontWeight:600}}
+            type="number"
+            value={item.ventaUnitNeta !== undefined && item.ventaUnitNeta !== null ? item.ventaUnitNeta : Math.round(ventaUnit)}
+            onChange={e=>inp("ventaUnitNeta", e.target.value===""?"":Number(e.target.value))}
+            placeholder="Precio venta"
+            title="Precio venta neto unitario"
           />
-          <div style={{ textAlign:"center", background:`${margenActual>=0?COLORS.green:"#ef4444"}22`, border:`1px solid ${margenActual>=0?COLORS.green:"#ef4444"}44`, borderRadius:4, padding:"1px 4px" }}>
-            <span style={{ fontFamily:FONT, fontSize:10, color:margenActual>=0?COLORS.green:"#ef4444", fontWeight:700 }}>
-              {margenActual>=0?"+":""}{margenActual}% margen
+          {costoUnit > 0 && (
+            <span style={{ fontFamily:FONT, fontSize:9, fontWeight:700, color:badgeColor,
+              background:badgeColor+"18", border:`1px solid ${badgeColor}44`,
+              borderRadius:3, padding:"1px 5px", textAlign:"center", whiteSpace:"nowrap" }}>
+              {margenCalc>0?"+":""}{margenCalc}% margen
             </span>
-          </div>
+          )}
         </div>
       </td>
       {/* Costo neto total */}
       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, whiteSpace:"nowrap" }}>{fmt(calc.costoNeto)}</td>
       {/* Margen $ */}
       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.green, whiteSpace:"nowrap" }}>{fmt(calc.margenTotal)}</td>
-      {/* Venta neta — bloqueada, calculada desde margen */}
-      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.text, whiteSpace:"nowrap", opacity:0.7 }}>{fmt(calc.ventaNeta)}</td>
+      {/* Venta neta */}
+      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.text, whiteSpace:"nowrap" }}>{fmt(calc.ventaNeta)}</td>
       {/* IVA Compra */}
       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:"#06b6d4", whiteSpace:"nowrap" }}>{calc.ivaCompra > 0 ? fmt(calc.ivaCompra) : <span style={{color:COLORS.border}}>—</span>}</td>
       {/* IVA Venta */}
       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:"#ef4444", whiteSpace:"nowrap" }}>{calc.ivaVenta > 0 ? fmt(calc.ivaVenta) : <span style={{color:COLORS.border}}>—</span>}</td>
-      {/* Venta bruta — bloqueada */}
-      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.accent, whiteSpace:"nowrap", opacity:0.8 }}>{fmt(calc.ventaBruta)}</td>
+      {/* Venta bruta */}
+      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.accent, whiteSpace:"nowrap" }}>{fmt(calc.ventaBruta)}</td>
       <td style={{ padding:"6px 4px", textAlign:"center" }}>
         <button onClick={onDelete} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>×</button>
       </td>
@@ -4352,6 +4375,16 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
   };
   const updateItem = (id, item) => onChange({ ...fase, items: fase.items.map(i=>i.id===id?item:i) });
   const deleteItem = (id) => onChange({ ...fase, items: fase.items.filter(i=>i.id!==id) });
+  const reorderItem = (fromId, toId) => {
+    if(fromId===toId) return;
+    const items = [...(fase.items||[])];
+    const fromIdx = items.findIndex(i=>String(i.id)===fromId);
+    const toIdx   = items.findIndex(i=>String(i.id)===toId);
+    if(fromIdx<0||toIdx<0) return;
+    const [moved] = items.splice(fromIdx,1);
+    items.splice(toIdx,0,moved);
+    onChange({ ...fase, items });
+  };
   const grouped = CAT_TIPOS.reduce((acc,t)=>{ acc[t]=(fase.items||[]).filter(i=>i.tipo===t); return acc; },{});
   const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
 
@@ -4429,6 +4462,7 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
                     <table style={{ width:"100%", borderCollapse:"collapse", minWidth:700 }}>
                       <thead>
                         <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                          <th style={{ width:14, padding:"4px" }} />
                           <th style={{ textAlign:"center", fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", width:55 }}>COD</th>
                           <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px" }}>DESCRIPCIÓN</th>
                           <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:100 }}>MODELO</th>
@@ -4460,12 +4494,12 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
                       </thead>
                       <tbody>
                         {grouped[tipo].map(it=>(
-                          <ItemRow key={it.id} item={esMO ? {...it, moConIVA: fase.moConIVA} : it} onChange={item=>updateItem(it.id, esMO ? {...item, moConIVA: undefined} : item)} onDelete={()=>deleteItem(it.id)} productos={productos} />
+                          <ItemRow key={it.id} item={esMO ? {...it, moConIVA: fase.moConIVA} : it} onChange={item=>updateItem(it.id, esMO ? {...item, moConIVA: undefined} : item)} onDelete={()=>deleteItem(it.id)} onReorder={reorderItem} productos={productos} />
                         ))}
                       </tbody>
                         <tfoot>
                           <tr style={{ borderTop:`1px solid ${COLORS.border}`, background:COLORS.surface }}>
-                            <td colSpan={9} style={{ padding:"6px 8px", fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Subtotal {tipo}</td>
+                            <td colSpan={10} style={{ padding:"6px 8px", fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Subtotal {tipo}</td>
                             <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.textMuted }}>${Math.round(calcItems.reduce((s,i)=>s+i.costoNeto,0)).toLocaleString("es-CL")}</td>
                             <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.green }}>${Math.round(calcItems.reduce((s,i)=>s+i.margenTotal,0)).toLocaleString("es-CL")}</td>
                             <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.text }}>${Math.round(calcItems.reduce((s,i)=>s+i.ventaNeta,0)).toLocaleString("es-CL")}</td>
