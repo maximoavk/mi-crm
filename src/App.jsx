@@ -4197,19 +4197,6 @@ function ItemRow({ item, onChange, onDelete, onReorder, productos }) {
   const style = { background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"4px 6px", width:"100%" };
   const fmt = v => v>0 ? "$"+Math.round(v).toLocaleString("es-CL") : "-";
 
-  const resultados = busqueda.length >= 2
-    ? (productos||[]).filter(p => {
-        const q = busqueda.toLowerCase();
-        return (p.name||"").toLowerCase().includes(q) || (p.code||"").toLowerCase().includes(q) || (p.description||"").toLowerCase().includes(q);
-      }).slice(0,6)
-    : [];
-
-  const seleccionarProducto = (p) => {
-    const netoUnit = (p.price||0) / IVA;
-    onChange({ ...item, descripcion: p.name||"", modelo: p.description||"", costoUnitNeto: Math.round(netoUnit), productId: p.id });
-    setBusqueda(""); setShowCat(false);
-  };
-
   // Badge semaforo margen
   const costoUnit = calc._costoUnit || 0;
   const ventaUnit = item.ventaUnitNeta !== undefined && item.ventaUnitNeta !== "" && item.ventaUnitNeta !== null
