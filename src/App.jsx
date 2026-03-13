@@ -4784,6 +4784,8 @@ function CosteoView({ contacts }) {
     const tMargen = fases.reduce((s,f)=>s+f.margenTotal,0);
     const tVentaNeta = fases.reduce((s,f)=>s+f.ventaNeta,0);
     const tVentaBruta = fases.reduce((s,f)=>s+f.ventaBruta,0);
+    const tDescuento = fases.reduce((s,f)=>s+(f.descMonto||0),0);
+    const tVentaFinal = fases.reduce((s,f)=>s+f.ventaConDesc,0);
     const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
     const pct = tCosto>0?(tMargen/tCosto*100).toFixed(1):0;
     const fasesHTML = fases.map(f=>{
@@ -4821,12 +4823,23 @@ function CosteoView({ contacts }) {
             <th style="padding:4px 6px;text-align:right;color:#cc0000">VENTA c/IVA</th>
           </tr></thead>
           <tbody>${rows}</tbody>
-          <tfoot><tr style="border-top:2px solid #e2e8f0;background:#f8fafc;font-weight:700;font-size:10px">
-            <td colspan="7" style="padding:5px 6px">Subtotal ${f.nombre}</td>
-            <td style="padding:5px 6px;text-align:right">${fmt(f.costoNeto)}</td>
-            <td style="padding:5px 6px;text-align:right;color:#10b981">${fmt(f.margenTotal)}</td>
-            <td style="padding:5px 6px;text-align:right">${fmt(f.ventaNeta)}</td>
-            <td style="padding:5px 6px;text-align:right;color:#cc0000">${fmt(f.ventaBruta)}</td>
+          <tfoot>
+            <tr style="border-top:2px solid #e2e8f0;background:#f8fafc;font-weight:700;font-size:10px">
+              <td colspan="7" style="padding:5px 6px">Subtotal ${f.nombre}</td>
+              <td style="padding:5px 6px;text-align:right">${fmt(f.costoNeto)}</td>
+              <td style="padding:5px 6px;text-align:right;color:#10b981">${fmt(f.margenTotal)}</td>
+              <td style="padding:5px 6px;text-align:right">${fmt(f.ventaNeta)}</td>
+              <td style="padding:5px 6px;text-align:right;color:#cc0000">${fmt(f.ventaBruta)}</td>
+            </tr>
+            ${(f.descPct||0)>0 ? `
+            <tr style="background:#fefce8;font-size:10px">
+              <td colspan="9" style="padding:4px 6px;color:#92400e">Descuento ${f.descPct}%</td>
+              <td colspan="2" style="padding:4px 6px;text-align:right;color:#b45309;font-weight:700">− ${fmt(f.descMonto)}</td>
+            </tr>
+            <tr style="background:#fef3c7;font-weight:800;font-size:11px">
+              <td colspan="9" style="padding:5px 6px;color:#78350f">TOTAL FASE CON DESCUENTO</td>
+              <td colspan="2" style="padding:5px 6px;text-align:right;color:#cc0000">${fmt(f.ventaConDesc)}</td>
+            </tr>` : ''}
           </tfoot>
         </table>
       </div>`;
@@ -4869,6 +4882,15 @@ function CosteoView({ contacts }) {
           <div style="font-size:9px;color:#cc0000;margin-bottom:2px">VENTA c/IVA</div>
           <div style="font-size:16px;font-weight:700;color:#cc0000">${fmt(tVentaBruta)}</div>
         </div>
+        ${tDescuento>0 ? `
+        <div style="flex:1;border:1px solid #f59e0b;border-radius:6px;padding:8px;text-align:center;background:#fefce8">
+          <div style="font-size:9px;color:#92400e;margin-bottom:2px">DESC. TOTAL</div>
+          <div style="font-size:16px;font-weight:700;color:#b45309">− ${fmt(tDescuento)}</div>
+        </div>
+        <div style="flex:1;border:3px solid #cc0000;border-radius:6px;padding:8px;text-align:center;background:#fff5f5">
+          <div style="font-size:9px;color:#cc0000;margin-bottom:2px">TOTAL FINAL c/IVA</div>
+          <div style="font-size:20px;font-weight:900;color:#cc0000">${fmt(tVentaFinal)}</div>
+        </div>` : ''}
       </div>
       <script>window.onload=()=>window.print()</script></body></html>`);
     w.document.close();
@@ -4880,6 +4902,8 @@ function CosteoView({ contacts }) {
     const fases = (proyecto.fases||[]).map(calcFase);
     const tVentaNeta = fases.reduce((s,f)=>s+f.ventaNeta,0);
     const tVentaBruta = fases.reduce((s,f)=>s+f.ventaBruta,0);
+    const tDescuentoCli = fases.reduce((s,f)=>s+(f.descMonto||0),0);
+    const tVentaFinalCli = fases.reduce((s,f)=>s+f.ventaConDesc,0);
     const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
     const partidas = proyecto.partidas||[];
     const tPartidas = partidas.reduce((s,p)=>s+Number(p.monto),0);
@@ -4912,11 +4936,22 @@ function CosteoView({ contacts }) {
             <th style="padding:5px 8px;text-align:right;color:#cc0000">TOTAL c/IVA</th>
           </tr></thead>
           <tbody>${rows}</tbody>
-          <tfoot><tr style="border-top:2px solid #e2e8f0;background:#f8fafc;font-weight:700">
-            <td colspan="4" style="padding:6px 8px">Subtotal ${f.nombre}</td>
-            <td style="padding:6px 8px;text-align:right">${fmt(f.ventaNeta)}</td>
-            <td style="padding:6px 8px;text-align:right;color:#64748b">${fmt(f.ventaBruta-f.ventaNeta)}</td>
-            <td style="padding:6px 8px;text-align:right;color:#cc0000">${fmt(f.ventaBruta)}</td>
+          <tfoot>
+            <tr style="border-top:2px solid #e2e8f0;background:#f8fafc;font-weight:700">
+              <td colspan="4" style="padding:6px 8px">Subtotal ${f.nombre}</td>
+              <td style="padding:6px 8px;text-align:right">${fmt(f.ventaNeta)}</td>
+              <td style="padding:6px 8px;text-align:right;color:#64748b">${fmt(f.ventaBruta-f.ventaNeta)}</td>
+              <td style="padding:6px 8px;text-align:right;color:#cc0000">${fmt(f.ventaBruta)}</td>
+            </tr>
+            ${(f.descPct||0)>0 ? `
+            <tr style="background:#fefce8">
+              <td colspan="5" style="padding:4px 8px;color:#92400e">Descuento ${f.descPct}%</td>
+              <td colspan="2" style="padding:4px 8px;text-align:right;color:#b45309;font-weight:700">− ${fmt(f.descMonto)}</td>
+            </tr>
+            <tr style="background:#fef3c7;font-weight:800;font-size:12px">
+              <td colspan="5" style="padding:6px 8px;color:#78350f">TOTAL FASE CON DESCUENTO</td>
+              <td colspan="2" style="padding:6px 8px;text-align:right;color:#cc0000">${fmt(f.ventaConDesc)}</td>
+            </tr>` : ''}
           </tfoot>
         </table>
       </div>`;
@@ -4984,6 +5019,15 @@ function CosteoView({ contacts }) {
           <div style="font-size:9px;color:#cc0000;margin-bottom:3px">TOTAL c/IVA</div>
           <div style="font-size:22px;font-weight:700;color:#cc0000">${fmt(tVentaBruta)}</div>
         </div>
+        ${tDescuentoCli>0 ? `
+        <div style="flex:1;border:1px solid #f59e0b;border-radius:8px;padding:10px;text-align:center;background:#fefce8">
+          <div style="font-size:9px;color:#92400e;margin-bottom:3px">DESCUENTO</div>
+          <div style="font-size:18px;font-weight:700;color:#b45309">− ${fmt(tDescuentoCli)}</div>
+        </div>
+        <div style="flex:2;border:3px solid #cc0000;border-radius:8px;padding:10px;text-align:center;background:#fff5f5">
+          <div style="font-size:10px;color:#cc0000;margin-bottom:3px;font-weight:700">TOTAL FINAL c/IVA</div>
+          <div style="font-size:26px;font-weight:900;color:#cc0000">${fmt(tVentaFinalCli)}</div>
+        </div>` : ''}
       </div>
       ${partidasHTML}
       <script>window.onload=()=>window.print()</script></body></html>`);
