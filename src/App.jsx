@@ -4174,10 +4174,10 @@ function calcFase(fase) {
 
 function TotBox({ label, value, color, sub }) {
   return (
-    <div style={{ background:COLORS.card, border:`1px solid ${color}44`, borderRadius:10, padding:"14px 20px", minWidth:160, flex:1 }}>
-      <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:4 }}>{label}</div>
-      <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color }}>${value.toLocaleString("es-CL")}</div>
-      {sub && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:2 }}>{sub}</div>}
+    <div style={{ background:COLORS.card, border:`1px solid ${color}33`, borderRadius:8, padding:"10px 14px", minWidth:130, flex:1 }}>
+      <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:2 }}>{label}</div>
+      <div style={{ fontFamily:FONT_DISPLAY, fontSize:17, fontWeight:700, color }}>${value.toLocaleString("es-CL")}</div>
+      {sub && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:1 }}>{sub}</div>}
     </div>
   );
 }
@@ -4947,7 +4947,8 @@ function CosteoView({ contacts }) {
     const fases = (proyecto.fases||[]).map(calcFase);
     const partidas = proyecto.partidas||[];
     const totalVentaNeta = fases.reduce((s,f)=>s+f.ventaNeta,0);
-    const totalBruto = fases.reduce((s,f)=>s+f.ventaBruta,0);
+    const totalBruto     = fases.reduce((s,f)=>s+f.ventaBruta,0);
+    const totalBrutoFinal= fases.reduce((s,f)=>s+f.ventaConDesc,0); // con descuentos de fase
     const totalAnt = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctAnticipo)||0)/100),0);
     const totalPar = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctParcial)||0)/100),0);
     const totalFin = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctFinalizar)||0)/100),0);
@@ -5004,7 +5005,7 @@ function CosteoView({ contacts }) {
       direccion:proyecto.clienteDireccion||"", telefono:proyecto.clienteTelefono||"",
       forma_pago:formaPago, aplica_iva:false, iva_modo:"empresa",
       comentarios:`${proyecto.nombre}`,
-      terminos:"", estado:"borrador", tipo:"productos", total:Math.round(totalBruto),
+      terminos:"", estado:"borrador", tipo:"productos", total:Math.round(totalBrutoFinal),
     };
     const { data: savedQuote } = await supabase.from("cotizaciones").insert(quoteData).select().single();
     if(!savedQuote){ setGenSaving(false); return; }
@@ -5012,14 +5013,17 @@ function CosteoView({ contacts }) {
     let lineas = [];
     let ordenCounter = 0;
     if(genTipo==="fases") {
-      // Línea por fase — precio = ventaBruta (IVA ya incluido por línea en costeo)
+      // Línea por fase — precio = ventaBruta, descuento = % de fase (ya calculado en costeo)
+      // Así el cotizador muestra precio original + descuento de fase, sin doble descuento
       fases.forEach((f,fi)=>{
         const codigoFase = `${sapBase}-F${fi+1}`;
+        const desc = Number(f.descPct)||0;
+        const subtotalFinal = desc > 0 ? Math.round(f.ventaBruta*(1-desc/100)) : Math.round(f.ventaBruta);
         lineas.push({ quote_id:savedQuote.id, product_id:null,
           codigo:codigoFase, descripcion:f.nombre||`Fase ${fi+1}`,
           cantidad:1, precio_unitario:Math.round(f.ventaBruta),
-          descuento:0, tipo_linea:"item", hito:"",
-          subtotal:Math.round(f.ventaBruta), orden: ordenCounter++ });
+          descuento:desc, tipo_linea:"item", hito:"",
+          subtotal:subtotalFinal, orden: ordenCounter++ });
       });
     } else {
       // Proyecto total: una sola línea con ventaBruta total
