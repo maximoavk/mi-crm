@@ -1969,7 +1969,6 @@ function QuotesView({ contacts, isMobile }) {
                   <div style={{ display:"flex", alignItems:"center", gap:10, flex:1, minWidth:0, flexWrap:"wrap" }}>
                     <span style={{ fontFamily:FONT, fontSize:13, color:COLORS.accent, fontWeight:700, flexShrink:0, display:"inline-block", transform:isOpen?"rotate(90deg)":"rotate(0deg)", transition:"transform 0.2s" }}>▶</span>
                     <div style={{ fontFamily:FONT, fontSize:13, color:serieColor, fontWeight:700, flexShrink:0 }}>{codigoDisplay}</div>
-                    <div style={{ padding:"2px 8px", borderRadius:10, background:serieColor+"22", border:`1px solid ${serieColor}44`, fontFamily:FONT, fontSize:10, color:serieColor, flexShrink:0 }}>{serieLabel}</div>
                     <Badge color={sc.color}>{sc.label}</Badge>
                     <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, flexShrink:0 }}>{fmtDate(q.date)}</div>
                     <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
