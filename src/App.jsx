@@ -7847,7 +7847,7 @@ function ProposalsView({ contacts, isMobile }) {
   const [quotes, setQuotes]       = useState([]);
   const [products, setProducts]   = useState([]);
   const [loading, setLoading]     = useState(true);
-  const [screen, setScreen]       = useState("list");
+  const [screen, setScreen]       = useState("list"); // list | editor | diff
   const [current, setCurrent]     = useState(null);
   const [diffA, setDiffA]         = useState(null);
   const [diffB, setDiffB]         = useState(null);
@@ -7859,7 +7859,7 @@ function ProposalsView({ contacts, isMobile }) {
     const [{ data: props }, { data: cos }, { data: qs }, { data: prods }] = await Promise.all([
       supabase.from("propuestas").select("*").order("created_at", { ascending: false }),
       supabase.from("costeos").select("*").order("created_at", { ascending: false }),
-      supabase.from("cotizaciones").select("*").order("numero", { ascending: false }),
+      supabase.from("cotizaciones").select("*").order("created_at", { ascending: false }),
       supabase.from("productos").select("*").order("nombre"),
     ]);
     setProposals(props || []);
@@ -7869,8 +7869,16 @@ function ProposalsView({ contacts, isMobile }) {
     setLoading(false);
   };
 
-  const openNew  = () => { setCurrent(null); setScreen("editor"); };
-  const openEdit = (p) => { setCurrent(p); setScreen("editor"); };
+  const openNew = () => {
+    setCurrent(null);
+    setScreen("editor");
+  };
+
+  const openEdit = (p) => {
+    setCurrent(p);
+    setScreen("editor");
+  };
+
   const openDiff = (p) => {
     const hist = p.historial_revisiones || [];
     if (hist.length < 2) return;
@@ -7879,6 +7887,7 @@ function ProposalsView({ contacts, isMobile }) {
     setCurrent(p);
     setScreen("diff");
   };
+
   const handleSaved = (updated) => {
     setProposals(prev => {
       const idx = prev.findIndex(p => p.id === updated.id);
@@ -7889,47 +7898,57 @@ function ProposalsView({ contacts, isMobile }) {
     setScreen("list");
   };
 
+  const deleteProposal = async (p) => {
+    if (!window.confirm(`¿Eliminar "${p.titulo || `Propuesta #${p.numero_cotizacion}`}"? Esta acción no se puede deshacer.`)) return;
+    await supabase.from("propuestas").delete().eq("id", p.id);
+    setProposals(prev => prev.filter(x => x.id !== p.id));
+  };
+
   if (loading) return <Loader />;
 
+  // ── LIST VIEW ──────────────────────────────────────────────────────────────
   if (screen === "list") return (
     <div>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:24, flexWrap:"wrap", gap:12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Módulo Comercial</div>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:24, fontWeight:700, color:COLORS.text }}>Propuestas</div>
+          <div style={{ fontFamily: FONT, fontSize: 11, color: COLORS.textMuted, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4 }}>Módulo Comercial</div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 24, fontWeight: 700, color: COLORS.text }}>Propuestas</div>
         </div>
         <AddBtn onClick={openNew} label="Nueva Propuesta" />
       </div>
+
       {proposals.length === 0 && (
-        <div style={{ textAlign:"center", padding:"60px 20px", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12 }}>
-          <div style={{ fontSize:36, marginBottom:12 }}>📄</div>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:600, color:COLORS.text, marginBottom:8 }}>Sin propuestas aún</div>
-          <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.textMuted }}>Crea tu primera propuesta técnico-comercial</div>
+        <div style={{ textAlign: "center", padding: "60px 20px", background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12 }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>📄</div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 16, fontWeight: 600, color: COLORS.text, marginBottom: 8 }}>Sin propuestas aún</div>
+          <div style={{ fontFamily: FONT, fontSize: 13, color: COLORS.textMuted }}>Crea tu primera propuesta técnico-comercial</div>
         </div>
       )}
-      <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {proposals.map(p => {
-          const stateColor = { borrador:COLORS.textMuted, enviada:COLORS.accent, aprobada:COLORS.green, rechazada:COLORS.red }[p.estado] || COLORS.textMuted;
+          const stateColor = { borrador: COLORS.textMuted, enviada: COLORS.accent, aprobada: COLORS.green, rechazada: COLORS.red }[p.estado] || COLORS.textMuted;
           const hist = p.historial_revisiones || [];
           const total = (p.partidas || []).reduce((s, i) => s + (Number(i.total) || 0), 0);
           return (
-            <div key={p.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:"16px 20px", display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
-              <div style={{ flex:1, minWidth:160 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4, flexWrap:"wrap" }}>
-                  <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text }}>{p.titulo || `Propuesta #${p.numero_cotizacion}`}</span>
+            <div key={p.id} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: "16px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 160 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
+                  <span style={{ fontFamily: FONT_DISPLAY, fontSize: 14, fontWeight: 700, color: COLORS.text }}>{p.titulo || `Propuesta #${p.numero_cotizacion}`}</span>
                   <Badge color={stateColor}>{p.estado}</Badge>
-                  <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Rev. {p.revision}</span>
+                  <span style={{ fontFamily: FONT, fontSize: 11, color: COLORS.textMuted }}>Rev. {p.revision}</span>
                 </div>
-                <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>
+                <div style={{ fontFamily: FONT, fontSize: 12, color: COLORS.textMuted }}>
                   {p.cliente} · COT-{p.numero_cotizacion} · {fmtDate(p.fecha_elaboracion)}
                 </div>
               </div>
-              <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.accent }}>{fmt(total)}</div>
-              <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                <button onClick={() => openEdit(p)} style={{ padding:"7px 14px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, color:COLORS.accent }}>Editar</button>
+              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 15, fontWeight: 700, color: COLORS.accent }}>{fmt(total)}</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button onClick={() => openEdit(p)} style={{ padding: "7px 14px", borderRadius: 7, fontFamily: FONT_DISPLAY, fontSize: 12, cursor: "pointer", background: COLORS.accentDim, border: `1px solid ${COLORS.accentGlow}`, color: COLORS.accent }}>Editar</button>
                 {hist.length >= 2 && (
-                  <button onClick={() => openDiff(p)} style={{ padding:"7px 14px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:COLORS.card, border:`1px solid ${COLORS.border}`, color:COLORS.textMuted }}>Ver cambios</button>
+                  <button onClick={() => openDiff(p)} style={{ padding: "7px 14px", borderRadius: 7, fontFamily: FONT_DISPLAY, fontSize: 12, cursor: "pointer", background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted }}>Ver cambios</button>
                 )}
+                <button onClick={() => deleteProposal(p)} style={{ padding: "7px 14px", borderRadius: 7, fontFamily: FONT_DISPLAY, fontSize: 12, cursor: "pointer", background: `${COLORS.red}15`, border: `1px solid ${COLORS.red}33`, color: COLORS.red }}>Eliminar</button>
               </div>
             </div>
           );
@@ -7938,15 +7957,22 @@ function ProposalsView({ contacts, isMobile }) {
     </div>
   );
 
+  // ── DIFF VIEW ──────────────────────────────────────────────────────────────
   if (screen === "diff") return (
     <DiffView proposal={current} revA={diffA} revB={diffB} onBack={() => setScreen("list")} />
   );
 
+  // ── EDITOR ─────────────────────────────────────────────────────────────────
   return (
     <ProposalEditor
-      proposal={current} contacts={contacts} costeos={costeos}
-      quotes={quotes} products={products}
-      onSaved={handleSaved} onCancel={() => setScreen("list")} isMobile={isMobile}
+      proposal={current}
+      contacts={contacts}
+      costeos={costeos}
+      quotes={quotes}
+      products={products}
+      onSaved={handleSaved}
+      onCancel={() => setScreen("list")}
+      isMobile={isMobile}
     />
   );
 }
@@ -7954,118 +7980,63 @@ function ProposalsView({ contacts, isMobile }) {
 // ── PROPOSAL EDITOR ────────────────────────────────────────────────────────────
 function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved, onCancel, isMobile }) {
   const isNew = !proposal;
-  const [saving, setSaving]   = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [activeTab, setActiveTab] = useState("portada");
-  const [cotLookup, setCotLookup] = useState({ loading:false, found:null, error:"" });
 
-  const EMPTY_PARTIDA  = () => ({ id:Date.now()+Math.random(), descripcion:"", cant:1, precio_unit:0, total:0 });
-  const EMPTY_FICHA    = () => ({ id:Date.now()+Math.random(), producto:"", modelo:"", descripcion:"", enlace:"" });
-  const EMPTY_EQUIPO   = () => ({ id:Date.now()+Math.random(), nombre:"", cantidad:1, modelo:"", especificacion:"" });
-  const EMPTY_EXCLUSION= () => ({ id:Date.now()+Math.random(), texto:"" });
-  const EMPTY_CAMPO    = () => ({ id:Date.now()+Math.random(), titulo:"", contenido:"" });
+  const EMPTY_PARTIDA = () => ({ id: Date.now() + Math.random(), descripcion: "", cant: 1, precio_unit: 0, total: 0 });
+  const EMPTY_FICHA   = () => ({ id: Date.now() + Math.random(), sku: "", producto: "", modelo: "", descripcion: "", enlace: "" });
 
   const [form, setForm] = useState({
-    numero_cotizacion:  proposal?.numero_cotizacion  || "",
-    revision:           proposal?.revision           ?? 0,
-    titulo:             proposal?.titulo             || "",
-    cliente:            proposal?.cliente            || "",
-    rut_cliente:        proposal?.rut_cliente        || "",
-    contact_id:         proposal?.contact_id         || "",
-    elaborado_por:      proposal?.elaborado_por      || "Maximo Hudson",
-    fecha_elaboracion:  proposal?.fecha_elaboracion  || new Date().toISOString().slice(0,10),
-    estado:             proposal?.estado             || "borrador",
-    // Tab Técnica
-    antecedentes:       proposal?.antecedentes       || "",
-    propuesta_tecnica:  proposal?.propuesta_tecnica  || "",
-    alcance:            proposal?.alcance            || "",
-    topologia:          proposal?.topologia          || "",
-    equipos:            proposal?.equipos?.length    ? proposal.equipos    : [EMPTY_EQUIPO()],
-    exclusiones:        proposal?.exclusiones?.length? proposal.exclusiones: [EMPTY_EXCLUSION()],
-    campos_libres:      proposal?.campos_libres?.length? proposal.campos_libres: [],
-    // Tab Fichas
-    fichas_tecnicas:    proposal?.fichas_tecnicas?.length ? proposal.fichas_tecnicas : [EMPTY_FICHA()],
-    // Tab Económica
-    partidas:           proposal?.partidas?.length   ? proposal.partidas   : [EMPTY_PARTIDA()],
-    // Tab Condiciones
-    garantias:          proposal?.garantias          || "3 meses por concepto de instalación · 6 meses por concepto de producto",
-    condiciones_pago:   proposal?.condiciones_pago   || "50% anticipo al inicio · 50% al finalizar",
-    dias_entrega:       proposal?.dias_entrega       ?? 12,
-    google_docs_url:    proposal?.google_docs_url    || "",
+    numero_cotizacion: proposal?.numero_cotizacion || "",
+    revision:          proposal?.revision ?? 0,
+    titulo:            proposal?.titulo || "",
+    cliente:           proposal?.cliente || "",
+    rut_cliente:       proposal?.rut_cliente || "",
+    contact_id:        proposal?.contact_id || "",
+    elaborado_por:     proposal?.elaborado_por || "Maximo Hudson",
+    fecha_elaboracion: proposal?.fecha_elaboracion || new Date().toISOString().slice(0, 10),
+    estado:            proposal?.estado || "borrador",
+    antecedentes:      proposal?.antecedentes || "",
+    propuesta_tecnica: proposal?.propuesta_tecnica || "",
+    garantias:         proposal?.garantias || "3 meses por concepto de instalación · 6 meses por concepto de producto",
+    condiciones_pago:  proposal?.condiciones_pago || "50% anticipo al inicio · 50% al finalizar",
+    dias_entrega:      proposal?.dias_entrega ?? 12,
+    google_docs_url:   proposal?.google_docs_url || "",
+    partidas:          proposal?.partidas?.length ? proposal.partidas : [EMPTY_PARTIDA()],
+    fichas_tecnicas:   proposal?.fichas_tecnicas?.length ? proposal.fichas_tecnicas : [EMPTY_FICHA()],
   });
 
   const ff = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
-  // ── Totales ──
+  // ── Calcular totales partidas ──
   const subtotal = form.partidas.reduce((s, p) => s + (Number(p.total) || 0), 0);
   const iva      = Math.round(subtotal * 0.19);
   const total    = subtotal + iva;
 
-  // ── Lookup cotización por número ──
-  const lookupCotizacion = async (num) => {
-    if (!num) return;
-    setCotLookup({ loading:true, found:null, error:"" });
-    const { data, error } = await supabase
-      .from("cotizaciones").select("*").eq("numero", Number(num)).limit(1).single();
-    if (error || !data) {
-      setCotLookup({ loading:false, found:null, error:"No se encontró la cotización" });
-      return;
-    }
-    // Autocompletar campos del cliente
-    setForm(p => ({
-      ...p,
-      cliente:    data.nombre_cliente || data.razon_social || p.cliente,
-      rut_cliente: data.rut_cliente   || p.rut_cliente,
-      contact_id: data.contact_id     || p.contact_id,
+  const updatePartida = (id, key, val) => {
+    setForm(prev => ({
+      ...prev,
+      partidas: prev.partidas.map(p => {
+        if (p.id !== id) return p;
+        const updated = { ...p, [key]: val };
+        if (key === "cant" || key === "precio_unit") {
+          updated.total = Math.round(Number(updated.cant || 0) * Number(updated.precio_unit || 0));
+        }
+        return updated;
+      })
     }));
-    // Cargar líneas de cotización como partidas
-    const { data: lines } = await supabase
-      .from("quote_lines").select("*").eq("quote_id", data.id).eq("tipo_linea","item").order("orden");
-    if (lines?.length) {
-      const newPartidas = lines.map(l => ({
-        id:          Date.now() + Math.random(),
-        descripcion: l.descripcion || "",
-        cant:        Number(l.cantidad) || 1,
-        precio_unit: Number(l.precio_unitario) || 0,
-        total:       Math.round((Number(l.cantidad)||1) * (Number(l.precio_unitario)||0)),
-      }));
-      setForm(p => ({ ...p, partidas: newPartidas }));
-    }
-    setCotLookup({ loading:false, found:data, error:"" });
   };
 
-  // ── Partidas ──
-  const updatePartida = (id, key, val) => setForm(prev => ({
+  const addPartida = () => setForm(p => ({ ...p, partidas: [...p.partidas, EMPTY_PARTIDA()] }));
+  const removePartida = (id) => setForm(p => ({ ...p, partidas: p.partidas.filter(x => x.id !== id) }));
+
+  const updateFicha = (id, key, val) => setForm(prev => ({
     ...prev,
-    partidas: prev.partidas.map(p => {
-      if (p.id !== id) return p;
-      const u = { ...p, [key]: val };
-      if (key === "cant" || key === "precio_unit")
-        u.total = Math.round(Number(u.cant||0) * Number(u.precio_unit||0));
-      return u;
-    })
+    fichas_tecnicas: prev.fichas_tecnicas.map(f => f.id !== id ? f : { ...f, [key]: val })
   }));
-  const addPartida    = () => setForm(p => ({ ...p, partidas:   [...p.partidas,   EMPTY_PARTIDA()] }));
-  const removePartida = (id)=> setForm(p => ({ ...p, partidas:   p.partidas.filter(x=>x.id!==id) }));
-
-  // ── Fichas ──
-  const updateFicha = (id,k,v)=> setForm(prev=>({ ...prev, fichas_tecnicas: prev.fichas_tecnicas.map(f=>f.id!==id?f:{...f,[k]:v}) }));
-  const addFicha    = ()=> setForm(p=>({ ...p, fichas_tecnicas: [...p.fichas_tecnicas, EMPTY_FICHA()] }));
-  const removeFicha = (id)=> setForm(p=>({ ...p, fichas_tecnicas: p.fichas_tecnicas.filter(x=>x.id!==id) }));
-
-  // ── Equipos ──
-  const updateEquipo = (id,k,v)=> setForm(prev=>({ ...prev, equipos: prev.equipos.map(e=>e.id!==id?e:{...e,[k]:v}) }));
-  const addEquipo    = ()=> setForm(p=>({ ...p, equipos: [...p.equipos, EMPTY_EQUIPO()] }));
-  const removeEquipo = (id)=> setForm(p=>({ ...p, equipos: p.equipos.filter(x=>x.id!==id) }));
-
-  // ── Exclusiones ──
-  const updateExclusion = (id,v)=> setForm(prev=>({ ...prev, exclusiones: prev.exclusiones.map(e=>e.id!==id?e:{...e,texto:v}) }));
-  const addExclusion    = ()=> setForm(p=>({ ...p, exclusiones: [...p.exclusiones, EMPTY_EXCLUSION()] }));
-  const removeExclusion = (id)=> setForm(p=>({ ...p, exclusiones: p.exclusiones.filter(x=>x.id!==id) }));
-
-  // ── Campos libres ──
-  const updateCampo = (id,k,v)=> setForm(prev=>({ ...prev, campos_libres: prev.campos_libres.map(c=>c.id!==id?c:{...c,[k]:v}) }));
-  const addCampo    = ()=> setForm(p=>({ ...p, campos_libres: [...p.campos_libres, EMPTY_CAMPO()] }));
-  const removeCampo = (id)=> setForm(p=>({ ...p, campos_libres: p.campos_libres.filter(x=>x.id!==id) }));
+  const addFicha    = () => setForm(p => ({ ...p, fichas_tecnicas: [...p.fichas_tecnicas, EMPTY_FICHA()] }));
+  const removeFicha = (id) => setForm(p => ({ ...p, fichas_tecnicas: p.fichas_tecnicas.filter(x => x.id !== id) }));
 
   // ── Importar desde Costeo ──
   const importFromCosteo = (costeoId) => {
@@ -8073,41 +8044,72 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
     if (!costeo) return;
     const items = costeo.items || costeo.partidas || [];
     const newPartidas = items.map(i => ({
-      id: Date.now()+Math.random(),
-      descripcion: i.descripcion||i.nombre||"",
-      cant:        Number(i.cantidad||i.cant||1),
-      precio_unit: Number(i.precio_venta||i.precio_unit||i.precio||0),
-      total:       Math.round(Number(i.cantidad||1)*Number(i.precio_venta||i.precio_unit||i.precio||0)),
+      id: Date.now() + Math.random(),
+      descripcion: i.descripcion || i.nombre || "",
+      cant:        Number(i.cantidad || i.cant || 1),
+      precio_unit: Number(i.precio_venta || i.precio_unit || i.precio || 0),
+      total:       Math.round(Number(i.cantidad || 1) * Number(i.precio_venta || i.precio_unit || i.precio || 0)),
     }));
     setForm(p => ({
       ...p,
-      partidas:     newPartidas.length ? newPartidas : p.partidas,
-      titulo:       p.titulo || costeo.nombre || costeo.titulo || p.titulo,
+      partidas:   newPartidas.length ? newPartidas : p.partidas,
+      titulo:     p.titulo || costeo.nombre || costeo.titulo || p.titulo,
       antecedentes: p.antecedentes || costeo.descripcion || "",
     }));
   };
 
-  // ── Guardar ──
+  // ── Importar desde Cotización ──
+  const importFromQuote = (quoteId) => {
+    const q = quotes.find(x => x.id === quoteId);
+    if (!q) return;
+    const items = q.items || q.lineas || [];
+    const newPartidas = items.map(i => ({
+      id: Date.now() + Math.random(),
+      descripcion: i.descripcion || i.nombre || "",
+      cant:        Number(i.cantidad || i.cant || 1),
+      precio_unit: Number(i.precio_unit || i.precio || 0),
+      total:       Math.round(Number(i.cantidad || 1) * Number(i.precio_unit || i.precio || 0)),
+    }));
+    if (newPartidas.length) setForm(p => ({ ...p, partidas: newPartidas }));
+    if (q.numero_cotizacion) ff("numero_cotizacion", String(q.numero_cotizacion));
+  };
+
+  // ── Guardar en Supabase ──
   const save = async (newEstado) => {
     setSaving(true);
     const estado = newEstado || form.estado;
+
+    // Construir snapshot para historial
     const snapshot = {
-      revision: form.revision, fecha: new Date().toISOString(),
-      elaborado_por: form.elaborado_por, estado,
-      titulo: form.titulo, antecedentes: form.antecedentes,
+      revision:    form.revision,
+      fecha:       new Date().toISOString(),
+      elaborado_por: form.elaborado_por,
+      estado,
+      titulo:       form.titulo,
+      antecedentes: form.antecedentes,
       propuesta_tecnica: form.propuesta_tecnica,
-      garantias: form.garantias, condiciones_pago: form.condiciones_pago,
-      partidas: form.partidas, subtotal, total,
+      garantias:    form.garantias,
+      condiciones_pago: form.condiciones_pago,
+      partidas:     form.partidas,
+      subtotal,
+      total,
     };
+
     const hist = proposal?.historial_revisiones || [];
-    const payload = { ...form, estado, revision: isNew ? 0 : form.revision,
-      updated_at: new Date().toISOString(), historial_revisiones: [...hist, snapshot] };
+    const payload = {
+      ...form,
+      estado,
+      revision: isNew ? 0 : form.revision,
+      updated_at: new Date().toISOString(),
+      historial_revisiones: [...hist, snapshot],
+    };
+
     let result;
     if (isNew) {
-      const { data } = await supabase.from("propuestas").insert(payload).select().single();
+      const { data, error } = await supabase.from("propuestas").insert(payload).select().single();
       result = data;
     } else {
-      const { data } = await supabase.from("propuestas").update(payload).eq("id", proposal.id).select().single();
+      const { data, error } = await supabase.from("propuestas").update(payload).eq("id", proposal.id).select().single();
       result = data;
     }
     setSaving(false);
@@ -8117,161 +8119,146 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
   // ── Nueva revisión ──
   const newRevision = async () => {
     const snapshot = {
-      revision: form.revision, fecha: new Date().toISOString(),
-      elaborado_por: form.elaborado_por, estado: form.estado,
-      titulo: form.titulo, antecedentes: form.antecedentes,
+      revision:    form.revision,
+      fecha:       new Date().toISOString(),
+      elaborado_por: form.elaborado_por,
+      estado:      form.estado,
+      titulo:      form.titulo,
+      antecedentes: form.antecedentes,
       propuesta_tecnica: form.propuesta_tecnica,
-      garantias: form.garantias, condiciones_pago: form.condiciones_pago,
-      partidas: form.partidas, subtotal, total,
+      garantias:   form.garantias,
+      condiciones_pago: form.condiciones_pago,
+      partidas:    form.partidas,
+      subtotal,
+      total,
     };
-    const hist    = proposal?.historial_revisiones || [];
-    const newRev  = form.revision + 1;
-    const payload = { ...form, revision: newRev, updated_at: new Date().toISOString(),
-      historial_revisiones: [...hist, snapshot] };
+    const hist = proposal?.historial_revisiones || [];
+    const newRev = form.revision + 1;
+    const payload = {
+      ...form,
+      revision: newRev,
+      updated_at: new Date().toISOString(),
+      historial_revisiones: [...hist, snapshot],
+    };
     setSaving(true);
     const { data } = await supabase.from("propuestas").update(payload).eq("id", proposal.id).select().single();
     setSaving(false);
     if (data) { ff("revision", newRev); onSaved(data); }
   };
 
-  // ── HTML exportable (Google Docs friendly) ──
+  // ── Exportar DOCX ──
+  const exportDocx = async () => {
+    setExporting(true);
+    try {
+      const res = await fetch("/api/generate-docx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ form, subtotal, iva, total }),
+      });
+      if (!res.ok) throw new Error("API not available");
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `Propuesta_${form.numero_cotizacion}_Rev${form.revision}.docx`;
+      a.click();
+    } catch {
+      // Fallback: generar HTML imprimible si la API no está disponible
+      exportHtmlPrint();
+    }
+    setExporting(false);
+  };
+
   const exportHtmlPrint = () => {
     const partidasRows = form.partidas.map(p => `
       <tr>
-        <td>${p.descripcion}</td>
-        <td style="text-align:center">${p.cant}</td>
-        <td style="text-align:right">${fmt(p.precio_unit)}</td>
-        <td style="text-align:right;font-weight:600">${fmt(p.total)}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;">${p.descripcion}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;text-align:center;">${p.cant}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;text-align:right;">${fmt(p.precio_unit)}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;">${fmt(p.total)}</td>
       </tr>`).join("");
 
-    const equiposHtml = form.equipos.filter(e=>e.nombre).map(e=>`
-      <tr>
-        <td>${e.nombre}</td>
-        <td style="text-align:center">${e.cantidad}</td>
-        <td>${e.modelo||"—"}</td>
-        <td>${e.especificacion||""}</td>
-      </tr>`).join("");
-
-    const exclusionesHtml = form.exclusiones.filter(e=>e.texto).map(e=>`
-      <li>${e.texto}</li>`).join("");
-
-    const camposLibresHtml = form.campos_libres.filter(c=>c.titulo).map(c=>`
-      <h2>${c.titulo}</h2><p>${c.contenido||""}</p>`).join("");
-
-    const fichasHtml = form.fichas_tecnicas.filter(f=>f.producto).map(f=>`
-      <div style="margin-bottom:14px;padding:10px 14px;border:1px solid #e2e8f0;border-radius:6px;page-break-inside:avoid">
-        <div style="font-weight:700;font-size:13px">${f.producto}${f.modelo?` — ${f.modelo}`:""}</div>
-        ${f.descripcion?`<div style="font-size:12px;color:#475569;margin-top:4px;white-space:pre-wrap">${f.descripcion}</div>`:""}
-        ${f.enlace?`<a href="${f.enlace}" style="font-size:11px;color:#0096cc">Ver ficha técnica →</a>`:""}
+    const fichasHtml = form.fichas_tecnicas.filter(f => f.producto).map(f => `
+      <div style="margin-bottom:12px;padding:10px 14px;border:1px solid #e2e8f0;border-radius:6px;">
+        <div style="font-weight:700;font-size:13px;color:#1e293b;">${f.producto} ${f.modelo ? `— ${f.modelo}` : ""}</div>
+        ${f.descripcion ? `<div style="font-size:12px;color:#475569;margin-top:4px;">${f.descripcion}</div>` : ""}
+        ${f.enlace ? `<a href="${f.enlace}" style="font-size:11px;color:#0096cc;">Ver ficha técnica →</a>` : ""}
       </div>`).join("");
 
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Space Grotesk',Arial,sans-serif;color:#1e293b;background:#fff;padding:20mm 18mm;font-size:12px;line-height:1.7}
-  .logo{height:42px;margin-bottom:28px}
-  .portada-label{font-size:10px;color:#0096cc;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:6px}
-  .portada-title{font-size:26px;font-weight:700;color:#0f1623;margin-bottom:6px}
-  .portada-sub{font-size:13px;color:#64748b;margin-bottom:28px}
-  .meta-table{width:100%;border-collapse:collapse;margin-bottom:28px}
-  .meta-table td{padding:7px 12px;border:1px solid #e2e8f0;font-size:12px}
-  .meta-table td:first-child{background:#f8fafc;font-weight:600;width:150px;color:#475569}
-  h2{font-size:15px;font-weight:700;color:#0f1623;margin:28px 0 10px;padding-bottom:5px;border-bottom:2px solid #00c2ff}
-  p{font-size:12px;color:#334155;margin-bottom:8px;white-space:pre-wrap;line-height:1.7}
-  ul{margin:6px 0 0 18px;color:#334155;font-size:12px}
-  ul li{margin-bottom:4px}
-  table.data{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}
-  table.data thead th{background:#0f1623;color:#fff;padding:8px 10px;text-align:left;font-size:11px;font-weight:600}
-  table.data tbody td{padding:7px 10px;border-bottom:1px solid #e2e8f0}
-  .totales-wrap{display:flex;justify-content:flex-end;margin-top:8px}
-  .totales{border-collapse:collapse;font-size:12px}
-  .totales td{padding:5px 12px}
-  .totales .tot{font-weight:700;font-size:14px;border-top:2px solid #0f1623}
-  .footer{margin-top:40px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;text-align:center}
-  .page-break{page-break-before:always}
-  @media print{body{padding:10mm 14mm}@page{margin:0}}
-</style></head><body>
-
-<img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" class="logo"/>
-<div class="portada-label">Innovación · Tecnología · Seguridad</div>
-<div class="portada-title">${form.titulo || "Propuesta Técnico-Comercial"}</div>
-<div class="portada-sub">Cotización N° ${form.numero_cotizacion} · Revisión ${form.revision}</div>
-
-<table class="meta-table">
-  <tr><td>Cliente</td><td>${form.cliente||"—"}</td></tr>
-  <tr><td>RUT</td><td>${form.rut_cliente||"—"}</td></tr>
-  <tr><td>Elaborado por</td><td>${form.elaborado_por}</td></tr>
-  <tr><td>Fecha elaboración</td><td>${fmtDate(form.fecha_elaboracion)}</td></tr>
-  <tr><td>Revisión</td><td>${form.revision}</td></tr>
-  <tr><td>Días de entrega</td><td>${form.dias_entrega} días hábiles</td></tr>
-  <tr><td>Estado</td><td>${form.estado}</td></tr>
-</table>
-
-${form.antecedentes?`<h2>Antecedentes</h2><p>${form.antecedentes}</p>`:""}
-${form.propuesta_tecnica?`<h2>Propuesta Técnica</h2><p>${form.propuesta_tecnica}</p>`:""}
-${form.alcance?`<h2>Alcance del Servicio</h2><p>${form.alcance}</p>`:""}
-${form.topologia?`<h2>Topología / Diagrama</h2><p>${form.topologia}</p>`:""}
-
-${form.equipos.some(e=>e.nombre)?`
-<h2>Equipos a Instalar</h2>
-<table class="data">
-  <thead><tr><th>Equipo</th><th style="text-align:center;width:60px">Cant.</th><th>Modelo</th><th>Especificación</th></tr></thead>
-  <tbody>${equiposHtml}</tbody>
-</table>`:""}
-
-${form.exclusiones.some(e=>e.texto)?`
-<h2>Exclusiones</h2>
-<ul>${exclusionesHtml}</ul>`:""}
-
-${camposLibresHtml}
-
-${form.fichas_tecnicas.some(f=>f.producto)?`<h2>Fichas Técnicas</h2>${fichasHtml}`:""}
-
-<h2>Propuesta Económica</h2>
-<table class="data">
-  <thead><tr><th>Descripción</th><th style="text-align:center;width:60px">Cant.</th><th style="text-align:right;width:130px">Precio Unit.</th><th style="text-align:right;width:120px">Total</th></tr></thead>
-  <tbody>${partidasRows}</tbody>
-</table>
-<div class="totales-wrap">
-  <table class="totales">
-    <tr><td>Subtotal neto</td><td style="text-align:right">${fmt(subtotal)}</td></tr>
-    <tr><td>IVA (19%)</td><td style="text-align:right">${fmt(iva)}</td></tr>
-    <tr class="tot"><td><b>Total c/IVA</b></td><td style="text-align:right"><b>${fmt(total)}</b></td></tr>
-  </table>
-</div>
-<p style="font-size:10px;color:#94a3b8;margin-top:6px">No incluye pantalla o monitor salvo que se indique expresamente.</p>
-
-${form.garantias?`<h2>Garantías</h2><p>${form.garantias}</p>`:""}
-${form.condiciones_pago?`<h2>Forma de Pago</h2><p>${form.condiciones_pago}</p>`:""}
-
-<div class="footer">
-  Polygonos SpA · RUT 77.180.437-3 · ventas@polygonos.cl · +56 9 6426 6356<br>
-  Innovación | Tecnología | Seguridad
-</div>
-<script>window.onload=()=>window.print();</script>
-</body></html>`;
-
-    const w = window.open("","_blank");
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:'Space Grotesk',Arial,sans-serif;color:#1e293b;background:#fff;padding:20mm 18mm;font-size:12px;line-height:1.6}
+      .logo{height:40px;margin-bottom:24px}
+      .portada-title{font-size:28px;font-weight:700;color:#1e293b;margin:40px 0 8px}
+      .portada-sub{font-size:14px;color:#64748b;margin-bottom:32px}
+      .meta-table{width:100%;border-collapse:collapse;margin-bottom:32px}
+      .meta-table td{padding:8px 12px;border:1px solid #e2e8f0;font-size:12px}
+      .meta-table td:first-child{background:#f8fafc;font-weight:600;width:160px}
+      h2{font-size:16px;font-weight:700;color:#0f1623;margin:28px 0 10px;padding-bottom:6px;border-bottom:2px solid #00c2ff}
+      p{font-size:12px;color:#334155;margin-bottom:8px;white-space:pre-wrap}
+      table.partidas{width:100%;border-collapse:collapse;margin-top:8px}
+      table.partidas thead th{background:#0f1623;color:#fff;padding:8px 10px;text-align:left;font-size:11px;font-weight:600}
+      table.partidas thead th:last-child,table.partidas thead th:nth-child(2),table.partidas thead th:nth-child(3){text-align:right}
+      .totales{margin-top:0;text-align:right}
+      .totales td{padding:5px 10px;font-size:12px}
+      .totales .total-row{font-weight:700;font-size:14px;color:#0f1623;border-top:2px solid #0f1623}
+      .footer{margin-top:40px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;text-align:center}
+      @media print{body{padding:10mm 12mm}@page{margin:0}}
+    </style></head><body>
+    <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" class="logo" />
+    <div class="portada-title">${form.titulo || "Propuesta Técnico-Comercial"}</div>
+    <div class="portada-sub">Cotización N° ${form.numero_cotizacion} · Rev. ${form.revision}</div>
+    <table class="meta-table">
+      <tr><td>Cliente</td><td>${form.cliente || "—"}</td></tr>
+      <tr><td>RUT</td><td>${form.rut_cliente || "—"}</td></tr>
+      <tr><td>Elaborado por</td><td>${form.elaborado_por}</td></tr>
+      <tr><td>Fecha</td><td>${fmtDate(form.fecha_elaboracion)}</td></tr>
+      <tr><td>Revisión</td><td>${form.revision}</td></tr>
+      <tr><td>Estado</td><td>${form.estado}</td></tr>
+    </table>
+    ${form.antecedentes ? `<h2>Antecedentes</h2><p>${form.antecedentes}</p>` : ""}
+    ${form.propuesta_tecnica ? `<h2>Propuesta Técnica</h2><p>${form.propuesta_tecnica}</p>` : ""}
+    ${form.fichas_tecnicas.some(f=>f.producto) ? `<h2>Fichas Técnicas</h2>${fichasHtml}` : ""}
+    <h2>Propuesta Económica</h2>
+    <table class="partidas">
+      <thead><tr><th>Descripción</th><th style="text-align:right">Cant.</th><th style="text-align:right">Precio Unit.</th><th style="text-align:right">Total</th></tr></thead>
+      <tbody>${partidasRows}</tbody>
+    </table>
+    <table class="totales" style="width:280px;margin-left:auto;margin-top:8px">
+      <tr><td>Subtotal neto</td><td style="text-align:right">${fmt(subtotal)}</td></tr>
+      <tr><td>IVA (19%)</td><td style="text-align:right">${fmt(iva)}</td></tr>
+      <tr class="total-row"><td><b>Total</b></td><td style="text-align:right"><b>${fmt(total)}</b></td></tr>
+    </table>
+    <h2>Garantías</h2><p>${form.garantias}</p>
+    <h2>Forma de Pago</h2><p>${form.condiciones_pago}</p>
+    <div class="footer">Polygonos SpA · RUT 77.180.437-3 · ventas@polygonos.cl · +56 9 6426 6356 · Innovación | Tecnología | Seguridad</div>
+    <script>window.onload=()=>window.print();</script>
+    </body></html>`;
+    const w = window.open("", "_blank");
     w.document.write(html);
     w.document.close();
   };
 
-  // ── Styles ──
+  // ── Generar Google Docs URL ──
+  const openGoogleDocsTemplate = () => {
+    const encoded = encodeURIComponent(form.titulo || "Propuesta Polygonos");
+    window.open(`https://docs.google.com/document/create?title=${encoded}`, "_blank");
+  };
+
+  // ── STYLES ──
   const inp  = { width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" };
   const ta   = { ...inp, resize:"vertical", minHeight:100, lineHeight:1.6 };
   const lbl  = { display:"block", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 };
   const card = { background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"20px 22px", marginBottom:16 };
-  const secHdr = (txt, color) => (
-    <div style={{ fontFamily:FONT, fontSize:11, color:color||COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:14 }}>{txt}</div>
-  );
 
   const TABS = [
-    { key:"portada",   label:"📋 Portada" },
-    { key:"tecnica",   label:"🔧 Técnica" },
-    { key:"fichas",    label:"📎 Fichas" },
-    { key:"economica", label:"💰 Económica" },
-    { key:"cond",      label:"📄 Condiciones" },
+    { key:"portada",  label:"📋 Portada" },
+    { key:"tecnica",  label:"🔧 Técnica" },
+    { key:"fichas",   label:"📎 Fichas" },
+    { key:"economica",label:"💰 Económica" },
+    { key:"cond",     label:"📄 Condiciones" },
   ];
 
   return (
@@ -8297,11 +8284,10 @@ ${form.condiciones_pago?`<h2>Forma de Pago</h2><p>${form.condiciones_pago}</p>`:
               ＋ Nueva revisión
             </button>
           )}
-          <button onClick={exportHtmlPrint} style={{ padding:"8px 14px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, color:COLORS.green }}>
+          <button onClick={exportHtmlPrint} disabled={exporting} style={{ padding:"8px 14px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, color:COLORS.green }}>
             🖨 Imprimir / PDF
           </button>
-          <button onClick={() => { const enc = encodeURIComponent(form.titulo||"Propuesta Polygonos"); window.open(`https://docs.google.com/document/create?title=${enc}`,"_blank"); }}
-            style={{ padding:"8px 14px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:"#4285F422", border:"1px solid #4285F444", color:"#4285F4" }}>
+          <button onClick={openGoogleDocsTemplate} style={{ padding:"8px 14px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:"#4285F422", border:"1px solid #4285F444", color:"#4285F4" }}>
             📝 Google Docs
           </button>
           <button onClick={() => save()} disabled={saving} style={{ padding:"8px 18px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer", background:COLORS.accent, border:"none", color:"#fff" }}>
@@ -8315,9 +8301,9 @@ ${form.condiciones_pago?`<h2>Forma de Pago</h2><p>${form.condiciones_pago}</p>`:
         {TABS.map(t => (
           <button key={t.key} onClick={() => setActiveTab(t.key)}
             style={{ padding:"8px 16px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer",
-              background: activeTab===t.key ? COLORS.accent : COLORS.card,
-              border:`1px solid ${activeTab===t.key ? COLORS.accent : COLORS.border}`,
-              color: activeTab===t.key ? "#fff" : COLORS.textMuted, fontWeight: activeTab===t.key ? 700 : 400 }}>
+              background: activeTab === t.key ? COLORS.accent : COLORS.card,
+              border: `1px solid ${activeTab === t.key ? COLORS.accent : COLORS.border}`,
+              color: activeTab === t.key ? "#fff" : COLORS.textMuted, fontWeight: activeTab === t.key ? 700 : 400 }}>
             {t.label}
           </button>
         ))}
@@ -8327,44 +8313,20 @@ ${form.condiciones_pago?`<h2>Forma de Pago</h2><p>${form.condiciones_pago}</p>`:
       {activeTab === "portada" && (
         <div>
           <div style={card}>
-            {secHdr("Identificación del documento")}
-            <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:12 }}>
-
-              {/* N° Cotización con lookup automático */}
+            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:14 }}>Identificación del documento</div>
+            <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:12 }}>
               <div>
                 <label style={lbl}>N° Cotización *</label>
-                <div style={{ display:"flex", gap:8 }}>
-                  <input value={form.numero_cotizacion}
-                    onChange={e => { ff("numero_cotizacion", e.target.value); setCotLookup({ loading:false, found:null, error:"" }); }}
-                    onBlur={e => lookupCotizacion(e.target.value)}
-                    placeholder="Ej: 88 — autocompletará cliente y partidas"
-                    style={{ ...inp, flex:1 }} />
-                  <button onClick={() => lookupCotizacion(form.numero_cotizacion)}
-                    disabled={cotLookup.loading}
-                    style={{ padding:"9px 12px", borderRadius:6, background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, color:COLORS.accent, cursor:"pointer", fontFamily:FONT, fontSize:12, flexShrink:0 }}>
-                    {cotLookup.loading ? "…" : "Buscar"}
-                  </button>
-                </div>
-                {cotLookup.found && (
-                  <div style={{ marginTop:6, fontFamily:FONT, fontSize:11, color:COLORS.green }}>
-                    ✓ {cotLookup.found.nombre_cliente || cotLookup.found.razon_social} · {fmt(cotLookup.found.total||0)}
-                  </div>
-                )}
-                {cotLookup.error && (
-                  <div style={{ marginTop:6, fontFamily:FONT, fontSize:11, color:COLORS.red }}>{cotLookup.error}</div>
-                )}
+                <input value={form.numero_cotizacion} onChange={e => ff("numero_cotizacion", e.target.value)} placeholder="Ej: 41" style={inp} />
               </div>
-
               <div>
                 <label style={lbl}>Revisión</label>
                 <input type="number" value={form.revision} onChange={e => ff("revision", Number(e.target.value))} style={inp} />
               </div>
-
-              <div style={{ gridColumn:isMobile?"auto":"span 2" }}>
+              <div style={{ gridColumn: isMobile ? "auto" : "span 2" }}>
                 <label style={lbl}>Título de la propuesta *</label>
                 <input value={form.titulo} onChange={e => ff("titulo", e.target.value)} placeholder="Ej: Propuesta CCTV IP Condominio Golf III" style={inp} />
               </div>
-
               <div>
                 <label style={lbl}>Cliente</label>
                 <input value={form.cliente} onChange={e => ff("cliente", e.target.value)} placeholder="Nombre o razón social" style={inp} />
@@ -8372,14 +8334,13 @@ ${form.condiciones_pago?`<h2>Forma de Pago</h2><p>${form.condiciones_pago}</p>`:
                   <select value={form.contact_id} onChange={e => {
                     ff("contact_id", e.target.value);
                     const c = contacts.find(x => x.id === e.target.value);
-                    if (c) { ff("cliente", c.company||c.name); ff("rut_cliente", c.rut||""); }
+                    if (c) { ff("cliente", c.company || c.name); ff("rut_cliente", c.rut || ""); }
                   }} style={{ ...inp, fontSize:11 }}>
                     <option value="">— O seleccionar desde contactos —</option>
                     {contacts.map(c => <option key={c.id} value={c.id}>{c.name} · {c.company}</option>)}
                   </select>
                 </div>
               </div>
-
               <div>
                 <label style={lbl}>RUT Cliente</label>
                 <input value={form.rut_cliente} onChange={e => ff("rut_cliente", e.target.value)} placeholder="Ej: 12.345.678-9" style={inp} />
@@ -8408,36 +8369,38 @@ ${form.condiciones_pago?`<h2>Forma de Pago</h2><p>${form.condiciones_pago}</p>`:
             </div>
           </div>
 
-          {/* Historial */}
-          {(proposal?.historial_revisiones||[]).length > 0 && (
+          {/* Historial de revisiones */}
+          {(proposal?.historial_revisiones || []).length > 0 && (
             <div style={card}>
-              {secHdr("Control de cambios")}
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:12 }}>Control de cambios</div>
               <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-                {(proposal.historial_revisiones||[]).map((h,i) => (
+                {(proposal.historial_revisiones || []).map((h, i) => (
                   <div key={i} style={{ display:"flex", alignItems:"center", gap:12, padding:"9px 14px", background:COLORS.bg, borderRadius:8, border:`1px solid ${COLORS.border}` }}>
                     <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, fontWeight:700, minWidth:50 }}>Rev. {h.revision}</div>
                     <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, flex:1 }}>
-                      {h.fecha ? new Date(h.fecha).toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"}) : "—"} · {h.elaborado_por}
+                      {h.fecha ? new Date(h.fecha).toLocaleDateString("es-CL", { day:"2-digit", month:"short", year:"numeric" }) : "—"} · {h.elaborado_por}
                     </div>
-                    <Badge color={{borrador:COLORS.textMuted,enviada:COLORS.accent,aprobada:COLORS.green,rechazada:COLORS.red}[h.estado]||COLORS.textMuted}>{h.estado}</Badge>
-                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{fmt(h.total||0)}</div>
+                    <Badge color={{ borrador:COLORS.textMuted, enviada:COLORS.accent, aprobada:COLORS.green, rechazada:COLORS.red }[h.estado] || COLORS.textMuted}>{h.estado}</Badge>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{fmt(h.total || 0)}</div>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Google Docs */}
+          {/* Enlace Google Docs */}
           <div style={card}>
-            {secHdr("Documento externo (Google Docs)")}
+            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:12 }}>Documento externo (Google Docs)</div>
             <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-              <input value={form.google_docs_url} onChange={e => ff("google_docs_url", e.target.value)} placeholder="Pega aquí el enlace una vez creado" style={{ ...inp, flex:1 }} />
+              <input value={form.google_docs_url} onChange={e => ff("google_docs_url", e.target.value)} placeholder="Pega aquí el enlace de Google Docs una vez creado" style={{ ...inp, flex:1 }} />
               {form.google_docs_url && (
-                <button onClick={() => window.open(form.google_docs_url,"_blank")} style={{ padding:"9px 14px", borderRadius:7, background:"#4285F422", border:"1px solid #4285F444", color:"#4285F4", fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", flexShrink:0 }}>Abrir</button>
+                <button onClick={() => window.open(form.google_docs_url, "_blank")} style={{ padding:"9px 14px", borderRadius:7, background:"#4285F422", border:"1px solid #4285F444", color:"#4285F4", fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", flexShrink:0 }}>
+                  Abrir
+                </button>
               )}
             </div>
             <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:8 }}>
-              Flujo recomendado: Imprimir / PDF → abrir en Google Docs → insertar fotos → exportar PDF final → pegar enlace aquí.
+              Flujo recomendado: Imprimir / PDF → abrir en Google Docs → editar → pegar enlace aquí.
             </div>
           </div>
         </div>
@@ -8447,161 +8410,145 @@ ${form.condiciones_pago?`<h2>Forma de Pago</h2><p>${form.condiciones_pago}</p>`:
       {activeTab === "tecnica" && (
         <div>
           <div style={card}>
-            {secHdr("Antecedentes del proyecto")}
+            <label style={lbl}>Antecedentes del proyecto</label>
             <textarea value={form.antecedentes} onChange={e => ff("antecedentes", e.target.value)}
-              placeholder="Contexto del proyecto, necesidades del cliente, condiciones del sitio..." style={ta} rows={5} />
+              placeholder="Describe el contexto del proyecto, necesidades del cliente, condiciones del sitio, requerimientos específicos..."
+              style={ta} rows={6} />
           </div>
-
           <div style={card}>
-            {secHdr("Propuesta técnica / Solución")}
+            <label style={lbl}>Propuesta técnica / Solución</label>
             <textarea value={form.propuesta_tecnica} onChange={e => ff("propuesta_tecnica", e.target.value)}
-              placeholder="Descripción general de la solución propuesta..." style={ta} rows={5} />
-          </div>
-
-          <div style={card}>
-            {secHdr("Alcance del servicio")}
-            <textarea value={form.alcance} onChange={e => ff("alcance", e.target.value)}
-              placeholder="¿Qué incluye este servicio? Instalación, configuración, puesta en marcha..." style={ta} rows={4} />
-          </div>
-
-          <div style={card}>
-            {secHdr("Topología / Diagrama (descripción)")}
-            <textarea value={form.topologia} onChange={e => ff("topologia", e.target.value)}
-              placeholder="Describe la topología de red, disposición de equipos, diagrama de conexión..." style={ta} rows={4} />
-          </div>
-
-          {/* Equipos a instalar */}
-          <div style={card}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-              {secHdr("Equipos a instalar")}
-              <button onClick={addEquipo} style={{ padding:"6px 14px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, color:COLORS.accent }}>+ Agregar</button>
-            </div>
-            {!isMobile && (
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 70px 120px 1fr 32px", gap:8, marginBottom:6 }}>
-                {["Nombre / Tipo","Cant.","Modelo","Especificación",""].map((h,i) => (
-                  <div key={i} style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em" }}>{h}</div>
-                ))}
-              </div>
-            )}
-            {form.equipos.map(e => (
-              <div key={e.id} style={{ display:isMobile?"flex":"grid", flexDirection:isMobile?"column":undefined, gridTemplateColumns:"1fr 70px 120px 1fr 32px", gap:8, marginBottom:8, alignItems:"center" }}>
-                <input value={e.nombre} onChange={x => updateEquipo(e.id,"nombre",x.target.value)} placeholder="Ej: Cámara Bullet Dahua 4MP" style={inp} />
-                <input type="number" value={e.cantidad} onChange={x => updateEquipo(e.id,"cantidad",x.target.value)} style={{ ...inp, textAlign:"center" }} />
-                <input value={e.modelo} onChange={x => updateEquipo(e.id,"modelo",x.target.value)} placeholder="Modelo" style={inp} />
-                <input value={e.especificacion} onChange={x => updateEquipo(e.id,"especificacion",x.target.value)} placeholder="IP67, PoE, 4MP..." style={inp} />
-                <button onClick={() => removeEquipo(e.id)} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:16 }}>✕</button>
-              </div>
-            ))}
-          </div>
-
-          {/* Exclusiones */}
-          <div style={card}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-              {secHdr("Exclusiones / Lo que NO incluye", COLORS.red)}
-              <button onClick={addExclusion} style={{ padding:"6px 14px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:`${COLORS.red}18`, border:`1px solid ${COLORS.red}33`, color:COLORS.red }}>+ Agregar</button>
-            </div>
-            {form.exclusiones.map(e => (
-              <div key={e.id} style={{ display:"flex", gap:8, marginBottom:8, alignItems:"center" }}>
-                <input value={e.texto} onChange={x => updateExclusion(e.id, x.target.value)} placeholder="Ej: No incluye pantalla o monitor" style={{ ...inp, flex:1 }} />
-                <button onClick={() => removeExclusion(e.id)} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:16 }}>✕</button>
-              </div>
-            ))}
-          </div>
-
-          {/* Campos libres */}
-          <div style={card}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-              {secHdr("Secciones adicionales", COLORS.purple)}
-              <button onClick={addCampo} style={{ padding:"6px 14px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:`${COLORS.purple}18`, border:`1px solid ${COLORS.purple}33`, color:COLORS.purple }}>+ Nueva sección</button>
-            </div>
-            {form.campos_libres.length === 0 && (
-              <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Agrega secciones personalizadas: metodología, certificaciones, referencias, etc.</div>
-            )}
-            {form.campos_libres.map((c,idx) => (
-              <div key={c.id} style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"14px 16px", marginBottom:10 }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-                  <input value={c.titulo} onChange={e => updateCampo(c.id,"titulo",e.target.value)} placeholder={`Título sección ${idx+1}`} style={{ ...inp, fontWeight:600, maxWidth:300 }} />
-                  <button onClick={() => removeCampo(c.id)} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14, marginLeft:8 }}>✕</button>
-                </div>
-                <textarea value={c.contenido} onChange={e => updateCampo(c.id,"contenido",e.target.value)} placeholder="Contenido de la sección..." rows={3} style={{ ...ta, minHeight:70 }} />
-              </div>
-            ))}
+              placeholder="Detalla la solución propuesta: equipos a instalar, topología de red, método de instalación, alcance del servicio..."
+              style={ta} rows={8} />
           </div>
         </div>
       )}
 
-      {/* ── TAB FICHAS ── */}
+      {/* ── TAB FICHAS TÉCNICAS ── */}
       {activeTab === "fichas" && (
-        <div style={card}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-            {secHdr("Fichas técnicas de productos")}
-            <button onClick={addFicha} style={{ padding:"6px 14px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, color:COLORS.accent }}>+ Agregar producto</button>
-          </div>
-          {form.fichas_tecnicas.map((f,idx) => (
-            <div key={f.id} style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"14px 16px", marginBottom:10 }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-                <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Producto {idx+1}</span>
-                <button onClick={() => removeFicha(f.id)} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>✕</button>
-              </div>
-              <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:10 }}>
-                <div>
-                  <label style={lbl}>Nombre / Tipo</label>
-                  <input value={f.producto} onChange={e => updateFicha(f.id,"producto",e.target.value)} placeholder="Ej: Cámara Bullet Dahua 4MP" style={inp} />
+        <div>
+          <div style={{ ...card }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em" }}>Fichas técnicas de productos</div>
+              <button onClick={addFicha} style={{ padding:"6px 14px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, color:COLORS.accent }}>
+                + Agregar producto
+              </button>
+            </div>
+            {form.fichas_tecnicas.map((f, idx) => (
+              <div key={f.id} style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"14px 16px", marginBottom:10 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+                  <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Producto {idx + 1}</span>
+                  <button onClick={() => removeFicha(f.id)} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>✕</button>
                 </div>
-                <div>
-                  <label style={lbl}>Modelo</label>
-                  <input value={f.modelo} onChange={e => updateFicha(f.id,"modelo",e.target.value)} placeholder="Ej: IPC-HFW1439S1-LED" style={inp} />
+                {/* SKU + lookup Maestro */}
+                <div style={{ background:`${COLORS.accent}08`, border:`1px solid ${COLORS.accent}22`, borderRadius:7, padding:"10px 12px", marginBottom:10 }}>
+                  <label style={lbl}>SKU — buscar en Maestro de Productos</label>
+                  <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                    <input value={f.sku||""} onChange={e => updateFicha(f.id,"sku",e.target.value)}
+                      placeholder="SKU del producto" style={{ ...inp, flex:1, minWidth:120 }} />
+                    <select onChange={e => {
+                      if (!e.target.value) return;
+                      const prod = products.find(x => x.id === e.target.value);
+                      if (prod) {
+                        updateFicha(f.id,"sku",        prod.code||prod.sku||"");
+                        updateFicha(f.id,"producto",   prod.name||prod.nombre||"");
+                        updateFicha(f.id,"modelo",     prod.model||prod.modelo||"");
+                        updateFicha(f.id,"descripcion",prod.description||prod.descripcion||"");
+                        updateFicha(f.id,"enlace",     prod.datasheet_url||prod.ficha_url||"");
+                      }
+                      e.target.value="";
+                    }} style={{ ...inp, maxWidth:220, fontSize:11 }}>
+                      <option value="">— Seleccionar del catálogo —</option>
+                      {products.map(p => <option key={p.id} value={p.id}>{p.code||p.sku||""} · {p.name||p.nombre}</option>)}
+                    </select>
+                  </div>
                 </div>
-                <div style={{ gridColumn:isMobile?"auto":"span 2" }}>
-                  <label style={lbl}>Descripción / Características clave</label>
-                  <textarea value={f.descripcion} onChange={e => updateFicha(f.id,"descripcion",e.target.value)} placeholder="Resolución, codec, IP67, PoE..." rows={2} style={{ ...ta, minHeight:60 }} />
-                </div>
-                <div style={{ gridColumn:isMobile?"auto":"span 2" }}>
-                  <label style={lbl}>Enlace ficha técnica / datasheet</label>
-                  <div style={{ display:"flex", gap:8 }}>
-                    <input value={f.enlace} onChange={e => updateFicha(f.id,"enlace",e.target.value)} placeholder="https://..." style={{ ...inp, flex:1 }} />
-                    {f.enlace && <button onClick={() => window.open(f.enlace,"_blank")} style={{ padding:"9px 12px", borderRadius:6, background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, color:COLORS.accent, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>Abrir →</button>}
+                <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:10 }}>
+                  <div>
+                    <label style={lbl}>Nombre / Tipo</label>
+                    <input value={f.producto} onChange={e => updateFicha(f.id, "producto", e.target.value)} placeholder="Ej: Cámara Bullet Dahua 4MP" style={inp} />
+                  </div>
+                  <div>
+                    <label style={lbl}>Modelo</label>
+                    <input value={f.modelo} onChange={e => updateFicha(f.id, "modelo", e.target.value)} placeholder="Ej: IPC-HFW1439S1-LED" style={inp} />
+                  </div>
+                  <div style={{ gridColumn: isMobile ? "auto" : "span 2" }}>
+                    <label style={lbl}>Descripción / Características clave</label>
+                    <textarea value={f.descripcion} onChange={e => updateFicha(f.id, "descripcion", e.target.value)}
+                      placeholder="Resolución, codec, protección IP, alimentación..." rows={2} style={{ ...ta, minHeight:60 }} />
+                  </div>
+                  <div style={{ gridColumn: isMobile ? "auto" : "span 2" }}>
+                    <label style={lbl}>Enlace ficha técnica / datasheet</label>
+                    <div style={{ display:"flex", gap:8 }}>
+                      <input value={f.enlace} onChange={e => updateFicha(f.id, "enlace", e.target.value)} placeholder="https://..." style={{ ...inp, flex:1 }} />
+                      {f.enlace && <button onClick={() => window.open(f.enlace, "_blank")} style={{ padding:"9px 12px", borderRadius:6, background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, color:COLORS.accent, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>Abrir →</button>}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 
       {/* ── TAB ECONÓMICA ── */}
       {activeTab === "economica" && (
         <div>
-          {costeos.length > 0 && (
+          {/* Importadores */}
+          {(costeos.length > 0 || quotes.length > 0) && (
             <div style={{ ...card, background:`${COLORS.accent}08`, border:`1px solid ${COLORS.accent}22` }}>
-              {secHdr("Importar partidas desde costeo")}
-              <select onChange={e => { if(e.target.value) importFromCosteo(e.target.value); e.target.value=""; }} style={inp}>
-                <option value="">— Seleccionar costeo —</option>
-                {costeos.map(c => <option key={c.id} value={c.id}>{c.nombre||c.titulo||c.id}</option>)}
-              </select>
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:12 }}>Importar partidas desde</div>
+              <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+                {costeos.length > 0 && (
+                  <div style={{ flex:1, minWidth:200 }}>
+                    <label style={lbl}>Costeo de proyecto</label>
+                    <select onChange={e => { if(e.target.value) importFromCosteo(e.target.value); e.target.value=""; }} style={inp}>
+                      <option value="">— Seleccionar costeo —</option>
+                      {costeos.map(c => <option key={c.id} value={c.id}>{c.nombre || c.titulo || c.id}</option>)}
+                    </select>
+                  </div>
+                )}
+                {quotes.length > 0 && (
+                  <div style={{ flex:1, minWidth:200 }}>
+                    <label style={lbl}>Cotización existente</label>
+                    <select onChange={e => { if(e.target.value) importFromQuote(e.target.value); e.target.value=""; }} style={inp}>
+                      <option value="">— Seleccionar cotización —</option>
+                      {quotes.map(q => <option key={q.id} value={q.id}>COT-{q.numero_cotizacion} · {q.titulo || q.cliente || q.id}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
             </div>
           )}
+
           <div style={card}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-              {secHdr("Partidas del servicio")}
-              <button onClick={addPartida} style={{ padding:"6px 14px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, color:COLORS.accent }}>+ Agregar</button>
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em" }}>Partidas del servicio</div>
+              <button onClick={addPartida} style={{ padding:"6px 14px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, color:COLORS.accent }}>
+                + Agregar partida
+              </button>
             </div>
+
+            {/* Header tabla */}
             {!isMobile && (
               <div style={{ display:"grid", gridTemplateColumns:"1fr 80px 130px 120px 36px", gap:8, marginBottom:6, padding:"0 4px" }}>
-                {["Descripción","Cant","Precio Unit.","Total",""].map((h,i) => (
-                  <div key={i} style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", textAlign:i>0?"right":"left" }}>{h}</div>
+                {["Descripción","Cant","Precio Unit.","Total",""].map((h, i) => (
+                  <div key={i} style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", textAlign: i > 0 ? "right" : "left" }}>{h}</div>
                 ))}
               </div>
             )}
+
             {form.partidas.map(p => (
-              <div key={p.id} style={{ display:isMobile?"flex":"grid", flexDirection:isMobile?"column":undefined, gridTemplateColumns:"1fr 80px 130px 120px 36px", gap:8, marginBottom:8, alignItems:"center" }}>
-                <input value={p.descripcion} onChange={e => updatePartida(p.id,"descripcion",e.target.value)} placeholder="Descripción" style={inp} />
-                <input type="number" value={p.cant} onChange={e => updatePartida(p.id,"cant",e.target.value)} style={{ ...inp, textAlign:"right" }} />
-                <input type="number" value={p.precio_unit} onChange={e => updatePartida(p.id,"precio_unit",e.target.value)} style={{ ...inp, textAlign:"right" }} />
+              <div key={p.id} style={{ display: isMobile ? "flex" : "grid", flexDirection: isMobile ? "column" : undefined, gridTemplateColumns:"1fr 80px 130px 120px 36px", gap:8, marginBottom:8, alignItems:"center" }}>
+                <input value={p.descripcion} onChange={e => updatePartida(p.id, "descripcion", e.target.value)} placeholder="Descripción de la partida" style={inp} />
+                <input type="number" value={p.cant} onChange={e => updatePartida(p.id, "cant", e.target.value)} placeholder="Cant." style={{ ...inp, textAlign:"right" }} />
+                <input type="number" value={p.precio_unit} onChange={e => updatePartida(p.id, "precio_unit", e.target.value)} placeholder="Precio unitario" style={{ ...inp, textAlign:"right" }} />
                 <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.accent, fontWeight:700, textAlign:"right", padding:"9px 12px", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6 }}>{fmt(p.total)}</div>
-                <button onClick={() => removePartida(p.id)} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:16 }}>✕</button>
+                <button onClick={() => removePartida(p.id)} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:16, padding:"0 6px" }}>✕</button>
               </div>
             ))}
+
+            {/* Totales */}
             <div style={{ marginTop:16, borderTop:`1px solid ${COLORS.border}`, paddingTop:14, display:"flex", flexDirection:"column", gap:6, alignItems:"flex-end" }}>
               <div style={{ display:"flex", gap:40, fontFamily:FONT, fontSize:13 }}>
                 <span style={{ color:COLORS.textMuted }}>Subtotal neto</span>
@@ -8638,10 +8585,14 @@ ${form.condiciones_pago?`<h2>Forma de Pago</h2><p>${form.condiciones_pago}</p>`:
         </div>
       )}
 
-      {/* Bottom bar */}
+      {/* Bottom save bar */}
       <div style={{ display:"flex", justifyContent:"flex-end", gap:10, marginTop:24, paddingTop:16, borderTop:`1px solid ${COLORS.border}` }}>
-        <button onClick={onCancel} style={{ padding:"10px 20px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.border}`, color:COLORS.textMuted }}>Cancelar</button>
-        <button onClick={() => save("borrador")} disabled={saving} style={{ padding:"10px 20px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer", background:COLORS.card, border:`1px solid ${COLORS.border}`, color:COLORS.text }}>Guardar borrador</button>
+        <button onClick={onCancel} style={{ padding:"10px 20px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.border}`, color:COLORS.textMuted }}>
+          Cancelar
+        </button>
+        <button onClick={() => save("borrador")} disabled={saving} style={{ padding:"10px 20px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer", background:COLORS.card, border:`1px solid ${COLORS.border}`, color:COLORS.text }}>
+          Guardar borrador
+        </button>
         <button onClick={() => save("enviada")} disabled={saving} style={{ padding:"10px 24px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer", background:COLORS.accent, border:"none", color:"#fff" }}>
           {saving ? "Guardando…" : "Guardar y marcar enviada"}
         </button>
@@ -8653,67 +8604,82 @@ ${form.condiciones_pago?`<h2>Forma de Pago</h2><p>${form.condiciones_pago}</p>`:
 // ── DIFF VIEW ──────────────────────────────────────────────────────────────────
 function DiffView({ proposal, revA, revB, onBack }) {
   if (!revA || !revB) return null;
+
   const fields = [
-    { key:"titulo",            label:"Título" },
-    { key:"antecedentes",      label:"Antecedentes" },
-    { key:"propuesta_tecnica", label:"Propuesta técnica" },
-    { key:"alcance",           label:"Alcance" },
-    { key:"topologia",         label:"Topología" },
-    { key:"garantias",         label:"Garantías" },
-    { key:"condiciones_pago",  label:"Forma de pago" },
+    { key:"titulo",           label:"Título" },
+    { key:"antecedentes",     label:"Antecedentes" },
+    { key:"propuesta_tecnica",label:"Propuesta técnica" },
+    { key:"garantias",        label:"Garantías" },
+    { key:"condiciones_pago", label:"Forma de pago" },
   ];
+
   const diffText = (a, b) => {
     if (a === b) return null;
     return (
       <div>
         <div style={{ background:"#FF4D6A18", border:"1px solid #FF4D6A33", borderRadius:6, padding:"8px 12px", marginBottom:6 }}>
           <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.red, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>Rev. {revA.revision} (anterior)</div>
-          <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, whiteSpace:"pre-wrap" }}>{a||"—"}</div>
+          <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, whiteSpace:"pre-wrap" }}>{a || "—"}</div>
         </div>
         <div style={{ background:"#00E5A018", border:"1px solid #00E5A033", borderRadius:6, padding:"8px 12px" }}>
           <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.green, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>Rev. {revB.revision} (actual)</div>
-          <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, whiteSpace:"pre-wrap" }}>{b||"—"}</div>
+          <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, whiteSpace:"pre-wrap" }}>{b || "—"}</div>
         </div>
       </div>
     );
   };
-  const totalDiff = (revB.total||0) - (revA.total||0);
+
+  const totalDiff = (revB.total || 0) - (revA.total || 0);
+
   return (
     <div>
-      <button onClick={onBack} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12, marginBottom:16, display:"flex", alignItems:"center", gap:5, padding:0 }}>← Volver</button>
+      <button onClick={onBack} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12, marginBottom:16, display:"flex", alignItems:"center", gap:5, padding:0 }}>
+        ← Volver
+      </button>
       <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:COLORS.text, marginBottom:4 }}>Control de cambios</div>
-      <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:24 }}>{proposal.titulo} · Rev. {revA.revision} → Rev. {revB.revision}</div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:20 }}>
+      <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:24 }}>
+        {proposal.titulo} · Rev. {revA.revision} → Rev. {revB.revision}
+      </div>
+
+      {/* Resumen numérico */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:12, marginBottom:20 }}>
         <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"14px 18px" }}>
           <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Total Rev. {revA.revision}</div>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text }}>{fmt(revA.total||0)}</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text }}>{fmt(revA.total || 0)}</div>
         </div>
         <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"14px 18px" }}>
           <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Total Rev. {revB.revision}</div>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text }}>{fmt(revB.total||0)}</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text }}>{fmt(revB.total || 0)}</div>
         </div>
-        <div style={{ background:totalDiff>0?`${COLORS.red}15`:totalDiff<0?`${COLORS.green}15`:COLORS.card, border:`1px solid ${totalDiff>0?COLORS.red:totalDiff<0?COLORS.green:COLORS.border}33`, borderRadius:10, padding:"14px 18px" }}>
+        <div style={{ background: totalDiff > 0 ? `${COLORS.red}15` : totalDiff < 0 ? `${COLORS.green}15` : COLORS.card, border:`1px solid ${totalDiff > 0 ? COLORS.red : totalDiff < 0 ? COLORS.green : COLORS.border}33`, borderRadius:10, padding:"14px 18px" }}>
           <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Variación</div>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:totalDiff>0?COLORS.red:totalDiff<0?COLORS.green:COLORS.textMuted }}>{totalDiff>0?"+":""}{fmt(totalDiff)}</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color: totalDiff > 0 ? COLORS.red : totalDiff < 0 ? COLORS.green : COLORS.textMuted }}>
+            {totalDiff > 0 ? "+" : ""}{fmt(totalDiff)}
+          </div>
         </div>
       </div>
+
+      {/* Diff de campos de texto */}
       {fields.map(f => {
-        const a = revA[f.key]||"", b = revB[f.key]||"";
-        if (a===b) return null;
+        const a = revA[f.key] || "";
+        const b = revB[f.key] || "";
+        if (a === b) return null;
         return (
           <div key={f.key} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"16px 18px", marginBottom:12 }}>
             <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>{f.label}</div>
-            {diffText(a,b)}
+            {diffText(a, b)}
           </div>
         );
       })}
-      {JSON.stringify(revA.partidas)!==JSON.stringify(revB.partidas) && (
+
+      {/* Diff de partidas */}
+      {JSON.stringify(revA.partidas) !== JSON.stringify(revB.partidas) && (
         <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"16px 18px" }}>
           <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12 }}>Partidas económicas</div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
             <div>
               <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.red, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:8 }}>Rev. {revA.revision}</div>
-              {(revA.partidas||[]).map((p,i) => (
+              {(revA.partidas || []).map((p, i) => (
                 <div key={i} style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, padding:"5px 10px", background:`${COLORS.red}10`, borderRadius:4, marginBottom:4, display:"flex", justifyContent:"space-between" }}>
                   <span>{p.descripcion}</span><span>{fmt(p.total)}</span>
                 </div>
@@ -8721,7 +8687,7 @@ function DiffView({ proposal, revA, revB, onBack }) {
             </div>
             <div>
               <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.green, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:8 }}>Rev. {revB.revision}</div>
-              {(revB.partidas||[]).map((p,i) => (
+              {(revB.partidas || []).map((p, i) => (
                 <div key={i} style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, padding:"5px 10px", background:`${COLORS.green}10`, borderRadius:4, marginBottom:4, display:"flex", justifyContent:"space-between" }}>
                   <span>{p.descripcion}</span><span>{fmt(p.total)}</span>
                 </div>
@@ -8733,6 +8699,7 @@ function DiffView({ proposal, revA, revB, onBack }) {
     </div>
   );
 }
+
 
 // Grouped nav for desktop sidebar
 const NAV_GROUPS = [
