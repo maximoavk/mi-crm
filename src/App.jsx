@@ -7841,6 +7841,65 @@ const NAV_FLAT = [
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── PRODUCT SEARCH BOX ────────────────────────────────────────────────────────
+function ProductSearchBox({ products, value, onSelect, onChangeSku }) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen]   = useState(false);
+
+  const filtered = query.length >= 1
+    ? products.filter(p =>
+        (p.code||"").toLowerCase().includes(query.toLowerCase()) ||
+        (p.name||"").toLowerCase().includes(query.toLowerCase()) ||
+        (p.skuProveedor||"").toLowerCase().includes(query.toLowerCase())
+      ).slice(0, 8)
+    : [];
+
+  const select = (prod) => {
+    onSelect(prod);
+    setQuery("");
+    setOpen(false);
+  };
+
+  return (
+    <div style={{ background:`${COLORS.accent}08`, border:`1px solid ${COLORS.accent}22`, borderRadius:7, padding:"10px 12px", marginBottom:10, position:"relative" }}>
+      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>
+        Buscar en Maestro de Productos
+      </div>
+      <div style={{ display:"flex", gap:8 }}>
+        <div style={{ flex:1, position:"relative" }}>
+          <input
+            value={query}
+            onChange={e => { setQuery(e.target.value); setOpen(true); }}
+            onFocus={() => setOpen(true)}
+            onBlur={() => setTimeout(() => setOpen(false), 180)}
+            placeholder="Buscar por código, nombre o SKU proveedor..."
+            style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }}
+          />
+          {open && filtered.length > 0 && (
+            <div style={{ position:"absolute", top:"100%", left:0, right:0, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, zIndex:300, marginTop:4, boxShadow:"0 8px 24px #0006", maxHeight:260, overflowY:"auto" }}>
+              {filtered.map(p => (
+                <button key={p.id} onMouseDown={() => select(p)}
+                  style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:"transparent", border:"none", cursor:"pointer", textAlign:"left", borderBottom:`1px solid ${COLORS.border}` }}
+                  onMouseEnter={e => e.currentTarget.style.background=COLORS.accentDim}
+                  onMouseLeave={e => e.currentTarget.style.background="transparent"}>
+                  <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.accent, minWidth:80 }}>{p.code}</span>
+                  <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, flex:1 }}>{p.name}</span>
+                  {p.skuProveedor && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{p.skuProveedor}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      {value && (
+        <div style={{ marginTop:6, fontFamily:FONT, fontSize:11, color:COLORS.green }}>
+          ✓ Código seleccionado: <strong>{value}</strong>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProposalsView({ contacts, isMobile }) {
   const [proposals, setProposals] = useState([]);
   const [costeos, setCosteos]     = useState([]);
@@ -8440,29 +8499,19 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
                   <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Producto {idx + 1}</span>
                   <button onClick={() => removeFicha(f.id)} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>✕</button>
                 </div>
-                {/* SKU + lookup Maestro */}
-                <div style={{ background:`${COLORS.accent}08`, border:`1px solid ${COLORS.accent}22`, borderRadius:7, padding:"10px 12px", marginBottom:10 }}>
-                  <label style={lbl}>SKU — buscar en Maestro de Productos</label>
-                  <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                    <input value={f.sku||""} onChange={e => updateFicha(f.id,"sku",e.target.value)}
-                      placeholder="SKU del producto" style={{ ...inp, flex:1, minWidth:120 }} />
-                    <select onChange={e => {
-                      if (!e.target.value) return;
-                      const prod = products.find(x => x.id === e.target.value);
-                      if (prod) {
-                        updateFicha(f.id,"sku",        prod.code||prod.sku||"");
-                        updateFicha(f.id,"producto",   prod.name||prod.nombre||"");
-                        updateFicha(f.id,"modelo",     prod.model||prod.modelo||"");
-                        updateFicha(f.id,"descripcion",prod.description||prod.descripcion||"");
-                        updateFicha(f.id,"enlace",     prod.datasheet_url||prod.ficha_url||"");
-                      }
-                      e.target.value="";
-                    }} style={{ ...inp, maxWidth:220, fontSize:11 }}>
-                      <option value="">— Seleccionar del catálogo —</option>
-                      {products.map(p => <option key={p.id} value={p.id}>{p.code||p.sku||""} · {p.name||p.nombre}</option>)}
-                    </select>
-                  </div>
-                </div>
+                {/* SKU + buscador Maestro */}
+                <ProductSearchBox
+                  products={products}
+                  value={f.sku||""}
+                  onSelect={prod => {
+                    updateFicha(f.id,"sku",         prod.code||"");
+                    updateFicha(f.id,"producto",    prod.name||"");
+                    updateFicha(f.id,"modelo",      prod.description||"");
+                    updateFicha(f.id,"descripcion", prod.skuProveedor ? `SKU Proveedor: ${prod.skuProveedor}` : "");
+                    updateFicha(f.id,"enlace",      prod.url||"");
+                  }}
+                  onChangeSku={v => updateFicha(f.id,"sku",v)}
+                />
                 <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:10 }}>
                   <div>
                     <label style={lbl}>Nombre / Tipo</label>
