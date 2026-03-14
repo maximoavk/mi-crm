@@ -7841,6 +7841,77 @@ const NAV_FLAT = [
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── PRODUCT SEARCH BOX ───────────────────────────────────────────────────────
+function ProductSearchBox({ products, value, onSelect }) {
+  const [query, setQuery] = useState(value||"");
+  const [open, setOpen]   = useState(false);
+
+  const resultados = query.trim().length >= 1
+    ? products.filter(p =>
+        (p.code||"").toLowerCase().includes(query.toLowerCase()) ||
+        (p.name||"").toLowerCase().includes(query.toLowerCase()) ||
+        (p.skuProveedor||"").toLowerCase().includes(query.toLowerCase())
+      ).slice(0, 10)
+    : [];
+
+  const select = (prod) => {
+    setQuery(prod.code + " · " + prod.name);
+    setOpen(false);
+    onSelect(prod);
+  };
+
+  return (
+    <div style={{ background:`${COLORS.accent}08`, border:`1px solid ${COLORS.accent}22`, borderRadius:7, padding:"10px 12px", marginBottom:12 }}>
+      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>
+        🔍 Buscar en Maestro de Productos
+      </div>
+      <div style={{ position:"relative" }}>
+        <input
+          value={query}
+          onChange={e => { setQuery(e.target.value); setOpen(true); }}
+          onFocus={() => { if (query.trim().length > 0) setOpen(true); }}
+          onBlur={() => setTimeout(() => setOpen(false), 200)}
+          placeholder="Escribe código, nombre o SKU proveedor..."
+          style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.accent}55`, borderRadius:6, padding:"9px 36px 9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }}
+        />
+        {query && (
+          <button onClick={() => { setQuery(""); setOpen(false); }}
+            style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:16, lineHeight:1, padding:0 }}>✕</button>
+        )}
+        {open && resultados.length > 0 && (
+          <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:500, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, boxShadow:"0 8px 28px #000A", maxHeight:300, overflowY:"auto" }}>
+            {resultados.map(p => (
+              <div key={p.id} onMouseDown={() => select(p)}
+                style={{ padding:"9px 14px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}
+                onMouseEnter={e => e.currentTarget.style.background=COLORS.card}
+                onMouseLeave={e => e.currentTarget.style.background="transparent"}>
+                <div>
+                  <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:2 }}>
+                    <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.accent }}>{p.code}</span>
+                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text }}>{p.name}</span>
+                  </div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
+                    {p.skuProveedor ? `SKU: ${p.skuProveedor} · ` : ""}{p.provider||""}{p.category ? ` · ${p.category}` : ""}
+                  </div>
+                </div>
+                <div style={{ textAlign:"right", flexShrink:0, marginLeft:16 }}>
+                  <div style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.text }}>{fmt(p.price)}</div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.green }}>Neto: {fmt(Math.round((p.price||0)/1.19))}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {open && query.trim().length > 0 && resultados.length === 0 && (
+          <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:500, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"12px 14px" }}>
+            <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin resultados para "{query}"</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ProposalsView({ contacts, isMobile }) {
   const [proposals, setProposals] = useState([]);
   const [costeos, setCosteos]     = useState([]);
@@ -7856,16 +7927,17 @@ function ProposalsView({ contacts, isMobile }) {
 
   const loadAll = async () => {
     setLoading(true);
-    const [{ data: props }, { data: cos }, { data: qs }, { data: prods }] = await Promise.all([
+    let costeoProyectos = [];
+    try { costeoProyectos = JSON.parse(localStorage.getItem("costeo_proyectos")||"[]"); } catch{}
+    setCosteos(costeoProyectos);
+    const [{ data: props }, { data: qs }, { data: prods }] = await Promise.all([
       supabase.from("propuestas").select("*").order("created_at", { ascending: false }),
-      supabase.from("costeos").select("*").order("created_at", { ascending: false }),
       supabase.from("cotizaciones").select("*").order("created_at", { ascending: false }),
-      supabase.from("productos").select("*").order("nombre"),
+      supabase.from("products").select("*").order("codigo"),
     ]);
     setProposals(props || []);
-    setCosteos(cos || []);
     setQuotes(qs || []);
-    setProducts(prods || []);
+    setProducts((prods || []).map(mapProduct));
     setLoading(false);
   };
 
@@ -7896,6 +7968,12 @@ function ProposalsView({ contacts, isMobile }) {
     });
     setCurrent(updated);
     setScreen("list");
+  };
+
+  const deleteProposal = async (p) => {
+    if (!window.confirm(`¿Eliminar "${p.titulo || `Propuesta #${p.numero_cotizacion}`}"? Esta acción no se puede deshacer.`)) return;
+    await supabase.from("propuestas").delete().eq("id", p.id);
+    setProposals(prev => prev.filter(x => x.id !== p.id));
   };
 
   if (loading) return <Loader />;
@@ -7942,6 +8020,7 @@ function ProposalsView({ contacts, isMobile }) {
                 {hist.length >= 2 && (
                   <button onClick={() => openDiff(p)} style={{ padding: "7px 14px", borderRadius: 7, fontFamily: FONT_DISPLAY, fontSize: 12, cursor: "pointer", background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.textMuted }}>Ver cambios</button>
                 )}
+                <button onClick={() => deleteProposal(p)} style={{ padding: "7px 14px", borderRadius: 7, fontFamily: FONT_DISPLAY, fontSize: 12, cursor: "pointer", background: `${COLORS.red}15`, border: `1px solid ${COLORS.red}33`, color: COLORS.red }}>Eliminar</button>
               </div>
             </div>
           );
@@ -7978,7 +8057,7 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
   const [activeTab, setActiveTab] = useState("portada");
 
   const EMPTY_PARTIDA = () => ({ id: Date.now() + Math.random(), descripcion: "", cant: 1, precio_unit: 0, total: 0 });
-  const EMPTY_FICHA   = () => ({ id: Date.now() + Math.random(), producto: "", modelo: "", descripcion: "", enlace: "" });
+  const EMPTY_FICHA   = () => ({ id: Date.now() + Math.random(), sku: "", producto: "", modelo: "", descripcion: "", enlace: "" });
 
   const [form, setForm] = useState({
     numero_cotizacion: proposal?.numero_cotizacion || "",
@@ -8483,6 +8562,17 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
                   <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Producto {idx + 1}</span>
                   <button onClick={() => removeFicha(f.id)} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>✕</button>
                 </div>
+                <ProductSearchBox
+                  products={products}
+                  value={f.sku||""}
+                  onSelect={prod => {
+                    updateFicha(f.id, "sku",         prod.code||"");
+                    updateFicha(f.id, "producto",    prod.name||"");
+                    updateFicha(f.id, "modelo",      prod.description||"");
+                    updateFicha(f.id, "descripcion", prod.skuProveedor ? `SKU Proveedor: ${prod.skuProveedor}` : "");
+                    updateFicha(f.id, "enlace",      prod.url||"");
+                  }}
+                />
                 <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:10 }}>
                   <div>
                     <label style={lbl}>Nombre / Tipo</label>
@@ -8523,8 +8613,12 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
                   <div style={{ flex:1, minWidth:200 }}>
                     <label style={lbl}>Costeo de proyecto</label>
                     <select onChange={e => { if(e.target.value) importFromCosteo(e.target.value); e.target.value=""; }} style={inp}>
-                      <option value="">— Seleccionar costeo —</option>
-                      {costeos.map(c => <option key={c.id} value={c.id}>{c.nombre || c.titulo || c.id}</option>)}
+                      <option value="">— Seleccionar proyecto de costeo —</option>
+                      {costeos.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.nombre || c.id} · {(c.partidas||[]).length} partida(s) · ${Math.round((c.partidas||[]).reduce((s,p)=>s+Number(p.monto||0),0)).toLocaleString("es-CL")}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 )}
