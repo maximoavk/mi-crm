@@ -4794,14 +4794,14 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
             <option>% personalizado</option>
           </Select>
           {(header.paymentMethod==="% personalizado"||header.paymentMethod==="0 a 30 días") && (
-            <div style={{ display:"flex", gap:10, marginTop:8, flexWrap:"wrap" }}>
-              <div style={{ flex:1, minWidth:110 }}>
+            <div style={{ display:"flex", gap:10, marginTop:8 }}>
+              <div style={{ flex:1 }}>
                 <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>% Anticipo</div>
                 <input type="number" min="0" max="100" value={header.pctAnticipo||50}
                   onChange={e=>hf("pctAnticipo",Number(e.target.value))}
                   style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none" }} />
               </div>
-              <div style={{ flex:1, minWidth:110 }}>
+              <div style={{ flex:1 }}>
                 <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>Días plazo saldo</div>
                 <input type="number" min="0" value={header.diasPlazo||30}
                   onChange={e=>hf("diasPlazo",Number(e.target.value))}
@@ -5005,6 +5005,21 @@ function QuotePDF({ quote, onBack }) {
   const total       = fromCosteo ? neto : quote.hasIva ? neto + Math.round(neto * 0.19) : neto;
   const showIva     = quote.hasIva || fromCosteo; // true → mostrar desglose neto+IVA+total
 
+  // ── Forma de pago: calcular tramos con montos reales ──
+  const pm       = quote.paymentMethod || "Al finalizar";
+  const pctAnt   = Number(quote.pctAnticipo || 50);
+  const diasPago = Number(quote.diasPlazo   || 30);
+  const montoAnt = Math.round(total * pctAnt / 100);
+  const montoSal = total - montoAnt;
+  const pctSal   = 100 - pctAnt;
+  const fechaSal = (() => { const d = new Date(); d.setDate(d.getDate() + diasPago); return d.toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"}); })();
+  const fmtCLP   = (n) => `$${Math.round(n).toLocaleString("es-CL")}`;
+
+  const rowStyle = { display:"flex", borderTop:"1px solid #e8e8e8", paddingTop:4, marginTop:4, fontSize:11, alignItems:"center", gap:8 };
+  const labelStyle = { fontWeight:700, minWidth:160, color:"#333" };
+  const valStyle = { fontWeight:700, color:"#cc0000", marginLeft:"auto" };
+  const noteStyle = { fontSize:10, color:"#555", marginLeft:8 };
+
   return (
     <div>
       <div style={{ display:"flex", gap:10, marginBottom:20, alignItems:"center" }}>
@@ -5146,57 +5161,62 @@ function QuotePDF({ quote, onBack }) {
           </div>
         )}
 
-        {/* FORMA DE PAGO con montos calculados */}
-        {lines.filter(l=>l.lineType==="hito").length === 0 && (() => {
-          const pm  = quote.paymentMethod || "Al finalizar";
-          const pct = Number(quote.pctAnticipo||50);
-          const dias= Number(quote.diasPlazo||30);
-          const ant = Math.round(total * pct / 100);
-          const sal = total - ant;
-          const fechaSal = new Date();
-          fechaSal.setDate(fechaSal.getDate() + dias);
-          const fStr = fechaSal.toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"});
-          const tagStyle = (bg,border,tc) => ({
-            display:"inline-block", background:bg, border:`1px solid ${border}`,
-            borderRadius:5, padding:"5px 12px", marginRight:8, marginTop:4
-          });
-          let tramos = null;
-          if (pm==="50% anticipo y saldo al finalizar" || pm==="% personalizado") {
-            tramos = (
-              <span>
-                <span style={tagStyle("#fff3cd","#ffc107","#856404")}>
-                  <b style={{fontSize:10,color:"#856404"}}>Anticipo {pct}%:</b> <b>${ant.toLocaleString("es-CL")}</b>
-                </span>
-                <span style={tagStyle("#d1ecf1","#17a2b8","#0c5460")}>
-                  <b style={{fontSize:10,color:"#0c5460"}}>Saldo {100-pct}%:</b> <b>${sal.toLocaleString("es-CL")}</b>{dias>0?` · a ${dias} días`:" · al finalizar"}
-                </span>
-              </span>
-            );
-          } else if (pm==="Al finalizar") {
-            tramos = <span style={tagStyle("#d1ecf1","#17a2b8","#0c5460")}><b style={{fontSize:10,color:"#0c5460"}}>Al finalizar:</b> <b>${total.toLocaleString("es-CL")}</b></span>;
-          } else if (pm==="0 a 30 días") {
-            tramos = (
-              <span>
-                <span style={tagStyle("#fff3cd","#ffc107","#856404")}>
-                  <b style={{fontSize:10,color:"#856404"}}>Anticipo 50%:</b> <b>${ant.toLocaleString("es-CL")}</b>
-                </span>
-                <span style={tagStyle("#d4edda","#28a745","#155724")}>
-                  <b style={{fontSize:10,color:"#155724"}}>Saldo 50%:</b> <b>${sal.toLocaleString("es-CL")}</b> · {fStr}
-                </span>
-              </span>
-            );
-          } else if (pm==="Contado") {
-            tramos = <span style={tagStyle("#d4edda","#28a745","#155724")}><b style={{fontSize:10,color:"#155724"}}>Contado:</b> <b>${total.toLocaleString("es-CL")}</b></span>;
-          }
-          return (
-            <div style={{ marginBottom:10, borderTop:"1px solid #e0e0e0", paddingTop:8 }}>
-              {quote.comments && <div style={{ marginBottom:6, fontSize:11 }}><b>Comentarios: </b>{quote.comments}</div>}
-              <div style={{ fontSize:11 }}>
-                <b>Forma de Pago: </b>{pm} {tramos}
+        {/* FORMA DE PAGO con montos */}
+        {lines.filter(l=>l.lineType==="hito").length === 0 && (
+          <div style={{ marginBottom:12, borderTop:"1px solid #e0e0e0", paddingTop:8 }}>
+            {quote.comments && (
+              <div style={{ marginBottom:6, fontSize:11 }}>
+                <span style={{ fontWeight:700 }}>Comentarios: </span>
+                {quote.comments}
               </div>
+            )}
+            <div style={{ fontSize:11, marginBottom:4 }}>
+              <span style={{ fontWeight:700 }}>Forma de Pago: </span>{pm}
             </div>
-          );
-        })()}
+            {(pm==="50% anticipo y saldo al finalizar" || pm==="% personalizado") && (
+              <div style={{ display:"table", width:"100%", borderCollapse:"collapse", fontSize:11, marginTop:4 }}>
+                <div style={rowStyle}>
+                  <span style={labelStyle}>Anticipo ({pctAnt}%)</span>
+                  <span style={noteStyle}>Al inicio del servicio</span>
+                  <span style={valStyle}>{fmtCLP(montoAnt)}</span>
+                </div>
+                <div style={rowStyle}>
+                  <span style={labelStyle}>Saldo ({pctSal}%)</span>
+                  <span style={noteStyle}>Al finalizar el servicio</span>
+                  <span style={valStyle}>{fmtCLP(montoSal)}</span>
+                </div>
+              </div>
+            )}
+            {pm==="Al finalizar" && (
+              <div style={rowStyle}>
+                <span style={labelStyle}>Total al finalizar</span>
+                <span style={noteStyle}>Al término del servicio</span>
+                <span style={valStyle}>{fmtCLP(total)}</span>
+              </div>
+            )}
+            {pm==="0 a 30 días" && (
+              <div style={{ fontSize:11, marginTop:4 }}>
+                <div style={rowStyle}>
+                  <span style={labelStyle}>Anticipo (50%)</span>
+                  <span style={noteStyle}>Al inicio del servicio</span>
+                  <span style={valStyle}>{fmtCLP(Math.round(total*0.5))}</span>
+                </div>
+                <div style={rowStyle}>
+                  <span style={labelStyle}>Saldo (50%)</span>
+                  <span style={noteStyle}>A {diasPago} días · {fechaSal}</span>
+                  <span style={valStyle}>{fmtCLP(total - Math.round(total*0.5))}</span>
+                </div>
+              </div>
+            )}
+            {pm==="Contado" && (
+              <div style={rowStyle}>
+                <span style={labelStyle}>Pago contado</span>
+                <span style={noteStyle}>Pago inmediato</span>
+                <span style={valStyle}>{fmtCLP(total)}</span>
+              </div>
+            )}
+          </div>
+        )}
         {lines.filter(l=>l.lineType==="hito").length > 0 && quote.comments && (
           <div style={{ marginBottom:12, paddingTop:8, borderTop:"1px solid #e0e0e0" }}>
             <span style={{ fontWeight:700 }}>Comentarios: </span>
@@ -5226,34 +5246,30 @@ function QuotePDF({ quote, onBack }) {
           #print-area, #print-area * { visibility: visible; }
           #print-area {
             position: absolute; left: 0; top: 0;
-            width: 190mm;
-            padding: 8mm 10mm;
+            width: 190mm; padding: 7mm 10mm;
             box-sizing: border-box;
             font-size: 9.5px !important;
             line-height: 1.25 !important;
           }
-          #print-area * { font-size: inherit; line-height: inherit; }
-          #print-area img { height: 38px !important; }
-          #print-area .quote-number { font-size: 22px !important; }
-          #print-area .quote-number-label { font-size: 9px !important; }
-          #print-area .quote-box { padding: 6px 14px !important; }
+          #print-area img { height: 36px !important; }
+          #print-area .quote-number { font-size: 20px !important; }
+          #print-area table th, #print-area table td { padding: 3px 5px !important; font-size: 9px !important; }
           #print-area table { width: 100%; table-layout: fixed; border-collapse: collapse; }
-          #print-area table th, #print-area table td { padding: 4px 6px !important; font-size: 9px !important; }
           #print-area table th:nth-child(1) { width: 10%; }
-          #print-area table th:nth-child(2) { width: 38%; }
+          #print-area table th:nth-child(2) { width: 36%; }
           #print-area table th:nth-child(3) { width: 7%; }
           #print-area table th:nth-child(4) { width: 16%; }
-          #print-area table th:nth-child(5) { width: 9%; }
-          #print-area table th:nth-child(6) { width: 15%; }
+          #print-area table th:nth-child(5) { width: 10%; }
+          #print-area table th:nth-child(6) { width: 16%; }
           #print-area thead tr { background: #222 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           #print-area thead th { color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           #print-area .quote-box { border: 2px solid #cc0000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           #print-area .quote-number-label { color: #cc0000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           #print-area .quote-number { color: #cc0000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          #print-area .rut-label { color: #cc0000 !important; font-size: 11px !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          #print-area .totals-table { width: 200px; margin-left: auto; }
+          #print-area .rut-label { color: #cc0000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          #print-area .totals-table { width: 220px; margin-left: auto; }
           #print-area .totals-table td { white-space: nowrap; }
-          @page { margin: 0; size: A4 portrait; }
+          @page { margin: 0; size: A4; }
         }
       `}</style>
     </div>
