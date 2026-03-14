@@ -1481,43 +1481,46 @@ function GanttView({ isMobile }) {
             <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Días vista:</span>
             {[{d:5,label:"5d",hint:"Lab"},{d:7,label:"7d",hint:"Sem"},{d:15,label:"15d",hint:"Qna"},{d:30,label:"30d"},{d:60,label:"60d"}].map(({d,label,hint})=>(
               <button key={d} onClick={()=>setCalDays(d)}
-                style={{ padding:"3px 10px", background: calDays===d?COLORS.accent:"transparent", border:`1px solid ${calDays===d?COLORS.accent:COLORS.border}`, borderRadius:5, color: calDays===d?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", lineHeight:1.2 }}>
-                <span>{label}</span>
-                {hint && <span style={{ fontSize:8, opacity:0.7 }}>{hint}</span>}
+                style={{ padding:"3px 10px", background: calDays===d?COLORS.accent:"transparent", border:`1px solid ${calDays===d?COLORS.accent:COLORS.border}`, borderRadius:5, color: calDays===d?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+                {label}{hint?` (${hint})`:""}
               </button>
             ))}
-            {/* Botón imprimir Gantt */}
-            <button onClick={()=>{
-              const prev = document.title;
-              document.title = `Gantt_${proyecto?.cotNum||""}`;
-              window.print();
-              setTimeout(()=>{ document.title = prev; }, 2000);
-            }} style={{ padding:"3px 12px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:5, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer", marginLeft:4 }}>
-              🖨 PDF
-            </button>
             {/* Leyenda */}
-            <div style={{ display:"flex", gap:10, marginLeft:"auto", flexWrap:"wrap" }}>
+            <div style={{ display:"flex", gap:10, marginLeft:"auto", flexWrap:"wrap", alignItems:"center" }}>
               {[["Fase","#3b82f6"],["Tarea","#6366f1"],["Hito","#f59e0b"],["Completado","#39ff14"],["Atrasado","#ef4444"]].map(([l,c])=>(
                 <span key={l} style={{ fontFamily:FONT, fontSize:10, color:c }}>● {l}</span>
               ))}
+              <button onClick={()=>{
+                const table = document.getElementById("gantt-table");
+                if(!table) return;
+                const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+                  <style>
+                    *{box-sizing:border-box;margin:0;padding:0}
+                    body{font-family:Arial,sans-serif;font-size:9px;padding:8mm;background:#fff;color:#1e293b}
+                    h2{font-size:13px;margin-bottom:8px;color:#0f1623}
+                    table{border-collapse:collapse;width:100%;font-size:8.5px}
+                    th{background:#1e293b;color:#fff;padding:4px 6px;text-align:left;white-space:nowrap}
+                    td{padding:3px 5px;border-bottom:1px solid #e2e8f0;white-space:nowrap}
+                    tr:nth-child(even) td{background:#f8fafc}
+                    @page{size:A4 landscape;margin:8mm}
+                    @media print{body{padding:0}}
+                  </style></head><body>
+                  <h2>Gantt — ${proyecto?.nombre||""} · COT-${proyecto?.cotNum||""}</h2>
+                  ${table.outerHTML}
+                  <script>window.onload=()=>window.print()<\/script>
+                </body></html>`;
+                const w = window.open("","_blank");
+                w.document.write(html);
+                w.document.close();
+              }} style={{ padding:"3px 12px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:5, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+                🖨 PDF
+              </button>
             </div>
           </div>
 
-          {/* Print styles para Gantt */}
-          <style>{`
-            @media print {
-              body > * { display: none !important; }
-              #gantt-print-area { display: block !important; }
-              #gantt-print-area * { visibility: visible; }
-              @page { size: A4 landscape; margin: 8mm; }
-              #gantt-print-area table { font-size: 8px !important; }
-              #gantt-print-area td, #gantt-print-area th { padding: 2px 4px !important; }
-            }
-          `}</style>
-
           {/* TABLA GANTT */}
-          <div id="gantt-print-area" style={{ overflowX:"auto", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10 }}>
-            <table style={{ borderCollapse:"collapse", fontSize:11, fontFamily:FONT }}>
+          <div style={{ overflowX:"auto", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10 }}>
+            <table id="gantt-table" style={{ borderCollapse:"collapse", fontSize:11, fontFamily:FONT }}>
               <thead>
                 {/* Fila meses */}
                 <tr style={{ background:COLORS.surface }}>
