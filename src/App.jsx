@@ -8084,10 +8084,10 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
 
   const ff = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
-  // ── Calcular totales partidas ──
-  const subtotal = form.partidas.reduce((s, p) => s + (Number(p.total) || 0), 0);
-  const iva      = Math.round(subtotal * 0.19);
-  const total    = subtotal + iva;
+  // ── Calcular totales partidas (valores ya incluyen IVA) ──
+  const total    = form.partidas.reduce((s, p) => s + (Number(p.total) || 0), 0);
+  const subtotal = total; // alias para compatibilidad con exportHtmlPrint
+  const iva      = 0;
 
   const updatePartida = (id, key, val) => {
     setForm(prev => ({
@@ -8353,9 +8353,8 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
       <tbody>${partidasRows}</tbody>
     </table>
     <table class="totales" style="width:280px;margin-left:auto;margin-top:8px">
-      <tr><td>Subtotal neto</td><td style="text-align:right">${fmt(subtotal)}</td></tr>
-      <tr><td>IVA (19%)</td><td style="text-align:right">${fmt(iva)}</td></tr>
-      <tr class="total-row"><td><b>Total</b></td><td style="text-align:right"><b>${fmt(total)}</b></td></tr>
+      <tr style="font-size:10px;color:#94a3b8"><td colspan="2">Valores incluyen IVA</td></tr>
+      <tr class="total-row"><td><b>Total c/IVA</b></td><td style="text-align:right"><b>${fmt(total)}</b></td></tr>
     </table>
     <h2>Garantías</h2><p>${form.garantias}</p>
     <h2>Forma de Pago</h2><p>${form.condiciones_pago}</p>
@@ -8671,16 +8670,11 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
 
             {/* Totales */}
             <div style={{ marginTop:16, borderTop:`1px solid ${COLORS.border}`, paddingTop:14, display:"flex", flexDirection:"column", gap:6, alignItems:"flex-end" }}>
-              <div style={{ display:"flex", gap:40, fontFamily:FONT, fontSize:13 }}>
-                <span style={{ color:COLORS.textMuted }}>Subtotal neto</span>
-                <span style={{ color:COLORS.text, fontWeight:600, minWidth:120, textAlign:"right" }}>{fmt(subtotal)}</span>
-              </div>
-              <div style={{ display:"flex", gap:40, fontFamily:FONT, fontSize:13 }}>
-                <span style={{ color:COLORS.textMuted }}>IVA (19%)</span>
-                <span style={{ color:COLORS.text, minWidth:120, textAlign:"right" }}>{fmt(iva)}</span>
+              <div style={{ display:"flex", gap:40, fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                <span>Valores incluyen IVA</span>
               </div>
               <div style={{ display:"flex", gap:40, fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, borderTop:`2px solid ${COLORS.border}`, paddingTop:8, marginTop:4 }}>
-                <span style={{ color:COLORS.text }}>Total</span>
+                <span style={{ color:COLORS.text }}>Total c/IVA</span>
                 <span style={{ color:COLORS.accent, minWidth:120, textAlign:"right" }}>{fmt(total)}</span>
               </div>
             </div>
