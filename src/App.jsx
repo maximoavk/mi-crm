@@ -5024,7 +5024,7 @@ function QuotePDF({ quote, onBack }) {
             <div className="quote-box" style={{ border:"2px solid #cc0000", textAlign:"center", minWidth:160, padding:"10px 20px" }}>
               <div className="quote-number-label" style={{ fontSize:11, fontWeight:700, letterSpacing:"0.05em", color:"#cc0000", marginBottom:4 }}>N° Cotización:</div>
               <div className="quote-number" style={{ fontSize:30, fontWeight:700, color:"#cc0000", lineHeight:1.1 }}>
-                {quote.serie||"COT"}-{String(quote.number).padStart(3,"0")}
+                {String(quote.number).padStart(3,"0")}
               </div>
             </div>
             <div style={{ fontSize:11, color:"#555", marginTop:8 }}>Fecha de Cotización: {fmtDate(quote.date)}</div>
@@ -5125,21 +5125,83 @@ function QuotePDF({ quote, onBack }) {
           </div>
         )}
 
-        {/* FORMA DE PAGO — solo si hay hitos, se muestra en Partidas. Si no hay, mostrar el texto */}
-        {lines.filter(l=>l.lineType==="hito").length === 0 && (
-          <div style={{ marginBottom:16, borderTop:"1px solid #e0e0e0", paddingTop:10 }}>
-            {quote.comments && (
-              <div style={{ marginBottom:8 }}>
-                <span style={{ fontWeight:700 }}>Comentarios: </span>
-                <span style={{ fontSize:11, color:"#555" }}>{quote.comments}</span>
+        {/* FORMA DE PAGO inteligente con montos */}
+        {lines.filter(l=>l.lineType==="hito").length === 0 && (() => {
+          const pm = quote.paymentMethod || "Al finalizar";
+          // Calcular fecha +30 días desde hoy
+          const fecha30 = new Date();
+          fecha30.setDate(fecha30.getDate() + 30);
+          const fecha30Str = fecha30.toLocaleDateString("es-CL", { day:"2-digit", month:"long", year:"numeric" });
+
+          let pagoHtml = null;
+          if (pm === "50% anticipo y saldo al finalizar") {
+            const ant = Math.round(total * 0.5);
+            const sal = total - ant;
+            pagoHtml = (
+              <div style={{ display:"flex", gap:16, flexWrap:"wrap", marginTop:4 }}>
+                <div style={{ background:"#fff3cd", border:"1px solid #ffc107", borderRadius:6, padding:"8px 14px", minWidth:160 }}>
+                  <div style={{ fontSize:10, fontWeight:700, color:"#856404", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:2 }}>Anticipo (50%)</div>
+                  <div style={{ fontSize:16, fontWeight:700, color:"#333" }}>${ant.toLocaleString("es-CL")}</div>
+                  <div style={{ fontSize:10, color:"#555" }}>Al inicio del servicio</div>
+                </div>
+                <div style={{ background:"#d1ecf1", border:"1px solid #17a2b8", borderRadius:6, padding:"8px 14px", minWidth:160 }}>
+                  <div style={{ fontSize:10, fontWeight:700, color:"#0c5460", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:2 }}>Saldo (50%)</div>
+                  <div style={{ fontSize:16, fontWeight:700, color:"#333" }}>${sal.toLocaleString("es-CL")}</div>
+                  <div style={{ fontSize:10, color:"#555" }}>Al finalizar el servicio</div>
+                </div>
               </div>
-            )}
-            <div>
-              <span style={{ fontWeight:700 }}>Forma de Pago: </span>
-              <span style={{ fontSize:11 }}>{quote.paymentMethod}</span>
+            );
+          } else if (pm === "Al finalizar") {
+            pagoHtml = (
+              <div style={{ background:"#d1ecf1", border:"1px solid #17a2b8", borderRadius:6, padding:"8px 14px", display:"inline-block", marginTop:4, minWidth:180 }}>
+                <div style={{ fontSize:10, fontWeight:700, color:"#0c5460", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:2 }}>Total al finalizar</div>
+                <div style={{ fontSize:16, fontWeight:700, color:"#333" }}>${total.toLocaleString("es-CL")}</div>
+                <div style={{ fontSize:10, color:"#555" }}>Al término del servicio</div>
+              </div>
+            );
+          } else if (pm === "0 a 30 días") {
+            const ant = Math.round(total * 0.5);
+            const sal = total - ant;
+            pagoHtml = (
+              <div style={{ display:"flex", gap:16, flexWrap:"wrap", marginTop:4 }}>
+                <div style={{ background:"#fff3cd", border:"1px solid #ffc107", borderRadius:6, padding:"8px 14px", minWidth:160 }}>
+                  <div style={{ fontSize:10, fontWeight:700, color:"#856404", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:2 }}>Anticipo (50%)</div>
+                  <div style={{ fontSize:16, fontWeight:700, color:"#333" }}>${ant.toLocaleString("es-CL")}</div>
+                  <div style={{ fontSize:10, color:"#555" }}>Al inicio del servicio</div>
+                </div>
+                <div style={{ background:"#d4edda", border:"1px solid #28a745", borderRadius:6, padding:"8px 14px", minWidth:160 }}>
+                  <div style={{ fontSize:10, fontWeight:700, color:"#155724", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:2 }}>Saldo (50%)</div>
+                  <div style={{ fontSize:16, fontWeight:700, color:"#333" }}>${sal.toLocaleString("es-CL")}</div>
+                  <div style={{ fontSize:10, color:"#555" }}>A 30 días · {fecha30Str}</div>
+                </div>
+              </div>
+            );
+          } else if (pm === "Contado") {
+            pagoHtml = (
+              <div style={{ background:"#d4edda", border:"1px solid #28a745", borderRadius:6, padding:"8px 14px", display:"inline-block", marginTop:4, minWidth:180 }}>
+                <div style={{ fontSize:10, fontWeight:700, color:"#155724", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:2 }}>Contado</div>
+                <div style={{ fontSize:16, fontWeight:700, color:"#333" }}>${total.toLocaleString("es-CL")}</div>
+                <div style={{ fontSize:10, color:"#555" }}>Pago inmediato</div>
+              </div>
+            );
+          }
+
+          return (
+            <div style={{ marginBottom:16, borderTop:"1px solid #e0e0e0", paddingTop:10 }}>
+              {quote.comments && (
+                <div style={{ marginBottom:8 }}>
+                  <span style={{ fontWeight:700 }}>Comentarios: </span>
+                  <span style={{ fontSize:11, color:"#555" }}>{quote.comments}</span>
+                </div>
+              )}
+              <div>
+                <span style={{ fontWeight:700, fontSize:12 }}>Forma de Pago: </span>
+                <span style={{ fontSize:11, color:"#555" }}>{pm}</span>
+              </div>
+              {pagoHtml}
             </div>
-          </div>
-        )}
+          );
+        })()}
         {lines.filter(l=>l.lineType==="hito").length > 0 && quote.comments && (
           <div style={{ marginBottom:12, paddingTop:8, borderTop:"1px solid #e0e0e0" }}>
             <span style={{ fontWeight:700 }}>Comentarios: </span>
