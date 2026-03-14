@@ -7842,60 +7842,72 @@ const NAV_FLAT = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── PRODUCT SEARCH BOX ────────────────────────────────────────────────────────
-function ProductSearchBox({ products, value, onSelect, onChangeSku }) {
-  const [query, setQuery] = useState("");
-  const [open, setOpen]   = useState(false);
+function ProductSearchBox({ products, value, onSelect }) {
+  const [query, setQuery]   = useState(value||"");
+  const [open, setOpen]     = useState(false);
 
-  const filtered = query.length >= 1
+  const resultados = query.length >= 1
     ? products.filter(p =>
         (p.code||"").toLowerCase().includes(query.toLowerCase()) ||
         (p.name||"").toLowerCase().includes(query.toLowerCase()) ||
         (p.skuProveedor||"").toLowerCase().includes(query.toLowerCase())
-      ).slice(0, 8)
+      ).slice(0, 10)
     : [];
 
   const select = (prod) => {
-    onSelect(prod);
-    setQuery("");
+    setQuery(prod.code + " · " + prod.name);
     setOpen(false);
+    onSelect(prod);
   };
 
   return (
-    <div style={{ background:`${COLORS.accent}08`, border:`1px solid ${COLORS.accent}22`, borderRadius:7, padding:"10px 12px", marginBottom:10, position:"relative" }}>
+    <div style={{ background:`${COLORS.accent}08`, border:`1px solid ${COLORS.accent}22`, borderRadius:7, padding:"10px 12px", marginBottom:10 }}>
       <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>
-        Buscar en Maestro de Productos
+        🔍 Buscar en Maestro de Productos
       </div>
-      <div style={{ display:"flex", gap:8 }}>
-        <div style={{ flex:1, position:"relative" }}>
-          <input
-            value={query}
-            onChange={e => { setQuery(e.target.value); setOpen(true); }}
-            onFocus={() => setOpen(true)}
-            onBlur={() => setTimeout(() => setOpen(false), 180)}
-            placeholder="Buscar por código, nombre o SKU proveedor..."
-            style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }}
-          />
-          {open && filtered.length > 0 && (
-            <div style={{ position:"absolute", top:"100%", left:0, right:0, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, zIndex:300, marginTop:4, boxShadow:"0 8px 24px #0006", maxHeight:260, overflowY:"auto" }}>
-              {filtered.map(p => (
-                <button key={p.id} onMouseDown={() => select(p)}
-                  style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:"transparent", border:"none", cursor:"pointer", textAlign:"left", borderBottom:`1px solid ${COLORS.border}` }}
-                  onMouseEnter={e => e.currentTarget.style.background=COLORS.accentDim}
-                  onMouseLeave={e => e.currentTarget.style.background="transparent"}>
-                  <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.accent, minWidth:80 }}>{p.code}</span>
-                  <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, flex:1 }}>{p.name}</span>
-                  {p.skuProveedor && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{p.skuProveedor}</span>}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+      <div style={{ position:"relative" }}>
+        <input
+          value={query}
+          onChange={e => { setQuery(e.target.value); setOpen(true); }}
+          onFocus={() => { if(query.length>0) setOpen(true); }}
+          onBlur={() => setTimeout(() => setOpen(false), 200)}
+          placeholder="Buscar por código, nombre o SKU proveedor..."
+          style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 36px 9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }}
+        />
+        {query && (
+          <button onClick={() => { setQuery(""); setOpen(false); }}
+            style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:14, lineHeight:1 }}>✕</button>
+        )}
+        {open && resultados.length > 0 && (
+          <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:400, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, boxShadow:"0 8px 24px #0009", maxHeight:280, overflowY:"auto" }}>
+            {resultados.map(p => (
+              <div key={p.id} onMouseDown={() => select(p)}
+                style={{ padding:"9px 14px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}22`, display:"flex", justifyContent:"space-between", alignItems:"center" }}
+                onMouseEnter={e => e.currentTarget.style.background=COLORS.card}
+                onMouseLeave={e => e.currentTarget.style.background="transparent"}>
+                <div>
+                  <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:2 }}>
+                    <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.accent }}>{p.code}</span>
+                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text }}>{p.name}</span>
+                  </div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
+                    {p.skuProveedor ? `SKU: ${p.skuProveedor} · ` : ""}{p.provider||""}{p.category ? ` · ${p.category}` : ""}
+                  </div>
+                </div>
+                <div style={{ textAlign:"right", flexShrink:0, marginLeft:12 }}>
+                  <div style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.text }}>{fmt(p.price)}</div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.green }}>Neto: {fmt(Math.round(p.price/1.19))}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {open && query.length > 0 && resultados.length === 0 && (
+          <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:400, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"12px 14px" }}>
+            <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin resultados para "{query}"</span>
+          </div>
+        )}
       </div>
-      {value && (
-        <div style={{ marginTop:6, fontFamily:FONT, fontSize:11, color:COLORS.green }}>
-          ✓ Código seleccionado: <strong>{value}</strong>
-        </div>
-      )}
     </div>
   );
 }
