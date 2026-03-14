@@ -1711,6 +1711,7 @@ const mapQuote = (r) => ({
   clientName: r.nombre_cliente, clientRut: r.rut_cliente,
   clientCompany: r.razon_social, clientAddress: r.direccion,
   clientPhone: r.telefono, paymentMethod: r.forma_pago,
+  pctAnticipo: r.pct_anticipo || 50, diasPlazo: r.dias_plazo || 30,
   hasIva: r.aplica_iva, ivaMode: r.iva_modo||"empresa", comments: r.comentarios,
   terms: r.terminos, status: r.estado || "borrador",
   type: r.tipo || "productos", total: r.total || 0,
@@ -1721,6 +1722,7 @@ const mapQuoteToDb = (f) => ({
   nombre_cliente: f.clientName, rut_cliente: f.clientRut,
   razon_social: f.clientCompany, direccion: f.clientAddress,
   telefono: f.clientPhone, forma_pago: f.paymentMethod,
+  pct_anticipo: Number(f.pctAnticipo)||50, dias_plazo: Number(f.diasPlazo)||30,
   aplica_iva: f.hasIva, iva_modo: f.ivaMode||"empresa", comentarios: f.comments,
   terminos: f.terms, estado: f.status, tipo: f.type,
   total: Number(f.total) || 0,
@@ -4527,6 +4529,8 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
     clientRut: quote.clientRut||"", clientCompany: quote.clientCompany||"",
     clientAddress: quote.clientAddress||"", clientPhone: quote.clientPhone||"",
     paymentMethod: quote.paymentMethod||"Al finalizar",
+    pctAnticipo:   quote.pctAnticipo||50,
+    diasPlazo:     quote.diasPlazo||30,
     hasIva: quote.hasIva!==false, ivaMode: quote.ivaMode||"empresa", comments: quote.comments||"",
     terms: quote.terms||TERMS_DEFAULT, status: quote.status||"borrador",
     type: quote.type||"productos",
@@ -4787,7 +4791,24 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
             <option>50% anticipo y saldo al finalizar</option>
             <option>0 a 30 días</option>
             <option>Contado</option>
+            <option>% personalizado</option>
           </Select>
+          {header.paymentMethod === "% personalizado" && (
+            <div style={{ display:"flex", gap:10, alignItems:"center", marginTop:8, flexWrap:"wrap" }}>
+              <div style={{ flex:1, minWidth:120 }}>
+                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>% Anticipo</div>
+                <input type="number" min="0" max="100" value={header.pctAnticipo||50}
+                  onChange={e=>hf("pctAnticipo", Number(e.target.value))}
+                  style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none" }} />
+              </div>
+              <div style={{ flex:1, minWidth:120 }}>
+                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>Días plazo saldo</div>
+                <input type="number" min="0" value={header.diasPlazo||30}
+                  onChange={e=>hf("diasPlazo", Number(e.target.value))}
+                  style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none" }} />
+              </div>
+            </div>
+          )}
         </div>
         <div style={{ marginTop:12 }}>
           <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>IVA y Cuenta de Pago</div>
@@ -5024,7 +5045,7 @@ function QuotePDF({ quote, onBack }) {
             <div className="quote-box" style={{ border:"2px solid #cc0000", textAlign:"center", minWidth:160, padding:"10px 20px" }}>
               <div className="quote-number-label" style={{ fontSize:11, fontWeight:700, letterSpacing:"0.05em", color:"#cc0000", marginBottom:4 }}>N° Cotización:</div>
               <div className="quote-number" style={{ fontSize:30, fontWeight:700, color:"#cc0000", lineHeight:1.1 }}>
-                {String(quote.number).padStart(3,"0")}
+                {String(quote.number)}
               </div>
             </div>
             <div style={{ fontSize:11, color:"#555", marginTop:8 }}>Fecha de Cotización: {fmtDate(quote.date)}</div>
@@ -5184,6 +5205,31 @@ function QuotePDF({ quote, onBack }) {
                 <div style={{ fontSize:10, color:"#555" }}>Pago inmediato</div>
               </div>
             );
+          } else if (pm === "% personalizado") {
+            const pct     = Number(quote.pctAnticipo||50);
+            const dias    = Number(quote.diasPlazo||30);
+            const ant     = Math.round(total * pct / 100);
+            const sal     = total - ant;
+            const pctSal  = 100 - pct;
+            const fechaSal = new Date();
+            fechaSal.setDate(fechaSal.getDate() + dias);
+            const fechaSalStr = fechaSal.toLocaleDateString("es-CL", { day:"2-digit", month:"long", year:"numeric" });
+            pagoHtml = (
+              <div style={{ display:"flex", gap:16, flexWrap:"wrap", marginTop:4 }}>
+                <div style={{ background:"#fff3cd", border:"1px solid #ffc107", borderRadius:6, padding:"8px 14px", minWidth:160 }}>
+                  <div style={{ fontSize:10, fontWeight:700, color:"#856404", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:2 }}>Anticipo ({pct}%)</div>
+                  <div style={{ fontSize:16, fontWeight:700, color:"#333" }}>${ant.toLocaleString("es-CL")}</div>
+                  <div style={{ fontSize:10, color:"#555" }}>Al inicio del servicio</div>
+                </div>
+                {sal > 0 && (
+                  <div style={{ background:"#d4edda", border:"1px solid #28a745", borderRadius:6, padding:"8px 14px", minWidth:160 }}>
+                    <div style={{ fontSize:10, fontWeight:700, color:"#155724", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:2 }}>Saldo ({pctSal}%)</div>
+                    <div style={{ fontSize:16, fontWeight:700, color:"#333" }}>${sal.toLocaleString("es-CL")}</div>
+                    <div style={{ fontSize:10, color:"#555" }}>{dias === 0 ? "Al finalizar" : `A ${dias} días · ${fechaSalStr}`}</div>
+                  </div>
+                )}
+              </div>
+            );
           }
 
           return (
@@ -5231,10 +5277,15 @@ function QuotePDF({ quote, onBack }) {
           #print-area, #print-area * { visibility: visible; }
           #print-area {
             position: fixed; left: 0; top: 0;
-            width: 100%; padding: 12mm 14mm;
+            width: 100%; padding: 7mm 10mm;
             box-sizing: border-box;
-            font-size: 11px;
+            font-size: 9.5px;
+            line-height: 1.3;
           }
+          #print-area img { height: 40px !important; }
+          #print-area .quote-number { font-size: 22px !important; }
+          #print-area .quote-number-label { font-size: 9px !important; }
+          #print-area .rut-label { font-size: 11px !important; }
           #print-area table { width: 100%; table-layout: fixed; border-collapse: collapse; }
           #print-area table th:nth-child(1) { width: 10%; }
           #print-area table th:nth-child(2) { width: 36%; }
