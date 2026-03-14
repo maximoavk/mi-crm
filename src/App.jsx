@@ -1327,7 +1327,7 @@ function GanttView({ isMobile }) {
   const [saving, setSaving]       = useState(false);
   const [ganttId, setGanttId]     = useState(null);
   const [calStart, setCalStart]   = useState(new Date().toISOString().slice(0,10));
-  const [calDays, setCalDays]     = useState(60);
+  const [calDays, setCalDays]     = useState(15);
   const [editRow, setEditRow]     = useState(null); // id de fila en edición inline
   const cellW = 28;
   const today = new Date().toISOString().slice(0,10);
@@ -1479,9 +1479,22 @@ function GanttView({ isMobile }) {
             <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Inicio calendario:</span>
             <input type="date" value={calStart} onChange={e=>setCalStart(e.target.value)} style={{...s}} />
             <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Días vista:</span>
-            {[30,60,90,120].map(d=>(
-              <button key={d} onClick={()=>setCalDays(d)} style={{ padding:"3px 10px", background: calDays===d?COLORS.accent:"transparent", border:`1px solid ${calDays===d?COLORS.accent:COLORS.border}`, borderRadius:5, color: calDays===d?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>{d}d</button>
+            {[{d:5,label:"5d",hint:"Lab"},{d:7,label:"7d",hint:"Sem"},{d:15,label:"15d",hint:"Qna"},{d:30,label:"30d"},{d:60,label:"60d"}].map(({d,label,hint})=>(
+              <button key={d} onClick={()=>setCalDays(d)}
+                style={{ padding:"3px 10px", background: calDays===d?COLORS.accent:"transparent", border:`1px solid ${calDays===d?COLORS.accent:COLORS.border}`, borderRadius:5, color: calDays===d?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", lineHeight:1.2 }}>
+                <span>{label}</span>
+                {hint && <span style={{ fontSize:8, opacity:0.7 }}>{hint}</span>}
+              </button>
             ))}
+            {/* Botón imprimir Gantt */}
+            <button onClick={()=>{
+              const prev = document.title;
+              document.title = `Gantt_${proyecto?.cotNum||""}`;
+              window.print();
+              setTimeout(()=>{ document.title = prev; }, 2000);
+            }} style={{ padding:"3px 12px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:5, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer", marginLeft:4 }}>
+              🖨 PDF
+            </button>
             {/* Leyenda */}
             <div style={{ display:"flex", gap:10, marginLeft:"auto", flexWrap:"wrap" }}>
               {[["Fase","#3b82f6"],["Tarea","#6366f1"],["Hito","#f59e0b"],["Completado","#39ff14"],["Atrasado","#ef4444"]].map(([l,c])=>(
@@ -1490,8 +1503,20 @@ function GanttView({ isMobile }) {
             </div>
           </div>
 
+          {/* Print styles para Gantt */}
+          <style>{`
+            @media print {
+              body > * { display: none !important; }
+              #gantt-print-area { display: block !important; }
+              #gantt-print-area * { visibility: visible; }
+              @page { size: A4 landscape; margin: 8mm; }
+              #gantt-print-area table { font-size: 8px !important; }
+              #gantt-print-area td, #gantt-print-area th { padding: 2px 4px !important; }
+            }
+          `}</style>
+
           {/* TABLA GANTT */}
-          <div style={{ overflowX:"auto", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10 }}>
+          <div id="gantt-print-area" style={{ overflowX:"auto", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10 }}>
             <table style={{ borderCollapse:"collapse", fontSize:11, fontFamily:FONT }}>
               <thead>
                 {/* Fila meses */}
@@ -4793,22 +4818,22 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
             <option>Contado</option>
             <option>% personalizado</option>
           </Select>
-          {/* % siempre visible para calcular anticipo y saldo */}
-          <div style={{ display:"flex", gap:10, marginTop:8 }}>
-            <div style={{ flex:1 }}>
-              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>% Anticipo</div>
-              <input type="number" min="0" max="100" value={header.pctAnticipo||50}
-                onChange={e=>hf("pctAnticipo",Number(e.target.value))}
-                style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none" }} />
+          {(header.paymentMethod==="% personalizado"||header.paymentMethod==="0 a 30 días") && (
+            <div style={{ display:"flex", gap:10, marginTop:8 }}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>% Anticipo</div>
+                <input type="number" min="0" max="100" value={header.pctAnticipo||50}
+                  onChange={e=>hf("pctAnticipo",Number(e.target.value))}
+                  style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none" }} />
+              </div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>Días plazo saldo</div>
+                <input type="number" min="0" value={header.diasPlazo||30}
+                  onChange={e=>hf("diasPlazo",Number(e.target.value))}
+                  style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none" }} />
+              </div>
             </div>
-            <div style={{ flex:1 }}>
-              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>Días plazo saldo</div>
-              <input type="number" min="0" value={header.diasPlazo||0}
-                onChange={e=>hf("diasPlazo",Number(e.target.value))}
-                placeholder="0 = al finalizar"
-                style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none" }} />
-            </div>
-          </div>
+          )}
         </div>
         <div style={{ marginTop:12 }}>
           <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>IVA y Cuenta de Pago</div>
@@ -5161,8 +5186,8 @@ function QuotePDF({ quote, onBack }) {
           </div>
         )}
 
-        {/* FORMA DE PAGO con montos — siempre visible */}
-        {(
+        {/* FORMA DE PAGO con montos */}
+        {lines.filter(l=>l.lineType==="hito").length === 0 && (
           <div style={{ marginBottom:12, borderTop:"1px solid #e0e0e0", paddingTop:8 }}>
             {quote.comments && (
               <div style={{ marginBottom:6, fontSize:11 }}>
@@ -5173,20 +5198,8 @@ function QuotePDF({ quote, onBack }) {
             <div style={{ fontSize:11, marginBottom:4 }}>
               <span style={{ fontWeight:700 }}>Forma de Pago: </span>{pm}
             </div>
-            {pm==="Contado" ? (
-              <div style={rowStyle}>
-                <span style={labelStyle}>Pago contado</span>
-                <span style={noteStyle}>Pago inmediato</span>
-                <span style={valStyle}>{fmtCLP(total)}</span>
-              </div>
-            ) : pm==="Al finalizar" ? (
-              <div style={rowStyle}>
-                <span style={labelStyle}>Total al finalizar</span>
-                <span style={noteStyle}>Al término del servicio</span>
-                <span style={valStyle}>{fmtCLP(total)}</span>
-              </div>
-            ) : (
-              <div style={{ marginTop:4 }}>
+            {(pm==="50% anticipo y saldo al finalizar" || pm==="% personalizado") && (
+              <div style={{ display:"table", width:"100%", borderCollapse:"collapse", fontSize:11, marginTop:4 }}>
                 <div style={rowStyle}>
                   <span style={labelStyle}>Anticipo ({pctAnt}%)</span>
                   <span style={noteStyle}>Al inicio del servicio</span>
@@ -5194,9 +5207,37 @@ function QuotePDF({ quote, onBack }) {
                 </div>
                 <div style={rowStyle}>
                   <span style={labelStyle}>Saldo ({pctSal}%)</span>
-                  <span style={noteStyle}>{diasPago > 0 ? `A ${diasPago} días · ${fechaSal}` : "Al finalizar el servicio"}</span>
+                  <span style={noteStyle}>Al finalizar el servicio</span>
                   <span style={valStyle}>{fmtCLP(montoSal)}</span>
                 </div>
+              </div>
+            )}
+            {pm==="Al finalizar" && (
+              <div style={rowStyle}>
+                <span style={labelStyle}>Total al finalizar</span>
+                <span style={noteStyle}>Al término del servicio</span>
+                <span style={valStyle}>{fmtCLP(total)}</span>
+              </div>
+            )}
+            {pm==="0 a 30 días" && (
+              <div style={{ fontSize:11, marginTop:4 }}>
+                <div style={rowStyle}>
+                  <span style={labelStyle}>Anticipo (50%)</span>
+                  <span style={noteStyle}>Al inicio del servicio</span>
+                  <span style={valStyle}>{fmtCLP(Math.round(total*0.5))}</span>
+                </div>
+                <div style={rowStyle}>
+                  <span style={labelStyle}>Saldo (50%)</span>
+                  <span style={noteStyle}>A {diasPago} días · {fechaSal}</span>
+                  <span style={valStyle}>{fmtCLP(total - Math.round(total*0.5))}</span>
+                </div>
+              </div>
+            )}
+            {pm==="Contado" && (
+              <div style={rowStyle}>
+                <span style={labelStyle}>Pago contado</span>
+                <span style={noteStyle}>Pago inmediato</span>
+                <span style={valStyle}>{fmtCLP(total)}</span>
               </div>
             )}
           </div>
