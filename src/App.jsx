@@ -1329,19 +1329,9 @@ function GanttView({ isMobile }) {
   const [calStart, setCalStart]   = useState(new Date().toISOString().slice(0,10));
   const [calDays, setCalDays]     = useState(60);
   const [editRow, setEditRow]     = useState(null); // id de fila en edición inline
-  const [allGantts, setAllGantts] = useState([]);
-  const [headerData, setHeaderData] = useState({ elaboradoPor:"Maximo Hudson", cliente:"", fechaEmision: new Date().toISOString().slice(0,10) });
-  const [headerEdit, setHeaderEdit] = useState(false);
   const cellW = 28;
   const today = new Date().toISOString().slice(0,10);
   const calCols = buildCalHeader(calStart, calDays);
-
-  // Cargar índice de Gantt guardados
-  useEffect(() => {
-    supabase.from("gantt_proyectos").select("id,nombre,numero_cotizacion,fecha_inicio,fecha_fin")
-      .order("numero_cotizacion", { ascending: false })
-      .then(({ data }) => setAllGantts(data || []));
-  }, []);
 
   // Agrupar meses para header
   const months = [];
@@ -1462,7 +1452,14 @@ function GanttView({ isMobile }) {
           </button>
         </div>
         {proyecto && <>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.accent }}>{proyecto.nombre}</div>
+          <input
+            value={proyecto.nombre}
+            onChange={e => setProyecto(p => ({...p, nombre: e.target.value}))}
+            style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.accent,
+              background:"transparent", border:"none", borderBottom:`1px dashed ${COLORS.accent}55`,
+              outline:"none", padding:"2px 4px", minWidth:200, maxWidth:500 }}
+            title="Click para editar el nombre del proyecto"
+          />
           <div style={{ display:"flex", gap:6, marginLeft:"auto" }}>
             <button onClick={()=>addTask("F")} style={{ padding:"5px 10px", background:`${GANTT_COLORS.fase}22`, border:`1px solid ${GANTT_COLORS.fase}44`, borderRadius:6, color:GANTT_COLORS.fase, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Fase</button>
             <button onClick={()=>addTask("T")} style={{ padding:"5px 10px", background:`${GANTT_COLORS.tarea}22`, border:`1px solid ${GANTT_COLORS.tarea}44`, borderRadius:6, color:GANTT_COLORS.tarea, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Tarea</button>
@@ -1475,192 +1472,28 @@ function GanttView({ isMobile }) {
       </div>
 
       {!proyecto && (
-        <div>
-          {allGantts.length > 0 && (
-            <div style={{ marginBottom:20 }}>
-              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>
-                Cartas Gantt guardadas ({allGantts.length})
-              </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                {allGantts.map(g => (
-                  <div key={g.id} onClick={() => { setCotNum(String(g.numero_cotizacion)); cargarGantt(String(g.numero_cotizacion)); }}
-                    style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"12px 18px", cursor:"pointer", display:"flex", alignItems:"center", gap:14, flexWrap:"wrap", transition:"border-color 0.15s" }}
-                    onMouseEnter={e=>e.currentTarget.style.borderColor=COLORS.accent}
-                    onMouseLeave={e=>e.currentTarget.style.borderColor=COLORS.border}>
-                    <div style={{ width:40, height:40, borderRadius:8, background:`${COLORS.accent}18`, border:`1px solid ${COLORS.accent}33`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.accent }}>#{g.numero_cotizacion}</span>
-                    </div>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text, marginBottom:2 }}>{g.nombre}</div>
-                      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
-                        {g.fecha_inicio ? new Date(g.fecha_inicio+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"}) : "—"}
-                        {g.fecha_fin ? ` → ${new Date(g.fecha_fin+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}` : ""}
-                      </div>
-                    </div>
-                    <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.accent }}>Abrir →</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:24, textAlign:"center" }}>
-            <div style={{ fontSize:32, marginBottom:8 }}>📅</div>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, color:COLORS.textMuted }}>Ingresa un N° de cotización arriba para cargar o crear un nuevo Gantt</div>
-          </div>
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:40, textAlign:"center" }}>
+          <div style={{ fontSize:40, marginBottom:12 }}>📅</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, color:COLORS.textMuted }}>Ingresa el número de cotización para cargar o crear un plan de proyecto</div>
+          <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginTop:8 }}>Las fases se importan automáticamente desde el costeo</div>
         </div>
       )}
 
       {proyecto && (
         <>
-          {/* ── ENCABEZADO EDITABLE ── */}
-          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"14px 18px", marginBottom:14, position:"relative" }}>
-            {headerEdit ? (
-              <div>
-                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>Editar encabezado</div>
-                <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr", gap:10, marginBottom:10 }}>
-                  {[["Elaborado por","elaboradoPor","Maximo Hudson"],["Cliente","cliente",""],["Fecha emisión","fechaEmision",""]].map(([lbl,key,ph])=>(
-                    <div key={key}>
-                      <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase" }}>{lbl}</div>
-                      <input type={key==="fechaEmision"?"date":"text"} value={headerData[key]} onChange={e=>setHeaderData(p=>({...p,[key]:e.target.value}))}
-                        placeholder={ph} style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"7px 10px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
-                    </div>
-                  ))}
-                </div>
-                <button onClick={()=>setHeaderEdit(false)} style={{ padding:"6px 16px", background:COLORS.accent, border:"none", borderRadius:6, color:"#fff", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>✓ Listo</button>
-              </div>
-            ) : (
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:10 }}>
-                <div style={{ display:"flex", gap:14, alignItems:"center" }}>
-                  <img src={LOGO_B64} alt="Polygonos" style={{ height:38 }} />
-                  <div>
-                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase" }}>Polygonos SpA · RUT 77.180.437-3</div>
-                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>Carta Gantt · COT-{proyecto.cotNum}</div>
-                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:1 }}>{proyecto.nombre}</div>
-                  </div>
-                </div>
-                <div style={{ textAlign:"right" }}>
-                  {headerData.cliente && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Cliente: <b style={{color:COLORS.text}}>{headerData.cliente}</b></div>}
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Elaborado por: <b style={{color:COLORS.text}}>{headerData.elaboradoPor}</b></div>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Emisión: <b style={{color:COLORS.text}}>{headerData.fechaEmision ? new Date(headerData.fechaEmision+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"}) : "—"}</b></div>
-                  {(() => {
-                    const ts = tasks.filter(t=>t.tipo!=="H");
-                    const prom = ts.length ? Math.round(ts.reduce((s,t)=>s+Number(t.pctAvance||0),0)/ts.length) : 0;
-                    return (
-                      <div style={{ marginTop:6, display:"flex", alignItems:"center", gap:8, justifyContent:"flex-end" }}>
-                        <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Avance: <b style={{color:COLORS.accent}}>{prom}%</b></span>
-                        <div style={{ width:100, height:5, background:COLORS.border, borderRadius:3 }}>
-                          <div style={{ width:`${prom}%`, height:5, background:prom===100?COLORS.green:COLORS.accent, borderRadius:3 }} />
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-                <button onClick={()=>setHeaderEdit(true)} style={{ position:"absolute", top:10, right:14, padding:"4px 10px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>✏️ Editar</button>
-              </div>
-            )}
-          </div>
-
           {/* Controles de vista */}
           <div style={{ display:"flex", gap:10, marginBottom:12, alignItems:"center", flexWrap:"wrap" }}>
             <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Inicio calendario:</span>
             <input type="date" value={calStart} onChange={e=>setCalStart(e.target.value)} style={{...s}} />
             <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Días vista:</span>
-            {[{d:5,l:"5d"},{d:7,l:"7d"},{d:15,l:"15d"},{d:30,l:"30d"},{d:60,l:"60d"}].map(({d,l})=>(
-              <button key={d} onClick={()=>setCalDays(d)} style={{ padding:"3px 10px", background: calDays===d?COLORS.accent:"transparent", border:`1px solid ${calDays===d?COLORS.accent:COLORS.border}`, borderRadius:5, color: calDays===d?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>{l}</button>
+            {[30,60,90,120].map(d=>(
+              <button key={d} onClick={()=>setCalDays(d)} style={{ padding:"3px 10px", background: calDays===d?COLORS.accent:"transparent", border:`1px solid ${calDays===d?COLORS.accent:COLORS.border}`, borderRadius:5, color: calDays===d?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>{d}d</button>
             ))}
-            {/* Leyenda + PDF */}
-            <div style={{ display:"flex", gap:10, marginLeft:"auto", flexWrap:"wrap", alignItems:"center" }}>
-              {[["Fase","#3b82f6"],["Tarea","#6366f1"],["Hito","#f59e0b"],["Completado","#22c55e"],["Atrasado","#ef4444"]].map(([l,c])=>(
+            {/* Leyenda */}
+            <div style={{ display:"flex", gap:10, marginLeft:"auto", flexWrap:"wrap" }}>
+              {[["Fase","#3b82f6"],["Tarea","#6366f1"],["Hito","#f59e0b"],["Completado","#39ff14"],["Atrasado","#ef4444"]].map(([l,c])=>(
                 <span key={l} style={{ fontFamily:FONT, fontSize:10, color:c }}>● {l}</span>
               ))}
-              <button onClick={()=>{
-                const cols = buildCalHeader(calStart, calDays);
-                const mths = [];
-                cols.forEach(c=>{ const mn=new Date(c.date).toLocaleDateString("es-CL",{month:"short",year:"2-digit"}); if(!mths.length||mths[mths.length-1].n!==mn) mths.push({n:mn,count:1}); else mths[mths.length-1].count++; });
-                const tdW = Math.max(16, Math.floor(520/cols.length));
-                const ts = tasks.filter(t=>t.tipo!=="H");
-                const prom = ts.length ? Math.round(ts.reduce((s,t)=>s+Number(t.pctAvance||0),0)/ts.length) : 0;
-                const colH = cols.map(c=>`<th style="width:${tdW}px;background:${c.isWeekend?"#e2e8f0":"#1e293b"};color:${c.isWeekend?"#94a3b8":"#fff"};font-size:7.5px;padding:2px 0;text-align:center;border:1px solid #cbd5e1">${c.dow}<br>${c.day}</th>`).join("");
-                const mthH = mths.map(m=>`<th colspan="${m.count}" style="background:#0f172a;color:#38bdf8;font-size:8.5px;text-align:center;padding:3px;border:1px solid #334155">${m.n}</th>`).join("");
-                const rows = tasks.map((t,i)=>{
-                  const tipo=t.tipo==="F"?"Fase":t.tipo==="T"?"Tarea":"Hito";
-                  const bgT=t.tipo==="F"?"#dbeafe":t.tipo==="T"?"#ede9fe":"#fef3c7";
-                  const colT=t.tipo==="F"?"#1d4ed8":t.tipo==="T"?"#6d28d9":"#b45309";
-                  const pct=Math.min(100,Math.max(0,Number(t.pctAvance)||0));
-                  const isLate=t.fin<new Date().toISOString().slice(0,10)&&pct<100;
-                  const barCells=cols.map(c=>{
-                    if(!t.inicio||!t.fin||c.date<t.inicio||c.date>t.fin) return `<td style="border:1px solid #f1f5f9;background:${c.isWeekend?"#f8fafc":"#fff"};padding:0;height:22px"></td>`;
-                    const bc=t.tipo==="H"?"#f59e0b":pct===100?"#22c55e":isLate?"#ef4444":t.tipo==="F"?"#3b82f6":"#6366f1";
-                    return `<td style="padding:0;border:1px solid #f1f5f9;background:${c.isWeekend?"#f8fafc":"#fff"}"><div style="height:14px;margin:4px 0;background:${bc}22;border-left:${c.date===t.inicio?`2px solid ${bc}`:"none"};border-right:${c.date===t.fin?`2px solid ${bc}`:"none"}"><div style="height:100%;width:${pct}%;background:${bc};opacity:0.8"></div></div></td>`;
-                  }).join("");
-                  return `<tr style="border-bottom:1px solid #e2e8f0">
-                    <td style="padding:2px 4px;text-align:center;font-size:8px;color:#94a3b8;border:1px solid #e2e8f0">${i+1}</td>
-                    <td style="padding:2px 4px;border:1px solid #e2e8f0"><span style="background:${bgT};color:${colT};padding:1px 5px;border-radius:3px;font-size:7px;font-weight:700">${tipo}</span></td>
-                    <td style="padding:2px 6px;font-size:8.5px;border:1px solid #e2e8f0;font-weight:${t.tipo==="F"?700:400}">${t.tipo!=="F"?"└ ":""}${t.nombre||""}</td>
-                    <td style="padding:2px 4px;font-size:7.5px;text-align:center;border:1px solid #e2e8f0;color:#475569">${t.rol||""}</td>
-                    <td style="padding:2px 5px;font-size:7.5px;border:1px solid #e2e8f0;color:#475569">${t.responsable||""}</td>
-                    <td style="padding:2px 4px;font-size:8px;text-align:center;border:1px solid #e2e8f0">${t.inicio?new Date(t.inicio+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short"}):""}</td>
-                    <td style="padding:2px 4px;font-size:8px;text-align:center;border:1px solid #e2e8f0">${t.fin?new Date(t.fin+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short"}):""}</td>
-                    <td style="padding:2px 4px;font-size:8px;text-align:center;border:1px solid #e2e8f0">${t.pctPlan||0}%</td>
-                    <td style="padding:2px 4px;font-size:8px;text-align:center;border:1px solid #e2e8f0;color:${pct===100?"#16a34a":isLate?"#dc2626":"#0369a1"};font-weight:700">${pct}%</td>
-                    <td style="padding:2px 4px;font-size:8px;text-align:center;border:1px solid #e2e8f0;color:#64748b">${t.hhPresup||"-"}</td>
-                    <td style="padding:2px 4px;font-size:8px;text-align:center;border:1px solid #e2e8f0;color:#64748b">${t.hhReal||"-"}</td>
-                    ${barCells}
-                  </tr>`;
-                }).join("");
-                const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
-                  *{box-sizing:border-box;margin:0;padding:0}
-                  body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:9px;padding:6mm;background:#fff;color:#1e293b}
-                  .hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid #0f172a}
-                  .hdr-left{display:flex;align-items:center;gap:12px}
-                  .hdr-logo{height:40px}
-                  .hdr-title{font-size:13px;font-weight:700;color:#0f172a;margin-bottom:2px}
-                  .hdr-sub{font-size:9px;color:#64748b}
-                  .hdr-right{text-align:right;font-size:8.5px;color:#64748b;line-height:1.7}
-                  .hdr-right b{color:#1e293b}
-                  .progress-bar{width:100px;height:5px;background:#e2e8f0;border-radius:3px;margin-left:auto;margin-top:3px}
-                  .progress-fill{height:5px;background:${prom===100?"#22c55e":"#0ea5e9"};border-radius:3px}
-                  table{border-collapse:collapse;width:100%;margin-top:6px}
-                  @page{size:A4 landscape;margin:6mm}
-                  @media print{body{padding:0}}
-                </style></head><body>
-                <div class="hdr">
-                  <div class="hdr-left">
-                    <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" class="hdr-logo"/>
-                    <div>
-                      <div class="hdr-title">Carta Gantt · COT-${proyecto?.cotNum||""}</div>
-                      <div class="hdr-sub">${proyecto?.nombre||""}</div>
-                      <div class="hdr-sub">Polygonos SpA · RUT 77.180.437-3</div>
-                    </div>
-                  </div>
-                  <div class="hdr-right">
-                    ${headerData.cliente?`<div>Cliente: <b>${headerData.cliente}</b></div>`:""}
-                    <div>Elaborado por: <b>${headerData.elaboradoPor}</b></div>
-                    <div>Emisión: <b>${headerData.fechaEmision?new Date(headerData.fechaEmision+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"}):""}</b></div>
-                    <div>Inicio: <b>${calStart}</b> · ${calDays} días vista</div>
-                    <div>Avance general: <b style="color:${prom===100?"#16a34a":"#0369a1"}">${prom}%</b></div>
-                    <div class="progress-bar"><div class="progress-fill" style="width:${prom}%"></div></div>
-                  </div>
-                </div>
-                <div style="display:flex;gap:12px;margin-bottom:6px;font-size:8px">
-                  ${[["Fase","#3b82f6"],["Tarea","#6366f1"],["Hito","#f59e0b"],["Completado","#22c55e"],["Atrasado","#ef4444"]].map(([l,c])=>`<span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:${c};display:inline-block"></span>${l}</span>`).join("")}
-                </div>
-                <table>
-                  <thead>
-                    <tr><th colspan="11" style="background:#0f172a;border:1px solid #334155;padding:0"></th>${mthH}</tr>
-                    <tr>
-                      ${[["#",22],["Tipo",38],["Descripción",140],["Rol",32],["Responsable",70],["Inicio",46],["Fin",46],["Plan%",32],["Av.%",32],["HH P.",30],["HH R.",30]].map(([h,w])=>`<th style="background:#1e293b;color:#fff;padding:3px 4px;font-size:7.5px;border:1px solid #334155;width:${w}px;text-align:${["Descripción","Responsable"].includes(h)?"left":"center"}">${h}</th>`).join("")}
-                      ${colH}
-                    </tr>
-                  </thead>
-                  <tbody>${rows}</tbody>
-                </table>
-                <script>window.onload=()=>window.print()<\/script>
-                </body></html>`;
-                const w=window.open("","_blank"); w.document.write(html); w.document.close();
-              }} style={{ padding:"4px 14px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:5, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
-                🖨 PDF
-              </button>
             </div>
           </div>
 
