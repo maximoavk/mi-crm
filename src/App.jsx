@@ -7856,19 +7856,16 @@ function ProposalsView({ contacts, isMobile }) {
 
   const loadAll = async () => {
     setLoading(true);
-    // Costeos viven en localStorage igual que CosteoView
-    let costeoProyectos = [];
-    try { costeoProyectos = JSON.parse(localStorage.getItem("costeo_proyectos")||"[]"); } catch{}
-    setCosteos(costeoProyectos);
-
-    const [{ data: props }, { data: qs }, { data: prods }] = await Promise.all([
+    const [{ data: props }, { data: cos }, { data: qs }, { data: prods }] = await Promise.all([
       supabase.from("propuestas").select("*").order("created_at", { ascending: false }),
+      supabase.from("costeos").select("*").order("created_at", { ascending: false }),
       supabase.from("cotizaciones").select("*").order("created_at", { ascending: false }),
-      supabase.from("products").select("*").order("codigo"),
+      supabase.from("productos").select("*").order("nombre"),
     ]);
     setProposals(props || []);
+    setCosteos(cos || []);
     setQuotes(qs || []);
-    setProducts((prods || []).map(mapProduct));
+    setProducts(prods || []);
     setLoading(false);
   };
 
@@ -8038,42 +8035,70 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
   const importFromCosteo = (costeoId) => {
     const costeo = costeos.find(c => c.id === costeoId);
     if (!costeo) return;
-    // Importar desde Partidas de Pago (concepto + monto)
-    const partidasPago = costeo.partidas || [];
-    if (partidasPago.length > 0) {
-      const newPartidas = partidasPago.map(p => ({
-        id:          Date.now() + Math.random(),
-        descripcion: p.concepto || "Hito de pago",
-        cant:        1,
-        precio_unit: Number(p.monto) || 0,
-        total:       Number(p.monto) || 0,
-      }));
-      setForm(prev => ({
-        ...prev,
-        partidas:     newPartidas,
-        titulo:       prev.titulo || costeo.nombre || prev.titulo,
-        condiciones_pago: [
-          partidasPago.some(p=>Number(p.pctAnticipo)>0) ? `Anticipo: $${Math.round(partidasPago.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctAnticipo)||0)/100),0)).toLocaleString("es-CL")}` : "",
-          partidasPago.some(p=>Number(p.pctParcial)>0)  ? `Parcial: $${Math.round(partidasPago.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctParcial)||0)/100),0)).toLocaleString("es-CL")}` : "",
-          partidasPago.some(p=>Number(p.pctFinalizar)>0) ? `Al finalizar: $${Math.round(partidasPago.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctFinalizar)||0)/100),0)).toLocaleString("es-CL")}` : "",
-        ].filter(Boolean).join(" · ") || prev.condiciones_pago,
-      }));
-    } else {
-      // Fallback: usar fases si no hay partidas
-      const fases = costeo.fases || [];
-      const newPartidas = fases.map(f => ({
-        id:          Date.now() + Math.random(),
-        descripcion: f.nombre || "Fase",
-        cant:        1,
-        precio_unit: Number(f.ventaBruta || f.total || 0),
-        total:       Number(f.ventaBruta || f.total || 0),
-      }));
-      setForm(prev => ({
-        ...prev,
-        partidas: newPartidas.length ? newPartidas : prev.partidas,
-        titulo:   prev.titulo || costeo.nombre || prev.titulo,
-      }));
-    }
+    const partidasCosteo = costeo.partidas || [];
+    if (!partidasCosteo.length) return;
+
+    // Por cada hito, generar una fila por cada tramo que tenga monto > 0
+    const newPartidas = [];
+    partidasCosteo.forEach(p => {
+      const monto      = Number(p.monto) || 0;
+      const pctAnt     = Number(p.pctAnticipo)  || 0;
+      const pctPar     = Number(p.pctParcial)   || 0;
+      const pctFin     = Number(p.pctFinalizar) || 0;
+      const concepto   = p.concepto || "Hito de pago";
+      const hasTramos  = pctAnt + pctPar + pctFin > 0;
+
+      if (!hasTramos) {
+        // Sin tramos definidos: una sola fila con el monto total
+        newPartidas.push({
+          id:          Date.now() + Math.random(),
+          descripcion: concepto,
+          cant:        1,
+          precio_unit: monto,
+          total:       monto,
+        });
+      } else {
+        // Una fila por cada tramo con porcentaje > 0
+        if (pctAnt > 0) newPartidas.push({
+          id:          Date.now() + Math.random(),
+          descripcion: `${concepto} — Anticipo (${pctAnt}%)`,
+          cant:        1,
+          precio_unit: Math.round(monto * pctAnt / 100),
+          total:       Math.round(monto * pctAnt / 100),
+        });
+        if (pctPar > 0) newPartidas.push({
+          id:          Date.now() + Math.random(),
+          descripcion: `${concepto} — Parcial (${pctPar}%)`,
+          cant:        1,
+          precio_unit: Math.round(monto * pctPar / 100),
+          total:       Math.round(monto * pctPar / 100),
+        });
+        if (pctFin > 0) newPartidas.push({
+          id:          Date.now() + Math.random(),
+          descripcion: `${concepto} — Al finalizar (${pctFin}%)`,
+          cant:        1,
+          precio_unit: Math.round(monto * pctFin / 100),
+          total:       Math.round(monto * pctFin / 100),
+        });
+      }
+    });
+
+    // Armar condiciones de pago resumidas
+    const totalMonto  = partidasCosteo.reduce((s,p) => s + Number(p.monto||0), 0);
+    const totalAnt    = newPartidas.filter(p => p.descripcion.includes("Anticipo")).reduce((s,p) => s + p.total, 0);
+    const totalFin    = newPartidas.filter(p => p.descripcion.includes("finalizar")).reduce((s,p) => s + p.total, 0);
+    const totalPar    = newPartidas.filter(p => p.descripcion.includes("Parcial")).reduce((s,p) => s + p.total, 0);
+    const condParts   = [];
+    if (totalAnt > 0) condParts.push(`Anticipo: ${fmt(totalAnt)}`);
+    if (totalPar > 0) condParts.push(`Parcial: ${fmt(totalPar)}`);
+    if (totalFin > 0) condParts.push(`Al finalizar: ${fmt(totalFin)}`);
+
+    setForm(prev => ({
+      ...prev,
+      partidas:         newPartidas,
+      titulo:           prev.titulo || costeo.nombre || prev.titulo,
+      condiciones_pago: condParts.length ? condParts.join(" · ") : prev.condiciones_pago,
+    }));
   };
 
   // ── Importar desde Cotización ──
@@ -8498,16 +8523,9 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
                   <div style={{ flex:1, minWidth:200 }}>
                     <label style={lbl}>Costeo de proyecto</label>
                     <select onChange={e => { if(e.target.value) importFromCosteo(e.target.value); e.target.value=""; }} style={inp}>
-                      <option value="">— Seleccionar proyecto de costeo —</option>
-                      {costeos.map(c => (
-                        <option key={c.id} value={c.id}>
-                          {c.nombre || c.id} · {(c.partidas||[]).length} partidas · ${Math.round((c.partidas||[]).reduce((s,p)=>s+Number(p.monto||0),0)).toLocaleString("es-CL")}
-                        </option>
-                      ))}
+                      <option value="">— Seleccionar costeo —</option>
+                      {costeos.map(c => <option key={c.id} value={c.id}>{c.nombre || c.titulo || c.id}</option>)}
                     </select>
-                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:6 }}>
-                      Importa las partidas de pago del costeo (concepto + monto) y calcula condiciones de pago automáticamente.
-                    </div>
                   </div>
                 )}
                 {quotes.length > 0 && (
