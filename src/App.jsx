@@ -7923,13 +7923,16 @@ function ProposalsView({ contacts, isMobile }) {
   const [diffA, setDiffA]         = useState(null);
   const [diffB, setDiffB]         = useState(null);
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => {
+    // Recargar costeos desde localStorage cada vez que se monta
+    let cp = [];
+    try { cp = JSON.parse(localStorage.getItem("costeo_proyectos")||"[]"); } catch{}
+    setCosteos(cp);
+    loadAll();
+  }, []);
 
   const loadAll = async () => {
     setLoading(true);
-    let costeoProyectos = [];
-    try { costeoProyectos = JSON.parse(localStorage.getItem("costeo_proyectos")||"[]"); } catch{}
-    setCosteos(costeoProyectos);
     const [{ data: props }, { data: qs }, { data: prods }] = await Promise.all([
       supabase.from("propuestas").select("*").order("created_at", { ascending: false }),
       supabase.from("cotizaciones").select("*").order("created_at", { ascending: false }),
@@ -8112,10 +8115,11 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
 
   // ── Importar desde Costeo ──
   const importFromCosteo = (costeoId) => {
-    const costeo = costeos.find(c => c.id === costeoId);
-    if (!costeo) return;
+    // id puede ser number o string según cómo lo guardó localStorage
+    const costeo = costeos.find(c => String(c.id) === String(costeoId));
+    if (!costeo) { console.warn("Costeo no encontrado:", costeoId, costeos.map(c=>c.id)); return; }
     const partidasCosteo = costeo.partidas || [];
-    if (!partidasCosteo.length) return;
+    if (!partidasCosteo.length) { console.warn("Sin partidas en costeo:", costeo); return; }
 
     // Por cada hito, generar una fila por cada tramo que tenga monto > 0
     const newPartidas = [];
@@ -8613,12 +8617,15 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
                   <div style={{ flex:1, minWidth:200 }}>
                     <label style={lbl}>Costeo de proyecto</label>
                     <select onChange={e => { if(e.target.value) importFromCosteo(e.target.value); e.target.value=""; }} style={inp}>
-                      <option value="">— Seleccionar proyecto de costeo —</option>
-                      {costeos.map(c => (
-                        <option key={c.id} value={c.id}>
-                          {c.nombre || c.id} · {(c.partidas||[]).length} partida(s) · ${Math.round((c.partidas||[]).reduce((s,p)=>s+Number(p.monto||0),0)).toLocaleString("es-CL")}
-                        </option>
-                      ))}
+                      <option value="">— Seleccionar proyecto de costeo ({costeos.length} disponibles) —</option>
+                      {costeos.map(c => {
+                        const totalCosteo = (c.partidas||[]).reduce((s,p)=>s+Number(p.monto||0),0);
+                        return (
+                          <option key={c.id} value={String(c.id)}>
+                            {c.nombre || `Proyecto ${c.id}`} · {(c.partidas||[]).length} partida(s) · ${Math.round(totalCosteo).toLocaleString("es-CL")}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
                 )}
