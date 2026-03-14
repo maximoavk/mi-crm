@@ -5161,8 +5161,8 @@ function QuotePDF({ quote, onBack }) {
           </div>
         )}
 
-        {/* FORMA DE PAGO con montos */}
-        {lines.filter(l=>l.lineType==="hito").length === 0 && (
+        {/* FORMA DE PAGO con montos — siempre visible */}
+        {(
           <div style={{ marginBottom:12, borderTop:"1px solid #e0e0e0", paddingTop:8 }}>
             {quote.comments && (
               <div style={{ marginBottom:6, fontSize:11 }}>
@@ -5245,15 +5245,16 @@ function QuotePDF({ quote, onBack }) {
           body * { visibility: hidden; }
           #print-area, #print-area * { visibility: visible; }
           #print-area {
-            position: absolute; left: 0; top: 0;
-            width: 190mm; padding: 7mm 10mm;
+            position: fixed;
+            left: 0; top: 0;
+            width: 210mm;
+            transform-origin: top left;
+            transform: scale(0.78);
+            padding: 10mm 12mm;
             box-sizing: border-box;
-            font-size: 9.5px !important;
-            line-height: 1.25 !important;
+            font-size: 11px;
+            background: white;
           }
-          #print-area img { height: 36px !important; }
-          #print-area .quote-number { font-size: 20px !important; }
-          #print-area table th, #print-area table td { padding: 3px 5px !important; font-size: 9px !important; }
           #print-area table { width: 100%; table-layout: fixed; border-collapse: collapse; }
           #print-area table th:nth-child(1) { width: 10%; }
           #print-area table th:nth-child(2) { width: 36%; }
@@ -5269,7 +5270,7 @@ function QuotePDF({ quote, onBack }) {
           #print-area .rut-label { color: #cc0000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           #print-area .totals-table { width: 220px; margin-left: auto; }
           #print-area .totals-table td { white-space: nowrap; }
-          @page { margin: 0; size: A4; }
+          @page { margin: 0; size: A4 portrait; }
         }
       `}</style>
     </div>
