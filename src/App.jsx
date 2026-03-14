@@ -1712,6 +1712,7 @@ const mapQuote = (r) => ({
   clientCompany: r.razon_social, clientAddress: r.direccion,
   clientPhone: r.telefono, paymentMethod: r.forma_pago,
   pctAnticipo: r.pct_anticipo||50, diasPlazo: r.dias_plazo||30,
+  montoAnticipo: r.monto_anticipo||0, montoSaldo: r.monto_saldo||0,
   hasIva: r.aplica_iva, ivaMode: r.iva_modo||"empresa", comments: r.comentarios,
   terms: r.terminos, status: r.estado || "borrador",
   type: r.tipo || "productos", total: r.total || 0,
@@ -1723,6 +1724,7 @@ const mapQuoteToDb = (f) => ({
   razon_social: f.clientCompany, direccion: f.clientAddress,
   telefono: f.clientPhone, forma_pago: f.paymentMethod,
   pct_anticipo: Number(f.pctAnticipo)||50, dias_plazo: Number(f.diasPlazo)||30,
+  monto_anticipo: Number(f.montoAnticipo)||0, monto_saldo: Number(f.montoSaldo)||0,
   aplica_iva: f.hasIva, iva_modo: f.ivaMode||"empresa", comentarios: f.comments,
   terminos: f.terms, estado: f.status, tipo: f.type,
   total: Number(f.total) || 0,
@@ -4531,6 +4533,8 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
     paymentMethod: quote.paymentMethod||"Al finalizar",
     pctAnticipo:   quote.pctAnticipo||50,
     diasPlazo:     quote.diasPlazo||30,
+    montoAnticipo: quote.montoAnticipo||"",
+    montoSaldo:    quote.montoSaldo||"",
     hasIva: quote.hasIva!==false, ivaMode: quote.ivaMode||"empresa", comments: quote.comments||"",
     terms: quote.terms||TERMS_DEFAULT, status: quote.status||"borrador",
     type: quote.type||"productos",
@@ -4538,6 +4542,7 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
     number: nextCOT, serie:"COT", date: new Date().toISOString().slice(0,10),
     contactId:"", clientName:"", clientRut:"", clientCompany:"",
     clientAddress:"", clientPhone:"", paymentMethod:"Al finalizar",
+    pctAnticipo:50, diasPlazo:30, montoAnticipo:"", montoSaldo:"",
     hasIva:true, ivaMode:"empresa", comments:"", terms:TERMS_DEFAULT, status:"borrador", type:"productos",
   });
 
@@ -4809,6 +4814,23 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
               </div>
             </div>
           )}
+          {/* Montos manuales — siempre visibles para ingresar anticipo y saldo */}
+          <div style={{ display:"flex", gap:10, marginTop:10 }}>
+            <div style={{ flex:1 }}>
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>$ Anticipo (manual)</div>
+              <input type="number" min="0" value={header.montoAnticipo||""}
+                onChange={e=>hf("montoAnticipo",e.target.value)}
+                placeholder="Ej: 1844500"
+                style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none" }} />
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>$ Saldo final (manual)</div>
+              <input type="number" min="0" value={header.montoSaldo||""}
+                onChange={e=>hf("montoSaldo",e.target.value)}
+                placeholder="Ej: 1844500"
+                style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none" }} />
+            </div>
+          </div>
         </div>
         <div style={{ marginTop:12 }}>
           <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>IVA y Cuenta de Pago</div>
@@ -5009,8 +5031,11 @@ function QuotePDF({ quote, onBack }) {
   const pm       = quote.paymentMethod || "Al finalizar";
   const pctAnt   = Number(quote.pctAnticipo || 50);
   const diasPago = Number(quote.diasPlazo   || 30);
-  const montoAnt = Math.round(total * pctAnt / 100);
-  const montoSal = total - montoAnt;
+  // Usar montos manuales si están ingresados, sino calcular por %
+  const montoAntManual = Number(quote.montoAnticipo||0);
+  const montoSalManual = Number(quote.montoSaldo||0);
+  const montoAnt = montoAntManual > 0 ? montoAntManual : Math.round(total * pctAnt / 100);
+  const montoSal = montoSalManual > 0 ? montoSalManual : total - montoAnt;
   const pctSal   = 100 - pctAnt;
   const fechaSal = (() => { const d = new Date(); d.setDate(d.getDate() + diasPago); return d.toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"}); })();
   const fmtCLP   = (n) => `$${Math.round(n).toLocaleString("es-CL")}`;
@@ -5245,16 +5270,15 @@ function QuotePDF({ quote, onBack }) {
           body * { visibility: hidden; }
           #print-area, #print-area * { visibility: visible; }
           #print-area {
-            position: fixed;
-            left: 0; top: 0;
-            width: 210mm;
-            transform-origin: top left;
-            transform: scale(0.78);
-            padding: 10mm 12mm;
+            position: absolute; left: 0; top: 0;
+            width: 190mm; padding: 7mm 10mm;
             box-sizing: border-box;
-            font-size: 11px;
-            background: white;
+            font-size: 9.5px !important;
+            line-height: 1.25 !important;
           }
+          #print-area img { height: 36px !important; }
+          #print-area .quote-number { font-size: 20px !important; }
+          #print-area table th, #print-area table td { padding: 3px 5px !important; font-size: 9px !important; }
           #print-area table { width: 100%; table-layout: fixed; border-collapse: collapse; }
           #print-area table th:nth-child(1) { width: 10%; }
           #print-area table th:nth-child(2) { width: 36%; }
@@ -5270,7 +5294,7 @@ function QuotePDF({ quote, onBack }) {
           #print-area .rut-label { color: #cc0000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           #print-area .totals-table { width: 220px; margin-left: auto; }
           #print-area .totals-table td { white-space: nowrap; }
-          @page { margin: 0; size: A4 portrait; }
+          @page { margin: 0; size: A4; }
         }
       `}</style>
     </div>
