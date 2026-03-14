@@ -1712,7 +1712,6 @@ const mapQuote = (r) => ({
   clientCompany: r.razon_social, clientAddress: r.direccion,
   clientPhone: r.telefono, paymentMethod: r.forma_pago,
   pctAnticipo: r.pct_anticipo||50, diasPlazo: r.dias_plazo||30,
-  montoAnticipo: r.monto_anticipo||0, montoSaldo: r.monto_saldo||0,
   hasIva: r.aplica_iva, ivaMode: r.iva_modo||"empresa", comments: r.comentarios,
   terms: r.terminos, status: r.estado || "borrador",
   type: r.tipo || "productos", total: r.total || 0,
@@ -1724,7 +1723,6 @@ const mapQuoteToDb = (f) => ({
   razon_social: f.clientCompany, direccion: f.clientAddress,
   telefono: f.clientPhone, forma_pago: f.paymentMethod,
   pct_anticipo: Number(f.pctAnticipo)||50, dias_plazo: Number(f.diasPlazo)||30,
-  monto_anticipo: Number(f.montoAnticipo)||0, monto_saldo: Number(f.montoSaldo)||0,
   aplica_iva: f.hasIva, iva_modo: f.ivaMode||"empresa", comentarios: f.comments,
   terminos: f.terms, estado: f.status, tipo: f.type,
   total: Number(f.total) || 0,
@@ -4533,8 +4531,6 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
     paymentMethod: quote.paymentMethod||"Al finalizar",
     pctAnticipo:   quote.pctAnticipo||50,
     diasPlazo:     quote.diasPlazo||30,
-    montoAnticipo: quote.montoAnticipo||"",
-    montoSaldo:    quote.montoSaldo||"",
     hasIva: quote.hasIva!==false, ivaMode: quote.ivaMode||"empresa", comments: quote.comments||"",
     terms: quote.terms||TERMS_DEFAULT, status: quote.status||"borrador",
     type: quote.type||"productos",
@@ -4542,7 +4538,6 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
     number: nextCOT, serie:"COT", date: new Date().toISOString().slice(0,10),
     contactId:"", clientName:"", clientRut:"", clientCompany:"",
     clientAddress:"", clientPhone:"", paymentMethod:"Al finalizar",
-    pctAnticipo:50, diasPlazo:30, montoAnticipo:"", montoSaldo:"",
     hasIva:true, ivaMode:"empresa", comments:"", terms:TERMS_DEFAULT, status:"borrador", type:"productos",
   });
 
@@ -4798,36 +4793,19 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
             <option>Contado</option>
             <option>% personalizado</option>
           </Select>
-          {(header.paymentMethod==="% personalizado"||header.paymentMethod==="0 a 30 días") && (
-            <div style={{ display:"flex", gap:10, marginTop:8 }}>
-              <div style={{ flex:1 }}>
-                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>% Anticipo</div>
-                <input type="number" min="0" max="100" value={header.pctAnticipo||50}
-                  onChange={e=>hf("pctAnticipo",Number(e.target.value))}
-                  style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none" }} />
-              </div>
-              <div style={{ flex:1 }}>
-                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>Días plazo saldo</div>
-                <input type="number" min="0" value={header.diasPlazo||30}
-                  onChange={e=>hf("diasPlazo",Number(e.target.value))}
-                  style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none" }} />
-              </div>
-            </div>
-          )}
-          {/* Montos manuales — siempre visibles para ingresar anticipo y saldo */}
-          <div style={{ display:"flex", gap:10, marginTop:10 }}>
+          {/* % siempre visible para calcular anticipo y saldo */}
+          <div style={{ display:"flex", gap:10, marginTop:8 }}>
             <div style={{ flex:1 }}>
-              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>$ Anticipo (manual)</div>
-              <input type="number" min="0" value={header.montoAnticipo||""}
-                onChange={e=>hf("montoAnticipo",e.target.value)}
-                placeholder="Ej: 1844500"
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>% Anticipo</div>
+              <input type="number" min="0" max="100" value={header.pctAnticipo||50}
+                onChange={e=>hf("pctAnticipo",Number(e.target.value))}
                 style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none" }} />
             </div>
             <div style={{ flex:1 }}>
-              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>$ Saldo final (manual)</div>
-              <input type="number" min="0" value={header.montoSaldo||""}
-                onChange={e=>hf("montoSaldo",e.target.value)}
-                placeholder="Ej: 1844500"
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>Días plazo saldo</div>
+              <input type="number" min="0" value={header.diasPlazo||0}
+                onChange={e=>hf("diasPlazo",Number(e.target.value))}
+                placeholder="0 = al finalizar"
                 style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none" }} />
             </div>
           </div>
@@ -5031,11 +5009,8 @@ function QuotePDF({ quote, onBack }) {
   const pm       = quote.paymentMethod || "Al finalizar";
   const pctAnt   = Number(quote.pctAnticipo || 50);
   const diasPago = Number(quote.diasPlazo   || 30);
-  // Usar montos manuales si están ingresados, sino calcular por %
-  const montoAntManual = Number(quote.montoAnticipo||0);
-  const montoSalManual = Number(quote.montoSaldo||0);
-  const montoAnt = montoAntManual > 0 ? montoAntManual : Math.round(total * pctAnt / 100);
-  const montoSal = montoSalManual > 0 ? montoSalManual : total - montoAnt;
+  const montoAnt = Math.round(total * pctAnt / 100);
+  const montoSal = total - montoAnt;
   const pctSal   = 100 - pctAnt;
   const fechaSal = (() => { const d = new Date(); d.setDate(d.getDate() + diasPago); return d.toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"}); })();
   const fmtCLP   = (n) => `$${Math.round(n).toLocaleString("es-CL")}`;
@@ -5198,8 +5173,20 @@ function QuotePDF({ quote, onBack }) {
             <div style={{ fontSize:11, marginBottom:4 }}>
               <span style={{ fontWeight:700 }}>Forma de Pago: </span>{pm}
             </div>
-            {(pm==="50% anticipo y saldo al finalizar" || pm==="% personalizado") && (
-              <div style={{ display:"table", width:"100%", borderCollapse:"collapse", fontSize:11, marginTop:4 }}>
+            {pm==="Contado" ? (
+              <div style={rowStyle}>
+                <span style={labelStyle}>Pago contado</span>
+                <span style={noteStyle}>Pago inmediato</span>
+                <span style={valStyle}>{fmtCLP(total)}</span>
+              </div>
+            ) : pm==="Al finalizar" ? (
+              <div style={rowStyle}>
+                <span style={labelStyle}>Total al finalizar</span>
+                <span style={noteStyle}>Al término del servicio</span>
+                <span style={valStyle}>{fmtCLP(total)}</span>
+              </div>
+            ) : (
+              <div style={{ marginTop:4 }}>
                 <div style={rowStyle}>
                   <span style={labelStyle}>Anticipo ({pctAnt}%)</span>
                   <span style={noteStyle}>Al inicio del servicio</span>
@@ -5207,37 +5194,9 @@ function QuotePDF({ quote, onBack }) {
                 </div>
                 <div style={rowStyle}>
                   <span style={labelStyle}>Saldo ({pctSal}%)</span>
-                  <span style={noteStyle}>Al finalizar el servicio</span>
+                  <span style={noteStyle}>{diasPago > 0 ? `A ${diasPago} días · ${fechaSal}` : "Al finalizar el servicio"}</span>
                   <span style={valStyle}>{fmtCLP(montoSal)}</span>
                 </div>
-              </div>
-            )}
-            {pm==="Al finalizar" && (
-              <div style={rowStyle}>
-                <span style={labelStyle}>Total al finalizar</span>
-                <span style={noteStyle}>Al término del servicio</span>
-                <span style={valStyle}>{fmtCLP(total)}</span>
-              </div>
-            )}
-            {pm==="0 a 30 días" && (
-              <div style={{ fontSize:11, marginTop:4 }}>
-                <div style={rowStyle}>
-                  <span style={labelStyle}>Anticipo (50%)</span>
-                  <span style={noteStyle}>Al inicio del servicio</span>
-                  <span style={valStyle}>{fmtCLP(Math.round(total*0.5))}</span>
-                </div>
-                <div style={rowStyle}>
-                  <span style={labelStyle}>Saldo (50%)</span>
-                  <span style={noteStyle}>A {diasPago} días · {fechaSal}</span>
-                  <span style={valStyle}>{fmtCLP(total - Math.round(total*0.5))}</span>
-                </div>
-              </div>
-            )}
-            {pm==="Contado" && (
-              <div style={rowStyle}>
-                <span style={labelStyle}>Pago contado</span>
-                <span style={noteStyle}>Pago inmediato</span>
-                <span style={valStyle}>{fmtCLP(total)}</span>
               </div>
             )}
           </div>
