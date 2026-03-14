@@ -1479,40 +1479,109 @@ function GanttView({ isMobile }) {
             <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Inicio calendario:</span>
             <input type="date" value={calStart} onChange={e=>setCalStart(e.target.value)} style={{...s}} />
             <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Días vista:</span>
-            {[{d:5,label:"5d",hint:"Lab"},{d:7,label:"7d",hint:"Sem"},{d:15,label:"15d",hint:"Qna"},{d:30,label:"30d"},{d:60,label:"60d"}].map(({d,label,hint})=>(
+            {[{d:5,l:"5d"},{d:7,l:"7d"},{d:15,l:"15d"},{d:30,l:"30d"},{d:60,l:"60d"}].map(({d,l})=>(
               <button key={d} onClick={()=>setCalDays(d)}
-                style={{ padding:"3px 10px", background: calDays===d?COLORS.accent:"transparent", border:`1px solid ${calDays===d?COLORS.accent:COLORS.border}`, borderRadius:5, color: calDays===d?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
-                {label}{hint?` (${hint})`:""}
-              </button>
+                style={{ padding:"3px 10px", background: calDays===d?COLORS.accent:"transparent", border:`1px solid ${calDays===d?COLORS.accent:COLORS.border}`, borderRadius:5, color: calDays===d?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>{l}</button>
             ))}
-            {/* Leyenda */}
+            {/* Leyenda + PDF */}
             <div style={{ display:"flex", gap:10, marginLeft:"auto", flexWrap:"wrap", alignItems:"center" }}>
-              {[["Fase","#3b82f6"],["Tarea","#6366f1"],["Hito","#f59e0b"],["Completado","#39ff14"],["Atrasado","#ef4444"]].map(([l,c])=>(
+              {[["Fase","#3b82f6"],["Tarea","#6366f1"],["Hito","#f59e0b"],["Completado","#22c55e"],["Atrasado","#ef4444"]].map(([l,c])=>(
                 <span key={l} style={{ fontFamily:FONT, fontSize:10, color:c }}>● {l}</span>
               ))}
               <button onClick={()=>{
-                const table = document.getElementById("gantt-table");
-                if(!table) return;
+                const cols = buildCalHeader(calStart, calDays);
+                const months = [];
+                cols.forEach(c=>{
+                  const mn = new Date(c.date).toLocaleDateString("es-CL",{month:"short",year:"2-digit"});
+                  if(!months.length||months[months.length-1].n!==mn) months.push({n:mn,count:1});
+                  else months[months.length-1].count++;
+                });
+                const tdW = Math.max(18, Math.floor(560/cols.length));
+                const colHeaders = cols.map(c=>`<th style="width:${tdW}px;min-width:${tdW}px;background:${c.isWeekend?"#e2e8f0":"#1e293b"};color:${c.isWeekend?"#94a3b8":"#fff"};font-size:8px;padding:2px 0;text-align:center;border:1px solid #cbd5e1">${c.dow}<br>${c.day}</th>`).join("");
+                const monthHeaders = months.map(m=>`<th colspan="${m.count}" style="background:#0f172a;color:#38bdf8;font-size:9px;text-align:center;padding:3px;border:1px solid #334155;text-transform:uppercase">${m.n}</th>`).join("");
+                const taskRows = tasks.map((t,i)=>{
+                  const tipo = t.tipo==="F"?"Fase":t.tipo==="T"?"Tarea":"Hito";
+                  const bgTipo = t.tipo==="F"?"#dbeafe":t.tipo==="T"?"#ede9fe":"#fef3c7";
+                  const colTipo = t.tipo==="F"?"#1d4ed8":t.tipo==="T"?"#6d28d9":"#b45309";
+                  const pct = Math.min(100,Math.max(0,Number(t.pctAvance)||0));
+                  const isLate = t.fin < new Date().toISOString().slice(0,10) && pct<100;
+                  // Bar cells
+                  const barCells = cols.map(c=>{
+                    if(!t.inicio||!t.fin) return `<td style="border:1px solid #f1f5f9;background:${c.isWeekend?"#f8fafc":"#fff"}"></td>`;
+                    const inRange = c.date>=t.inicio && c.date<=t.fin;
+                    const isStart = c.date===t.inicio;
+                    const isEnd = c.date===t.fin;
+                    if(!inRange) return `<td style="border:1px solid #f1f5f9;background:${c.isWeekend?"#f8fafc":"#fff"}"></td>`;
+                    const barColor = t.tipo==="H"?"#f59e0b":pct===100?"#22c55e":isLate?"#ef4444":t.tipo==="F"?"#3b82f6":"#6366f1";
+                    const filled = pct/100;
+                    return `<td style="padding:0;border:1px solid #f1f5f9;position:relative;background:${c.isWeekend?"#f8fafc":"#fff"}">
+                      <div style="height:14px;margin:3px 0;background:${barColor}22;${isStart?"border-radius:3px 0 0 3px":""}${isEnd?"border-radius:0 3px 3px 0":""}">
+                        <div style="height:100%;width:${pct}%;background:${barColor};opacity:0.85"></div>
+                      </div></td>`;
+                  }).join("");
+                  return `<tr style="border-bottom:1px solid #e2e8f0;${t.tipo==="F"?"font-weight:700":""}">
+                    <td style="padding:3px 5px;text-align:center;font-size:8px;color:#64748b;border:1px solid #e2e8f0">${i+1}</td>
+                    <td style="padding:2px 4px;border:1px solid #e2e8f0"><span style="background:${bgTipo};color:${colTipo};padding:1px 5px;border-radius:3px;font-size:7.5px;font-weight:700">${tipo}</span></td>
+                    <td style="padding:3px 6px;font-size:9px;max-width:160px;overflow:hidden;border:1px solid #e2e8f0">${t.tipo!=="F"?"└ ":""}${t.nombre||""}</td>
+                    <td style="padding:3px 5px;font-size:8px;text-align:center;border:1px solid #e2e8f0;color:#475569">${t.rol||""}</td>
+                    <td style="padding:3px 5px;font-size:8px;border:1px solid #e2e8f0;color:#475569;max-width:80px;overflow:hidden">${t.responsable||""}</td>
+                    <td style="padding:3px 5px;font-size:8px;text-align:center;border:1px solid #e2e8f0">${t.inicio?new Date(t.inicio+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short"}):""}</td>
+                    <td style="padding:3px 5px;font-size:8px;text-align:center;border:1px solid #e2e8f0">${t.fin?new Date(t.fin+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short"}):""}</td>
+                    <td style="padding:3px 5px;font-size:8px;text-align:center;border:1px solid #e2e8f0">${t.pctPlan||0}%</td>
+                    <td style="padding:3px 5px;font-size:8px;text-align:center;border:1px solid #e2e8f0;color:${pct===100?"#16a34a":isLate?"#dc2626":"#0369a1"};font-weight:700">${pct}%</td>
+                    <td style="padding:3px 5px;font-size:8px;text-align:center;border:1px solid #e2e8f0;color:#64748b">${t.hhPresup||"-"}</td>
+                    <td style="padding:3px 5px;font-size:8px;text-align:center;border:1px solid #e2e8f0;color:#64748b">${t.hhReal||"-"}</td>
+                    ${barCells}
+                  </tr>`;
+                }).join("");
                 const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-                  <style>
-                    *{box-sizing:border-box;margin:0;padding:0}
-                    body{font-family:Arial,sans-serif;font-size:9px;padding:8mm;background:#fff;color:#1e293b}
-                    h2{font-size:13px;margin-bottom:8px;color:#0f1623}
-                    table{border-collapse:collapse;width:100%;font-size:8.5px}
-                    th{background:#1e293b;color:#fff;padding:4px 6px;text-align:left;white-space:nowrap}
-                    td{padding:3px 5px;border-bottom:1px solid #e2e8f0;white-space:nowrap}
-                    tr:nth-child(even) td{background:#f8fafc}
-                    @page{size:A4 landscape;margin:8mm}
-                    @media print{body{padding:0}}
-                  </style></head><body>
-                  <h2>Gantt — ${proyecto?.nombre||""} · COT-${proyecto?.cotNum||""}</h2>
-                  ${table.outerHTML}
-                  <script>window.onload=()=>window.print()<\/script>
+                <style>
+                  *{box-sizing:border-box;margin:0;padding:0}
+                  body{font-family:Arial,sans-serif;font-size:9px;padding:6mm;background:#fff;color:#1e293b}
+                  h2{font-size:11px;margin-bottom:2px;color:#0f172a;font-weight:700}
+                  .sub{font-size:8px;color:#64748b;margin-bottom:6px}
+                  table{border-collapse:collapse;width:100%}
+                  .legend{display:flex;gap:12px;margin-bottom:6px;font-size:8px}
+                  .legend span{display:flex;align-items:center;gap:3px}
+                  .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+                  @page{size:A4 landscape;margin:6mm}
+                  @media print{body{padding:0}}
+                </style></head><body>
+                <h2>Carta Gantt — ${proyecto?.nombre||""}</h2>
+                <div class="sub">COT-${proyecto?.cotNum||""} · Inicio: ${calStart} · ${calDays} días vista · Generado: ${new Date().toLocaleDateString("es-CL")}</div>
+                <div class="legend">
+                  <span><span class="dot" style="background:#3b82f6"></span>Fase</span>
+                  <span><span class="dot" style="background:#6366f1"></span>Tarea</span>
+                  <span><span class="dot" style="background:#f59e0b"></span>Hito</span>
+                  <span><span class="dot" style="background:#22c55e"></span>Completado</span>
+                  <span><span class="dot" style="background:#ef4444"></span>Atrasado</span>
+                </div>
+                <table>
+                  <thead>
+                    <tr><th colspan="11" style="background:#0f172a;border:1px solid #334155"></th>${monthHeaders}</tr>
+                    <tr>
+                      <th style="background:#1e293b;color:#fff;padding:4px 5px;font-size:8px;border:1px solid #334155;width:24px">#</th>
+                      <th style="background:#1e293b;color:#fff;padding:4px 5px;font-size:8px;border:1px solid #334155;width:40px">Tipo</th>
+                      <th style="background:#1e293b;color:#fff;padding:4px 5px;font-size:8px;border:1px solid #334155;width:150px;text-align:left">Descripción</th>
+                      <th style="background:#1e293b;color:#fff;padding:4px 5px;font-size:8px;border:1px solid #334155;width:36px">Rol</th>
+                      <th style="background:#1e293b;color:#fff;padding:4px 5px;font-size:8px;border:1px solid #334155;width:80px;text-align:left">Responsable</th>
+                      <th style="background:#1e293b;color:#fff;padding:4px 5px;font-size:8px;border:1px solid #334155;width:52px">Inicio</th>
+                      <th style="background:#1e293b;color:#fff;padding:4px 5px;font-size:8px;border:1px solid #334155;width:52px">Fin</th>
+                      <th style="background:#1e293b;color:#fff;padding:4px 5px;font-size:8px;border:1px solid #334155;width:36px">Plan%</th>
+                      <th style="background:#1e293b;color:#fff;padding:4px 5px;font-size:8px;border:1px solid #334155;width:36px">Av.%</th>
+                      <th style="background:#1e293b;color:#fff;padding:4px 5px;font-size:8px;border:1px solid #334155;width:36px">HH P.</th>
+                      <th style="background:#1e293b;color:#fff;padding:4px 5px;font-size:8px;border:1px solid #334155;width:36px">HH R.</th>
+                      ${colHeaders}
+                    </tr>
+                  </thead>
+                  <tbody>${taskRows}</tbody>
+                </table>
+                <script>window.onload=()=>window.print()<\/script>
                 </body></html>`;
                 const w = window.open("","_blank");
                 w.document.write(html);
                 w.document.close();
-              }} style={{ padding:"3px 12px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:5, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+              }} style={{ padding:"4px 14px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:5, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
                 🖨 PDF
               </button>
             </div>
@@ -1520,7 +1589,7 @@ function GanttView({ isMobile }) {
 
           {/* TABLA GANTT */}
           <div style={{ overflowX:"auto", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10 }}>
-            <table id="gantt-table" style={{ borderCollapse:"collapse", fontSize:11, fontFamily:FONT }}>
+            <table style={{ borderCollapse:"collapse", fontSize:11, fontFamily:FONT }}>
               <thead>
                 {/* Fila meses */}
                 <tr style={{ background:COLORS.surface }}>
