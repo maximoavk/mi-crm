@@ -1328,10 +1328,20 @@ function GanttView({ isMobile }) {
   const [ganttId, setGanttId]     = useState(null);
   const [calStart, setCalStart]   = useState(new Date().toISOString().slice(0,10));
   const [calDays, setCalDays]     = useState(15);
-  const [editRow, setEditRow]     = useState(null); // id de fila en edición inline
+  const [editRow, setEditRow]     = useState(null);
+  const [allGantts, setAllGantts] = useState([]);
+  const [headerEdit, setHeaderEdit] = useState(false);
+  const [headerData, setHeaderData] = useState({ elaboradoPor:"Maximo Hudson", cliente:"", fechaEmision: new Date().toISOString().slice(0,10) });
   const cellW = 28;
   const today = new Date().toISOString().slice(0,10);
   const calCols = buildCalHeader(calStart, calDays);
+
+  // Cargar índice de todos los Gantt al montar
+  useEffect(() => {
+    supabase.from("gantt_proyectos").select("id, nombre, numero_cotizacion, fecha_inicio, fecha_fin")
+      .order("numero_cotizacion", { ascending: false })
+      .then(({ data }) => setAllGantts(data || []));
+  }, []);
 
   // Agrupar meses para header
   const months = [];
@@ -1465,15 +1475,118 @@ function GanttView({ isMobile }) {
       </div>
 
       {!proyecto && (
-        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:40, textAlign:"center" }}>
-          <div style={{ fontSize:40, marginBottom:12 }}>📅</div>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, color:COLORS.textMuted }}>Ingresa el número de cotización para cargar o crear un plan de proyecto</div>
-          <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginTop:8 }}>Las fases se importan automáticamente desde el costeo</div>
+        <div>
+          {/* Índice de Gantt guardados */}
+          {allGantts.length > 0 ? (
+            <div>
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:12 }}>
+                Cartas Gantt guardadas ({allGantts.length})
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {allGantts.map(g => {
+                  const totalTareas = 0;
+                  return (
+                    <div key={g.id} onClick={() => { setCotNum(String(g.numero_cotizacion)); cargarGantt(String(g.numero_cotizacion)); }}
+                      style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"14px 18px", cursor:"pointer", display:"flex", alignItems:"center", gap:16, flexWrap:"wrap",
+                        transition:"border-color 0.15s" }}
+                      onMouseEnter={e=>e.currentTarget.style.borderColor=COLORS.accent}
+                      onMouseLeave={e=>e.currentTarget.style.borderColor=COLORS.border}>
+                      <div style={{ width:42, height:42, borderRadius:10, background:`${COLORS.accent}18`, border:`1px solid ${COLORS.accent}33`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                        <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.accent }}>#{g.numero_cotizacion}</span>
+                      </div>
+                      <div style={{ flex:1, minWidth:140 }}>
+                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text, marginBottom:3 }}>{g.nombre}</div>
+                        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                          Inicio: {g.fecha_inicio ? new Date(g.fecha_inicio+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"}) : "—"}
+                          {g.fecha_fin ? ` · Fin: ${new Date(g.fecha_fin+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}` : ""}
+                        </div>
+                      </div>
+                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.accent }}>Abrir →</div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:16, textAlign:"center" }}>
+                O ingresa un N° de cotización arriba para crear uno nuevo
+              </div>
+            </div>
+          ) : (
+            <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:40, textAlign:"center" }}>
+              <div style={{ fontSize:40, marginBottom:12 }}>📅</div>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, color:COLORS.textMuted }}>Ingresa el número de cotización para cargar o crear un plan de proyecto</div>
+              <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginTop:8 }}>Las fases se importan automáticamente desde el costeo</div>
+            </div>
+          )}
         </div>
       )}
 
       {proyecto && (
         <>
+          {/* ── ENCABEZADO PROFESIONAL EDITABLE ── */}
+          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"16px 20px", marginBottom:16 }}>
+            {!headerEdit ? (
+              <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", flexWrap:"wrap", gap:12 }}>
+                {/* Logo + empresa */}
+                <div style={{ display:"flex", gap:16, alignItems:"center" }}>
+                  <img src={LOGO_B64} alt="Polygonos" style={{ height:44 }} />
+                  <div>
+                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase" }}>Polygonos SpA · RUT 77.180.437-3</div>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text, marginTop:2 }}>Carta Gantt</div>
+                    <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginTop:2 }}>COT-{proyecto.cotNum} · {proyecto.nombre}</div>
+                  </div>
+                </div>
+                {/* Info derecha */}
+                <div style={{ textAlign:"right" }}>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Elaborado por: <span style={{ color:COLORS.text, fontWeight:600 }}>{headerData.elaboradoPor}</span></div>
+                  {headerData.cliente && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Cliente: <span style={{ color:COLORS.text }}>{headerData.cliente}</span></div>}
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Emisión: <span style={{ color:COLORS.text }}>{headerData.fechaEmision ? new Date(headerData.fechaEmision+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"}) : "—"}</span></div>
+                  {/* Barra avance general */}
+                  {tasks.length > 0 && (() => {
+                    const prom = Math.round(tasks.filter(t=>t.tipo!=="H").reduce((s,t)=>s+Number(t.pctAvance||0),0) / Math.max(1,tasks.filter(t=>t.tipo!=="H").length));
+                    return (
+                      <div style={{ marginTop:8 }}>
+                        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:3 }}>Avance general: <b style={{color:COLORS.accent}}>{prom}%</b></div>
+                        <div style={{ height:6, width:160, background:COLORS.border, borderRadius:3, marginLeft:"auto" }}>
+                          <div style={{ height:6, width:`${prom}%`, background:prom===100?COLORS.green:COLORS.accent, borderRadius:3, transition:"width 0.3s" }} />
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+                <button onClick={()=>setHeaderEdit(true)}
+                  style={{ position:"absolute", marginLeft:"-30px", padding:"4px 10px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>
+                  ✏️ Editar
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:12 }}>Editar encabezado</div>
+                <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr", gap:10, marginBottom:12 }}>
+                  <div>
+                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase" }}>Elaborado por</div>
+                    <input value={headerData.elaboradoPor} onChange={e=>setHeaderData(p=>({...p,elaboradoPor:e.target.value}))}
+                      style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"7px 10px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none" }} />
+                  </div>
+                  <div>
+                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase" }}>Cliente</div>
+                    <input value={headerData.cliente} onChange={e=>setHeaderData(p=>({...p,cliente:e.target.value}))}
+                      placeholder="Nombre del cliente"
+                      style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"7px 10px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none" }} />
+                  </div>
+                  <div>
+                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase" }}>Fecha de emisión</div>
+                    <input type="date" value={headerData.fechaEmision} onChange={e=>setHeaderData(p=>({...p,fechaEmision:e.target.value}))}
+                      style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"7px 10px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none" }} />
+                  </div>
+                </div>
+                <button onClick={()=>setHeaderEdit(false)}
+                  style={{ padding:"7px 18px", background:COLORS.accent, border:"none", borderRadius:6, color:"#fff", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                  ✓ Listo
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Controles de vista */}
           <div style={{ display:"flex", gap:10, marginBottom:12, alignItems:"center", flexWrap:"wrap" }}>
             <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Inicio calendario:</span>
@@ -1547,7 +1660,7 @@ function GanttView({ isMobile }) {
                   @page{size:A4 landscape;margin:6mm}
                   @media print{body{padding:0}}
                 </style></head><body>
-                <h2>Carta Gantt — ${proyecto?.nombre||""}</h2>
+                <h2>Carta Gantt · COT-${proyecto?.cotNum||""} · ${proyecto?.nombre||""}</h2>
                 <div class="sub">COT-${proyecto?.cotNum||""} · Inicio: ${calStart} · ${calDays} días vista · Generado: ${new Date().toLocaleDateString("es-CL")}</div>
                 <div class="legend">
                   <span><span class="dot" style="background:#3b82f6"></span>Fase</span>
