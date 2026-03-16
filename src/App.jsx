@@ -11469,6 +11469,7 @@ function ColaboradorView({ session }) {
       const { data } = await supabase.from("cotizaciones")
         .select("id,numero,serie,nombre_cliente,razon_social,rut_cliente,direccion,total,aplica_iva,estado,numero_factura,created_at")
         .order("created_at", { ascending: false });
+      console.log("COTS DATA:", data, "ERROR check network tab");
 
       setCots((data||[]).map(c => ({
         ...c,
