@@ -11457,10 +11457,9 @@ function ColaboradorView({ session }) {
   useEffect(() => {
     (async () => {
       // Cargar pedidos tipo "pf" (pre-facturas)
-      const { data: grupos, error: gErr } = await supabase.from("pedidos")
+      const { data: grupos } = await supabase.from("pedidos")
         .select("*").eq("tipo","pf").order("created_at", { ascending:false });
-      console.log("Pedidos PF:", grupos, "Error:", gErr);
-      if (!grupos || grupos.length === 0) { setLoading(false); return; }
+      if (!grupos) { setLoading(false); return; }
       // Para cada PF, cargar sus cotizaciones via quote_ids
       const allQuoteIds = [...new Set(grupos.flatMap(g => g.quote_ids||[]))];
       let quotesMap = {};
@@ -11468,12 +11467,11 @@ function ColaboradorView({ session }) {
         const { data: cots } = await supabase.from("cotizaciones")
           .select("id,numero,nombre_cliente,razon_social,total,aplica_iva,direccion")
           .in("id", allQuoteIds);
-        console.log("Cotizaciones:", cots);
         (cots||[]).forEach(c => { quotesMap[c.id] = c; });
       }
       const results = grupos.map(g => ({
         ...g,
-        cots: (g.quote_ids||[]).map(qid => quotesMap[qid]).filter(Boolean)
+        cots: (g.quote_ids||[]).map(qid => quotesMap[qid]).filter(Boolean) || []
       }));
       setPfs(results);
       setLoading(false);
@@ -11490,8 +11488,8 @@ function ColaboradorView({ session }) {
 
   const printPF = (pf) => {
     const fecha = new Date().toLocaleDateString("es-CL", {day:"2-digit",month:"long",year:"numeric"});
-    const total = pf.cots.reduce((s,c) => s + Number(c.total||0), 0);
-    const cotRows = pf.cots.map(cot => {
+    const total = (pf.cots||[]).reduce((s,c) => s + Number(c.total||0), 0);
+    const cotRows = (pf.cots||[]).map(cot => {
       return `<tr>
         <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-family:monospace;color:#0ea5e9;font-weight:700">COT-${cot.numero||"—"}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0">${cot.razon_social||cot.nombre_cliente||"—"}</td>
@@ -11584,7 +11582,7 @@ function ColaboradorView({ session }) {
       ) : (
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
           {pfs.map(pf => {
-            const total = pf.items.reduce((s,i)=>s+Number(i.cotizaciones?.total||0),0);
+            const total = (pf.cots||[]).reduce((s,c)=>s+Number(c.total||0),0);
             const isOpen = expanded[pf.id];
             const facturado = !!pf.numero_factura;
             return (
@@ -11603,7 +11601,7 @@ function ColaboradorView({ session }) {
                       }
                     </div>
                     <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
-                      {pf.cots.length} cotización(es) · Total: <b style={{color:COLORS.accent}}>{fmt(total)}</b>
+                      {(pf.cots||[]).length} cotización(es) · Total: <b style={{color:COLORS.accent}}>{fmt(total)}</b>
                     </div>
                   </div>
                   <div style={{ display:"flex", gap:8, flexShrink:0 }}>
@@ -11625,7 +11623,7 @@ function ColaboradorView({ session }) {
                   <div style={{ borderTop:`1px solid ${COLORS.border}`, padding:"10px 18px 14px" }}>
                     <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>Cotizaciones incluidas</div>
                     <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-                      {pf.cots.map(cot => (
+                      {(pf.cots||[]).map(cot => (
                           <div key={cot.id} style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 14px", display:"flex", alignItems:"center", gap:12 }}>
                             <div style={{ fontFamily:"monospace", fontSize:12, fontWeight:700, color:COLORS.accent, flexShrink:0 }}>COT-{cot.numero||"—"}</div>
                             <div style={{ flex:1 }}>
