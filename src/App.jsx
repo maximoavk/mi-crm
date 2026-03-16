@@ -11448,7 +11448,6 @@ function IncidenciasView({ contacts, isMobile }) {
 // ── VISTA COLABORADOR — Por Facturar ─────────────────────────────────────────
 function ColaboradorView({ session }) {
   const [pfs, setPfs]           = useState([]);
-  const [docs, setDocs]         = useState([]);
   const [loading, setLoading]   = useState(true);
   const [expanded, setExpanded] = useState({});
   const [editFact, setEditFact] = useState(null); // { pfId, current }
@@ -11457,30 +11456,19 @@ function ColaboradorView({ session }) {
 
   useEffect(() => {
     (async () => {
-      // Cargar pedidos tipo "pf"
+      // Cargar pedidos tipo "pf" (pre-facturas)
       const { data: grupos } = await supabase.from("pedidos")
         .select("*").eq("tipo","pf").order("created_at", { ascending:false });
-      if (!grupos || grupos.length === 0) { setLoading(false); return; }
-
+      if (!grupos) { setLoading(false); return; }
+      // Para cada PF, cargar sus cotizaciones via quote_ids
       const allQuoteIds = [...new Set(grupos.flatMap(g => g.quote_ids||[]))];
       let quotesMap = {};
       if (allQuoteIds.length > 0) {
         const { data: cots } = await supabase.from("cotizaciones")
-          .select("id,numero,nombre_cliente,razon_social,total,aplica_iva,direccion,rut_cliente")
+          .select("id,numero,nombre_cliente,razon_social,total,aplica_iva,direccion")
           .in("id", allQuoteIds);
-        (cots||[]).forEach(c => { quotesMap[c.id] = {...c, lines:[]}; });
-        // Cargar líneas
-        const { data: lines } = await supabase.from("quote_lines")
-          .select("*").in("quote_id", allQuoteIds);
-        (lines||[]).forEach(l => {
-          if (quotesMap[l.quote_id]) quotesMap[l.quote_id].lines.push(mapQuoteLine(l));
-        });
+        (cots||[]).forEach(c => { quotesMap[c.id] = c; });
       }
-      // Cargar comprobantes de pago
-      const { data: allDocs } = await supabase.from("comprobantes_pago")
-        .select("*").order("created_at", { ascending:false });
-      setDocs(allDocs||[]);
-
       const results = grupos.map(g => ({
         ...g,
         cots: (g.quote_ids||[]).map(qid => quotesMap[qid]).filter(Boolean)
@@ -11500,8 +11488,8 @@ function ColaboradorView({ session }) {
 
   const printPF = (pf) => {
     const fecha = new Date().toLocaleDateString("es-CL", {day:"2-digit",month:"long",year:"numeric"});
-    const total = pf.cots.reduce((s,c) => s + Number(c.total||0), 0);
-    const cotRows = pf.cots.map(cot => {
+    const total = (pf.cots||[]).reduce((s,c) => s + Number(c.total||0), 0);
+    const cotRows = (pf.cots||[]).map(cot => {
       return `<tr>
         <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-family:monospace;color:#0ea5e9;font-weight:700">COT-${cot.numero||"—"}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0">${cot.razon_social||cot.nombre_cliente||"—"}</td>
@@ -11594,7 +11582,7 @@ function ColaboradorView({ session }) {
       ) : (
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
           {pfs.map(pf => {
-            const total = pf.items.reduce((s,i)=>s+Number(i.cotizaciones?.total||0),0);
+            const total = (pf.cots||[]).reduce((s,c)=>s+Number(c.total||0),0);
             const isOpen = expanded[pf.id];
             const facturado = !!pf.numero_factura;
             return (
@@ -11613,24 +11601,11 @@ function ColaboradorView({ session }) {
                       }
                     </div>
                     <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
-                      {pf.cots.length} cotización(es) · Total: <b style={{color:COLORS.accent}}>{fmt(total)}</b>
+                      {(pf.cots||[]).length} cotización(es) · Total: <b style={{color:COLORS.accent}}>{fmt(total)}</b>
                     </div>
                   </div>
                   <div style={{ display:"flex", gap:8, flexShrink:0 }}>
-                    <button onClick={()=>{
-                const pedQuotes = (pf.cots||[]).map(c => ({...c, lines: c.lines||[] }));
-                const lineSubtotal = l => { const qty=Number(l.qty||1),p=Number(l.unitPrice||0),d=Number(l.discount||0); return Math.round(Math.round(p*(1-d/100)*qty)*1.19); };
-                const txPagado = doc => (doc.transacciones||[]).reduce((s,t)=>s+Number(t.monto||0),0);
-                const cotData = pedQuotes.map(q=>{ const qTotal=(q.lines||[]).reduce((s,l)=>s+lineSubtotal(l),0)||Number(q.total||0); const qDocs=docs.filter(d=>(d.quote_ids||[]).includes(q.id)); const qPagado=qDocs.reduce((s,d)=>s+txPagado(d),0); return {quote:q,docs:qDocs,qTotal,qPagado}; });
-                const pedidoTotal=cotData.reduce((s,c)=>s+c.qTotal,0);
-                const pedidoPagado=cotData.reduce((s,c)=>s+c.qPagado,0);
-                let pool=pedidoPagado;
-                const cotCompensated=cotData.map(c=>{ const efectivo=Math.min(pool,c.qTotal); pool-=efectivo; const saldo=c.qTotal-efectivo; const pct=c.qTotal>0?Math.round(efectivo/c.qTotal*100):0; return {...c,efectivo,saldo,pct}; });
-                const pedidoSaldo=pedidoTotal-pedidoPagado;
-                const pedidoPct=pedidoTotal>0?Math.round(pedidoPagado/pedidoTotal*100):0;
-                const isPaid=pedidoSaldo<=0&&pedidoTotal>0;
-                printResumenPedido({ped:pf,cotCompensated,pedidoTotal,pedidoPagado,pedidoSaldo,pedidoPct,isPaid},docs,true);
-              }} style={{ padding:"6px 14px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:6, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>🖨 PDF</button>
+                    <button onClick={()=>printPF(pf)} style={{ padding:"6px 14px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:6, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>🖨 PDF</button>
                     {!facturado && (
                       <button onClick={()=>{ setEditFact({pfId:pf.id}); setFactNum(pf.numero_factura||""); }}
                         style={{ padding:"6px 14px", background:COLORS.accentDim, border:`1px solid ${COLORS.accent}44`, borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
@@ -11648,7 +11623,7 @@ function ColaboradorView({ session }) {
                   <div style={{ borderTop:`1px solid ${COLORS.border}`, padding:"10px 18px 14px" }}>
                     <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>Cotizaciones incluidas</div>
                     <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-                      {pf.cots.map(cot => (
+                      {(pf.cots||[]).map(cot => (
                           <div key={cot.id} style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 14px", display:"flex", alignItems:"center", gap:12 }}>
                             <div style={{ fontFamily:"monospace", fontSize:12, fontWeight:700, color:COLORS.accent, flexShrink:0 }}>COT-{cot.numero||"—"}</div>
                             <div style={{ flex:1 }}>
