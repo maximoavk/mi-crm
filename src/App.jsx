@@ -1113,7 +1113,7 @@ function ControlProyectosView({ contacts }) {
   const load = async () => {
     setLoading(true);
     const [{ data: pRows }, { data: gRows }, { data: tRows }, { data: cRows }] = await Promise.all([
-      supabase.from("proyectos").select("*").order("numero", { ascending: false }),
+      supabase.from("proyectos").select("*").order("created_at", { ascending: false }),
       supabase.from("gantt_proyectos").select("*"),
       supabase.from("gantt_tareas").select("id, gantt_id, pct_avance, nombre, tipo"),
       supabase.from("cotizaciones").select("id, numero, serie, nombre_cliente, razon_social, total, aplica_iva"),
@@ -8269,9 +8269,9 @@ function ProposalsView({ contacts, isMobile }) {
   const loadAll = async () => {
     setLoading(true);
     const [{ data: props }, { data: cos }, { data: qs }, { data: prods }] = await Promise.all([
-      supabase.from("propuestas").select("*").order("numero", { ascending: false }),
-      supabase.from("costeos").select("*").order("numero", { ascending: false }),
-      supabase.from("cotizaciones").select("*").order("numero", { ascending: false }),
+      supabase.from("propuestas").select("*").order("created_at", { ascending: false }),
+      supabase.from("costeos").select("*").order("created_at", { ascending: false }),
+      supabase.from("cotizaciones").select("*").order("created_at", { ascending: false }),
       supabase.from("productos").select("*").order("nombre"),
     ]);
     setProposals(props || []);
@@ -11467,9 +11467,8 @@ function ColaboradorView({ session }) {
 
       // Todas las cotizaciones
       const { data } = await supabase.from("cotizaciones")
-        .select("id,numero,serie,nombre_cliente,razon_social,rut_cliente,direccion,total,aplica_iva,estado,numero_factura")
+        .select("id,numero,serie,nombre_cliente,razon_social,rut_cliente,direccion,total,aplica_iva,estado,created_at")
         .order("numero", { ascending: false });
-      console.log("COTS DATA:", data, "ERROR check network tab");
 
       setCots((data||[]).map(c => ({
         ...c,
@@ -11544,11 +11543,20 @@ function ColaboradorView({ session }) {
         <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Cotizaciones · Por Facturar</div>
         <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:4 }}>Sesión: <b style={{color:COLORS.accent}}>{session?.user?.email}</b></div>
       </div>
+      <div style={{ display:"flex", gap:6, marginBottom:16, flexWrap:"wrap", alignItems:"center" }}>
+        {[{k:"por_facturar",l:"Por Facturar"},{k:"todas",l:"Todas"},{k:"aprobada",l:"Aprobadas"},{k:"enviada",l:"Enviadas"}].map(e=>(
+          <button key={e.k} onClick={()=>setFilterEst(e.k)} style={{ padding:"5px 14px", borderRadius:20, fontFamily:FONT, fontSize:11, cursor:"pointer", background:filterEst===e.k?COLORS.accent:COLORS.card, color:filterEst===e.k?COLORS.bg:COLORS.textMuted, border:`1px solid ${filterEst===e.k?COLORS.accent:COLORS.border}` }}>{e.l}</button>
+        ))}
+        <div style={{ marginLeft:"auto", fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+          {filtered.length} cot. · <b style={{color:COLORS.accent}}>{fmt(filtered.reduce((s,c)=>s+Number(c.total||0),0))}</b>
+        </div>
+      </div>
       {loading ? (
         <div style={{ textAlign:"center", padding:60, color:COLORS.textMuted, fontFamily:FONT }}>Cargando…</div>
       ) : filtered.length === 0 ? (
         <div style={{ textAlign:"center", padding:40, color:COLORS.textMuted, fontFamily:FONT, fontSize:12 }}>
           Sin cotizaciones en esta categoría
+          {filterEst==="por_facturar" && <div style={{marginTop:8,fontSize:11}}>Tip: prueba "Todas" para ver todas las cotizaciones</div>}
         </div>
       ) : (
         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
