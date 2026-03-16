@@ -944,6 +944,7 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
       )}
     </div>
   );
+}
 
 // ── REPORTS ──────────────────────────────────────────────────────────────────
 function ReportsView({ contacts, deals, tasks, isMobile }) {
