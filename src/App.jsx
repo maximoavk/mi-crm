@@ -5375,7 +5375,7 @@ function QuotePDF({ quote, onBack }) {
           <div>
             {/* Logo solo si es Con IVA (empresa) */}
             {quote.ivaMode==="empresa" ? (
-              <img src={LOGO_B64} alt="Polygonos" style={{ height:60, marginBottom:8, display:"block" }} />
+              <img src={LOGO_PRINT} alt="Polygonos" style={{ height:60, marginBottom:8, display:"block" }} />
             ) : (
               <div style={{ fontSize:22, fontWeight:700, color:"#1a2a4a", marginBottom:8 }}>Polygonos</div>
             )}
