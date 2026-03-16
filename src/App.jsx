@@ -11729,24 +11729,24 @@ export default function CRM() {
   const COLABORADOR_VIEWS = ["pipeline", "purchase", "cotizar"]; // vistas permitidas
 
   if(authLoading) return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:COLORS.bg }}>
-      <div style={{ fontFamily:FONT, color:COLORS.accent, fontSize:14, letterSpacing:"0.1em" }}>Verificando sesión…</div>
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#0A0C10" }}>
+      <div style={{ fontFamily:FONT, color:"#00C2FF", fontSize:14, letterSpacing:"0.1em" }}>Verificando sesión…</div>
     </div>
   );
 
   if(!session) return <LoginScreen />;
 
-  // Esperar que cargue el rol antes de renderizar cualquier cosa
-  if(session && userRole === null) return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:COLORS.bg }}>
-      <div style={{ fontFamily:FONT, color:COLORS.accent, fontSize:14, letterSpacing:"0.1em" }}>Cargando perfil…</div>
+  // Esperar que cargue el rol
+  if(userRole === null) return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#0A0C10" }}>
+      <div style={{ fontFamily:FONT, color:"#00C2FF", fontSize:14, letterSpacing:"0.1em" }}>Cargando perfil…</div>
     </div>
   );
 
   // Colaborador/prueba → vista restringida
   if(userRole === "colaborador" || userRole === "prueba") {
     return (
-      <div style={{ minHeight:"100vh", background:COLORS.bg, padding:24 }}>
+      <div style={{ minHeight:"100vh", background:darkMode?"#0A0C10":"#f1f5f9", padding:24 }}>
         <div style={{ maxWidth:800, margin:"0 auto" }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
             <div style={{ display:"flex", alignItems:"center", gap:12 }}>
