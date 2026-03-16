@@ -1423,7 +1423,7 @@ function ControlProyectosView({ contacts }) {
                         <div class="client-box"><div><b>Nombre Cliente:</b> ${c2.nombre_cliente||"—"}</div><div><b>R.U.T.:</b> ${c2.rut_cliente||"—"}</div><div><b>Razón Social:</b> ${c2.razon_social||"—"}</div>${c2.direccion?`<div><b>Dirección:</b> ${c2.direccion}</div>`:""}</div>
                         <table><thead><tr><th>Código</th><th>Descripción</th><th style="text-align:center">Cant.</th><th style="text-align:right">Valor Unit.</th><th style="text-align:center">% Desc.</th><th style="text-align:right">Sub Total</th></tr></thead><tbody>${lHtml}</tbody><tfoot>${c2.aplica_iva?`<tr class="total-row"><td colspan="5" style="text-align:right">Total Neto</td><td style="text-align:right;font-weight:600">$${neto.toLocaleString("es-CL")}</td></tr><tr class="total-row"><td colspan="5" style="text-align:right">IVA (19%)</td><td style="text-align:right">$${Math.round(neto*0.19).toLocaleString("es-CL")}</td></tr>`:""}<tr class="total-final"><td colspan="5" style="text-align:right;padding:8px">Total</td><td style="text-align:right;padding:8px;color:#cc0000">$${(totalQ||Number(c2.total||0)).toLocaleString("es-CL")}</td></tr></tfoot></table>
                         <div class="firma"><div style="text-align:right;font-size:10px;color:#475569"><div style="font-weight:700;color:#1e293b;font-size:11px">Firmado digitalmente por</div><div style="font-weight:700;color:#1e293b;font-size:11px">MAXIMO MANUEL HUDSON BLANCO</div><div style="margin-top:2px">Fecha: ${new Date().toLocaleDateString("es-CL")} ${new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"})}</div><div>Polygonos SpA · RUT 77.180.437-3</div></div></div>
-                        <scr`+"ipt>window.onload=()=>window.print()</scr"+"ipt></body></html>`;
+                        <script>window.onload=()=>window.print()</script></body></html>`;
                         const w=window.open("","_blank"); w.document.write(html); w.document.close();
                       }} style={{ padding:"4px 8px", background:`${COLORS.green}18`, border:`1px solid ${COLORS.green}33`, borderRadius:5, color:COLORS.green, fontSize:11, cursor:"pointer" }} title="PDF cotización">🖨</button>
                     )}
@@ -1435,6 +1435,7 @@ function ControlProyectosView({ contacts }) {
                 </div>
                 {pctGantt !== null && <div style={{ marginTop:8 }}><div style={{ background:COLORS.bg, borderRadius:20, height:4, overflow:"hidden" }}><div style={{ width:`${pctGantt}%`, height:"100%", borderRadius:20, background:pctGantt>=100?COLORS.green:pctGantt>=50?COLORS.accent:COLORS.yellow }}/></div></div>}
               </div>
+            );
           })}
         </div>
       </>)}
