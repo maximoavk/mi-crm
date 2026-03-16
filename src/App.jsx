@@ -11467,8 +11467,8 @@ function ColaboradorView({ session }) {
 
       // Todas las cotizaciones
       const { data } = await supabase.from("cotizaciones")
-        .select("id,numero,serie,nombre_cliente,razon_social,rut_cliente,direccion,total,aplica_iva,estado,created_at")
-        .order("numero", { ascending: false });
+        .select("id,numero,serie,nombre_cliente,razon_social,rut_cliente,direccion,total,aplica_iva,estado,numero_factura,created_at")
+        .order("created_at", { ascending: false });
 
       setCots((data||[]).map(c => ({
         ...c,
