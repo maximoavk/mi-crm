@@ -11736,6 +11736,13 @@ export default function CRM() {
 
   if(!session) return <LoginScreen />;
 
+  // Esperar que cargue el rol antes de renderizar cualquier cosa
+  if(session && userRole === null) return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:COLORS.bg }}>
+      <div style={{ fontFamily:FONT, color:COLORS.accent, fontSize:14, letterSpacing:"0.1em" }}>Cargando perfil…</div>
+    </div>
+  );
+
   // Colaborador/prueba → vista restringida
   if(userRole === "colaborador" || userRole === "prueba") {
     return (
