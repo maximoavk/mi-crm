@@ -11447,32 +11447,27 @@ function IncidenciasView({ contacts, isMobile }) {
 
 // ── VISTA COLABORADOR — Por Facturar ─────────────────────────────────────────
 function ColaboradorView({ session }) {
-  const [cots, setCots]         = useState([]);
-  const [loading, setLoading]   = useState(true);
+  const [cots, setCots]           = useState([]);
+  const [loading, setLoading]     = useState(true);
   const [filterEst, setFilterEst] = useState("por_facturar");
-  const [editFact, setEditFact] = useState(null);
-  const [factNum, setFactNum]   = useState("");
-  const [saving, setSaving]     = useState(false);
-
+  const [editFact, setEditFact]   = useState(null);
+  const [factNum, setFactNum]     = useState("");
+  const [saving, setSaving]       = useState(false);
   const fmt = n => "$" + Math.round(n||0).toLocaleString("es-CL");
 
   useEffect(() => {
     (async () => {
-      // Cargar deals en por_facturar para filtrar cotizaciones
-      const { data: deals } = await supabase.from("deals")
-        .select("quote_id,etapa").eq("etapa","por_facturar");
-      const pfQuoteIds = new Set((deals||[]).map(d=>d.quote_id).filter(Boolean));
+      // Deals en por_facturar → obtener numeros de cotizacion
+      const { data: dealsData } = await supabase.from("deals")
+        .select("numero_cotizacion").eq("etapa","por_facturar");
+      const pfNums = new Set((dealsData||[]).map(d=>String(d.numero_cotizacion)).filter(Boolean));
 
+      // Todas las cotizaciones
       const { data } = await supabase.from("cotizaciones")
         .select("id,numero,serie,nombre_cliente,razon_social,rut_cliente,direccion,total,aplica_iva,estado,numero_factura,created_at")
         .order("numero", { ascending: false });
 
-      // Marcar cuáles están en por_facturar
-      const enriched = (data||[]).map(c => ({
-        ...c,
-        en_por_facturar: pfQuoteIds.has(c.id)
-      }));
-      setCots(enriched);
+      setCots((data||[]).map(c => ({...c, en_por_facturar: pfNums.has(String(c.numero)) })));
       setLoading(false);
     })();
   }, []);
@@ -11485,71 +11480,62 @@ function ColaboradorView({ session }) {
     setSaving(false); setEditFact(null); setFactNum("");
   };
 
-  const ESTADOS = [
-    { key:"todas",        label:"Todas" },
-    { key:"por_facturar", label:"Por Facturar" },
-    { key:"aprobada",     label:"Aprobadas" },
-    { key:"enviada",      label:"Enviadas" },
-  ];
-
   const filtered = cots.filter(c => {
     if (filterEst === "todas") return true;
-    if (filterEst === "por_facturar") return c.en_por_facturar === true;
+    if (filterEst === "por_facturar") return c.en_por_facturar;
     return c.estado === filterEst;
   });
 
   const printCot = (cot) => {
     const html = [
-      '<!DOCTYPE html><html><head><meta charset="UTF-8">',
-      '<style>*{box-sizing:border-box;margin:0;padding:0}',
-      'body{font-family:Arial,sans-serif;font-size:10px;padding:12mm;background:#fff;color:#1e293b}',
-      '.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:12px;border-bottom:2px solid #0f172a}',
-      '.logo{height:36px}',
-      '.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}',
-      '.slbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:3px}',
-      '.sval{font-size:11px;font-weight:600;color:#1e293b}',
-      '.total-box{border:2px solid #cc0000;border-radius:8px;padding:14px;text-align:center;margin-top:14px}',
-      '.factura-box{margin-top:12px;padding:10px 14px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc}',
-      '.firma{margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end}',
-      '@page{size:A4 portrait;margin:0}@media print{body{padding:10mm}}',
-      '</style></head><body>',
-      '<div class="hdr">',
-      '<div style="display:flex;align-items:center;gap:12px">',
-      '<img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" class="logo"/>',
-      '<div>',
-      '<div style="font-size:13px;font-weight:700">Cotización para Facturar</div>',
-      '<div style="font-size:8.5px;color:#64748b">Polygonos SpA · RUT 77.180.437-3</div>',
-      '<div style="font-size:8.5px;color:#e11d48">Documento interno — No válido como factura</div>',
-      '</div></div>',
-      `<div style="text-align:right">`,
-      `<div style="font-size:22px;font-weight:900;color:#0f172a">${(cot.serie||"COT")}-${cot.numero}</div>`,
-      `<div style="font-size:9px;color:${cot.aplica_iva?"#0ea5e9":"#f59e0b"};margin-top:2px;font-weight:700">${cot.aplica_iva?"Con IVA":"Sin IVA"}</div>`,
-      `<div style="font-size:9px;color:#64748b">${new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"})}</div>`,
-      '</div></div>',
-      '<div class="grid">',
-      `<div><div class="slbl">Razón Social / Cliente</div><div class="sval">${cot.razon_social||cot.nombre_cliente||"—"}</div></div>`,
-      `<div><div class="slbl">RUT</div><div class="sval">${cot.rut_cliente||"—"}</div></div>`,
-      cot.direccion ? `<div style="grid-column:1/-1"><div class="slbl">Dirección</div><div class="sval">${cot.direccion}</div></div>` : "",
-      '</div>',
-      '<div class="total-box">',
-      '<div style="font-size:9px;color:#cc0000;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Total a Facturar</div>',
-      `<div style="font-size:28px;font-weight:900;color:#cc0000">$${Number(cot.total||0).toLocaleString("es-CL")}</div>`,
-      `<div style="font-size:9px;color:#64748b;margin-top:4px">${cot.aplica_iva?"Incluye IVA (19%)":"Monto neto sin IVA"}</div>`,
-      '</div>',
-      '<div class="factura-box">',
-      '<div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-bottom:4px">Número de Factura SII</div>',
+      "<!DOCTYPE html><html><head><meta charset='UTF-8'>",
+      "<style>*{box-sizing:border-box;margin:0;padding:0}",
+      "body{font-family:Arial,sans-serif;font-size:10px;padding:12mm;background:#fff;color:#1e293b}",
+      ".hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:12px;border-bottom:2px solid #0f172a}",
+      ".logo{height:36px}",
+      ".grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}",
+      ".slbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:3px}",
+      ".sval{font-size:11px;font-weight:600;color:#1e293b}",
+      ".total-box{border:2px solid #cc0000;border-radius:8px;padding:14px;text-align:center;margin-top:14px}",
+      ".factura-box{margin-top:12px;padding:10px 14px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc}",
+      ".firma{margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end}",
+      "@page{size:A4 portrait;margin:0}@media print{body{padding:10mm}}",
+      "</style></head><body>",
+      "<div class='hdr'>",
+      "<div style='display:flex;align-items:center;gap:12px'>",
+      "<img src='https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png' class='logo'/>",
+      "<div><div style='font-size:13px;font-weight:700'>Cotización Para Facturar</div>",
+      "<div style='font-size:8.5px;color:#64748b'>Polygonos SpA · RUT 77.180.437-3</div>",
+      "<div style='font-size:8.5px;color:#e11d48'>Documento interno — No válido como factura</div></div></div>",
+      "<div style='text-align:right'>",
+      `<div style='font-size:22px;font-weight:900;color:#0f172a'>${(cot.serie||"COT")}-${cot.numero}</div>`,
+      `<div style='font-size:9px;color:${cot.aplica_iva?"#0ea5e9":"#f59e0b"};margin-top:2px;font-weight:700'>${cot.aplica_iva?"Con IVA":"Sin IVA"}</div>`,
+      `<div style='font-size:9px;color:#64748b'>${new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"})}</div>`,
+      "</div></div>",
+      "<div class='grid'>",
+      `<div><div class='slbl'>Razón Social</div><div class='sval'>${cot.razon_social||cot.nombre_cliente||"—"}</div></div>`,
+      `<div><div class='slbl'>RUT</div><div class='sval'>${cot.rut_cliente||"—"}</div></div>`,
+      cot.direccion ? `<div style='grid-column:1/-1'><div class='slbl'>Dirección</div><div class='sval'>${cot.direccion}</div></div>` : "",
+      "</div>",
+      "<div class='total-box'>",
+      "<div style='font-size:9px;color:#cc0000;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px'>Total a Facturar</div>",
+      `<div style='font-size:28px;font-weight:900;color:#cc0000'>$${Number(cot.total||0).toLocaleString("es-CL")}</div>`,
+      `<div style='font-size:9px;color:#64748b;margin-top:4px'>${cot.aplica_iva?"Incluye IVA (19%)":"Monto neto sin IVA"}</div>`,
+      "</div>",
+      "<div class='factura-box'>",
+      "<div style='font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-bottom:4px'>Número de Factura SII</div>",
       cot.numero_factura
-        ? `<div style="font-size:18px;font-weight:900;color:#16a34a">Factura N° ${cot.numero_factura}</div>`
-        : `<div style="font-size:12px;color:#94a3b8;font-style:italic">Pendiente — completar al emitir en SII</div>`,
-      '</div>',
-      '<div class="firma"><div style="text-align:right;font-size:10px;color:#475569">',
-      '<div style="font-weight:700;color:#1e293b;font-size:11px">Firmado digitalmente por</div>',
-      '<div style="font-weight:700;color:#1e293b;font-size:11px">MAXIMO MANUEL HUDSON BLANCO</div>',
-      `<div style="margin-top:2px">Fecha: ${new Date().toLocaleDateString("es-CL")} ${new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"})}</div>`,
-      '<div>Polygonos SpA · RUT 77.180.437-3</div>',
-      '</div></div>',
-      '<script>window.onload=()=>window.print()<' + '/script>',
-      '</body></html>'
+        ? `<div style='font-size:18px;font-weight:900;color:#16a34a'>Factura N° ${cot.numero_factura}</div>`
+        : "<div style='font-size:12px;color:#94a3b8;font-style:italic'>Pendiente — completar al emitir en SII</div>",
+      "</div>",
+      "<div class='firma'><div style='text-align:right;font-size:10px;color:#475569'>",
+      "<div style='font-weight:700;color:#1e293b;font-size:11px'>Firmado digitalmente por</div>",
+      "<div style='font-weight:700;color:#1e293b;font-size:11px'>MAXIMO MANUEL HUDSON BLANCO</div>",
+      `<div style='margin-top:2px'>Fecha: ${new Date().toLocaleDateString("es-CL")} ${new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"})}</div>`,
+      "<div>Polygonos SpA · RUT 77.180.437-3</div>",
+      "</div></div>",
+      "<scr"+"ipt>window.onload=()=>window.print()</scr"+"ipt>",
+      "</body></html>"
     ].join("");
     const w = window.open("","_blank"); w.document.write(html); w.document.close();
   };
@@ -11559,27 +11545,16 @@ function ColaboradorView({ session }) {
       <div style={{ marginBottom:20 }}>
         <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.12em", marginBottom:4 }}>Portal Colaborador</div>
         <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Cotizaciones · Por Facturar</div>
-        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:4 }}>
-          Sesión: <b style={{color:COLORS.accent}}>{session?.user?.email}</b>
-        </div>
+        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:4 }}>Sesión: <b style={{color:COLORS.accent}}>{session?.user?.email}</b></div>
       </div>
-
-      {/* Filtros */}
-      <div style={{ display:"flex", gap:6, marginBottom:16, flexWrap:"wrap" }}>
-        {ESTADOS.map(e => (
-          <button key={e.key} onClick={()=>setFilterEst(e.key)}
-            style={{ padding:"5px 14px", borderRadius:20, fontFamily:FONT, fontSize:11, cursor:"pointer",
-              background:filterEst===e.key?COLORS.accent:COLORS.card,
-              color:filterEst===e.key?COLORS.bg:COLORS.textMuted,
-              border:`1px solid ${filterEst===e.key?COLORS.accent:COLORS.border}` }}>
-            {e.label}
-          </button>
+      <div style={{ display:"flex", gap:6, marginBottom:16, flexWrap:"wrap", alignItems:"center" }}>
+        {[{k:"por_facturar",l:"Por Facturar"},{k:"todas",l:"Todas"},{k:"aprobada",l:"Aprobadas"},{k:"enviada",l:"Enviadas"}].map(e=>(
+          <button key={e.k} onClick={()=>setFilterEst(e.k)} style={{ padding:"5px 14px", borderRadius:20, fontFamily:FONT, fontSize:11, cursor:"pointer", background:filterEst===e.k?COLORS.accent:COLORS.card, color:filterEst===e.k?COLORS.bg:COLORS.textMuted, border:`1px solid ${filterEst===e.k?COLORS.accent:COLORS.border}` }}>{e.l}</button>
         ))}
-        <div style={{ marginLeft:"auto", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, alignSelf:"center" }}>
-          {filtered.length} cotización(es) · Total: <b style={{color:COLORS.accent}}>{fmt(filtered.reduce((s,c)=>s+Number(c.total||0),0))}</b>
+        <div style={{ marginLeft:"auto", fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+          {filtered.length} cot. · <b style={{color:COLORS.accent}}>{fmt(filtered.reduce((s,c)=>s+Number(c.total||0),0))}</b>
         </div>
       </div>
-
       {loading ? (
         <div style={{ textAlign:"center", padding:60, color:COLORS.textMuted, fontFamily:FONT }}>Cargando…</div>
       ) : filtered.length === 0 ? (
@@ -11590,54 +11565,31 @@ function ColaboradorView({ session }) {
             const facturado = !!cot.numero_factura;
             return (
               <div key={cot.id} style={{ background:COLORS.card, border:`1px solid ${facturado?COLORS.green+"55":COLORS.border}`, borderRadius:10, padding:"14px 18px", display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
-                <div style={{ fontFamily:"monospace", fontSize:13, fontWeight:700, color:COLORS.accent, flexShrink:0 }}>
-                  {cot.serie||"COT"}-{cot.numero}
-                </div>
+                <div style={{ fontFamily:"monospace", fontSize:13, fontWeight:700, color:COLORS.accent, flexShrink:0 }}>{cot.serie||"COT"}-{cot.numero}</div>
                 <div style={{ flex:1, minWidth:140 }}>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, marginBottom:2 }}>
-                    {cot.razon_social||cot.nombre_cliente||"—"}
-                  </div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, marginBottom:2 }}>{cot.razon_social||cot.nombre_cliente||"—"}</div>
                   <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
                     {cot.rut_cliente && <span>{cot.rut_cliente} · </span>}
-                    {cot.aplica_iva ? "Con IVA" : "Sin IVA"}
+                    {cot.aplica_iva?"Con IVA":"Sin IVA"}
                     {cot.direccion && <span> · 📍 {cot.direccion}</span>}
                   </div>
-                  {facturado && (
-                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.green, marginTop:3, fontWeight:700 }}>
-                      ✓ Factura N° {cot.numero_factura}
-                    </div>
-                  )}
+                  {facturado && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.green, marginTop:3, fontWeight:700 }}>✓ Factura N° {cot.numero_factura}</div>}
                 </div>
-                <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.accent, flexShrink:0 }}>
-                  {fmt(cot.total||0)}
-                </div>
-                <div style={{ display:"flex", gap:6, flexShrink:0 }}>
-                  <button onClick={()=>printCot(cot)}
-                    style={{ padding:"6px 12px", background:`${COLORS.green}18`, border:`1px solid ${COLORS.green}44`, borderRadius:6, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
-                    🖨 PDF
-                  </button>
-                  <button onClick={()=>{ setEditFact({cotId:cot.id}); setFactNum(cot.numero_factura||""); }}
-                    style={{ padding:"6px 12px", background:facturado?`${COLORS.green}18`:COLORS.accentDim, border:`1px solid ${facturado?COLORS.green+"44":COLORS.accent+"44"}`, borderRadius:6, color:facturado?COLORS.green:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
-                    {facturado?"✏️ Factura":"+ N° Factura"}
-                  </button>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.accent }}>{fmt(cot.total||0)}</div>
+                <div style={{ display:"flex", gap:6 }}>
+                  <button onClick={()=>printCot(cot)} style={{ padding:"6px 12px", background:`${COLORS.green}18`, border:`1px solid ${COLORS.green}44`, borderRadius:6, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>🖨 PDF</button>
+                  <button onClick={()=>{ setEditFact({cotId:cot.id}); setFactNum(cot.numero_factura||""); }} style={{ padding:"6px 12px", background:facturado?`${COLORS.green}18`:COLORS.accentDim, border:`1px solid ${facturado?COLORS.green+"44":COLORS.accent+"44"}`, borderRadius:6, color:facturado?COLORS.green:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>{facturado?"✏️ Factura":"+ N° Factura"}</button>
                 </div>
               </div>
             );
           })}
         </div>
       )}
-
-      {/* Modal N° factura */}
       {editFact && (
         <div style={{ position:"fixed", inset:0, background:"#000A", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
           <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:24, width:"100%", maxWidth:380 }}>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text, marginBottom:14 }}>
-              Ingresar N° de Factura SII
-            </div>
-            <input value={factNum} onChange={e=>setFactNum(e.target.value)}
-              placeholder="Ej: 123456"
-              onKeyDown={e=>e.key==="Enter"&&saveFactura(editFact.cotId)}
-              autoFocus
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text, marginBottom:14 }}>Ingresar N° de Factura SII</div>
+            <input value={factNum} onChange={e=>setFactNum(e.target.value)} placeholder="Ej: 123456" onKeyDown={e=>e.key==="Enter"&&saveFactura(editFact.cotId)} autoFocus
               style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"10px 14px", fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
             <div style={{ display:"flex", gap:10, marginTop:14 }}>
               <button onClick={()=>setEditFact(null)} style={{ flex:1, padding:"10px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>Cancelar</button>
