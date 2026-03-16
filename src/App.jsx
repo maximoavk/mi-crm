@@ -11457,9 +11457,10 @@ function ColaboradorView({ session }) {
   useEffect(() => {
     (async () => {
       // Cargar pedidos tipo "pf" (pre-facturas)
-      const { data: grupos } = await supabase.from("pedidos")
+      const { data: grupos, error: gErr } = await supabase.from("pedidos")
         .select("*").eq("tipo","pf").order("created_at", { ascending:false });
-      if (!grupos) { setLoading(false); return; }
+      console.log("Pedidos PF:", grupos, "Error:", gErr);
+      if (!grupos || grupos.length === 0) { setLoading(false); return; }
       // Para cada PF, cargar sus cotizaciones via quote_ids
       const allQuoteIds = [...new Set(grupos.flatMap(g => g.quote_ids||[]))];
       let quotesMap = {};
@@ -11467,6 +11468,7 @@ function ColaboradorView({ session }) {
         const { data: cots } = await supabase.from("cotizaciones")
           .select("id,numero,nombre_cliente,razon_social,total,aplica_iva,direccion")
           .in("id", allQuoteIds);
+        console.log("Cotizaciones:", cots);
         (cots||[]).forEach(c => { quotesMap[c.id] = c; });
       }
       const results = grupos.map(g => ({
