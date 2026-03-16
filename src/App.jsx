@@ -1420,6 +1420,10 @@ function ControlProyectosView({ contacts }) {
                     </div>
                   </div>
                 </div>
+                <div style={{ display:"flex", justifyContent:"flex-end", gap:6, marginTop:6 }}>
+                  <button onClick={e=>{ e.stopPropagation(); setForm({...pr, numero_cotizacion:String(pr.numero_cotizacion||""), fecha_inicio:pr.fecha_inicio||"", fecha_fin:pr.fecha_fin||""}); setCotSearch(String(pr.numero_cotizacion||"")); setCotMatches([]); setModal(pr); }} style={{ padding:"4px 10px", background:"transparent", border:"1px solid #ffffff22", borderRadius:5, color:"#94a3b8", fontSize:11, cursor:"pointer" }}>✏️ Editar</button>
+                  <button onClick={e=>{ e.stopPropagation(); if(window.confirm("¿Eliminar proyecto?")) supabase.from("proyectos").delete().eq("id",pr.id).then(()=>setProyectos(prev=>prev.filter(p=>p.id!==pr.id))); }} style={{ padding:"4px 10px", background:"transparent", border:"1px solid #ef444433", borderRadius:5, color:"#ef4444", fontSize:11, cursor:"pointer" }}>✕</button>
+                </div>
                 {/* Barra Gantt mini */}
                 {pctGantt !== null && (
                   <div style={{ marginTop:10 }}>
