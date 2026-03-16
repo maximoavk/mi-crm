@@ -11545,10 +11545,6 @@ function ColaboradorView({ session }) {
         <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:4 }}>Sesión: <b style={{color:COLORS.accent}}>{session?.user?.email}</b></div>
       </div>
       <div style={{ display:"flex", gap:6, marginBottom:16, flexWrap:"wrap", alignItems:"center" }}>
-        {[{k:"por_facturar",l:"Por Facturar"},{k:"todas",l:"Todas"},{k:"aprobada",l:"Aprobadas"},{k:"enviada",l:"Enviadas"}].map(e=>(
-          <button key={e.k} onClick={()=>setFilterEst(e.k)} style={{ padding:"5px 14px", borderRadius:20, fontFamily:FONT, fontSize:11, cursor:"pointer", background:filterEst===e.k?COLORS.accent:COLORS.card, color:filterEst===e.k?COLORS.bg:COLORS.textMuted, border:`1px solid ${filterEst===e.k?COLORS.accent:COLORS.border}` }}>{e.l}</button>
-        ))}
-        <div style={{ marginLeft:"auto", fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
           {filtered.length} cot. · <b style={{color:COLORS.accent}}>{fmt(filtered.reduce((s,c)=>s+Number(c.total||0),0))}</b>
         </div>
       </div>
@@ -11557,7 +11553,6 @@ function ColaboradorView({ session }) {
       ) : filtered.length === 0 ? (
         <div style={{ textAlign:"center", padding:40, color:COLORS.textMuted, fontFamily:FONT, fontSize:12 }}>
           Sin cotizaciones en esta categoría
-          {filterEst==="por_facturar" && <div style={{marginTop:8,fontSize:11}}>Tip: prueba "Todas" para ver todas las cotizaciones</div>}
         </div>
       ) : (
         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
