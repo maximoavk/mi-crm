@@ -944,100 +944,6 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
       )}
     </div>
   );
-}) {
-  const [filter, setFilter] = useState("pendientes");
-  const [showModal, setShowModal] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title:"", contactId:"", company:"", dueDate:"", priority:"media", type:"tarea" });
-  const f = (k,v) => setForm(p=>({...p,[k]:v}));
-
-  const filtered = tasks.filter(t=>{
-    if(filter==="pendientes") return !t.done;
-    if(filter==="completadas") return t.done;
-    if(filter==="vencidas") return !t.done&&isOverdue(t.dueDate);
-    return true;
-  }).sort((a,b)=>(a.dueDate||"").localeCompare(b.dueDate||""));
-
-  const toggle = async (id, done) => {
-    await supabase.from("task").update({ completada: !done }).eq("id", id);
-    setTasks(tasks.map(t=>t.id===id?{...t,done:!done}:t));
-  };
-
-  const del = async (id) => {
-    await supabase.from("task").delete().eq("id", id);
-    setTasks(tasks.filter(t=>t.id!==id));
-  };
-
-  const save = async () => {
-    if (!form.title) return;
-    setSaving(true);
-    const contact = contacts.find(c=>c.id===form.contactId);
-    const dbForm = { ...form, company: form.company||(contact?.company||"") };
-    const { data, error } = await supabase.from("task").insert(mapTaskToDb(dbForm)).select().single();
-    if (!error) setTasks([...tasks, mapTask(data)]);
-    setSaving(false); setShowModal(false);
-    setForm({ title:"", contactId:"", company:"", dueDate:"", priority:"media", type:"tarea" });
-  };
-
-  return (
-    <div>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:20, flexWrap:"wrap", gap:10 }}>
-        <div>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Seguimiento</div>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Tareas</div>
-        </div>
-        <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
-          {["todas","pendientes","vencidas","completadas"].map(flt=>(
-            <button key={flt} onClick={()=>setFilter(flt)} style={{ padding:"7px 12px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:filter===flt?COLORS.accent:COLORS.card, color:filter===flt?COLORS.bg:COLORS.textMuted, border:`1px solid ${filter===flt?COLORS.accent:COLORS.border}` }}>{flt.charAt(0).toUpperCase()+flt.slice(1)}</button>
-          ))}
-          <AddBtn onClick={()=>setShowModal(true)} label="Nueva" />
-        </div>
-      </div>
-      <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-        {filtered.map(t=>{
-          const pc=PRIORITY_CONFIG[t.priority]||PRIORITY_CONFIG.media;
-          const overdue=!t.done&&isOverdue(t.dueDate);
-          return (
-            <div key={t.id} style={{ background:COLORS.card, border:`1px solid ${overdue?COLORS.red+"44":COLORS.border}`, borderRadius:8, padding:"12px 16px", display:"flex", alignItems:"center", gap:12, opacity:t.done?0.5:1 }}>
-              <div onClick={()=>toggle(t.id,t.done)} style={{ width:20, height:20, borderRadius:4, cursor:"pointer", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", background:t.done?COLORS.green:"transparent", border:`2px solid ${t.done?COLORS.green:COLORS.border}` }}>
-                {t.done && <span style={{ color:COLORS.bg, fontSize:11, fontWeight:700 }}>✓</span>}
-              </div>
-              <div style={{ fontSize:16 }}>{TYPE_ICONS[t.type]||"✅"}</div>
-              <div style={{ flex:1 }}>
-                <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, color:COLORS.text, textDecoration:t.done?"line-through":"none" }}>{t.title}</div>
-                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:2 }}>{t.company}</div>
-              </div>
-              <Tag label={pc.label} color={pc.color} />
-              <div style={{ fontFamily:FONT, fontSize:11, color:overdue?COLORS.red:COLORS.textMuted, minWidth:50, textAlign:"right" }}>{overdue&&"⚠ "}{fmtDate(t.dueDate)}</div>
-              <button onClick={()=>del(t.id)} style={{ background:"none", border:"none", color:COLORS.textDim, cursor:"pointer", fontSize:13 }}>✕</button>
-            </div>
-          );
-        })}
-        {filtered.length===0 && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>Sin tareas en esta categoría</div>}
-      </div>
-      {showModal && (
-        <Modal title="Nueva Tarea" onClose={()=>setShowModal(false)} onSubmit={save}>
-          <Input label="Título *" value={form.title} onChange={e=>f("title",e.target.value)} placeholder="Ej: Llamada de seguimiento" />
-          <Select label="Contacto" value={form.contactId} onChange={e=>{const c=contacts.find(x=>x.id===e.target.value);f("contactId",e.target.value);if(c)f("company",c.company);}}>
-            <option value="">— Sin contacto —</option>
-            {contacts.map(c=><option key={c.id} value={c.id}>{c.name} ({c.company})</option>)}
-          </Select>
-          <Input label="Razón Social" value={form.company} onChange={e=>f("company",e.target.value)} placeholder="Ej: AdministARS" />
-          <Input label="Fecha límite" value={form.dueDate} onChange={e=>f("dueDate",e.target.value)} type="date" />
-          <Select label="Prioridad" value={form.priority} onChange={e=>f("priority",e.target.value)}>
-            <option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option>
-          </Select>
-          <Select label="Tipo" value={form.type} onChange={e=>f("type",e.target.value)}>
-            <option value="llamada">📞 Llamada</option>
-            <option value="email">✉️ Email</option>
-            <option value="reunion">🤝 Reunión</option>
-            <option value="tarea">✅ Tarea</option>
-          </Select>
-          {saving && <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.accent, textAlign:"center" }}>Guardando…</div>}
-        </Modal>
-      )}
-    </div>
-  );
 }
 
 // ── REPORTS ──────────────────────────────────────────────────────────────────
@@ -11245,4 +11151,5 @@ export default function CRM() {
       )}
     </div>
   );
+}
 }
