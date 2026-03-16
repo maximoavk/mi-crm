@@ -11457,17 +11457,24 @@ function ColaboradorView({ session }) {
 
   useEffect(() => {
     (async () => {
-      // Deals en por_facturar → obtener numeros de cotizacion
-      const { data: dealsData } = await supabase.from("deals")
-        .select("numero_cotizacion").eq("etapa","por_facturar");
-      const pfNums = new Set((dealsData||[]).map(d=>String(d.numero_cotizacion)).filter(Boolean));
+      // Obtener numeros de cotizacion en por_facturar desde deals
+      let pfNums = new Set();
+      try {
+        const { data: dealsData } = await supabase.from("deals")
+          .select("numero_cotizacion").eq("etapa","por_facturar");
+        (dealsData||[]).forEach(d => { if(d.numero_cotizacion) pfNums.add(String(d.numero_cotizacion)); });
+      } catch(e) { console.warn("deals RLS:", e); }
 
       // Todas las cotizaciones
       const { data } = await supabase.from("cotizaciones")
-        .select("id,numero,serie,nombre_cliente,razon_social,rut_cliente,direccion,total,aplica_iva,estado,numero_factura,created_at")
+        .select("id,numero,serie,nombre_cliente,razon_social,rut_cliente,direccion,total,aplica_iva,estado,created_at")
         .order("numero", { ascending: false });
 
-      setCots((data||[]).map(c => ({...c, en_por_facturar: pfNums.has(String(c.numero)) })));
+      setCots((data||[]).map(c => ({
+        ...c,
+        numero_factura: c.numero_factura || "",
+        en_por_facturar: pfNums.has(String(c.numero))
+      })));
       setLoading(false);
     })();
   }, []);
@@ -11487,57 +11494,46 @@ function ColaboradorView({ session }) {
   });
 
   const printCot = (cot) => {
-    const html = [
+    const parts = [
       "<!DOCTYPE html><html><head><meta charset='UTF-8'>",
-      "<style>*{box-sizing:border-box;margin:0;padding:0}",
-      "body{font-family:Arial,sans-serif;font-size:10px;padding:12mm;background:#fff;color:#1e293b}",
+      "<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:10px;padding:12mm;background:#fff;color:#1e293b}",
       ".hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:12px;border-bottom:2px solid #0f172a}",
-      ".logo{height:36px}",
-      ".grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}",
+      ".logo{height:36px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}",
       ".slbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:3px}",
       ".sval{font-size:11px;font-weight:600;color:#1e293b}",
-      ".total-box{border:2px solid #cc0000;border-radius:8px;padding:14px;text-align:center;margin-top:14px}",
-      ".factura-box{margin-top:12px;padding:10px 14px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc}",
+      ".tbox{border:2px solid #cc0000;border-radius:8px;padding:14px;text-align:center;margin-top:14px}",
+      ".fbox{margin-top:12px;padding:10px 14px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc}",
       ".firma{margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end}",
-      "@page{size:A4 portrait;margin:0}@media print{body{padding:10mm}}",
-      "</style></head><body>",
-      "<div class='hdr'>",
-      "<div style='display:flex;align-items:center;gap:12px'>",
+      "@page{size:A4 portrait;margin:0}@media print{body{padding:10mm}}</style></head><body>",
+      "<div class='hdr'><div style='display:flex;align-items:center;gap:12px'>",
       "<img src='https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png' class='logo'/>",
       "<div><div style='font-size:13px;font-weight:700'>Cotización Para Facturar</div>",
       "<div style='font-size:8.5px;color:#64748b'>Polygonos SpA · RUT 77.180.437-3</div>",
       "<div style='font-size:8.5px;color:#e11d48'>Documento interno — No válido como factura</div></div></div>",
       "<div style='text-align:right'>",
-      `<div style='font-size:22px;font-weight:900;color:#0f172a'>${(cot.serie||"COT")}-${cot.numero}</div>`,
-      `<div style='font-size:9px;color:${cot.aplica_iva?"#0ea5e9":"#f59e0b"};margin-top:2px;font-weight:700'>${cot.aplica_iva?"Con IVA":"Sin IVA"}</div>`,
-      `<div style='font-size:9px;color:#64748b'>${new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"})}</div>`,
+      "<div style='font-size:22px;font-weight:900;color:#0f172a'>" + (cot.serie||"COT") + "-" + cot.numero + "</div>",
+      "<div style='font-size:9px;color:" + (cot.aplica_iva?"#0ea5e9":"#f59e0b") + ";margin-top:2px;font-weight:700'>" + (cot.aplica_iva?"Con IVA":"Sin IVA") + "</div>",
+      "<div style='font-size:9px;color:#64748b'>" + new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"}) + "</div>",
       "</div></div>",
       "<div class='grid'>",
-      `<div><div class='slbl'>Razón Social</div><div class='sval'>${cot.razon_social||cot.nombre_cliente||"—"}</div></div>`,
-      `<div><div class='slbl'>RUT</div><div class='sval'>${cot.rut_cliente||"—"}</div></div>`,
-      cot.direccion ? `<div style='grid-column:1/-1'><div class='slbl'>Dirección</div><div class='sval'>${cot.direccion}</div></div>` : "",
+      "<div><div class='slbl'>Razón Social</div><div class='sval'>" + (cot.razon_social||cot.nombre_cliente||"—") + "</div></div>",
+      "<div><div class='slbl'>RUT</div><div class='sval'>" + (cot.rut_cliente||"—") + "</div></div>",
+      cot.direccion ? "<div style='grid-column:1/-1'><div class='slbl'>Dirección</div><div class='sval'>" + cot.direccion + "</div></div>" : "",
       "</div>",
-      "<div class='total-box'>",
-      "<div style='font-size:9px;color:#cc0000;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px'>Total a Facturar</div>",
-      `<div style='font-size:28px;font-weight:900;color:#cc0000'>$${Number(cot.total||0).toLocaleString("es-CL")}</div>`,
-      `<div style='font-size:9px;color:#64748b;margin-top:4px'>${cot.aplica_iva?"Incluye IVA (19%)":"Monto neto sin IVA"}</div>`,
-      "</div>",
-      "<div class='factura-box'>",
-      "<div style='font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-bottom:4px'>Número de Factura SII</div>",
-      cot.numero_factura
-        ? `<div style='font-size:18px;font-weight:900;color:#16a34a'>Factura N° ${cot.numero_factura}</div>`
-        : "<div style='font-size:12px;color:#94a3b8;font-style:italic'>Pendiente — completar al emitir en SII</div>",
+      "<div class='tbox'><div style='font-size:9px;color:#cc0000;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px'>Total a Facturar</div>",
+      "<div style='font-size:28px;font-weight:900;color:#cc0000'>$" + Number(cot.total||0).toLocaleString("es-CL") + "</div>",
+      "<div style='font-size:9px;color:#64748b;margin-top:4px'>" + (cot.aplica_iva?"Incluye IVA (19%)":"Monto neto sin IVA") + "</div></div>",
+      "<div class='fbox'><div style='font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-bottom:4px'>Número de Factura SII</div>",
+      cot.numero_factura ? "<div style='font-size:18px;font-weight:900;color:#16a34a'>Factura N° " + cot.numero_factura + "</div>" : "<div style='font-size:12px;color:#94a3b8;font-style:italic'>Pendiente — completar al emitir en SII</div>",
       "</div>",
       "<div class='firma'><div style='text-align:right;font-size:10px;color:#475569'>",
       "<div style='font-weight:700;color:#1e293b;font-size:11px'>Firmado digitalmente por</div>",
       "<div style='font-weight:700;color:#1e293b;font-size:11px'>MAXIMO MANUEL HUDSON BLANCO</div>",
-      `<div style='margin-top:2px'>Fecha: ${new Date().toLocaleDateString("es-CL")} ${new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"})}</div>`,
-      "<div>Polygonos SpA · RUT 77.180.437-3</div>",
-      "</div></div>",
-      "<scr"+"ipt>window.onload=()=>window.print()</scr"+"ipt>",
-      "</body></html>"
-    ].join("");
-    const w = window.open("","_blank"); w.document.write(html); w.document.close();
+      "<div style='margin-top:2px'>Fecha: " + new Date().toLocaleDateString("es-CL") + " " + new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"}) + "</div>",
+      "<div>Polygonos SpA · RUT 77.180.437-3</div></div></div>",
+      "<scr"+"ipt>window.onload=()=>window.print()</scr"+"ipt></body></html>"
+    ];
+    const w = window.open("","_blank"); w.document.write(parts.join("")); w.document.close();
   };
 
   return (
@@ -11558,7 +11554,10 @@ function ColaboradorView({ session }) {
       {loading ? (
         <div style={{ textAlign:"center", padding:60, color:COLORS.textMuted, fontFamily:FONT }}>Cargando…</div>
       ) : filtered.length === 0 ? (
-        <div style={{ textAlign:"center", padding:60, color:COLORS.textMuted, fontFamily:FONT }}>Sin cotizaciones en esta categoría</div>
+        <div style={{ textAlign:"center", padding:40, color:COLORS.textMuted, fontFamily:FONT, fontSize:12 }}>
+          Sin cotizaciones en esta categoría
+          {filterEst==="por_facturar" && <div style={{marginTop:8,fontSize:11}}>Tip: prueba "Todas" para ver todas las cotizaciones</div>}
+        </div>
       ) : (
         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
           {filtered.map(cot => {
