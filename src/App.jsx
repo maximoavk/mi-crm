@@ -11544,10 +11544,6 @@ function ColaboradorView({ session }) {
         <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Cotizaciones · Por Facturar</div>
         <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:4 }}>Sesión: <b style={{color:COLORS.accent}}>{session?.user?.email}</b></div>
       </div>
-      <div style={{ display:"flex", gap:6, marginBottom:16, flexWrap:"wrap", alignItems:"center" }}>
-          {filtered.length} cot. · <b style={{color:COLORS.accent}}>{fmt(filtered.reduce((s,c)=>s+Number(c.total||0),0))}</b>
-        </div>
-      </div>
       {loading ? (
         <div style={{ textAlign:"center", padding:60, color:COLORS.textMuted, fontFamily:FONT }}>Cargando…</div>
       ) : filtered.length === 0 ? (
