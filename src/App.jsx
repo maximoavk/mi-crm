@@ -44,11 +44,25 @@ const mapTask = (r) => ({
   id: r.id, title: r.titulo, company: r.empresa, contactId: r.contact_id,
   dueDate: r.fecha_limite, priority: r.prioridad, type: r.tipo,
   done: r.completada || false,
+  status: r.estado || "pendiente",
+  category: r.categoria || "Comercial / Venta",
+  startDate: r.fecha_inicio || null,
+  startTime: r.hora_inicio || "",
+  endTime: r.hora_fin || "",
+  notes: r.notas || "",
+  cotizacion: r.cotizacion || "",
 });
 const mapTaskToDb = (f) => ({
   titulo: f.title, empresa: f.company, contact_id: f.contactId || null,
   fecha_limite: f.dueDate || null, prioridad: f.priority,
   tipo: f.type, completada: f.done || false,
+  estado: f.status || "pendiente",
+  categoria: f.category || "Comercial / Venta",
+  fecha_inicio: f.startDate || null,
+  hora_inicio: f.startTime || null,
+  hora_fin: f.endTime || null,
+  notas: f.notes || "",
+  cotizacion: f.cotizacion || "",
 });
 
 // ── CONSTANTS ───────────────────────────────────────────────────────────────
@@ -640,6 +654,297 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
 
 // ── TASKS ────────────────────────────────────────────────────────────────────
 function TasksView({ tasks, setTasks, contacts, isMobile }) {
+  const TASK_STATUSES = [
+    { key:"pendiente",    label:"Pendiente",    color:"#FFB800" },
+    { key:"en_progreso",  label:"En progreso",  color:"#00C2FF" },
+    { key:"en_espera",    label:"En espera",    color:"#A855F7" },
+    { key:"completada",   label:"Completada",   color:"#00E5A0" },
+    { key:"cancelada",    label:"Cancelada",    color:"#6B7A99" },
+  ];
+  const TASK_CATEGORIES = [
+    "Comercial / Venta","Operaciones / Terreno","Visita cliente",
+    "Seguimiento","Cobranza / Pago","Soporte / Post-venta","Administrativa"
+  ];
+  const CAT_COLORS = {
+    "Comercial / Venta":"#00C2FF","Operaciones / Terreno":"#00E5A0",
+    "Visita cliente":"#FFB800","Seguimiento":"#A855F7",
+    "Cobranza / Pago":"#FF4D6A","Soporte / Post-venta":"#F97316","Administrativa":"#6B7A99"
+  };
+
+  const [viewMode, setViewMode]   = useState("lista"); // lista | dia | semana
+  const [calDate, setCalDate]     = useState(new Date().toISOString().slice(0,10));
+  const [filter, setFilter]       = useState("todas");
+  const [filterCat, setFilterCat] = useState("todas");
+  const [showModal, setShowModal] = useState(false);
+  const [editTask, setEditTask]   = useState(null);
+  const [saving, setSaving]       = useState(false);
+  const emptyForm = () => ({ title:"", contactId:"", company:"", dueDate:"", startDate:"", startTime:"09:00", endTime:"10:00", priority:"media", type:"tarea", status:"pendiente", category:"Comercial / Venta", notes:"", cotizacion:"" });
+  const [form, setForm] = useState(emptyForm());
+  const ff = (k,v) => setForm(p=>({...p,[k]:v}));
+
+  // ── Filtrar ──
+  const today = new Date().toISOString().slice(0,10);
+  const filtered = tasks.filter(t => {
+    const statusOk = filter==="todas" ? true : filter==="vencidas" ? (t.status!=="completada"&&t.status!=="cancelada"&&t.dueDate&&t.dueDate<today) : t.status===filter;
+    const catOk    = filterCat==="todas" || t.category===filterCat;
+    return statusOk && catOk;
+  }).sort((a,b)=>(a.dueDate||"").localeCompare(b.dueDate||""));
+
+  // ── Guardar ──
+  const save = async () => {
+    if (!form.title) return;
+    setSaving(true);
+    const contact = contacts.find(c=>c.id===form.contactId);
+    const dbForm = { ...form, company: form.company||(contact?.company||""), done: form.status==="completada" };
+    if (editTask) {
+      const { data } = await supabase.from("task").update(mapTaskToDb(dbForm)).eq("id", editTask.id).select().single();
+      if (data) setTasks(tasks.map(t=>t.id===editTask.id ? mapTask(data) : t));
+    } else {
+      const { data } = await supabase.from("task").insert(mapTaskToDb(dbForm)).select().single();
+      if (data) setTasks([...tasks, mapTask(data)]);
+    }
+    setSaving(false); setShowModal(false); setEditTask(null); setForm(emptyForm());
+  };
+
+  const del = async (id) => {
+    if (!window.confirm("¿Eliminar esta tarea?")) return;
+    await supabase.from("task").delete().eq("id", id);
+    setTasks(tasks.filter(t=>t.id!==id));
+  };
+
+  const updateStatus = async (id, newStatus) => {
+    await supabase.from("task").update({ estado: newStatus, completada: newStatus==="completada" }).eq("id", id);
+    setTasks(tasks.map(t=>t.id===id ? {...t, status:newStatus, done:newStatus==="completada"} : t));
+  };
+
+  const openEdit = (t) => {
+    setEditTask(t);
+    setForm({ title:t.title, contactId:t.contactId||"", company:t.company||"", dueDate:t.dueDate||"", startDate:t.startDate||"", startTime:t.startTime||"09:00", endTime:t.endTime||"10:00", priority:t.priority||"media", type:t.type||"tarea", status:t.status||"pendiente", category:t.category||"Comercial / Venta", notes:t.notes||"", cotizacion:t.cotizacion||"" });
+    setShowModal(true);
+  };
+
+  // ── Helpers ──
+  const stCfg = (s) => TASK_STATUSES.find(x=>x.key===s) || TASK_STATUSES[0];
+  const inp = { width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", boxSizing:"border-box" };
+  const lbl = { fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4, display:"block" };
+
+  // ── Vista día: tareas del día seleccionado, agrupadas por hora ──
+  const HOURS = Array.from({length:14}, (_,i)=>i+7); // 7am-20pm
+  const tasksDay = tasks.filter(t => (t.startDate||t.dueDate)===calDate);
+  const tasksWeek = (() => {
+    const d = new Date(calDate+"T12:00"); d.setDate(d.getDate() - d.getDay() + 1);
+    const week = Array.from({length:7}, (_,i)=>{ const dd=new Date(d); dd.setDate(d.getDate()+i); return dd.toISOString().slice(0,10); });
+    return week.map(date=>({ date, tasks: tasks.filter(t=>(t.startDate||t.dueDate)===date) }));
+  })();
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:18, flexWrap:"wrap", gap:10 }}>
+        <div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Operaciones</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Tareas</div>
+        </div>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+          {/* Vista */}
+          {["lista","dia","semana"].map(v=>(
+            <button key={v} onClick={()=>setViewMode(v)} style={{ padding:"6px 12px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:viewMode===v?COLORS.accent:COLORS.card, color:viewMode===v?COLORS.bg:COLORS.textMuted, border:`1px solid ${viewMode===v?COLORS.accent:COLORS.border}` }}>
+              {v==="lista"?"☰ Lista":v==="dia"?"📅 Día":"📆 Semana"}
+            </button>
+          ))}
+          <AddBtn onClick={()=>{ setEditTask(null); setForm(emptyForm()); setShowModal(true); }} label="Nueva tarea" />
+        </div>
+      </div>
+
+      {/* Filtros */}
+      <div style={{ display:"flex", gap:6, marginBottom:14, flexWrap:"wrap", alignItems:"center" }}>
+        <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+          {[{k:"todas",l:"Todas"},{k:"vencidas",l:"⚠ Vencidas"},{k:"pendiente",l:"Pendiente"},{k:"en_progreso",l:"En progreso"},{k:"en_espera",l:"En espera"},{k:"completada",l:"Completada"},{k:"cancelada",l:"Cancelada"}].map(({k,l})=>(
+            <button key={k} onClick={()=>setFilter(k)} style={{ padding:"4px 10px", borderRadius:5, fontFamily:FONT, fontSize:11, cursor:"pointer", background:filter===k?COLORS.accent:COLORS.card, color:filter===k?COLORS.bg:COLORS.textMuted, border:`1px solid ${filter===k?COLORS.accent:COLORS.border}` }}>{l}</button>
+          ))}
+        </div>
+        <select value={filterCat} onChange={e=>setFilterCat(e.target.value)} style={{ ...inp, width:"auto", fontSize:11, padding:"4px 10px" }}>
+          <option value="todas">Todas las categorías</option>
+          {TASK_CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}
+        </select>
+      </div>
+
+      {/* ── VISTA LISTA ── */}
+      {viewMode==="lista" && (
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {filtered.map(t=>{
+            const sc = stCfg(t.status);
+            const overdue = t.status!=="completada"&&t.status!=="cancelada"&&t.dueDate&&t.dueDate<today;
+            const catColor = CAT_COLORS[t.category]||COLORS.textMuted;
+            return (
+              <div key={t.id} style={{ background:COLORS.card, border:`1px solid ${overdue?COLORS.red+"44":COLORS.border}`, borderRadius:8, padding:"12px 16px", display:"flex", alignItems:"flex-start", gap:12, opacity:t.status==="cancelada"?0.5:1 }}>
+                {/* Status pill clickeable */}
+                <div style={{ flexShrink:0, marginTop:2 }}>
+                  <select value={t.status} onChange={e=>updateStatus(t.id,e.target.value)}
+                    style={{ background:`${sc.color}22`, border:`1px solid ${sc.color}44`, borderRadius:20, padding:"2px 8px", fontFamily:FONT, fontSize:10, color:sc.color, cursor:"pointer", outline:"none", fontWeight:700 }}>
+                    {TASK_STATUSES.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
+                  </select>
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:3 }}>
+                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, textDecoration:t.status==="completada"?"line-through":"none" }}>{t.title}</span>
+                    <span style={{ fontFamily:FONT, fontSize:10, background:`${catColor}18`, color:catColor, border:`1px solid ${catColor}33`, borderRadius:10, padding:"1px 7px" }}>{t.category}</span>
+                    {t.cotizacion && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>COT-{t.cotizacion}</span>}
+                  </div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                    {t.company}{t.startTime?` · ${t.startTime}${t.endTime?`-${t.endTime}`:""}`:""}{t.dueDate?` · Vence: ${fmtDate(t.dueDate)}`:""}
+                    {overdue && <span style={{ color:COLORS.red, marginLeft:6 }}>⚠ Vencida</span>}
+                  </div>
+                  {t.notes && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:4, fontStyle:"italic" }}>{t.notes}</div>}
+                </div>
+                <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                  <button onClick={()=>openEdit(t)} style={{ background:"none", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.textMuted, cursor:"pointer", padding:"3px 8px", fontSize:11 }}>✏️</button>
+                  <button onClick={()=>del(t.id)} style={{ background:"none", border:"none", color:COLORS.textDim, cursor:"pointer", fontSize:13 }}>✕</button>
+                </div>
+              </div>
+            );
+          })}
+          {filtered.length===0 && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>Sin tareas en esta categoría</div>}
+        </div>
+      )}
+
+      {/* ── VISTA DÍA ── */}
+      {viewMode==="dia" && (
+        <div>
+          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:14 }}>
+            <button onClick={()=>{ const d=new Date(calDate+"T12:00"); d.setDate(d.getDate()-1); setCalDate(d.toISOString().slice(0,10)); }} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"5px 10px", color:COLORS.text, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>←</button>
+            <input type="date" value={calDate} onChange={e=>setCalDate(e.target.value)} style={{ ...inp, width:"auto", fontSize:12 }} />
+            <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:600, color:COLORS.text }}>
+              {new Date(calDate+"T12:00").toLocaleDateString("es-CL",{weekday:"long",day:"numeric",month:"long"})}
+            </span>
+            <button onClick={()=>{ const d=new Date(calDate+"T12:00"); d.setDate(d.getDate()+1); setCalDate(d.toISOString().slice(0,10)); }} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"5px 10px", color:COLORS.text, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>→</button>
+            <button onClick={()=>setCalDate(new Date().toISOString().slice(0,10))} style={{ background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, borderRadius:6, padding:"5px 10px", color:COLORS.accent, cursor:"pointer", fontFamily:FONT, fontSize:11 }}>Hoy</button>
+          </div>
+          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, overflow:"hidden" }}>
+            {HOURS.map(h=>{
+              const hStr = `${String(h).padStart(2,"0")}:00`;
+              const hTasks = tasksDay.filter(t=>t.startTime && t.startTime.slice(0,2)===String(h).padStart(2,"0"));
+              const noTimeTasks = h===7 ? tasksDay.filter(t=>!t.startTime) : [];
+              return (
+                <div key={h} style={{ display:"flex", borderBottom:`1px solid ${COLORS.border}`, minHeight:48 }}>
+                  <div style={{ width:52, padding:"6px 8px", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, flexShrink:0, borderRight:`1px solid ${COLORS.border}`, paddingTop:8 }}>{hStr}</div>
+                  <div style={{ flex:1, padding:"4px 8px", display:"flex", flexDirection:"column", gap:4 }}>
+                    {[...hTasks,...noTimeTasks].map(t=>{
+                      const sc=stCfg(t.status);
+                      const catColor=CAT_COLORS[t.category]||COLORS.textMuted;
+                      return (
+                        <div key={t.id} onClick={()=>openEdit(t)}
+                          style={{ background:`${catColor}18`, border:`1px solid ${catColor}44`, borderLeft:`3px solid ${catColor}`, borderRadius:5, padding:"4px 10px", cursor:"pointer", display:"flex", alignItems:"center", gap:8 }}>
+                          <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text, flex:1 }}>{t.title}</span>
+                          <span style={{ fontFamily:FONT, fontSize:10, color:sc.color, fontWeight:700 }}>{sc.label}</span>
+                          {t.startTime && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{t.startTime}{t.endTime?`-${t.endTime}`:""}</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── VISTA SEMANA ── */}
+      {viewMode==="semana" && (
+        <div>
+          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:14 }}>
+            <button onClick={()=>{ const d=new Date(calDate+"T12:00"); d.setDate(d.getDate()-7); setCalDate(d.toISOString().slice(0,10)); }} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"5px 10px", color:COLORS.text, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>←</button>
+            <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text }}>
+              Semana del {new Date(tasksWeek[0]?.date+"T12:00").toLocaleDateString("es-CL",{day:"numeric",month:"short"})} al {new Date(tasksWeek[6]?.date+"T12:00").toLocaleDateString("es-CL",{day:"numeric",month:"short",year:"numeric"})}
+            </span>
+            <button onClick={()=>{ const d=new Date(calDate+"T12:00"); d.setDate(d.getDate()+7); setCalDate(d.toISOString().slice(0,10)); }} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"5px 10px", color:COLORS.text, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>→</button>
+            <button onClick={()=>setCalDate(new Date().toISOString().slice(0,10))} style={{ background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, borderRadius:6, padding:"5px 10px", color:COLORS.accent, cursor:"pointer", fontFamily:FONT, fontSize:11 }}>Hoy</button>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:8 }}>
+            {tasksWeek.map(({date,tasks:dayTasks})=>{
+              const isToday = date===new Date().toISOString().slice(0,10);
+              return (
+                <div key={date} style={{ background:COLORS.card, border:`1px solid ${isToday?COLORS.accent:COLORS.border}`, borderRadius:8, minHeight:120, overflow:"hidden" }}>
+                  <div style={{ padding:"6px 8px", background:isToday?COLORS.accentDim:COLORS.surface, borderBottom:`1px solid ${COLORS.border}`, textAlign:"center" }}>
+                    <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase" }}>
+                      {new Date(date+"T12:00").toLocaleDateString("es-CL",{weekday:"short"})}
+                    </div>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:isToday?COLORS.accent:COLORS.text }}>
+                      {new Date(date+"T12:00").getDate()}
+                    </div>
+                  </div>
+                  <div style={{ padding:"4px 6px", display:"flex", flexDirection:"column", gap:3 }}>
+                    {dayTasks.map(t=>{
+                      const catColor=CAT_COLORS[t.category]||COLORS.textMuted;
+                      const sc=stCfg(t.status);
+                      return (
+                        <div key={t.id} onClick={()=>openEdit(t)}
+                          style={{ background:`${catColor}18`, borderLeft:`2px solid ${catColor}`, borderRadius:3, padding:"2px 6px", cursor:"pointer", fontSize:11 }}>
+                          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.title}</div>
+                          <div style={{ fontFamily:FONT, fontSize:9, color:sc.color }}>{sc.label}</div>
+                        </div>
+                      );
+                    })}
+                    {dayTasks.length===0 && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, textAlign:"center", padding:"8px 0" }}>—</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL ── */}
+      {showModal && (
+        <div style={{ position:"fixed", inset:0, background:"#000A", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+          <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:24, width:"100%", maxWidth:520, maxHeight:"88vh", overflowY:"auto" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text }}>{editTask?"Editar tarea":"Nueva tarea"}</div>
+              <button onClick={()=>{ setShowModal(false); setEditTask(null); }} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:18 }}>✕</button>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+              <div><label style={lbl}>Título *</label><input value={form.title} onChange={e=>ff("title",e.target.value)} placeholder="Ej: Visita técnica cliente" style={inp} /></div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+                <div><label style={lbl}>Estado</label>
+                  <select value={form.status} onChange={e=>ff("status",e.target.value)} style={inp}>
+                    {TASK_STATUSES.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
+                  </select>
+                </div>
+                <div><label style={lbl}>Categoría</label>
+                  <select value={form.category} onChange={e=>ff("category",e.target.value)} style={inp}>
+                    {TASK_CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div><label style={lbl}>Fecha inicio</label><input type="date" value={form.startDate} onChange={e=>ff("startDate",e.target.value)} style={inp} /></div>
+                <div><label style={lbl}>Fecha límite</label><input type="date" value={form.dueDate} onChange={e=>ff("dueDate",e.target.value)} style={inp} /></div>
+                <div><label style={lbl}>Hora inicio</label><input type="time" value={form.startTime} onChange={e=>ff("startTime",e.target.value)} style={inp} /></div>
+                <div><label style={lbl}>Hora fin</label><input type="time" value={form.endTime} onChange={e=>ff("endTime",e.target.value)} style={inp} /></div>
+                <div><label style={lbl}>Prioridad</label>
+                  <select value={form.priority} onChange={e=>ff("priority",e.target.value)} style={inp}>
+                    <option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option>
+                  </select>
+                </div>
+                <div><label style={lbl}>N° Cotización</label><input value={form.cotizacion} onChange={e=>ff("cotizacion",e.target.value)} placeholder="Ej: 88" style={inp} /></div>
+              </div>
+              <div><label style={lbl}>Contacto</label>
+                <select value={form.contactId} onChange={e=>{ const c=contacts.find(x=>x.id===e.target.value); ff("contactId",e.target.value); if(c) ff("company",c.company); }} style={inp}>
+                  <option value="">— Sin contacto —</option>
+                  {contacts.map(c=><option key={c.id} value={c.id}>{c.name} ({c.company})</option>)}
+                </select>
+              </div>
+              <div><label style={lbl}>Empresa / Razón social</label><input value={form.company} onChange={e=>ff("company",e.target.value)} style={inp} /></div>
+              <div><label style={lbl}>Notas</label><textarea value={form.notes} onChange={e=>ff("notes",e.target.value)} rows={3} style={{ ...inp, resize:"vertical" }} /></div>
+            </div>
+            <div style={{ display:"flex", gap:10, marginTop:18 }}>
+              <button onClick={()=>{ setShowModal(false); setEditTask(null); }} style={{ flex:1, padding:"10px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>Cancelar</button>
+              <button onClick={save} disabled={saving} style={{ flex:2, padding:"10px 0", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>{saving?"Guardando…":"Guardar"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}) {
   const [filter, setFilter] = useState("pendientes");
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1329,19 +1634,9 @@ function GanttView({ isMobile }) {
   const [calStart, setCalStart]   = useState(new Date().toISOString().slice(0,10));
   const [calDays, setCalDays]     = useState(60);
   const [editRow, setEditRow]     = useState(null); // id de fila en edición inline
-  const [allGantts, setAllGantts] = useState([]);
-  const [headerData, setHeaderData] = useState({ elaboradoPor:"Maximo Hudson", cliente:"", fechaEmision: new Date().toISOString().slice(0,10) });
-  const [headerEdit, setHeaderEdit] = useState(false);
   const cellW = 28;
   const today = new Date().toISOString().slice(0,10);
   const calCols = buildCalHeader(calStart, calDays);
-
-  // Cargar índice de Gantt al montar
-  useEffect(() => {
-    supabase.from("gantt_proyectos").select("id,nombre,numero_cotizacion,fecha_inicio,fecha_fin")
-      .order("numero_cotizacion", { ascending: false })
-      .then(({ data }) => setAllGantts(data || []));
-  }, []);
 
   // Agrupar meses para header
   const months = [];
@@ -1482,138 +1777,28 @@ function GanttView({ isMobile }) {
       </div>
 
       {!proyecto && (
-        <div>
-          {allGantts.length > 0 && (
-            <div style={{ marginBottom:20 }}>
-              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>
-                Cartas Gantt guardadas ({allGantts.length})
-              </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                {allGantts.map(g => (
-                  <div key={g.id} onClick={() => { setCotNum(String(g.numero_cotizacion)); cargarGantt(String(g.numero_cotizacion)); }}
-                    style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"12px 18px", cursor:"pointer", display:"flex", alignItems:"center", gap:14, transition:"border-color 0.15s" }}
-                    onMouseEnter={e=>e.currentTarget.style.borderColor=COLORS.accent}
-                    onMouseLeave={e=>e.currentTarget.style.borderColor=COLORS.border}>
-                    <div style={{ width:40, height:40, borderRadius:8, background:`${COLORS.accent}18`, border:`1px solid ${COLORS.accent}33`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.accent }}>#{g.numero_cotizacion}</span>
-                    </div>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text, marginBottom:2 }}>{g.nombre}</div>
-                      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
-                        {g.fecha_inicio ? new Date(g.fecha_inicio+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"}) : "—"}
-                        {g.fecha_fin ? ` → ${new Date(g.fecha_fin+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}` : ""}
-                      </div>
-                    </div>
-                    <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.accent }}>Abrir →</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:24, textAlign:"center" }}>
-            <div style={{ fontSize:32, marginBottom:8 }}>📅</div>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, color:COLORS.textMuted }}>Ingresa un N° de cotización para cargar o crear un nuevo Gantt</div>
-          </div>
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:40, textAlign:"center" }}>
+          <div style={{ fontSize:40, marginBottom:12 }}>📅</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, color:COLORS.textMuted }}>Ingresa el número de cotización para cargar o crear un plan de proyecto</div>
+          <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginTop:8 }}>Las fases se importan automáticamente desde el costeo</div>
         </div>
       )}
 
       {proyecto && (
         <>
-          {/* ── ENCABEZADO EDITABLE ── */}
-          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"12px 16px", marginBottom:12, position:"relative" }}>
-            {headerEdit ? (
-              <div>
-                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>Editar encabezado del documento</div>
-                <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr", gap:10, marginBottom:10 }}>
-                  {[["Elaborado por","elaboradoPor"],["Cliente","cliente"],["Fecha emisión","fechaEmision"]].map(([lbl,key])=>(
-                    <div key={key}>
-                      <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:3, textTransform:"uppercase" }}>{lbl}</div>
-                      <input type={key==="fechaEmision"?"date":"text"} value={headerData[key]}
-                        onChange={e=>setHeaderData(p=>({...p,[key]:e.target.value}))}
-                        style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"6px 10px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
-                    </div>
-                  ))}
-                </div>
-                <button onClick={()=>setHeaderEdit(false)} style={{ padding:"5px 16px", background:COLORS.accent, border:"none", borderRadius:6, color:"#fff", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>✓ Listo</button>
-              </div>
-            ) : (
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:10 }}>
-                <div style={{ display:"flex", gap:12, alignItems:"center" }}>
-                  <img src={LOGO_B64} alt="Polygonos" style={{ height:34 }} />
-                  <div>
-                    <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.1em" }}>Polygonos SpA · RUT 77.180.437-3</div>
-                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text }}>Carta Gantt · COT-{proyecto.cotNum}</div>
-                  </div>
-                </div>
-                <div style={{ display:"flex", gap:20, alignItems:"center", flexWrap:"wrap" }}>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
-                    {headerData.cliente && <span>Cliente: <b style={{color:COLORS.text}}>{headerData.cliente}</b> · </span>}
-                    Elaborado por: <b style={{color:COLORS.text}}>{headerData.elaboradoPor}</b>
-                    {headerData.fechaEmision && <span> · Emisión: <b style={{color:COLORS.text}}>{new Date(headerData.fechaEmision+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}</b></span>}
-                  </div>
-                  {(() => {
-                    const ts = tasks.filter(t=>t.tipo!=="H");
-                    const prom = ts.length ? Math.round(ts.reduce((s,t)=>s+Number(t.pctAvance||0),0)/ts.length) : 0;
-                    return (
-                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                        <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Avance: <b style={{color:COLORS.accent}}>{prom}%</b></span>
-                        <div style={{ width:80, height:5, background:COLORS.border, borderRadius:3 }}>
-                          <div style={{ width:`${prom}%`, height:5, background:prom===100?COLORS.green:COLORS.accent, borderRadius:3 }} />
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-                <button onClick={()=>setHeaderEdit(true)}
-                  style={{ padding:"4px 10px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>
-                  ✏️ Editar
-                </button>
-              </div>
-            )}
-          </div>
-
           {/* Controles de vista */}
           <div style={{ display:"flex", gap:10, marginBottom:12, alignItems:"center", flexWrap:"wrap" }}>
             <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Inicio calendario:</span>
             <input type="date" value={calStart} onChange={e=>setCalStart(e.target.value)} style={{...s}} />
             <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Días vista:</span>
-            {[{d:5,l:"5d"},{d:7,l:"7d"},{d:15,l:"15d"},{d:30,l:"30d"},{d:60,l:"60d"}].map(({d,l})=>(
-              <button key={d} onClick={()=>setCalDays(d)} style={{ padding:"3px 10px", background: calDays===d?COLORS.accent:"transparent", border:`1px solid ${calDays===d?COLORS.accent:COLORS.border}`, borderRadius:5, color: calDays===d?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>{l}</button>
+            {[30,60,90,120].map(d=>(
+              <button key={d} onClick={()=>setCalDays(d)} style={{ padding:"3px 10px", background: calDays===d?COLORS.accent:"transparent", border:`1px solid ${calDays===d?COLORS.accent:COLORS.border}`, borderRadius:5, color: calDays===d?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>{d}d</button>
             ))}
-            {/* Leyenda + PDF */}
-            <div style={{ display:"flex", gap:10, marginLeft:"auto", flexWrap:"wrap", alignItems:"center" }}>
-              {[["Fase","#3b82f6"],["Tarea","#6366f1"],["Hito","#f59e0b"],["Completado","#22c55e"],["Atrasado","#ef4444"]].map(([l,c])=>(
+            {/* Leyenda */}
+            <div style={{ display:"flex", gap:10, marginLeft:"auto", flexWrap:"wrap" }}>
+              {[["Fase","#3b82f6"],["Tarea","#6366f1"],["Hito","#f59e0b"],["Completado","#39ff14"],["Atrasado","#ef4444"]].map(([l,c])=>(
                 <span key={l} style={{ fontFamily:FONT, fontSize:10, color:c }}>● {l}</span>
               ))}
-              <button onClick={()=>{
-                const cols = buildCalHeader(calStart, calDays);
-                const mths = [];
-                cols.forEach(c=>{ const mn=new Date(c.date).toLocaleDateString("es-CL",{month:"short",year:"2-digit"}); if(!mths.length||mths[mths.length-1].n!==mn) mths.push({n:mn,count:1}); else mths[mths.length-1].count++; });
-                const tdW = Math.max(16, Math.floor(520/cols.length));
-                const ts2 = tasks.filter(t=>t.tipo!=="H");
-                const prom2 = ts2.length ? Math.round(ts2.reduce((s,t)=>s+Number(t.pctAvance||0),0)/ts2.length) : 0;
-                const colH = cols.map(c=>`<th style="width:${tdW}px;background:${c.isWeekend?"#e2e8f0":"#1e293b"};color:${c.isWeekend?"#94a3b8":"#fff"};font-size:7.5px;padding:2px 0;text-align:center;border:1px solid #cbd5e1">${c.dow}<br>${c.day}</th>`).join("");
-                const mthH = mths.map(m=>`<th colspan="${m.count}" style="background:#0f172a;color:#38bdf8;font-size:8.5px;text-align:center;padding:3px;border:1px solid #334155">${m.n}</th>`).join("");
-                const rows = tasks.map((t,i)=>{
-                  const tipo=t.tipo==="F"?"Fase":t.tipo==="T"?"Tarea":"Hito";
-                  const bgT=t.tipo==="F"?"#dbeafe":t.tipo==="T"?"#ede9fe":"#fef3c7";
-                  const colT=t.tipo==="F"?"#1d4ed8":t.tipo==="T"?"#6d28d9":"#b45309";
-                  const pct=Math.min(100,Math.max(0,Number(t.pctAvance)||0));
-                  const isLate=t.fin<new Date().toISOString().slice(0,10)&&pct<100;
-                  const barCells=cols.map(c=>{
-                    if(!t.inicio||!t.fin||c.date<t.inicio||c.date>t.fin) return `<td style="border:1px solid #f1f5f9;background:${c.isWeekend?"#f8fafc":"#fff"};padding:0;height:22px"></td>`;
-                    const bc=t.tipo==="H"?"#f59e0b":pct===100?"#22c55e":isLate?"#ef4444":t.tipo==="F"?"#3b82f6":"#6366f1";
-                    return `<td style="padding:0;border:1px solid #f1f5f9;background:${c.isWeekend?"#f8fafc":"#fff"}"><div style="height:14px;margin:4px 0;background:${bc}22"><div style="height:100%;width:${pct}%;background:${bc};opacity:0.85"></div></div></td>`;
-                  }).join("");
-                  return `<tr style="border-bottom:1px solid #e2e8f0"><td style="padding:2px 4px;text-align:center;font-size:8px;color:#94a3b8;border:1px solid #e2e8f0">${i+1}</td><td style="padding:2px 4px;border:1px solid #e2e8f0"><span style="background:${bgT};color:${colT};padding:1px 5px;border-radius:3px;font-size:7px;font-weight:700">${tipo}</span></td><td style="padding:2px 6px;font-size:8.5px;border:1px solid #e2e8f0;font-weight:${t.tipo==="F"?700:400}">${t.tipo!=="F"?"└ ":""}${t.nombre||""}</td><td style="padding:2px 4px;font-size:7.5px;text-align:center;border:1px solid #e2e8f0;color:#475569">${t.rol||""}</td><td style="padding:2px 5px;font-size:7.5px;border:1px solid #e2e8f0;color:#475569">${t.responsable||""}</td><td style="padding:2px 4px;font-size:8px;text-align:center;border:1px solid #e2e8f0">${t.inicio?new Date(t.inicio+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short"}):""}</td><td style="padding:2px 4px;font-size:8px;text-align:center;border:1px solid #e2e8f0">${t.fin?new Date(t.fin+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short"}):""}</td><td style="padding:2px 4px;font-size:8px;text-align:center;border:1px solid #e2e8f0">${t.pctPlan||0}%</td><td style="padding:2px 4px;font-size:8px;text-align:center;border:1px solid #e2e8f0;color:${pct===100?"#16a34a":isLate?"#dc2626":"#0369a1"};font-weight:700">${pct}%</td><td style="padding:2px 4px;font-size:8px;text-align:center;border:1px solid #e2e8f0;color:#64748b">${t.hhPresup||"-"}</td><td style="padding:2px 4px;font-size:8px;text-align:center;border:1px solid #e2e8f0;color:#64748b">${t.hhReal||"-"}</td>${barCells}</tr>`;
-                }).join("");
-                const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:9px;padding:6mm;background:#fff;color:#1e293b}.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid #0f172a}.hdr-left{display:flex;align-items:center;gap:12px}.hdr-logo{height:38px}.hdr-title{font-size:12px;font-weight:700;color:#0f172a;margin-bottom:2px}.hdr-sub{font-size:8.5px;color:#64748b}.hdr-right{text-align:right;font-size:8.5px;color:#64748b;line-height:1.8}.pb{width:90px;height:5px;background:#e2e8f0;border-radius:3px;margin-left:auto;margin-top:3px}.pf{height:5px;background:${prom2===100?"#22c55e":"#0ea5e9"};border-radius:3px}table{border-collapse:collapse;width:100%;margin-top:6px}.leg{display:flex;gap:10px;margin-bottom:5px;font-size:8px}@page{size:A4 landscape;margin:6mm}@media print{body{padding:0}}</style></head><body>
-                <div class="hdr"><div class="hdr-left"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" class="hdr-logo"/><div><div class="hdr-title">Carta Gantt · COT-${proyecto?.cotNum||""}</div><div class="hdr-sub">${proyecto?.nombre||""}</div><div class="hdr-sub">Polygonos SpA · RUT 77.180.437-3</div></div></div><div class="hdr-right">${headerData.cliente?`<div>Cliente: <b style="color:#1e293b">${headerData.cliente}</b></div>`:""}<div>Elaborado por: <b style="color:#1e293b">${headerData.elaboradoPor}</b></div><div>Emisión: <b style="color:#1e293b">${headerData.fechaEmision?new Date(headerData.fechaEmision+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"}):""}</b></div><div>Inicio: <b style="color:#1e293b">${calStart}</b> · ${calDays}d</div><div>Avance: <b style="color:${prom2===100?"#16a34a":"#0369a1"}">${prom2}%</b></div><div class="pb"><div class="pf" style="width:${prom2}%"></div></div></div></div>
-                <div class="leg">${[["Fase","#3b82f6"],["Tarea","#6366f1"],["Hito","#f59e0b"],["Completado","#22c55e"],["Atrasado","#ef4444"]].map(([l,c])=>`<span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:${c};display:inline-block"></span>${l}</span>`).join("")}</div>
-                <table><thead><tr><th colspan="11" style="background:#0f172a;border:1px solid #334155;padding:2px"></th>${mthH}</tr><tr>${[["#",22],["Tipo",38],["Descripción",140],["Rol",32],["Responsable",70],["Inicio",46],["Fin",46],["Plan%",30],["Av.%",30],["HH P.",28],["HH R.",28]].map(([h,w])=>`<th style="background:#1e293b;color:#fff;padding:3px 4px;font-size:7.5px;border:1px solid #334155;width:${w}px;text-align:${["Descripción","Responsable"].includes(h)?"left":"center"}">${h}</th>`).join("")}${colH}</tr></thead><tbody>${rows}</tbody></table>
-                <script>window.onload=()=>window.print()<\/script></body></html>`;
-                const w=window.open("","_blank"); w.document.write(html); w.document.close();
-              }} style={{ padding:"4px 14px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:5, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>🖨 PDF</button>
             </div>
           </div>
 
@@ -8959,12 +9144,12 @@ const NAV_GROUPS = [
       { key:"control_proyectos", label:"Control",  Icon: LayoutDashboard  },
       { key:"costeo",            label:"Costeo",   Icon: Calculator       },
       { key:"gantt",             label:"Gantt",    Icon: GanttChartSquare },
-      { key:"tasks",             label:"Tareas",   Icon: CheckSquare      },
     ],
   },
   {
     key: "operaciones", label: "Operaciones", Icon: Wrench, children: [
-      { key:"operaciones", label:"Terreno",  Icon: Wrench   },
+      { key:"operaciones", label:"Terreno",   Icon: Wrench       },
+      { key:"tasks",       label:"Tareas",    Icon: CheckSquare  },
     ],
   },
   {
