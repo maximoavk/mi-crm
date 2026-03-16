@@ -5569,6 +5569,15 @@ function QuotePDF({ quote, onBack }) {
               : "Polygonos SPA\nRUT: 77.180.437-3\nBanco Santander\nCta. Cte. 99128755\nCorreo: maximo.hudson.blanco@gmail.com"
             }</div>
           </div>
+          {/* ── FIRMA DIGITAL VISUAL ── */}
+          <div style={{ borderTop:"1px solid #e0e0e0", marginTop:16, paddingTop:12, display:"flex", justifyContent:"flex-end" }}>
+            <div style={{ textAlign:"right", fontSize:10, color:"#475569" }}>
+              <div style={{ fontWeight:700, color:"#1e293b", fontSize:11 }}>Firmado digitalmente por</div>
+              <div style={{ fontWeight:700, color:"#1e293b", fontSize:11 }}>MAXIMO MANUEL HUDSON BLANCO</div>
+              <div style={{ marginTop:3 }}>Fecha: {new Date().toLocaleDateString("es-CL")} {new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"})}</div>
+              <div>Polygonos SpA · RUT 77.180.437-3</div>
+            </div>
+          </div>
       </div>
 
       <style>{`
@@ -5576,11 +5585,14 @@ function QuotePDF({ quote, onBack }) {
           body * { visibility: hidden; }
           #print-area, #print-area * { visibility: visible; }
           #print-area {
-            position: absolute; left: 0; top: 0;
-            width: 190mm; padding: 7mm 10mm;
+            position: fixed; left: 0; top: 0;
+            width: 210mm;
+            transform-origin: top left;
+            transform: scale(0.76);
+            padding: 10mm 12mm;
             box-sizing: border-box;
-            font-size: 9.5px !important;
-            line-height: 1.25 !important;
+            font-size: 11px;
+            background: white;
           }
           #print-area img { height: 36px !important; }
           #print-area .quote-number { font-size: 20px !important; }
@@ -6537,19 +6549,12 @@ function CosteoView({ contacts }) {
         </div>` : ''}
       </div>
       ${partidasHTML}
-      <div style="margin-top:32px;padding-top:20px;border-top:2px solid #e2e8f0;display:flex;justify-content:space-between;align-items:flex-end;position:relative;overflow:hidden">
-        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);font-size:64px;font-weight:900;color:#0f1623;opacity:0.04;white-space:nowrap;pointer-events:none;z-index:0">POLYGONOS</div>
-        <div style="text-align:center;min-width:200px;position:relative;z-index:1">
-          <div style="font-family:Georgia,serif;font-size:30px;color:#1a1a2e;line-height:1;margin-bottom:6px;border-bottom:1.5px solid #1a1a2e;padding-bottom:6px;font-style:italic;letter-spacing:0.02em">Maximo Hudson</div>
-          <div style="font-size:10px;color:#475569;margin-top:5px">MAXIMO MANUEL HUDSON BLANCO</div>
-          <div style="font-size:10px;color:#475569">RUT: 26.074.100-4</div>
-          <div style="font-size:10px;color:#475569;font-weight:600">Gerente Comercial · Polygonos SpA</div>
-        </div>
-        <div style="text-align:right;font-size:10px;color:#94a3b8;position:relative;z-index:1">
-          <div style="font-size:11px;font-weight:600;color:#475569">Firmado digitalmente por</div>
-          <div style="font-size:11px;font-weight:700;color:#1e293b">MAXIMO MANUEL HUDSON BLANCO</div>
-          <div style="margin-top:4px">Fecha: ${new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"})} ${new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"})}</div>
-          <div style="margin-top:2px">Polygonos SpA · RUT 77.180.437-3</div>
+      <div style="margin-top:28px;padding-top:16px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end">
+        <div style="text-align:right;font-size:10px;color:#475569">
+          <div style="font-weight:700;color:#1e293b;font-size:11px">Firmado digitalmente por</div>
+          <div style="font-weight:700;color:#1e293b;font-size:11px">MAXIMO MANUEL HUDSON BLANCO</div>
+          <div style="margin-top:3px">Fecha: ${new Date().toLocaleDateString("es-CL")} ${new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"})}</div>
+          <div>Polygonos SpA · RUT 77.180.437-3</div>
         </div>
       </div>
       <script>window.onload=()=>window.print()</script></body></html>`);
@@ -8703,6 +8708,14 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
     </table>
     <h2>Garantías</h2><p>${form.garantias}</p>
     <h2>Forma de Pago</h2><p>${form.condiciones_pago}</p>
+    <div style="margin-top:28px;padding-top:16px;border-top:2px solid #e2e8f0;display:flex;justify-content:flex-end">
+      <div style="text-align:right;font-size:10px;color:#475569">
+        <div style="font-weight:700;color:#1e293b;font-size:11px">Firmado digitalmente por</div>
+        <div style="font-weight:700;color:#1e293b;font-size:11px">MAXIMO MANUEL HUDSON BLANCO</div>
+        <div style="margin-top:3px">Fecha: ${new Date().toLocaleDateString("es-CL")} ${new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"})}</div>
+        <div>COT-${form.numero_cotizacion} · Rev. ${form.revision} · Polygonos SpA · RUT 77.180.437-3</div>
+      </div>
+    </div>
     <div class="footer">Polygonos SpA · RUT 77.180.437-3 · ventas@polygonos.cl · +56 9 6426 6356 · Innovación | Tecnología | Seguridad</div>
     <script>window.onload=()=>window.print();</script>
     </body></html>`;
