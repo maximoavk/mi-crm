@@ -71,7 +71,7 @@ const COLORS_DARK = {
   bg: "#0A0C10", surface: "#111318", card: "#161A22", border: "#1E2530",
   accent: "#00C2FF", accentDim: "#00C2FF22", accentGlow: "#00C2FF44",
   green: "#00E5A0", yellow: "#FFB800", red: "#FF4D6A", purple: "#A855F7",
-  text: "#E8ECF4", textMuted: "#6B7A99", textDim: "#3D4A66",
+  text: "#E8ECF4", textMuted: "#9BAAC4", textDim: "#4A5778",
 };
 const COLORS_LIGHT = {
   bg: "#F4F6FA", surface: "#FFFFFF", card: "#EEF1F7", border: "#D1D9E6",
@@ -1243,6 +1243,8 @@ function ControlProyectosView({ contacts }) {
           </div>
           <div style={{ display:"flex", gap:8 }}>
             <div style={{ padding:"4px 12px", borderRadius:20, background:ec.color+"22", border:`1px solid ${ec.color}44`, fontFamily:FONT, fontSize:12, color:ec.color, fontWeight:600 }}>{ec.label}</div>
+            <button onClick={()=>{ setForm({...pr, numero_cotizacion:pr.numero_cotizacion||"", fecha_inicio:pr.fecha_inicio||"", fecha_fin:pr.fecha_fin||""}); setCotSearch(pr.numero_cotizacion||""); setModal(pr); }}
+              style={{ padding:"6px 16px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.text, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>✏️ Editar</button>
           </div>
         </div>
 
@@ -1419,10 +1421,6 @@ function ControlProyectosView({ contacts }) {
                       <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>{fmt(pr.cot?.total||pr.totalVenta||0)}</div>
                     </div>
                   </div>
-                </div>
-                <div style={{ display:"flex", justifyContent:"flex-end", gap:6, marginTop:6 }}>
-                  <button onClick={e=>{ e.stopPropagation(); setForm({...pr, numero_cotizacion:String(pr.numero_cotizacion||""), fecha_inicio:pr.fecha_inicio||"", fecha_fin:pr.fecha_fin||""}); setCotSearch(String(pr.numero_cotizacion||"")); setCotMatches([]); setModal(pr); }} style={{ padding:"4px 10px", background:"transparent", border:"1px solid #ffffff22", borderRadius:5, color:"#94a3b8", fontSize:11, cursor:"pointer" }}>✏️ Editar</button>
-                  <button onClick={e=>{ e.stopPropagation(); if(window.confirm("¿Eliminar proyecto?")) supabase.from("proyectos").delete().eq("id",pr.id).then(()=>setProyectos(prev=>prev.filter(p=>p.id!==pr.id))); }} style={{ padding:"4px 10px", background:"transparent", border:"1px solid #ef444433", borderRadius:5, color:"#ef4444", fontSize:11, cursor:"pointer" }}>✕</button>
                 </div>
                 {/* Barra Gantt mini */}
                 {pctGantt !== null && (
@@ -6313,7 +6311,7 @@ function CosteoView({ contacts }) {
           <td style="padding:4px 6px;text-align:right">${fmt(it.costoNeto)}</td>
           <td style="padding:4px 6px;text-align:right;color:#10b981">${fmt(it.margenTotal)}</td>
           <td style="padding:4px 6px;text-align:right">${fmt(it.ventaNeta)}</td>
-          <td style="padding:4px 6px;text-align:right;font-weight:700;color:#cc0000">${fmt(it.ventaBruta)}</td>
+          <td style="padding:4px 6px;text-align:right;font-weight:700;color:#096da3">${fmt(it.ventaBruta)}</td>
         </tr>`;}).join("");
       return `<div style="margin-bottom:18px">
         <div style="background:#1e293b;color:white;padding:7px 10px;font-weight:700;font-size:12px;border-radius:5px 5px 0 0">${f.nombre}</div>
@@ -6329,7 +6327,7 @@ function CosteoView({ contacts }) {
             <th style="padding:4px 6px;text-align:right">COSTO NETO</th>
             <th style="padding:4px 6px;text-align:right;color:#10b981">MARGEN $</th>
             <th style="padding:4px 6px;text-align:right">VENTA NETA</th>
-            <th style="padding:4px 6px;text-align:right;color:#cc0000">VENTA c/IVA</th>
+            <th style="padding:4px 6px;text-align:right;color:#096da3">VENTA c/IVA</th>
           </tr></thead>
           <tbody>${rows}</tbody>
           <tfoot>
@@ -6338,7 +6336,7 @@ function CosteoView({ contacts }) {
               <td style="padding:5px 6px;text-align:right">${fmt(f.costoNeto)}</td>
               <td style="padding:5px 6px;text-align:right;color:#10b981">${fmt(f.margenTotal)}</td>
               <td style="padding:5px 6px;text-align:right">${fmt(f.ventaNeta)}</td>
-              <td style="padding:5px 6px;text-align:right;color:#cc0000">${fmt(f.ventaBruta)}</td>
+              <td style="padding:5px 6px;text-align:right;color:#096da3">${fmt(f.ventaBruta)}</td>
             </tr>
             ${(f.descPct||0)>0 ? `
             <tr style="background:#fefce8;font-size:10px">
@@ -6347,7 +6345,7 @@ function CosteoView({ contacts }) {
             </tr>
             <tr style="background:#fef3c7;font-weight:800;font-size:11px">
               <td colspan="9" style="padding:5px 6px;color:#78350f">TOTAL FASE CON DESCUENTO</td>
-              <td colspan="2" style="padding:5px 6px;text-align:right;color:#cc0000">${fmt(f.ventaConDesc)}</td>
+              <td colspan="2" style="padding:5px 6px;text-align:right;color:#096da3">${fmt(f.ventaConDesc)}</td>
             </tr>` : ''}
           </tfoot>
         </table>
@@ -6387,18 +6385,18 @@ function CosteoView({ contacts }) {
           <div style="font-size:9px;color:#64748b;margin-bottom:2px">VENTA NETA</div>
           <div style="font-size:16px;font-weight:700">${fmt(tVentaNeta)}</div>
         </div>
-        <div style="flex:1;border:2px solid #cc0000;border-radius:6px;padding:8px;text-align:center">
-          <div style="font-size:9px;color:#cc0000;margin-bottom:2px">VENTA c/IVA</div>
-          <div style="font-size:16px;font-weight:700;color:#cc0000">${fmt(tVentaBruta)}</div>
+        <div style="flex:1;border:2px solid #096da3;border-radius:6px;padding:8px;text-align:center">
+          <div style="font-size:9px;color:#096da3;margin-bottom:2px">VENTA c/IVA</div>
+          <div style="font-size:16px;font-weight:700;color:#096da3">${fmt(tVentaBruta)}</div>
         </div>
         ${tDescuento>0 ? `
         <div style="flex:1;border:1px solid #f59e0b;border-radius:6px;padding:8px;text-align:center;background:#fefce8">
           <div style="font-size:9px;color:#92400e;margin-bottom:2px">DESC. TOTAL</div>
           <div style="font-size:16px;font-weight:700;color:#b45309">− ${fmt(tDescuento)}</div>
         </div>
-        <div style="flex:1;border:3px solid #cc0000;border-radius:6px;padding:8px;text-align:center;background:#fff5f5">
-          <div style="font-size:9px;color:#cc0000;margin-bottom:2px">TOTAL FINAL c/IVA</div>
-          <div style="font-size:20px;font-weight:900;color:#cc0000">${fmt(tVentaFinal)}</div>
+        <div style="flex:1;border:3px solid #096da3;border-radius:6px;padding:8px;text-align:center;background:#fff5f5">
+          <div style="font-size:9px;color:#096da3;margin-bottom:2px">TOTAL FINAL c/IVA</div>
+          <div style="font-size:20px;font-weight:900;color:#096da3">${fmt(tVentaFinal)}</div>
         </div>` : ''}
       </div>
       <script>window.onload=()=>window.print()</script></body></html>`);
@@ -6430,7 +6428,7 @@ function CosteoView({ contacts }) {
           <td style="padding:5px 8px;text-align:center">${cantLabel}</td>
           <td style="padding:5px 8px;text-align:right">${fmt(it.ventaNeta)}</td>
           <td style="padding:5px 8px;text-align:right;color:#64748b">${tieneIVA?fmt(it.ivaVenta):"-"}</td>
-          <td style="padding:5px 8px;text-align:right;font-weight:700;color:#096da3">${fmt(it.ventaBruta)}</td>
+          <td style="padding:5px 8px;text-align:right;font-weight:700;color:#cc0000">${fmt(it.ventaBruta)}</td>
         </tr>`;}).join("");
       return `<div style="margin-bottom:18px">
         <div style="background:#1e293b;color:white;padding:7px 10px;font-weight:700;font-size:12px;border-radius:5px 5px 0 0">${f.nombre}</div>
@@ -6442,7 +6440,7 @@ function CosteoView({ contacts }) {
             <th style="padding:5px 8px">CANT.</th>
             <th style="padding:5px 8px;text-align:right">NETO</th>
             <th style="padding:5px 8px;text-align:right;color:#64748b">IVA</th>
-            <th style="padding:5px 8px;text-align:right;color:#096da3">TOTAL c/IVA</th>
+            <th style="padding:5px 8px;text-align:right;color:#cc0000">TOTAL c/IVA</th>
           </tr></thead>
           <tbody>${rows}</tbody>
           <tfoot>
@@ -6450,7 +6448,7 @@ function CosteoView({ contacts }) {
               <td colspan="4" style="padding:6px 8px">Subtotal ${f.nombre}</td>
               <td style="padding:6px 8px;text-align:right">${fmt(f.ventaNeta)}</td>
               <td style="padding:6px 8px;text-align:right;color:#64748b">${fmt(f.ventaBruta-f.ventaNeta)}</td>
-              <td style="padding:6px 8px;text-align:right;color:#096da3">${fmt(f.ventaBruta)}</td>
+              <td style="padding:6px 8px;text-align:right;color:#cc0000">${fmt(f.ventaBruta)}</td>
             </tr>
             ${(f.descPct||0)>0 ? `
             <tr style="background:#fefce8">
@@ -6459,7 +6457,7 @@ function CosteoView({ contacts }) {
             </tr>
             <tr style="background:#fef3c7;font-weight:800;font-size:12px">
               <td colspan="5" style="padding:6px 8px;color:#78350f">TOTAL FASE CON DESCUENTO</td>
-              <td colspan="2" style="padding:6px 8px;text-align:right;color:#096da3">${fmt(f.ventaConDesc)}</td>
+              <td colspan="2" style="padding:6px 8px;text-align:right;color:#cc0000">${fmt(f.ventaConDesc)}</td>
             </tr>` : ''}
           </tfoot>
         </table>
@@ -6503,8 +6501,8 @@ function CosteoView({ contacts }) {
           <div style="font-size:10px;color:#64748b">RUT: 77.180.437-3</div>
           <div style="font-size:10px;color:#64748b">Fono: 9-81334980 · ventas@polygonos.cl</div>
         </div>
-        <div style="border:2px solid #096da3;padding:10px 20px;text-align:center">
-          <div style="font-size:11px;font-weight:700;color:#096da3">PRESUPUESTO</div>
+        <div style="border:2px solid #cc0000;padding:10px 20px;text-align:center">
+          <div style="font-size:11px;font-weight:700;color:#cc0000">PRESUPUESTO</div>
           <div style="font-size:10px;color:#64748b">${proyecto.fecha||""}</div>
         </div>
       </div>
@@ -6524,21 +6522,29 @@ function CosteoView({ contacts }) {
           <div style="font-size:9px;color:#64748b;margin-bottom:3px">IVA (19%)</div>
           <div style="font-size:18px;font-weight:700;color:#64748b">${fmt(tVentaBruta-tVentaNeta)}</div>
         </div>
-        <div style="flex:1;border:2px solid #096da3;border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:9px;color:#096da3;margin-bottom:3px">TOTAL c/IVA</div>
-          <div style="font-size:22px;font-weight:700;color:#096da3">${fmt(tVentaBruta)}</div>
+        <div style="flex:1;border:2px solid #cc0000;border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:9px;color:#cc0000;margin-bottom:3px">TOTAL c/IVA</div>
+          <div style="font-size:22px;font-weight:700;color:#cc0000">${fmt(tVentaBruta)}</div>
         </div>
         ${tDescuentoCli>0 ? `
         <div style="flex:1;border:1px solid #f59e0b;border-radius:8px;padding:10px;text-align:center;background:#fefce8">
           <div style="font-size:9px;color:#92400e;margin-bottom:3px">DESCUENTO</div>
           <div style="font-size:18px;font-weight:700;color:#b45309">− ${fmt(tDescuentoCli)}</div>
         </div>
-        <div style="flex:2;border:3px solid #096da3;border-radius:8px;padding:10px;text-align:center;background:#fff5f5">
-          <div style="font-size:10px;color:#096da3;margin-bottom:3px;font-weight:700">TOTAL FINAL c/IVA</div>
-          <div style="font-size:26px;font-weight:900;color:#096da3">${fmt(tVentaFinalCli)}</div>
+        <div style="flex:2;border:3px solid #cc0000;border-radius:8px;padding:10px;text-align:center;background:#fff5f5">
+          <div style="font-size:10px;color:#cc0000;margin-bottom:3px;font-weight:700">TOTAL FINAL c/IVA</div>
+          <div style="font-size:26px;font-weight:900;color:#cc0000">${fmt(tVentaFinalCli)}</div>
         </div>` : ''}
       </div>
       ${partidasHTML}
+      <div style="margin-top:24px;padding-top:14px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end">
+        <div style="text-align:right;font-size:10px;color:#475569">
+          <div style="font-weight:700;color:#1e293b;font-size:11px">Firmado digitalmente por</div>
+          <div style="font-weight:700;color:#1e293b;font-size:11px">MAXIMO MANUEL HUDSON BLANCO</div>
+          <div style="margin-top:2px">Fecha: ${new Date().toLocaleDateString("es-CL")} ${new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"})}</div>
+          <div>Polygonos SpA · RUT 77.180.437-3</div>
+        </div>
+      </div>
       <script>window.onload=()=>window.print()</script></body></html>`);
     w.document.close();
   };
