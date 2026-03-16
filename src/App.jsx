@@ -9,7 +9,8 @@ const supabase = createClient(
 );
 
 // ── LOGO ────────────────────────────────────────────────────────────────────
-const LOGO_B64 = "https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png";
+const LOGO_B64 = "https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69b784045e7a002f4a490938_Recurso%2013.png"; // Logo blanco para fondo oscuro
+const LOGO_PRINT = "https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png"; // Logo oscuro para documentos impresos
 
 // ── MAPPERS: Supabase ↔ App ─────────────────────────────────────────────────
 const mapContact = (r) => ({
@@ -944,7 +945,6 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
       )}
     </div>
   );
-}
 
 // ── REPORTS ──────────────────────────────────────────────────────────────────
 function ReportsView({ contacts, deals, tasks, isMobile }) {
@@ -6354,7 +6354,7 @@ function CosteoView({ contacts }) {
       <style>body{font-family:Arial,sans-serif;font-size:11px;color:#1e293b;padding:18px} @media print{@page{margin:8mm;size:A4 landscape}}</style>
       </head><body>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #e2e8f0">
-        <div><img src="${LOGO_B64}" style="height:45px;margin-bottom:6px;display:block" />
+        <div><img src="${LOGO_PRINT}" style="height:45px;margin-bottom:6px;display:block" />
           <div style="font-size:10px;color:#64748b">RUT: 77.180.437-3 · ventas@polygonos.cl · 9-81334980</div>
         </div>
         <div style="border:2px solid #1e293b;padding:8px 18px;text-align:center">
@@ -6496,7 +6496,7 @@ function CosteoView({ contacts }) {
       <style>body{font-family:Arial,sans-serif;font-size:12px;color:#1e293b;padding:20px} @media print{@page{margin:10mm}}</style>
       </head><body>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #e2e8f0">
-        <div><img src="${LOGO_B64}" style="height:50px;margin-bottom:8px;display:block" />
+        <div><img src="${LOGO_PRINT}" style="height:50px;margin-bottom:8px;display:block" />
           <div style="font-size:10px;color:#64748b">RUT: 77.180.437-3</div>
           <div style="font-size:10px;color:#64748b">Fono: 9-81334980 · ventas@polygonos.cl</div>
         </div>
@@ -11263,4 +11263,5 @@ export default function CRM() {
       )}
     </div>
   );
+}
 }
