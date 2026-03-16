@@ -1113,7 +1113,7 @@ function ControlProyectosView({ contacts }) {
   const load = async () => {
     setLoading(true);
     const [{ data: pRows }, { data: gRows }, { data: tRows }, { data: cRows }] = await Promise.all([
-      supabase.from("proyectos").select("*").order("created_at", { ascending: false }),
+      supabase.from("proyectos").select("*").order("numero", { ascending: false }),
       supabase.from("gantt_proyectos").select("*"),
       supabase.from("gantt_tareas").select("id, gantt_id, pct_avance, nombre, tipo"),
       supabase.from("cotizaciones").select("id, numero, serie, nombre_cliente, razon_social, total, aplica_iva"),
@@ -8269,9 +8269,9 @@ function ProposalsView({ contacts, isMobile }) {
   const loadAll = async () => {
     setLoading(true);
     const [{ data: props }, { data: cos }, { data: qs }, { data: prods }] = await Promise.all([
-      supabase.from("propuestas").select("*").order("created_at", { ascending: false }),
-      supabase.from("costeos").select("*").order("created_at", { ascending: false }),
-      supabase.from("cotizaciones").select("*").order("created_at", { ascending: false }),
+      supabase.from("propuestas").select("*").order("numero", { ascending: false }),
+      supabase.from("costeos").select("*").order("numero", { ascending: false }),
+      supabase.from("cotizaciones").select("*").order("numero", { ascending: false }),
       supabase.from("productos").select("*").order("nombre"),
     ]);
     setProposals(props || []);
@@ -11467,8 +11467,8 @@ function ColaboradorView({ session }) {
 
       // Todas las cotizaciones
       const { data } = await supabase.from("cotizaciones")
-        .select("id,numero,serie,nombre_cliente,razon_social,rut_cliente,direccion,total,aplica_iva,estado,numero_factura,created_at")
-        .order("created_at", { ascending: false });
+        .select("id,numero,serie,nombre_cliente,razon_social,rut_cliente,direccion,total,aplica_iva,estado,numero_factura")
+        .order("numero", { ascending: false });
       console.log("COTS DATA:", data, "ERROR check network tab");
 
       setCots((data||[]).map(c => ({
