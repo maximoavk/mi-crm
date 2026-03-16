@@ -1202,12 +1202,6 @@ function ControlProyectosView({ contacts }) {
     setModal(null);
   };
 
-  const deleteProyecto = async (id) => {
-    if (!window.confirm("¿Eliminar este proyecto? Esta acción no se puede deshacer.")) return;
-    await supabase.from("proyectos").delete().eq("id", id);
-    setProyectos(prev => prev.filter(p => p.id !== id));
-  };
-
   const updateFaseEstado = async (proyId, faseId, nuevoEstado) => {
     // Guarda en localStorage el estado de la fase
     let costeoProyectos = [];
@@ -1399,68 +1393,37 @@ function ControlProyectosView({ contacts }) {
                   padding:"14px 18px", transition:"border-color 0.2s" }}
                 onMouseEnter={e=>e.currentTarget.style.borderColor=COLORS.accent}
                 onMouseLeave={e=>e.currentTarget.style.borderColor=COLORS.border}>
-                <div style={{ display:"flex", alignItems:"flex-start", gap:12 }}>
-                  {/* Info clickable */}
+                <div style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
                   <div style={{ flex:1, minWidth:0, cursor:"pointer" }} onClick={()=>setSelected(pr.id)}>
                     <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4, flexWrap:"wrap" }}>
                       <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.accent }}>{pr.codigo}</span>
                       <div style={{ padding:"2px 8px", borderRadius:10, background:ec.color+"22", border:`1px solid ${ec.color}44`, fontFamily:FONT, fontSize:10, color:ec.color }}>{ec.label}</div>
                       {pr.cot && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>📄 {pr.cot.serie||"COT"}-{String(pr.cot.numero).padStart(3,"0")}</div>}
-                      {(pr.incidencias||[]).filter(i=>i.estado!=="solucionada").length > 0 && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.red }}>⚠ {(pr.incidencias||[]).filter(i=>i.estado!=="solucionada").length} incid.</div>}
+                      {(pr.incidencias||[]).filter(i=>i.estado!=="solucionada").length > 0 && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.red }}>⚠ {(pr.incidencias||[]).filter(i=>i.estado!=="solucionada").length} incid.</span>}
                     </div>
                     <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:600, color:COLORS.text, marginBottom:2 }}>{pr.nombre}</div>
-                    <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{pr.cliente} {pr.fecha_inicio?`· Inicio: ${fmtDate(pr.fecha_inicio)}`:""}</div>
+                    <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{pr.cliente}{pr.fecha_inicio?` · Inicio: ${fmtDate(pr.fecha_inicio)}`:""}</div>
                   </div>
-                  {/* KPIs */}
-                  <div style={{ display:"flex", gap:16, flexShrink:0, alignItems:"center" }}>
-                    {pctGantt !== null && (
-                      <div style={{ textAlign:"center" }}>
-                        <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginBottom:1 }}>GANTT</div>
-                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:pctGantt>=100?COLORS.green:pctGantt>=50?COLORS.accent:COLORS.yellow }}>{pctGantt}%</div>
-                      </div>
-                    )}
-                    {pctCobro !== null && (
-                      <div style={{ textAlign:"center" }}>
-                        <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginBottom:1 }}>COBRO</div>
-                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.green }}>{pctCobro}%</div>
-                      </div>
-                    )}
-                    <div style={{ textAlign:"right" }}>
-                      <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginBottom:1 }}>COTIZADO</div>
-                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text }}>{fmt(pr.cot?.total||pr.totalVenta||0)}</div>
-                    </div>
+                  <div style={{ display:"flex", gap:14, flexShrink:0, alignItems:"center" }}>
+                    {pctGantt !== null && <div style={{ textAlign:"center" }}><div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>GANTT</div><div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:pctGantt>=100?COLORS.green:pctGantt>=50?COLORS.accent:COLORS.yellow }}>{pctGantt}%</div></div>}
+                    {pctCobro !== null && <div style={{ textAlign:"center" }}><div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>COBRO</div><div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.green }}>{pctCobro}%</div></div>}
+                    <div style={{ textAlign:"right" }}><div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>COTIZADO</div><div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text }}>{fmt(pr.cot?.total||pr.totalVenta||0)}</div></div>
                   </div>
-                  {/* Buttons */}
-                  <div style={{ display:"flex", gap:4, flexShrink:0, alignItems:"center" }}>
+                  <div style={{ display:"flex", gap:4, flexShrink:0 }}>
                     {pr.cot && (
-                      <button onClick={e=>{ e.stopPropagation();
+                      <button onClick={async e=>{ e.stopPropagation();
                         const c2=pr.cot;
-                        const html=["<!DOCTYPE html><html><head><meta charset='UTF-8'>",
-                          "<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:10px;padding:12mm;background:#fff;color:#1e293b}",
-                          ".hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid #0f172a}",
-                          ".logo{height:34px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}",
-                          ".slbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:2px}",
-                          ".sval{font-size:11px;font-weight:600;color:#1e293b}",
-                          ".tbox{border:2px solid #cc0000;border-radius:8px;padding:12px;text-align:center;margin-top:12px}",
-                          ".firma{margin-top:16px;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end}",
-                          "@page{size:A4 portrait;margin:0}@media print{body{padding:10mm}}</style></head><body>",
-                          "<div class='hdr'><div style='display:flex;align-items:center;gap:10px'>",
-                          "<img src='https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png' class='logo'/>",
-                          "<div><div style='font-size:12px;font-weight:700'>Resumen Cotización · "+pr.codigo+"</div>",
-                          "<div style='font-size:8.5px;color:#64748b'>Polygonos SpA · RUT 77.180.437-3</div></div></div>",
-                          "<div style='text-align:right'>",
-                          "<div style='font-size:20px;font-weight:900;color:#0f172a'>"+(c2.serie||"COT")+"-"+c2.numero+"</div>",
-                          "<div style='font-size:9px;color:"+(c2.aplica_iva?"#0ea5e9":"#f59e0b")+";font-weight:700'>"+(c2.aplica_iva?"Con IVA":"Sin IVA")+"</div>",
-                          "</div></div><div class='grid'>",
-                          "<div><div class='slbl'>Cliente</div><div class='sval'>"+(c2.razon_social||c2.nombre_cliente||"—")+"</div></div>",
-                          "<div><div class='slbl'>RUT</div><div class='sval'>"+(c2.rut_cliente||"—")+"</div></div>",
-                          (c2.direccion?"<div style='grid-column:1/-1'><div class='slbl'>Dirección</div><div class='sval'>"+c2.direccion+"</div></div>":""),
-                          "</div><div class='tbox'><div style='font-size:9px;color:#cc0000;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px'>Total Cotizado</div>",
-                          "<div style='font-size:26px;font-weight:900;color:#cc0000'>$"+Number(c2.total||0).toLocaleString("es-CL")+"</div></div>",
-                          "<div class='firma'><div style='text-align:right;font-size:10px;color:#475569'>",
-                          "<div style='font-weight:700;color:#1e293b'>Firmado digitalmente por MAXIMO MANUEL HUDSON BLANCO</div>",
-                          "<div>Fecha: "+new Date().toLocaleDateString("es-CL")+" · Polygonos SpA</div>",
-                          "</div></div><scr"+"ipt>window.onload=()=>window.print()</scr"+"ipt></body></html>"].join("");
+                        const { data: qLines } = await supabase.from("quote_lines").select("*").eq("quote_id",c2.id).order("orden");
+                        const lines2=(qLines||[]).map(mapQuoteLine);
+                        const neto=lines2.filter(l=>l.lineType!=="hito").reduce((s,l)=>s+Number(l.subtotal),0);
+                        const totalQ=c2.aplica_iva?neto+Math.round(neto*0.19):neto;
+                        const lHtml=lines2.filter(l=>l.lineType!=="hito").map(l=>`<tr><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;font-family:monospace;font-size:9px;color:#0ea5e9">${l.code||""}</td><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;font-size:9px">${l.description||""}</td><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:9px">${l.qty||1}</td><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:9px">$${Number(l.unitPrice||0).toLocaleString("es-CL")}</td><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:9px">${l.discount||0}%</td><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:9px;font-weight:700">$${Number(l.subtotal||0).toLocaleString("es-CL")}</td></tr>`).join("");
+                        const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:10px;padding:14mm;background:#fff;color:#1e293b}.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #e2e8f0}.logo{height:52px}.cot-box{border:2px solid #cc0000;text-align:center;padding:8px 16px}.cot-lbl{font-size:10px;font-weight:700;color:#cc0000}.cot-num{font-size:26px;font-weight:900;color:#cc0000}.client-box{background:#f8fafc;padding:10px 12px;border-radius:6px;margin-bottom:12px;display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10px}table{width:100%;border-collapse:collapse;margin-top:10px}thead th{background:#1e293b;color:#fff;padding:7px 8px;text-align:left;font-size:9px}.total-row td{padding:5px 8px;font-size:10px}.total-final td{font-size:13px;font-weight:700;border-top:2px solid #1e293b}.firma{margin-top:18px;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end}@page{size:A4 portrait;margin:0}@media print{body{padding:10mm}}</style></head><body>
+                        <div class="hdr"><div><img src="${LOGO_DARK}" class="logo"/><div style="font-size:9px;color:#64748b;margin-top:6px">Sucursales: Marco Gallo Vergara 536 B, Dpto 411 Torre D</div><div style="font-size:9px;color:#64748b">Casa Matriz: Huérfanos, 1055 Oficina 603</div><div style="font-size:9px;color:#64748b">Fono: 9-81334980 · ventas@polygonos.cl · Vendedor: Maximo Hudson</div></div><div style="text-align:right"><div style="font-size:10px;font-weight:700;color:#cc0000;margin-bottom:6px">R.U.T.: 77.180.437-3</div><div class="cot-box"><div class="cot-lbl">N° Cotización:</div><div class="cot-num">${c2.numero}</div></div><div style="font-size:9px;color:#555;margin-top:5px">Fecha: ${new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}</div></div></div>
+                        <div class="client-box"><div><b>Nombre Cliente:</b> ${c2.nombre_cliente||"—"}</div><div><b>R.U.T.:</b> ${c2.rut_cliente||"—"}</div><div><b>Razón Social:</b> ${c2.razon_social||"—"}</div>${c2.direccion?`<div><b>Dirección:</b> ${c2.direccion}</div>`:""}</div>
+                        <table><thead><tr><th>Código</th><th>Descripción</th><th style="text-align:center">Cant.</th><th style="text-align:right">Valor Unit.</th><th style="text-align:center">% Desc.</th><th style="text-align:right">Sub Total</th></tr></thead><tbody>${lHtml}</tbody><tfoot>${c2.aplica_iva?`<tr class="total-row"><td colspan="5" style="text-align:right">Total Neto</td><td style="text-align:right;font-weight:600">$${neto.toLocaleString("es-CL")}</td></tr><tr class="total-row"><td colspan="5" style="text-align:right">IVA (19%)</td><td style="text-align:right">$${Math.round(neto*0.19).toLocaleString("es-CL")}</td></tr>`:""}<tr class="total-final"><td colspan="5" style="text-align:right;padding:8px">Total</td><td style="text-align:right;padding:8px;color:#cc0000">$${(totalQ||Number(c2.total||0)).toLocaleString("es-CL")}</td></tr></tfoot></table>
+                        <div class="firma"><div style="text-align:right;font-size:10px;color:#475569"><div style="font-weight:700;color:#1e293b;font-size:11px">Firmado digitalmente por</div><div style="font-weight:700;color:#1e293b;font-size:11px">MAXIMO MANUEL HUDSON BLANCO</div><div style="margin-top:2px">Fecha: ${new Date().toLocaleDateString("es-CL")} ${new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"})}</div><div>Polygonos SpA · RUT 77.180.437-3</div></div></div>
+                        <scr`+"ipt>window.onload=()=>window.print()</scr"+"ipt></body></html>`;
                         const w=window.open("","_blank"); w.document.write(html); w.document.close();
                       }} style={{ padding:"4px 8px", background:`${COLORS.green}18`, border:`1px solid ${COLORS.green}33`, borderRadius:5, color:COLORS.green, fontSize:11, cursor:"pointer" }} title="PDF cotización">🖨</button>
                     )}
@@ -1470,15 +1433,8 @@ function ControlProyectosView({ contacts }) {
                       style={{ padding:"4px 8px", background:"transparent", border:`1px solid ${COLORS.red}33`, borderRadius:5, color:COLORS.red, fontSize:12, cursor:"pointer" }} title="Eliminar">✕</button>
                   </div>
                 </div>
-                {pctGantt !== null && (
-                  <div style={{ marginTop:8 }}>
-                    <div style={{ background:COLORS.bg, borderRadius:20, height:4, overflow:"hidden" }}>
-                      <div style={{ width:`${pctGantt}%`, height:"100%", borderRadius:20, background:pctGantt>=100?COLORS.green:pctGantt>=50?COLORS.accent:COLORS.yellow }}/>
-                    </div>
-                  </div>
-                )}
+                {pctGantt !== null && <div style={{ marginTop:8 }}><div style={{ background:COLORS.bg, borderRadius:20, height:4, overflow:"hidden" }}><div style={{ width:`${pctGantt}%`, height:"100%", borderRadius:20, background:pctGantt>=100?COLORS.green:pctGantt>=50?COLORS.accent:COLORS.yellow }}/></div></div>}
               </div>
-            );
           })}
         </div>
       </>)}
@@ -7167,7 +7123,7 @@ function PurchaseView({ isMobile }) {
     </style></head><body>
     <div class="header">
       <div class="logo">
-        <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos" />
+        <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" alt="Polygonos" />
       </div>
       <div>
         <div class="oc-num">${oc.numero_oc}</div>
@@ -7492,7 +7448,7 @@ function PurchaseView({ isMobile }) {
                                 <div style={{ display:"flex", gap:5, alignItems:"center" }}>
                                   <button onClick={()=>{
                                     const cInfo = COURIERS_LIST.find(c=>c.key===ship.courier)||COURIERS_LIST[0];
-                                    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>@page{size:A4 portrait;margin:8mm;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a2e;}.page{display:flex;flex-direction:column;gap:6mm;}.label{width:148mm;min-height:95mm;border:2px dashed #b0b8cc;border-radius:4mm;padding:5mm 6mm;position:relative;page-break-inside:avoid;}.label::before{content:'✂';position:absolute;top:-2mm;left:1mm;font-size:15px;color:#b0b8cc;}.hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #00C2FF;padding-bottom:3mm;margin-bottom:3.5mm;}.hdr img{height:34px;object-fit:contain;}.oc{font-size:20px;font-weight:900;color:#1a1a2e;letter-spacing:1.5px;}.dt{font-size:8px;color:#6b7a99;text-align:right;margin-top:1px;}.pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:800;color:#fff;background:${cInfo.color};}.mod{font-size:9px;color:#6b7a99;margin-left:5px;}.r2{display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:2.5mm;}.r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3mm;margin-bottom:2.5mm;}.bt{font-size:7px;color:#6b7a99;text-transform:uppercase;letter-spacing:0.1em;font-weight:700;margin-bottom:1mm;}.bv{font-size:10px;font-weight:700;color:#1a1a2e;line-height:1.4;}.bvsm{font-size:9px;font-weight:600;color:#1a1a2e;}.bvmt{font-size:9px;font-weight:600;color:#4a5568;}.sep{border:none;border-top:1px dashed #dde3ef;margin:2.5mm 0;}table{width:100%;border-collapse:collapse;margin-top:2mm;}thead tr{background:#0A0C10;}th{color:#fff;font-size:7.5px;text-transform:uppercase;padding:1.5mm 2mm;text-align:left;}td{font-size:9px;padding:1.5mm 2mm;border-bottom:1px solid #f0f4f8;}td.code{font-family:monospace;color:#00C2FF;font-weight:700;}td.qty{text-align:center;font-weight:800;}tr:nth-child(even) td{background:#f9fafc;}.ft{margin-top:3mm;padding-top:2mm;border-top:1px solid #e8ecf4;font-size:7.5px;color:#b0b8cc;text-align:center;}</style></head><body><div class="page">${[0,1].map(()=>`<div class="label"><div class="hdr"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos"/><div><div class="oc">${oc.numero_oc}</div><div class="dt">${ship.numero_guia} · ${new Date(ship.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}</div></div></div><div style="margin-bottom:3mm;"><span class="pill">${ship.courier}</span><span class="mod">${ship.tipo==="sucursal"?"📍 Sucursal":"🏠 Domicilio"}</span></div><div class="r2"><div><div class="bt">Destinatario</div><div class="bv">${ship.destinatario_nombre||"—"}</div><div class="bvmt">${ship.destinatario_rut||""}</div></div><div><div class="bt">Contacto</div><div class="bvsm">${ship.destinatario_tel||"—"}</div><div class="bvmt" style="font-size:8px">${ship.destinatario_correo||""}</div></div></div><hr class="sep"/><div style="margin-bottom:2.5mm;"><div class="bt">Dirección</div><div class="bvsm">${[ship.sucursal,ship.direccion].filter(Boolean).join(" · ")||"—"}, ${[ship.comuna,ship.ciudad].filter(Boolean).join(", ")||""}</div></div><hr class="sep"/><div class="r3"><div><div class="bt">Remitente</div><div class="bvsm">${sup.nombre||"—"}</div><div class="bvmt">${sup.rut||""}</div></div><div><div class="bt">OC</div><div class="bv">${oc.numero_oc}</div>${oc.cotizaciones?.numero?`<div class="bvmt">COT #${oc.cotizaciones.numero}</div>`:""}</div><div><div class="bt">Cot. Proveedor</div><div class="bvsm">${ship.notas||"—"}</div></div></div><table><thead><tr><th>Código</th><th>Producto</th><th>SKU</th><th style="text-align:center">Cant.</th></tr></thead><tbody>${(oc.lines||[]).map(l=>{const prod=products.find(p=>p.id===l.product_id)||{};const pp=productPrices.find(p=>p.id===l.supplier_price_id)||{};return`<tr><td class="code">${prod.codigo||"—"}</td><td>${prod.nombre||"—"}</td><td style="font-family:monospace;font-size:8px;color:#6b7a99">${pp.sku_proveedor||"—"}</td><td class="qty">${l.cantidad}</td></tr>`;}).join("")}</tbody></table><div class="ft">Polygonos SPA · RUT 77.180.437-3 · ${new Date().toLocaleString("es-CL")}</div></div>`).join("")}</div></body></html>`;
+                                    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>@page{size:A4 portrait;margin:8mm;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a2e;}.page{display:flex;flex-direction:column;gap:6mm;}.label{width:148mm;min-height:95mm;border:2px dashed #b0b8cc;border-radius:4mm;padding:5mm 6mm;position:relative;page-break-inside:avoid;}.label::before{content:'✂';position:absolute;top:-2mm;left:1mm;font-size:15px;color:#b0b8cc;}.hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #00C2FF;padding-bottom:3mm;margin-bottom:3.5mm;}.hdr img{height:34px;object-fit:contain;}.oc{font-size:20px;font-weight:900;color:#1a1a2e;letter-spacing:1.5px;}.dt{font-size:8px;color:#6b7a99;text-align:right;margin-top:1px;}.pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:800;color:#fff;background:${cInfo.color};}.mod{font-size:9px;color:#6b7a99;margin-left:5px;}.r2{display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:2.5mm;}.r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3mm;margin-bottom:2.5mm;}.bt{font-size:7px;color:#6b7a99;text-transform:uppercase;letter-spacing:0.1em;font-weight:700;margin-bottom:1mm;}.bv{font-size:10px;font-weight:700;color:#1a1a2e;line-height:1.4;}.bvsm{font-size:9px;font-weight:600;color:#1a1a2e;}.bvmt{font-size:9px;font-weight:600;color:#4a5568;}.sep{border:none;border-top:1px dashed #dde3ef;margin:2.5mm 0;}table{width:100%;border-collapse:collapse;margin-top:2mm;}thead tr{background:#0A0C10;}th{color:#fff;font-size:7.5px;text-transform:uppercase;padding:1.5mm 2mm;text-align:left;}td{font-size:9px;padding:1.5mm 2mm;border-bottom:1px solid #f0f4f8;}td.code{font-family:monospace;color:#00C2FF;font-weight:700;}td.qty{text-align:center;font-weight:800;}tr:nth-child(even) td{background:#f9fafc;}.ft{margin-top:3mm;padding-top:2mm;border-top:1px solid #e8ecf4;font-size:7.5px;color:#b0b8cc;text-align:center;}</style></head><body><div class="page">${[0,1].map(()=>`<div class="label"><div class="hdr"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" alt="Polygonos"/><div><div class="oc">${oc.numero_oc}</div><div class="dt">${ship.numero_guia} · ${new Date(ship.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}</div></div></div><div style="margin-bottom:3mm;"><span class="pill">${ship.courier}</span><span class="mod">${ship.tipo==="sucursal"?"📍 Sucursal":"🏠 Domicilio"}</span></div><div class="r2"><div><div class="bt">Destinatario</div><div class="bv">${ship.destinatario_nombre||"—"}</div><div class="bvmt">${ship.destinatario_rut||""}</div></div><div><div class="bt">Contacto</div><div class="bvsm">${ship.destinatario_tel||"—"}</div><div class="bvmt" style="font-size:8px">${ship.destinatario_correo||""}</div></div></div><hr class="sep"/><div style="margin-bottom:2.5mm;"><div class="bt">Dirección</div><div class="bvsm">${[ship.sucursal,ship.direccion].filter(Boolean).join(" · ")||"—"}, ${[ship.comuna,ship.ciudad].filter(Boolean).join(", ")||""}</div></div><hr class="sep"/><div class="r3"><div><div class="bt">Remitente</div><div class="bvsm">${sup.nombre||"—"}</div><div class="bvmt">${sup.rut||""}</div></div><div><div class="bt">OC</div><div class="bv">${oc.numero_oc}</div>${oc.cotizaciones?.numero?`<div class="bvmt">COT #${oc.cotizaciones.numero}</div>`:""}</div><div><div class="bt">Cot. Proveedor</div><div class="bvsm">${ship.notas||"—"}</div></div></div><table><thead><tr><th>Código</th><th>Producto</th><th>SKU</th><th style="text-align:center">Cant.</th></tr></thead><tbody>${(oc.lines||[]).map(l=>{const prod=products.find(p=>p.id===l.product_id)||{};const pp=productPrices.find(p=>p.id===l.supplier_price_id)||{};return`<tr><td class="code">${prod.codigo||"—"}</td><td>${prod.nombre||"—"}</td><td style="font-family:monospace;font-size:8px;color:#6b7a99">${pp.sku_proveedor||"—"}</td><td class="qty">${l.cantidad}</td></tr>`;}).join("")}</tbody></table><div class="ft">Polygonos SPA · RUT 77.180.437-3 · ${new Date().toLocaleString("es-CL")}</div></div>`).join("")}</div></body></html>`;
                                     const w = window.open("","_blank"); w.document.write(html); w.document.close(); setTimeout(()=>w.print(),600);
                                   }}
                                     style={{ padding:"3px 10px", background:`${COLORS.purple}22`, border:`1px solid ${COLORS.purple}44`, borderRadius:5, color:COLORS.purple, fontFamily:FONT, fontSize:10, cursor:"pointer", fontWeight:600 }}>
@@ -7919,7 +7875,7 @@ function PurchaseView({ isMobile }) {
           ${[0,1].map(()=>`
             <div class="label">
               <div class="lbl-header">
-                <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos"/>
+                <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" alt="Polygonos"/>
                 <div>
                   <div class="lbl-oc">${despachoOC.numero_oc}</div>
                   <div class="lbl-date">${new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}</div>
@@ -9662,7 +9618,7 @@ function AnalisisComparativa({ analysis, onBack, onEdit }) {
       .foot{margin-top:4mm;border-top:1px solid #ccc;padding-top:3mm;font-size:8px;color:#999;text-align:center;}
     </style></head><body>
     <div class="hdr">
-      <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png"/>
+      <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png"/>
       <div>
         <div class="doc-type">Análisis Comparativo de Precios</div>
         <div class="doc-sub">${analysis.titulo||""} ${analysis.categoria?"· "+analysis.categoria:""} · ${new Date().toLocaleDateString("es-CL")}</div>
@@ -10173,7 +10129,7 @@ function printOp(op, quote) {
     .foot{margin-top:6mm;border-top:1px solid #ccc;padding-top:3mm;font-size:8px;color:#999;text-align:center;}
   </style></head><body>
   <div class="hdr">
-    <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos"/>
+    <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" alt="Polygonos"/>
     <div class="hdr-right">
       <div class="doc-type">${isCom?"Informe de Comisionamiento":"Checklist de Mantención"}</div>
       <div class="doc-sub">${op.numero||"OP-"+op.id.slice(0,8)} · ${fecha}</div>
@@ -10792,7 +10748,7 @@ function printFicha(ficha) {
   <div class="page1">
     <div class="hdr">
       <div>
-        <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos"/>
+        <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" alt="Polygonos"/>
       </div>
       <div class="hdr-right">
         <div class="doc-type">Análisis Comparativo de Precios</div>
@@ -10815,7 +10771,7 @@ function printFicha(ficha) {
   <!-- PÁGINA 2: Tabla comparativa detallada -->
   <div class="page-break page2">
     <div class="hdr">
-      <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos"/>
+      <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" alt="Polygonos"/>
       <div class="hdr-right">
         <div class="doc-type">Tabla Comparativa Técnica</div>
         <div class="doc-sub">${ficha.titulo}</div>
