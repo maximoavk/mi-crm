@@ -5569,6 +5569,22 @@ function QuotePDF({ quote, onBack }) {
               : "Polygonos SPA\nRUT: 77.180.437-3\nBanco Santander\nCta. Cte. 99128755\nCorreo: maximo.hudson.blanco@gmail.com"
             }</div>
           </div>
+          {/* ── FIRMA DIGITAL VISUAL ── */}
+          <div style={{ marginTop:20, paddingTop:16, borderTop:"1px solid #e0e0e0", display:"flex", justifyContent:"space-between", alignItems:"flex-end", position:"relative", overflow:"hidden" }}>
+            {/* Marca de agua */}
+            <div style={{ position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-50%) rotate(-30deg)", fontSize:52, fontWeight:900, color:"#0f1623", opacity:0.04, whiteSpace:"nowrap", pointerEvents:"none", userSelect:"none" }}>POLYGONOS</div>
+            {/* Firma */}
+            <div style={{ textAlign:"center", minWidth:180 }}>
+              <div style={{ fontFamily:"Georgia,serif", fontSize:26, color:"#1a1a2e", lineHeight:1, marginBottom:6, borderBottom:"1.5px solid #1a1a2e", paddingBottom:4, fontStyle:"italic", letterSpacing:"0.02em" }}>Maximo Hudson</div>
+              <div style={{ fontSize:9, color:"#555", marginTop:4 }}>Maximo Manuel Hudson Blanco</div>
+              <div style={{ fontSize:9, color:"#555" }}>RUT: 26.074.100-4 · Polygonos SpA</div>
+              <div style={{ fontSize:9, color:"#555" }}>Gerente Comercial</div>
+            </div>
+            <div style={{ textAlign:"right", fontSize:9, color:"#888" }}>
+              <div>Emitido: {new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"})}</div>
+              <div style={{ marginTop:2 }}>Documento emitido con sello Polygonos SpA</div>
+            </div>
+          </div>
       </div>
 
       <style>{`
@@ -8688,6 +8704,20 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
     </table>
     <h2>Garantías</h2><p>${form.garantias}</p>
     <h2>Forma de Pago</h2><p>${form.condiciones_pago}</p>
+    <div style="margin-top:32px;padding-top:20px;border-top:2px solid #e2e8f0;display:flex;justify-content:space-between;align-items:flex-end;position:relative;overflow:hidden">
+      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);font-size:64px;font-weight:900;color:#0f1623;opacity:0.04;white-space:nowrap;pointer-events:none">POLYGONOS</div>
+      <div style="text-align:center;min-width:200px">
+        <div style="font-family:Georgia,serif;font-size:30px;color:#1a1a2e;line-height:1;margin-bottom:6px;border-bottom:1.5px solid #1a1a2e;padding-bottom:6px;font-style:italic;letter-spacing:0.02em">Maximo Hudson</div>
+        <div style="font-size:10px;color:#475569;margin-top:5px">Maximo Manuel Hudson Blanco</div>
+        <div style="font-size:10px;color:#475569">RUT: 26.074.100-4</div>
+        <div style="font-size:10px;color:#475569;font-weight:600">Gerente Comercial · Polygonos SpA</div>
+      </div>
+      <div style="text-align:right;font-size:10px;color:#94a3b8">
+        <div>Emitido el ${new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"})}</div>
+        <div style="margin-top:3px">COT-${form.numero_cotizacion} · Rev. ${form.revision}</div>
+        <div style="margin-top:3px">Documento con sello Polygonos SpA</div>
+      </div>
+    </div>
     <div class="footer">Polygonos SpA · RUT 77.180.437-3 · ventas@polygonos.cl · +56 9 6426 6356 · Innovación | Tecnología | Seguridad</div>
     <script>window.onload=()=>window.print();</script>
     </body></html>`;
@@ -11108,52 +11138,18 @@ function IncidenciasView({ contacts, isMobile }) {
   const [showLog, setShowLog]     = useState(null); // ticket id con log abierto
   const [showLogModal, setShowLogModal] = useState(false);
   const [logForm, setLogForm]     = useState({ fecha: new Date().toISOString().slice(0,10), hora:"09:00", tecnico:"Maximo Hudson", diagnostico:"", piezas:"", upselling:false, notas:"" });
-  const [saving, setSaving]         = useState(false);
-  const [cotLoading, setCotLoading] = useState(false);
-  const [cotLines, setCotLines]     = useState([]); // líneas de la cotización
-  const [cotInfo, setCotInfo]       = useState(null); // info cargada
-  const [selLines, setSelLines]     = useState([]); // líneas seleccionadas
+  const [saving, setSaving]       = useState(false);
 
   const emptyForm = () => ({
-    numero_cotizacion:"", titulo:"", cliente:"", rut_cliente:"", direccion:"",
-    descripcion:"", categoria:"Cámara CCTV", estado:"reportada",
+    numero_cotizacion:"", titulo:"", cliente:"", descripcion:"",
+    categoria:"Cámara CCTV", estado:"reportada",
     fecha_reporte: new Date().toISOString().slice(0,10),
     equipo:"", serie:"", garantia:false, upselling:false,
-    solucion_final:"", visitas:[], productos_garantia:[]
+    solucion_final:"", visitas: []
   });
   const [form, setForm] = useState(emptyForm());
   const ff = (k,v) => setForm(p=>({...p,[k]:v}));
   const lf = (k,v) => setLogForm(p=>({...p,[k]:v}));
-
-  const buscarCot = async (num) => {
-    if (!num) return;
-    setCotLoading(true); setCotLines([]); setCotInfo(null); setSelLines([]);
-    // Busca COT y SIN (con y sin IVA)
-    const { data: cots } = await supabase.from("cotizaciones")
-      .select("id,numero,serie,nombre_cliente,rut_cliente,razon_social,direccion,telefono,aplica_iva")
-      .eq("numero", Number(num));
-    if (cots && cots.length > 0) {
-      const cot = cots[0];
-      setCotInfo(cot);
-      ff("cliente", cot.razon_social || cot.nombre_cliente || "");
-      ff("rut_cliente", cot.rut_cliente || "");
-      ff("direccion", cot.direccion || "");
-      const { data: lines } = await supabase.from("quote_lines")
-        .select("*").eq("quote_id", cot.id)
-        .in("tipo_linea", ["item","producto"]).order("orden");
-      setCotLines((lines||[]).map(mapQuoteLine));
-    }
-    setCotLoading(false);
-  };
-
-  const toggleLine = (lineId) => {
-    setSelLines(prev => prev.includes(lineId) ? prev.filter(i=>i!==lineId) : [...prev, lineId]);
-  };
-
-  const confirmLineSelection = () => {
-    const selected = cotLines.filter(l => selLines.includes(l.id));
-    ff("productos_garantia", selected.map(l=>({ codigo: l.code, descripcion: l.description, qty: l.qty })));
-  };
 
   const inp = { width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", boxSizing:"border-box" };
   const lbl = { fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4, display:"block" };
@@ -11199,7 +11195,7 @@ function IncidenciasView({ contacts, isMobile }) {
 
   const openEdit = (t) => {
     setEditTicket(t);
-    setForm({ numero_cotizacion:t.numero_cotizacion||"", titulo:t.titulo||"", cliente:t.cliente||"", rut_cliente:t.rut_cliente||"", direccion:t.direccion||"", descripcion:t.descripcion||"", categoria:t.categoria||"Cámara CCTV", estado:t.estado||"reportada", fecha_reporte:t.fecha_reporte||"", equipo:t.equipo||"", serie:t.serie||"", garantia:t.garantia||false, upselling:t.upselling||false, solucion_final:t.solucion_final||"", visitas:t.visitas||[], productos_garantia:t.productos_garantia||[] });
+    setForm({ numero_cotizacion:t.numero_cotizacion||"", titulo:t.titulo||"", cliente:t.cliente||"", descripcion:t.descripcion||"", categoria:t.categoria||"Cámara CCTV", estado:t.estado||"reportada", fecha_reporte:t.fecha_reporte||"", equipo:t.equipo||"", serie:t.serie||"", garantia:t.garantia||false, upselling:t.upselling||false, solucion_final:t.solucion_final||"", visitas:t.visitas||[] });
     setShowModal(true);
   };
 
@@ -11257,20 +11253,10 @@ function IncidenciasView({ contacts, isMobile }) {
       <div style="margin-bottom:6px"><b style="font-size:12px">${t.titulo||""}</b></div>
       <div class="grid2">
         <div class="field"><div class="lbl">Cliente</div><div class="val">${t.cliente||"—"}</div></div>
-        <div class="field"><div class="lbl">RUT</div><div class="val">${t.rut_cliente||"—"}</div></div>
-        ${t.direccion?`<div class="field" style="grid-column:1/-1"><div class="lbl">Dirección</div><div class="val">${t.direccion}</div></div>`:""}
         <div class="field"><div class="lbl">Categoría</div><div class="val" style="color:${catColor}">${t.categoria||"—"}</div></div>
         <div class="field"><div class="lbl">Equipo</div><div class="val">${t.equipo||"—"}</div></div>
         <div class="field"><div class="lbl">N° Serie</div><div class="val">${t.serie||"—"}</div></div>
       </div>
-      ${(t.productos_garantia||[]).length>0?`
-      <div style="margin-top:6px">
-        <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#64748b;margin-bottom:4px">Productos bajo garantía</div>
-        <table style="width:100%;border-collapse:collapse;font-size:9px">
-          <thead><tr style="background:#0f172a"><th style="color:#fff;padding:3px 6px;text-align:left">Código</th><th style="color:#fff;padding:3px 6px;text-align:left">Descripción</th><th style="color:#fff;padding:3px 6px;text-align:center">Cant.</th></tr></thead>
-          <tbody>${(t.productos_garantia||[]).map(p=>`<tr style="border-bottom:1px solid #e2e8f0"><td style="padding:3px 6px;font-family:monospace;color:#0ea5e9">${p.codigo||"—"}</td><td style="padding:3px 6px">${p.descripcion||""}</td><td style="padding:3px 6px;text-align:center">${p.qty||1}</td></tr>`).join("")}</tbody>
-        </table>
-      </div>`:""}
       ${t.descripcion?`<div style="font-size:10px;color:#475569;background:#f8fafc;padding:8px;border-radius:4px;border-left:3px solid ${catColor}">${t.descripcion}</div>`:""}
     </div>
     ${(t.visitas||[]).length>0?`<div class="section"><div class="section-title">Log de Visitas Técnicas (${t.visitas.length})</div>${visitasHTML}</div>`:""}
@@ -11356,17 +11342,11 @@ function IncidenciasView({ contacts, isMobile }) {
                       {(t.upselling||(t.visitas||[]).some(v=>v.upselling)) && <span style={{ fontFamily:FONT, fontSize:10, background:"#F9731622", color:"#F97316", border:"1px solid #F9731633", borderRadius:10, padding:"1px 8px" }}>⚡ Upselling</span>}
                     </div>
                     <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
-                      {t.cliente && <span>{t.cliente}{t.rut_cliente?` (${t.rut_cliente})`:""} · </span>}
+                      {t.cliente && <span>{t.cliente} · </span>}
                       {t.numero_cotizacion && <span>COT-{t.numero_cotizacion} · </span>}
                       {t.equipo && <span>{t.equipo} · </span>}
                       <span>{t.fecha_reporte}</span>
                     </div>
-                    {t.direccion && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:2 }}>📍 {t.direccion}</div>}
-                    {(t.productos_garantia||[]).length>0 && (
-                      <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:3 }}>
-                        Garantía: {t.productos_garantia.map(p=>p.codigo||p.descripcion?.slice(0,20)).join(", ")}
-                      </div>
-                    )}
                     {t.descripcion && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:4, fontStyle:"italic" }}>{t.descripcion.slice(0,120)}{t.descripcion.length>120?"…":""}</div>}
                   </div>
                   {/* Actions */}
@@ -11423,58 +11403,9 @@ function IncidenciasView({ contacts, isMobile }) {
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
               <div><label style={lbl}>Título *</label><input value={form.titulo} onChange={e=>ff("titulo",e.target.value)} placeholder="Ej: Cámara sin señal en piso 3" style={inp} /></div>
-              {/* Buscador de cotización */}
-              <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"12px 14px" }}>
-                <label style={lbl}>N° Cotización (COT o SIN — con y sin IVA)</label>
-                <div style={{ display:"flex", gap:8, marginBottom:4 }}>
-                  <input value={form.numero_cotizacion}
-                    onChange={e=>ff("numero_cotizacion",e.target.value)}
-                    onKeyDown={e=>e.key==="Enter"&&buscarCot(form.numero_cotizacion)}
-                    placeholder="Ej: 88" style={{ ...inp, flex:1 }} />
-                  <button onClick={()=>buscarCot(form.numero_cotizacion)} disabled={cotLoading||!form.numero_cotizacion}
-                    style={{ padding:"8px 14px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer", opacity:cotLoading?0.6:1 }}>
-                    {cotLoading?"…":"Cargar"}
-                  </button>
-                </div>
-                {cotInfo && (
-                  <div style={{ marginTop:8 }}>
-                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.green, marginBottom:8 }}>
-                      ✓ {cotInfo.serie||"COT"}-{cotInfo.numero} · {cotInfo.aplica_iva?"Con IVA":"Sin IVA"} · {cotInfo.razon_social||cotInfo.nombre_cliente}
-                    </div>
-                    {cotLines.length > 0 && (
-                      <div>
-                        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:6 }}>Selecciona productos que aplican garantía:</div>
-                        <div style={{ display:"flex", flexDirection:"column", gap:4, maxHeight:160, overflowY:"auto" }}>
-                          {cotLines.map(l=>(
-                            <label key={l.id} style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer", padding:"5px 8px", borderRadius:6, background:selLines.includes(l.id)?`${COLORS.accent}18`:COLORS.surface, border:`1px solid ${selLines.includes(l.id)?COLORS.accent:COLORS.border}` }}>
-                              <input type="checkbox" checked={selLines.includes(l.id)} onChange={()=>toggleLine(l.id)} />
-                              <div style={{ flex:1, minWidth:0 }}>
-                                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                                  {l.code && <span style={{color:COLORS.accent,marginRight:6,fontFamily:"monospace"}}>{l.code}</span>}{l.description}
-                                </div>
-                                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Cant: {l.qty} · ${Number(l.unitPrice).toLocaleString("es-CL")}</div>
-                              </div>
-                            </label>
-                          ))}
-                        </div>
-                        <button onClick={confirmLineSelection} style={{ marginTop:8, padding:"5px 14px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:6, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
-                          ✓ Confirmar selección ({selLines.length} productos)
-                        </button>
-                      </div>
-                    )}
-                    {(form.productos_garantia||[]).length > 0 && (
-                      <div style={{ marginTop:6, fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
-                        Guardados: <b style={{color:COLORS.text}}>{form.productos_garantia.map(p=>p.codigo||p.descripcion?.slice(0,20)).join(", ")}</b>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+                <div><label style={lbl}>N° Cotización</label><input value={form.numero_cotizacion} onChange={e=>ff("numero_cotizacion",e.target.value)} placeholder="Ej: 88" style={inp} /></div>
                 <div><label style={lbl}>Cliente</label><input value={form.cliente} onChange={e=>ff("cliente",e.target.value)} style={inp} /></div>
-                <div><label style={lbl}>RUT cliente</label><input value={form.rut_cliente||""} onChange={e=>ff("rut_cliente",e.target.value)} style={inp} /></div>
-                <div style={{ gridColumn:"1/-1" }}><label style={lbl}>Dirección</label><input value={form.direccion||""} onChange={e=>ff("direccion",e.target.value)} style={inp} /></div>
                 <div><label style={lbl}>Estado</label>
                   <select value={form.estado} onChange={e=>ff("estado",e.target.value)} style={inp}>
                     {ESTADOS.map(e=><option key={e.key} value={e.key}>{e.label}</option>)}
