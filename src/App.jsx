@@ -10503,16 +10503,19 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
     load();
   }, [cotizacion.cotizacion_id]);
 
+  const [precioVentaCot, setPrecioVentaCot] = useState(0); // precio de venta de la COT (referencia)
+
   // Al seleccionar una línea pendiente, pre-cargar el form
   const selectLine = (ql) => {
     setSelectedLine(ql.id);
     setF("descripcion", ql.descripcion || ql.products?.nombre || "");
     setF("codigo", ql.codigo || ql.products?.codigo || "");
     setF("cantidad", String(ql.cantidad || 1));
-    setF("precio_unitario", String(Math.round(Number(ql.precio_unitario || 0))));
+    // Guardar precio venta como referencia — NO pre-cargar como costo
+    setPrecioVentaCot(Math.round(Number(ql.precio_unitario || 0)));
+    setF("precio_unitario", ""); // dejar vacío para que ingresen el costo real
     setProdSel(ql.products || null);
     setBusqProd(ql.products?.nombre || ql.descripcion || "");
-    // Auto-seleccionar proveedor si el producto tiene uno
     if (ql.products?.proveedor) {
       const sup = suppliers.find(s =>
         s.nombre?.toLowerCase().includes(ql.products.proveedor.toLowerCase())
@@ -10793,8 +10796,60 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
           onChange={e=>setF("codigo",e.target.value)} placeholder="SVC-001" />
         <LabelInput label="Cantidad" type="number" value={form.cantidad}
           onChange={e=>setF("cantidad",e.target.value)} placeholder="1" />
-        <LabelInput label="Precio unitario (neto)" type="number" value={form.precio_unitario}
-          onChange={e=>setF("precio_unitario",e.target.value)} placeholder="0" />
+
+        {/* Campo costo con referencia precio venta COT */}
+        <div style={{ marginBottom:14 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:5 }}>
+            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+              letterSpacing:"0.08em", textTransform:"uppercase" }}>
+              Costo neto unitario (lo que pagas)
+            </div>
+            {precioVentaCot > 0 && (
+              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent,
+                background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`,
+                borderRadius:4, padding:"2px 8px" }}>
+                Venta COT: {fmtClp(precioVentaCot)}
+              </div>
+            )}
+          </div>
+          <div style={{ display:"flex", gap:6 }}>
+            <input
+              type="number"
+              value={form.precio_unitario}
+              onChange={e=>setF("precio_unitario",e.target.value)}
+              placeholder="0 — ingresa tu costo real"
+              style={{ flex:1, background:COLORS.bg,
+                border:`1px solid ${form.precio_unitario==="0"?COLORS.green:form.precio_unitario?COLORS.accent:COLORS.border}`,
+                borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13,
+                color:COLORS.text, outline:"none", boxSizing:"border-box" }}
+            />
+            {/* Botón trabajo propio */}
+            <button
+              onClick={()=>setF("precio_unitario","0")}
+              title="Trabajo propio — costo $0, ingreso 100% margen"
+              style={{ padding:"9px 12px", background:form.precio_unitario==="0"?COLORS.green+"22":"transparent",
+                border:`1px solid ${form.precio_unitario==="0"?COLORS.green:COLORS.border}`,
+                borderRadius:6, color:form.precio_unitario==="0"?COLORS.green:COLORS.textMuted,
+                fontFamily:FONT, fontSize:11, cursor:"pointer", whiteSpace:"nowrap",
+                transition:"all 0.15s" }}>
+              $0 propio
+            </button>
+          </div>
+          {/* Indicador contextual */}
+          {form.precio_unitario === "0" && (
+            <div style={{ marginTop:5, fontFamily:FONT, fontSize:10,
+              color:COLORS.green }}>
+              ✓ Trabajo propio — el ingreso ({precioVentaCot > 0 ? fmtClp(precioVentaCot * Number(form.cantidad||1)) : "precio COT"}) es margen puro
+            </div>
+          )}
+          {form.precio_unitario && form.precio_unitario !== "0" && precioVentaCot > 0 && (
+            <div style={{ marginTop:5, fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
+              Margen estimado: {fmtClp(
+                (precioVentaCot - Number(form.precio_unitario)) * Number(form.cantidad||1)
+              )} ({Math.round(((precioVentaCot - Number(form.precio_unitario)) / precioVentaCot) * 100)}%)
+            </div>
+          )}
+        </div>
         <div style={{ marginBottom:14 }}>
           <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
             letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>¿Aplica IVA?</div>
@@ -10836,7 +10891,8 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
         onChange={e=>setF("notas",e.target.value)} placeholder="Observaciones…" />
       <div style={{ display:"flex", gap:10 }}>
         <BtnSec onClick={onClose}>Cancelar</BtnSec>
-        <BtnPrimary onClick={save} disabled={saving||!form.descripcion||!form.precio_unitario}>
+        <BtnPrimary onClick={save}
+          disabled={saving || !form.descripcion || form.precio_unitario === ""}>
           {saving?"Guardando…":"Agregar Línea"}
         </BtnPrimary>
       </div>
