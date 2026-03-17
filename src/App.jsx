@@ -9489,13 +9489,18 @@ function _TablaDocumentos({ docs, tipo }) {
 // 2. CUENTAS POR COBRAR — Facturas emitidas + pagos recibidos
 // ══════════════════════════════════════════════════════════════════════════════
 function CuentasPorCobrar({ isMobile }) {
-  const [facturas, setFacturas] = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [modal, setModal]       = useState(null); // "nueva" | "pago" | null
-  const [saving, setSaving]     = useState(false);
-  const [pagoModal, setPagoModal] = useState(null); // {facturaId, facturaN}
+  const [facturas, setFacturas]   = useState([]);
+  const [clientes, setClientes]   = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [modal, setModal]         = useState(null);
+  const [saving, setSaving]       = useState(false);
+  const [pagoModal, setPagoModal] = useState(null);
 
-  // Form nueva factura emitida
+  // Buscador cliente
+  const [busqueda, setBusqueda]           = useState("");
+  const [showSugerencias, setShowSugerencias] = useState(false);
+  const [clienteSel, setClienteSel]       = useState(null);
+
   const emptyForm = {
     numero_documento:"", tipo_documento:"Factura", fecha_emision:"",
     razon_social_cliente:"", rut_cliente:"",
@@ -9505,22 +9510,55 @@ function CuentasPorCobrar({ isMobile }) {
   const [form, setForm] = useState(emptyForm);
   const setF = (k,v) => setForm(p=>({...p,[k]:v}));
 
-  // Form pago
   const emptyPago = { fecha_pago:"", monto:"", metodo:"Transferencia", referencia:"" };
   const [formPago, setFormPago] = useState(emptyPago);
   const setFP = (k,v) => setFormPago(p=>({...p,[k]:v}));
 
-  useEffect(() => { loadFacturas(); }, []);
+  useEffect(() => { loadAll(); }, []);
 
-  const loadFacturas = async () => {
+  const loadAll = async () => {
     setLoading(true);
-    const { data: facts } = await supabase.from("facturas_emitidas")
-      .select("*, pagos_recibidos(*)").order("fecha_emision", { ascending:false });
+    const [{ data: facts }, { data: cons }] = await Promise.all([
+      supabase.from("facturas_emitidas")
+        .select("*, pagos_recibidos(*)").order("fecha_emision", { ascending:false }),
+      supabase.from("contactos")
+        .select("id, nombre, empresa, rut, email, telefono").order("nombre"),
+    ]);
     setFacturas(facts || []);
+    setClientes(cons || []);
     setLoading(false);
   };
 
-  // Calcula neto + IVA automáticamente
+  // Sugerencias: busca por nombre personal, empresa o RUT
+  const sugerencias = busqueda.length >= 1
+    ? clientes.filter(c => {
+        const q = busqueda.toLowerCase();
+        const rutClean = (c.rut||"").toLowerCase().replace(/[.\-]/g,"");
+        return (
+          c.nombre?.toLowerCase().includes(q) ||
+          c.empresa?.toLowerCase().includes(q) ||
+          rutClean.includes(q.replace(/[.\-]/g,""))
+        );
+      }).slice(0, 8)
+    : [];
+
+  const seleccionarCliente = (c) => {
+    setClienteSel(c);
+    // Prefiere empresa como razón social, sino nombre de contacto
+    const razon = c.empresa || c.nombre;
+    setBusqueda(razon);
+    setF("razon_social_cliente", razon);
+    setF("rut_cliente", c.rut || "");
+    setShowSugerencias(false);
+  };
+
+  const abrirModal = () => {
+    setForm(emptyForm);
+    setClienteSel(null);
+    setBusqueda("");
+    setModal("nueva");
+  };
+
   const netoNum   = Number(form.monto_neto) || 0;
   const ivaCalc   = form.aplica_iva ? Math.round(netoNum * IVA_RATE) : 0;
   const totalCalc = netoNum + ivaCalc;
@@ -9528,7 +9566,7 @@ function CuentasPorCobrar({ isMobile }) {
   const saveFactura = async () => {
     if (!form.numero_documento || !form.monto_neto || !form.fecha_emision) return;
     setSaving(true);
-    const payload = {
+    await supabase.from("facturas_emitidas").insert({
       numero_documento: form.numero_documento.trim(),
       tipo_documento:   form.tipo_documento,
       fecha_emision:    form.fecha_emision,
@@ -9541,10 +9579,11 @@ function CuentasPorCobrar({ isMobile }) {
       vencimiento:      form.vencimiento || null,
       referencia_cotizacion: form.referencia_cotizacion.trim() || null,
       notas:            form.notas.trim() || null,
-    };
-    await supabase.from("facturas_emitidas").insert(payload);
-    await loadFacturas();
+    });
+    await loadAll();
     setForm(emptyForm);
+    setClienteSel(null);
+    setBusqueda("");
     setModal(null);
     setSaving(false);
   };
@@ -9582,7 +9621,7 @@ function CuentasPorCobrar({ isMobile }) {
         <SecTitle sub="Facturas que emites a clientes · seguimiento de cobros">
           Cuentas por Cobrar
         </SecTitle>
-        <BtnPrimary onClick={()=>setModal("nueva")}>+ Nueva Factura Emitida</BtnPrimary>
+        <BtnPrimary onClick={abrirModal}>+ Nueva Factura Emitida</BtnPrimary>
       </div>
 
       {/* KPIs */}
@@ -9663,7 +9702,127 @@ function CuentasPorCobrar({ isMobile }) {
 
       {/* Modal nueva factura emitida */}
       {modal === "nueva" && (
-        <FinModal title="Nueva Factura Emitida" onClose={()=>setModal(null)} width={520}>
+        <FinModal title="Nueva Factura Emitida" onClose={()=>setModal(null)} width={560}>
+
+          {/* ── BUSCADOR DE CLIENTE ── */}
+          <div style={{ marginBottom:18 }}>
+            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+              letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>
+              Buscar Cliente por Nombre, Empresa o RUT
+            </div>
+            <div style={{ position:"relative" }}>
+              <input
+                value={busqueda}
+                onChange={e => {
+                  setBusqueda(e.target.value);
+                  setShowSugerencias(true);
+                  if (!e.target.value) {
+                    setClienteSel(null);
+                    setF("razon_social_cliente","");
+                    setF("rut_cliente","");
+                  }
+                }}
+                onFocus={() => setShowSugerencias(true)}
+                onBlur={() => setTimeout(()=>setShowSugerencias(false), 150)}
+                placeholder="Ej: Constructora Pérez o 76.XXX.XXX-X"
+                style={{ width:"100%", background:COLORS.bg,
+                  border:`1px solid ${clienteSel ? COLORS.green : COLORS.border}`,
+                  borderRadius:8, padding:"10px 40px 10px 14px",
+                  fontFamily:FONT, fontSize:13, color:COLORS.text,
+                  outline:"none", boxSizing:"border-box" }}
+              />
+              <div style={{ position:"absolute", right:12, top:"50%",
+                transform:"translateY(-50%)", fontSize:14, pointerEvents:"none" }}>
+                {clienteSel ? "✅" : "🔍"}
+              </div>
+
+              {/* Dropdown sugerencias */}
+              {showSugerencias && sugerencias.length > 0 && (
+                <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0,
+                  background:COLORS.surface, border:`1px solid ${COLORS.border}`,
+                  borderRadius:8, zIndex:300, maxHeight:260, overflowY:"auto",
+                  boxShadow:"0 8px 24px #0006" }}>
+                  {sugerencias.map(c => (
+                    <div key={c.id}
+                      onMouseDown={() => seleccionarCliente(c)}
+                      style={{ padding:"10px 16px", cursor:"pointer",
+                        borderBottom:`1px solid ${COLORS.border}`,
+                        display:"flex", justifyContent:"space-between", alignItems:"center" }}
+                      onMouseEnter={e=>e.currentTarget.style.background=COLORS.card}
+                      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                      <div>
+                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600,
+                          color:COLORS.text }}>
+                          {c.empresa || c.nombre}
+                          {c.empresa && c.nombre !== c.empresa &&
+                            <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+                              marginLeft:8 }}>({c.nombre})</span>}
+                        </div>
+                        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:2 }}>
+                          {c.rut && <span style={{ marginRight:10 }}>RUT: {c.rut}</span>}
+                          {c.email && <span style={{ marginRight:10 }}>{c.email}</span>}
+                          {c.telefono && <span>{c.telefono}</span>}
+                        </div>
+                      </div>
+                      <span style={{ fontSize:10, padding:"2px 8px", borderRadius:4,
+                        background:COLORS.accentDim, color:COLORS.accent,
+                        border:`1px solid ${COLORS.accentGlow}`, whiteSpace:"nowrap" }}>
+                        Seleccionar →
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {showSugerencias && busqueda.length >= 2 && sugerencias.length === 0 && (
+                <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0,
+                  background:COLORS.surface, border:`1px solid ${COLORS.border}`,
+                  borderRadius:8, zIndex:300, padding:"12px 16px",
+                  fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>
+                  No encontrado — puedes ingresarlo manualmente abajo
+                </div>
+              )}
+            </div>
+
+            {/* Chip cliente seleccionado */}
+            {clienteSel && (
+              <div style={{ marginTop:8, padding:"8px 14px", background:COLORS.green+"18",
+                border:`1px solid ${COLORS.green}44`, borderRadius:8,
+                display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <div>
+                  <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600,
+                    color:COLORS.green }}>{clienteSel.empresa || clienteSel.nombre}</span>
+                  <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+                    marginLeft:10 }}>RUT: {clienteSel.rut}</span>
+                  {clienteSel.email && <span style={{ fontFamily:FONT, fontSize:11,
+                    color:COLORS.textMuted, marginLeft:10 }}>{clienteSel.email}</span>}
+                </div>
+                <button onClick={()=>{ setClienteSel(null); setBusqueda("");
+                    setF("razon_social_cliente",""); setF("rut_cliente",""); }}
+                  style={{ background:"transparent", border:"none",
+                    color:COLORS.textMuted, cursor:"pointer", fontSize:14 }}>✕</button>
+              </div>
+            )}
+          </div>
+
+          {/* Ingreso manual si no hay cliente seleccionado */}
+          {!clienteSel && (
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 14px",
+              padding:"12px 14px", background:COLORS.bg, borderRadius:8,
+              border:`1px solid ${COLORS.border}`, marginBottom:14 }}>
+              <div style={{ gridColumn:"1/-1", fontFamily:FONT, fontSize:10,
+                color:COLORS.textMuted, marginBottom:8, textTransform:"uppercase",
+                letterSpacing:"0.07em" }}>O ingresa manualmente</div>
+              <LabelInput label="Razón Social Cliente" value={form.razon_social_cliente}
+                onChange={e=>setF("razon_social_cliente",e.target.value)}
+                placeholder="Empresa S.A." />
+              <LabelInput label="RUT Cliente" value={form.rut_cliente}
+                onChange={e=>setF("rut_cliente",e.target.value)}
+                placeholder="76.XXX.XXX-X" />
+            </div>
+          )}
+
+          {/* Resto del formulario */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 14px" }}>
             <LabelInput label="N° Documento" value={form.numero_documento}
               onChange={e=>setF("numero_documento",e.target.value)} placeholder="Ej: 1234" />
@@ -9674,10 +9833,6 @@ function CuentasPorCobrar({ isMobile }) {
               <option>Nota de Crédito</option>
               <option>Nota de Débito</option>
             </LabelSelect>
-            <LabelInput label="Razón Social Cliente" value={form.razon_social_cliente}
-              onChange={e=>setF("razon_social_cliente",e.target.value)} placeholder="Empresa S.A." />
-            <LabelInput label="RUT Cliente" value={form.rut_cliente}
-              onChange={e=>setF("rut_cliente",e.target.value)} placeholder="76.XXX.XXX-X" />
             <LabelInput label="Fecha Emisión" type="date" value={form.fecha_emision}
               onChange={e=>setF("fecha_emision",e.target.value)} />
             <LabelInput label="Vencimiento" type="date" value={form.vencimiento}
@@ -9703,6 +9858,7 @@ function CuentasPorCobrar({ isMobile }) {
             <LabelInput label="Ref. Cotización (opcional)" value={form.referencia_cotizacion}
               onChange={e=>setF("referencia_cotizacion",e.target.value)} placeholder="COT-001" />
           </div>
+
           {/* Preview cálculo */}
           {netoNum > 0 && (
             <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8,
@@ -9715,7 +9871,8 @@ function CuentasPorCobrar({ isMobile }) {
                 <span style={{ color:COLORS.textMuted }}>IVA 19%:</span>
                 <span style={{ color:COLORS.yellow }}>{form.aplica_iva ? fmtClp(ivaCalc) : "—"}</span>
               </div>
-              <div style={{ display:"flex", justifyContent:"space-between", borderTop:`1px solid ${COLORS.border}`, paddingTop:6, marginTop:2 }}>
+              <div style={{ display:"flex", justifyContent:"space-between",
+                borderTop:`1px solid ${COLORS.border}`, paddingTop:6, marginTop:2 }}>
                 <span style={{ color:COLORS.text, fontWeight:700 }}>Total:</span>
                 <span style={{ color:COLORS.accent, fontWeight:700, fontSize:14 }}>{fmtClp(totalCalc)}</span>
               </div>
@@ -9725,7 +9882,9 @@ function CuentasPorCobrar({ isMobile }) {
             onChange={e=>setF("notas",e.target.value)} placeholder="Referencia proyecto, OC cliente…" />
           <div style={{ display:"flex", gap:10, marginTop:4 }}>
             <BtnSec onClick={()=>setModal(null)}>Cancelar</BtnSec>
-            <BtnPrimary onClick={saveFactura} disabled={saving||!form.numero_documento||!form.monto_neto}>
+            <BtnPrimary onClick={saveFactura}
+              disabled={saving||!form.numero_documento||!form.monto_neto||
+                (!form.razon_social_cliente&&!clienteSel)}>
               {saving ? "Guardando…" : "Guardar Factura"}
             </BtnPrimary>
           </div>
