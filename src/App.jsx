@@ -9572,6 +9572,7 @@ const FinModal = ({ title, onClose, children, width=480 }) => (
 // 1. DASHBOARD F29 — Resumen mensual de IVA
 // ══════════════════════════════════════════════════════════════════════════════
 function FinanzasDashboard({ isMobile }) {
+  const [tabFin, setTabFin] = useState("rendimiento"); // "rendimiento" | "f29"
   const hoy = new Date();
   const [mes, setMes] = useState(hoy.getMonth() + 1);     // 1-12
   const [anio, setAnio] = useState(hoy.getFullYear());
@@ -9630,11 +9631,34 @@ function FinanzasDashboard({ isMobile }) {
 
   return (
     <div>
-      <SecTitle sub="Cálculo estimado F29 · No reemplaza declaración oficial SII">
-        Resumen IVA — F29
+      <SecTitle sub="Control financiero · F29 · Rendimiento por cotización">
+        Resumen Financiero
       </SecTitle>
 
-      {/* Selector mes/año */}
+      {/* Tabs */}
+      <div style={{ display:"flex", gap:4, marginBottom:24,
+        borderBottom:`1px solid ${COLORS.border}`, paddingBottom:0 }}>
+        {[
+          { key:"rendimiento", label:"Rendimiento por COT" },
+          { key:"f29",         label:"F29 — IVA mensual"  },
+        ].map(t => (
+          <button key={t.key} onClick={()=>setTabFin(t.key)}
+            style={{ padding:"9px 20px", background:"transparent", border:"none",
+              borderBottom:`2px solid ${tabFin===t.key?COLORS.accent:"transparent"}`,
+              color:tabFin===t.key?COLORS.accent:COLORS.textMuted,
+              fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:tabFin===t.key?700:400,
+              cursor:"pointer", transition:"all 0.15s", marginBottom:-1 }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab: Rendimiento por COT */}
+      {tabFin === "rendimiento" && <RendimientoCotizaciones isMobile={isMobile} />}
+
+      {/* Tab: F29 */}
+      {tabFin === "f29" && (
+      <div>
       <div style={{ display:"flex", gap:10, marginBottom:24, flexWrap:"wrap", alignItems:"center" }}>
         <select value={mes} onChange={e=>setMes(Number(e.target.value))}
           style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8,
@@ -9781,6 +9805,7 @@ function _TablaDocumentos({ docs, tipo }) {
           </tbody>
         </table>
       </div>
+      )} {/* cierre tab f29 */}
     </div>
   );
 }
@@ -11150,6 +11175,109 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved, modo
 }
 
 // ── COMPONENTE TARJETA COT (documento padre expandible) ──────────────────────
+// ── COMPONENTE FILA DE SERVICIO/PRODUCTO (reutilizable) ──────────────────────
+function SlRow({ sl, products, editSl, setEditSl, savingEdit, setSavingEdit, cot, setDetail, onRefresh, color }) {
+  const prod = products.find(p => p.id === sl.product_id);
+  const accentColor = color || COLORS.red;
+
+  if (editSl?.id === sl.id) {
+    return (
+      <div style={{ padding:"12px", background:COLORS.accentDim,
+        borderRadius:8, marginBottom:5, border:`1px solid ${COLORS.accent}44` }}>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 10px" }}>
+          <LabelInput label="Descripción" value={editSl.descripcion}
+            onChange={e=>setEditSl(p=>({...p,descripcion:e.target.value}))} />
+          <LabelInput label="Código" value={editSl.codigo}
+            onChange={e=>setEditSl(p=>({...p,codigo:e.target.value}))} />
+          <LabelInput label="Cantidad" type="number" value={editSl.cantidad}
+            onChange={e=>setEditSl(p=>({...p,cantidad:e.target.value}))} />
+          <LabelInput label="Precio neto unitario" type="number" value={editSl.precio_unitario}
+            onChange={e=>setEditSl(p=>({...p,precio_unitario:e.target.value}))} />
+        </div>
+        {Number(editSl.precio_unitario) > 0 && (
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:10 }}>
+            Neto: {fmtClp(Number(editSl.cantidad||1)*Number(editSl.precio_unitario))} ·
+            IVA: {fmtClp(Math.round(Number(editSl.cantidad||1)*Number(editSl.precio_unitario)*0.19))} ·
+            Total: {fmtClp(Math.round(Number(editSl.cantidad||1)*Number(editSl.precio_unitario)*1.19))}
+          </div>
+        )}
+        <div style={{ display:"flex", gap:8 }}>
+          <BtnSec onClick={()=>setEditSl(null)}>Cancelar</BtnSec>
+          <BtnPrimary disabled={savingEdit} onClick={async ()=>{
+            setSavingEdit(true);
+            await supabase.from("cot_service_lines").update({
+              descripcion:     editSl.descripcion,
+              codigo:          editSl.codigo||"",
+              cantidad:        Number(editSl.cantidad)||1,
+              precio_unitario: Math.round(Number(editSl.precio_unitario)||0),
+              aplica_iva:      editSl.aplica_iva,
+            }).eq("id", editSl.id);
+            const { data: sls } = await supabase
+              .from("cot_service_lines")
+              .select("id, descripcion, codigo, cantidad, precio_unitario, subtotal_neto, monto_iva, subtotal_total, aplica_iva, estado_pago, product_id, suppliers(nombre)")
+              .eq("cotizacion_id", cot.cotizacion_id);
+            setDetail(p=>({...p, sls: sls||[]}));
+            setEditSl(null);
+            setSavingEdit(false);
+            onRefresh();
+          }}>
+            {savingEdit?"Guardando…":"Guardar cambios"}
+          </BtnPrimary>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display:"flex", justifyContent:"space-between",
+      alignItems:"center", padding:"8px 12px", background:COLORS.surface,
+      borderRadius:7, marginBottom:5,
+      border:`1px solid ${color ? color+"33" : COLORS.border}` }}>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600,
+          color:COLORS.text, overflow:"hidden", textOverflow:"ellipsis",
+          whiteSpace:"nowrap" }}>{sl.descripcion}</div>
+        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+          {sl.suppliers?.nombre || (color ? "Directo" : "Sin subcontratista")}
+          {sl.codigo ? ` · ${sl.codigo}` : ""}
+          {prod && <span style={{ marginLeft:6, fontSize:10,
+            color:accentColor, background:accentColor+"18",
+            borderRadius:3, padding:"1px 5px" }}>{prod.tipo}</span>}
+        </div>
+      </div>
+      <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0, marginLeft:10 }}>
+        <div style={{ textAlign:"right" }}>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700,
+            color:accentColor }}>{fmtClp(sl.subtotal_neto)}</div>
+          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>neto</div>
+        </div>
+        <button onClick={()=>setEditSl({
+            id: sl.id, descripcion: sl.descripcion, codigo: sl.codigo||"",
+            cantidad: String(sl.cantidad||1),
+            precio_unitario: String(sl.precio_unitario||0),
+            aplica_iva: sl.aplica_iva, notas: sl.notas||"",
+          })}
+          style={{ padding:"4px 8px", background:COLORS.accentDim,
+            border:`1px solid ${COLORS.accentGlow}`, borderRadius:5,
+            color:COLORS.accent, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>
+          ✏️
+        </button>
+        <button onClick={async ()=>{
+            if (!window.confirm("¿Eliminar esta línea?")) return;
+            await supabase.from("cot_service_lines").delete().eq("id", sl.id);
+            setDetail(p=>({...p, sls: p.sls.filter(x=>x.id!==sl.id)}));
+            onRefresh();
+          }}
+          style={{ padding:"4px 8px", background:COLORS.red+"18",
+            border:`1px solid ${COLORS.red}44`, borderRadius:5,
+            color:COLORS.red, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
   const [open, setOpen]           = useState(false);
   const [detail, setDetail]       = useState(null);
@@ -11184,7 +11312,7 @@ function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
         .select("id, numero_oc, estado, suppliers(nombre), purchase_order_lines(cantidad, precio_unitario)")
         .eq("cotizacion_id", cot.cotizacion_id),
       supabase.from("cot_service_lines")
-        .select("id, descripcion, codigo, cantidad, precio_unitario, subtotal_neto, monto_iva, subtotal_total, aplica_iva, estado_pago, suppliers(nombre)")
+        .select("id, descripcion, codigo, cantidad, precio_unitario, subtotal_neto, monto_iva, subtotal_total, aplica_iva, estado_pago, product_id, suppliers(nombre)")
         .eq("cotizacion_id", cot.cotizacion_id),
       supabase.from("facturas_emitidas")
         .select("id, numero_documento, fecha_emision, monto_neto, monto_iva, monto_total, razon_social_cliente, pagos_recibidos(monto)")
@@ -11322,7 +11450,7 @@ function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
                     marginBottom:8 }}>
                     <SubHeader label="Servicios / Subcontratistas"
-                      count={detail.sls.length} color={COLORS.purple} />
+                      count={detail.sls.filter(s=>!s._isProd).length} color={COLORS.purple} />
                     <div style={{ display:"flex", gap:6, marginBottom:8 }}>
                       <button onClick={()=>setModalServicio(true)}
                         style={{ padding:"4px 10px", background:COLORS.purple+"22",
@@ -11338,117 +11466,35 @@ function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
                       </button>
                     </div>
                   </div>
-                  {detail.sls.length === 0
+                  {detail.sls.filter(sl => {
+                    const tipo = sl.products?.tipo || sl._tipo || "";
+                    return tipo !== "producto";
+                  }).length === 0
                     ? <EmptyRow msg="Sin líneas de servicio" />
-                    : detail.sls.map(sl => (
-                      <div key={sl.id}>
-                        {/* Vista normal */}
-                        {editSl?.id !== sl.id ? (
-                          <div style={{ display:"flex", justifyContent:"space-between",
-                            alignItems:"center", padding:"8px 12px", background:COLORS.surface,
-                            borderRadius:7, marginBottom:5, border:`1px solid ${COLORS.border}` }}>
-                            <div style={{ flex:1, minWidth:0 }}>
-                              <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600,
-                                color:COLORS.text, overflow:"hidden", textOverflow:"ellipsis",
-                                whiteSpace:"nowrap" }}>{sl.descripcion}</div>
-                              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
-                                {sl.suppliers?.nombre || "Sin subcontratista"}
-                                {sl.codigo ? ` · ${sl.codigo}` : ""}
-                              </div>
-                            </div>
-                            <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0, marginLeft:10 }}>
-                              <div style={{ textAlign:"right" }}>
-                                <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700,
-                                  color:COLORS.red }}>{fmtClp(sl.subtotal_neto)}</div>
-                                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>neto</div>
-                              </div>
-                              {/* Botón editar */}
-                              <button onClick={()=>setEditSl({
-                                  id: sl.id,
-                                  descripcion: sl.descripcion,
-                                  codigo: sl.codigo||"",
-                                  cantidad: String(sl.cantidad||1),
-                                  precio_unitario: String(sl.precio_unitario||0),
-                                  aplica_iva: sl.aplica_iva,
-                                  notas: sl.notas||"",
-                                })}
-                                style={{ padding:"4px 8px", background:COLORS.accentDim,
-                                  border:`1px solid ${COLORS.accentGlow}`, borderRadius:5,
-                                  color:COLORS.accent, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>
-                                ✏️
-                              </button>
-                              {/* Botón eliminar */}
-                              <button onClick={async ()=>{
-                                  if (!window.confirm("¿Eliminar esta línea de servicio?")) return;
-                                  await supabase.from("cot_service_lines").delete().eq("id", sl.id);
-                                  setDetail(p=>({...p, sls: p.sls.filter(x=>x.id!==sl.id)}));
-                                  onRefresh();
-                                }}
-                                style={{ padding:"4px 8px", background:COLORS.red+"18",
-                                  border:`1px solid ${COLORS.red}44`, borderRadius:5,
-                                  color:COLORS.red, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>
-                                ✕
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          /* Modo edición inline */
-                          <div style={{ padding:"12px", background:COLORS.accentDim,
-                            borderRadius:8, marginBottom:5, border:`1px solid ${COLORS.accent}44` }}>
-                            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 10px" }}>
-                              <LabelInput label="Descripción"
-                                value={editSl.descripcion}
-                                onChange={e=>setEditSl(p=>({...p,descripcion:e.target.value}))} />
-                              <LabelInput label="Código"
-                                value={editSl.codigo}
-                                onChange={e=>setEditSl(p=>({...p,codigo:e.target.value}))} />
-                              <LabelInput label="Cantidad" type="number"
-                                value={editSl.cantidad}
-                                onChange={e=>setEditSl(p=>({...p,cantidad:e.target.value}))} />
-                              <LabelInput label="Precio neto unitario" type="number"
-                                value={editSl.precio_unitario}
-                                onChange={e=>setEditSl(p=>({...p,precio_unitario:e.target.value}))} />
-                            </div>
-                            {/* Preview */}
-                            {Number(editSl.precio_unitario) > 0 && (
-                              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
-                                marginBottom:10 }}>
-                                Neto: {fmtClp(Number(editSl.cantidad||1)*Number(editSl.precio_unitario))} ·
-                                IVA: {fmtClp(Math.round(Number(editSl.cantidad||1)*Number(editSl.precio_unitario)*0.19))} ·
-                                Total: {fmtClp(Math.round(Number(editSl.cantidad||1)*Number(editSl.precio_unitario)*1.19))}
-                              </div>
-                            )}
-                            <div style={{ display:"flex", gap:8 }}>
-                              <BtnSec onClick={()=>setEditSl(null)}>Cancelar</BtnSec>
-                              <BtnPrimary disabled={savingEdit} onClick={async ()=>{
-                                setSavingEdit(true);
-                                await supabase.from("cot_service_lines").update({
-                                  descripcion:     editSl.descripcion,
-                                  codigo:          editSl.codigo||"",
-                                  cantidad:        Number(editSl.cantidad)||1,
-                                  precio_unitario: Math.round(Number(editSl.precio_unitario)||0),
-                                  aplica_iva:      editSl.aplica_iva,
-                                }).eq("id", editSl.id);
-                                // Recargar detalle
-                                setDetail(null);
-                                const { data: sls } = await supabase
-                                  .from("cot_service_lines")
-                                  .select("id, descripcion, codigo, cantidad, precio_unitario, subtotal_neto, monto_iva, subtotal_total, aplica_iva, estado_pago, suppliers(nombre)")
-                                  .eq("cotizacion_id", cot.cotizacion_id);
-                                setDetail(p=>({...p, sls: sls||[]}));
-                                setEditSl(null);
-                                setSavingEdit(false);
-                                onRefresh();
-                              }}>
-                                {savingEdit?"Guardando…":"Guardar cambios"}
-                              </BtnPrimary>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))
+                    : detail.sls.filter(sl => {
+                        const p = products.find(p => p.id === sl.product_id);
+                        return !p || p.tipo !== "producto";
+                      }).map(sl => <SlRow key={sl.id} sl={sl} products={products} editSl={editSl} setEditSl={setEditSl} savingEdit={savingEdit} setSavingEdit={setSavingEdit} cot={cot} setDetail={setDetail} onRefresh={onRefresh} />)
                   }
                 </div>
+
+                {/* Productos directos (sin OC) — naranja */}
+                {detail.sls.filter(sl => {
+                  const p = products.find(p => p.id === sl.product_id);
+                  return p && p.tipo === "producto";
+                }).length > 0 && (
+                  <div style={{ marginTop:16 }}>
+                    <SubHeader label="Productos directos (sin OC)"
+                      count={detail.sls.filter(sl => {
+                        const p = products.find(p => p.id === sl.product_id);
+                        return p && p.tipo === "producto";
+                      }).length} color={COLORS.yellow} />
+                    {detail.sls.filter(sl => {
+                      const p = products.find(p => p.id === sl.product_id);
+                      return p && p.tipo === "producto";
+                    }).map(sl => <SlRow key={sl.id} sl={sl} products={products} editSl={editSl} setEditSl={setEditSl} savingEdit={savingEdit} setSavingEdit={setSavingEdit} cot={cot} setDetail={setDetail} onRefresh={onRefresh} color={COLORS.yellow} />)}
+                  </div>
+                )}
               </div>
 
               {/* ── COL DER: INGRESOS + IVA ── */}
@@ -11596,7 +11642,8 @@ function RendimientoCotizaciones({ isMobile }) {
   const loadAll = async () => {
     setLoading(true);
     const [{ data: vRows }, { data: sups }, { data: prods }] = await Promise.all([
-      supabase.from("v_rendimiento_cotizacion").select("*"),
+      supabase.from("v_rendimiento_cotizacion").select("*")
+        .eq("estado_cotizacion", "aprobada"),
       supabase.from("suppliers").select("id, nombre, rut").order("nombre"),
       supabase.from("products").select("id, codigo, nombre, precio, tipo").order("nombre"),
     ]);
@@ -11727,10 +11774,9 @@ const NAV_GROUPS = [
   },
   {
     key: "finanzas", label: "Finanzas", Icon: TrendingUp, children: [
-      { key:"finanzas_dashboard", label:"Resumen F29",    Icon: TrendingUp },
-      { key:"cxc",                label:"Ctas. x Cobrar", Icon: TrendingUp },
-      { key:"cxp",                label:"Ctas. x Pagar",  Icon: TrendingUp },
-      { key:"rendimiento_cot",    label:"Rendimiento",     Icon: TrendingUp },
+      { key:"finanzas_dashboard", label:"Resumen Financiero", Icon: TrendingUp },
+      { key:"cxc",                label:"Ctas. x Cobrar",     Icon: TrendingUp },
+      { key:"cxp",                label:"Ctas. x Pagar",      Icon: TrendingUp },
     ],
   },
   {
@@ -14690,7 +14736,6 @@ export default function CRM() {
           {view==="finanzas_dashboard" && <FinanzasDashboard isMobile={isMobile} />}
           {view==="cxc"                && <CuentasPorCobrar  isMobile={isMobile} />}
           {view==="cxp"                && <CuentasPorPagar   isMobile={isMobile} />}
-          {view==="rendimiento_cot"    && <RendimientoCotizaciones isMobile={isMobile} />}
         </div>
       </main>
 
