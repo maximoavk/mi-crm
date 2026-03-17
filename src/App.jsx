@@ -7147,6 +7147,7 @@ function PurchaseView({ isMobile }) {
   const [editingTrackingVal, setEditingTrackingVal] = useState("");
   const [editingCostoId, setEditingCostoId]     = useState(null);
   const [editingCostoVal, setEditingCostoVal]   = useState("");
+  const [editingCostoIva, setEditingCostoIva]   = useState(false);
   const SHIP_ESTADOS = [
     { key:"GENERADA",    color:"#6b7a99", icon:"📋" },
     { key:"EN_TRANSITO", color:"#A855F7", icon:"🚚" },
@@ -7844,26 +7845,23 @@ function PurchaseView({ isMobile }) {
                                       onKeyDown={async e=>{
                                         if (e.key==="Enter") {
                                           const costo = Number(editingCostoVal)||null;
-                                          await supabase.from("shipments").update({ costo_despacho:costo }).eq("id",ship.id);
-                                          setShipments(prev=>prev.map(s=>s.id===ship.id?{...s,costo_despacho:costo}:s));
+                                          await supabase.from("shipments").update({ costo_despacho:costo, aplica_iva_despacho:editingCostoIva }).eq("id",ship.id);
+                                          setShipments(prev=>prev.map(s=>s.id===ship.id?{...s,costo_despacho:costo,aplica_iva_despacho:editingCostoIva}:s));
                                           setEditingCostoId(null);
                                         } else if (e.key==="Escape") { setEditingCostoId(null); }
                                       }}
                                       style={{ width:100, background:COLORS.bg, border:`1px solid ${COLORS.accent}`, borderRadius:4, padding:"3px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none" }}
                                     />
                                     <label style={{ display:"flex", alignItems:"center", gap:4, fontFamily:FONT, fontSize:10, color:COLORS.textMuted, cursor:"pointer" }}>
-                                      <input type="checkbox" checked={!!ship.aplica_iva_despacho}
-                                        onChange={async e=>{
-                                          await supabase.from("shipments").update({ aplica_iva_despacho:e.target.checked }).eq("id",ship.id);
-                                          setShipments(prev=>prev.map(s=>s.id===ship.id?{...s,aplica_iva_despacho:e.target.checked}:s));
-                                        }}
+                                      <input type="checkbox" checked={editingCostoIva}
+                                        onChange={e=>setEditingCostoIva(e.target.checked)}
                                       />
                                       IVA
                                     </label>
                                     <button onClick={async()=>{
                                       const costo = Number(editingCostoVal)||null;
-                                      await supabase.from("shipments").update({ costo_despacho:costo }).eq("id",ship.id);
-                                      setShipments(prev=>prev.map(s=>s.id===ship.id?{...s,costo_despacho:costo}:s));
+                                      await supabase.from("shipments").update({ costo_despacho:costo, aplica_iva_despacho:editingCostoIva }).eq("id",ship.id);
+                                      setShipments(prev=>prev.map(s=>s.id===ship.id?{...s,costo_despacho:costo,aplica_iva_despacho:editingCostoIva}:s));
                                       setEditingCostoId(null);
                                     }} style={{ padding:"3px 8px", background:COLORS.green, border:"none", borderRadius:5, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer" }}>✓</button>
                                     <button onClick={()=>setEditingCostoId(null)} style={{ padding:"3px 7px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>✕</button>
@@ -7877,7 +7875,7 @@ function PurchaseView({ isMobile }) {
                                     ) : (
                                       <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim }}>Sin costo registrado</span>
                                     )}
-                                    <button onClick={()=>{ setEditingCostoId(ship.id); setEditingCostoVal(ship.costo_despacho||""); }}
+                                    <button onClick={()=>{ setEditingCostoId(ship.id); setEditingCostoVal(ship.costo_despacho||""); setEditingCostoIva(!!ship.aplica_iva_despacho); }}
                                       style={{ padding:"2px 6px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:4, color:COLORS.textMuted, fontFamily:FONT, fontSize:9, cursor:"pointer" }}>✏️</button>
                                   </>
                                 )}
