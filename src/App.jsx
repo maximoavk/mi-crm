@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calculator, GanttChartSquare, CheckSquare, BarChart2, LogOut, Sun, Moon, Receipt, Wrench, Scale , AlertTriangle } from "lucide-react";
+import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calculator, GanttChartSquare, CheckSquare, BarChart2, LogOut, Sun, Moon, Receipt, Wrench, Scale, AlertTriangle, TrendingUp } from "lucide-react";
 
 // ── SUPABASE ────────────────────────────────────────────────────────────────
 const supabase = createClient(
@@ -9142,6 +9142,1146 @@ function DiffView({ proposal, revA, revB, onBack }) {
 
 
 // Grouped nav for desktop sidebar
+
+// ── MÓDULO FINANZAS ─────────────────────────────────────────────────────────
+const IVA_RATE = 0.19;
+
+// Formateo seguro de moneda CLP
+const fmtClp = (n) =>
+  new Intl.NumberFormat("es-CL", {
+    style: "currency", currency: "CLP", maximumFractionDigits: 0,
+  }).format(n || 0);
+
+// Formateo de fecha corta
+const fmtFecha = (d) =>
+  d ? new Date(d + "T00:00").toLocaleDateString("es-CL", { day:"2-digit", month:"short", year:"2-digit" }) : "—";
+
+// Estado de pago badge
+const badgePago = (estado) => {
+  const map = {
+    pagado:    { label:"Pagado",    bg:"#00E5A022", color:"#00E5A0", border:"#00E5A044" },
+    parcial:   { label:"Parcial",   bg:"#FFB80022", color:"#FFB800", border:"#FFB80044" },
+    pendiente: { label:"Pendiente", bg:"#FF4D6A22", color:"#FF4D6A", border:"#FF4D6A44" },
+    vencido:   { label:"Vencido",   bg:"#FF4D6A44", color:"#FF4D6A", border:"#FF4D6A88" },
+  };
+  const c = map[estado] || map.pendiente;
+  return (
+    <span style={{ display:"inline-block", padding:"2px 10px", borderRadius:4,
+      fontSize:11, fontFamily:FONT, fontWeight:600, letterSpacing:"0.06em",
+      background:c.bg, color:c.color, border:`1px solid ${c.border}`,
+      textTransform:"uppercase" }}>
+      {c.label}
+    </span>
+  );
+};
+
+// Calcula estado de pago
+const calcEstado = (total, pagado, vencimiento) => {
+  if (pagado >= total) return "pagado";
+  const hoy = new Date();
+  const venc = vencimiento ? new Date(vencimiento + "T00:00") : null;
+  if (venc && venc < hoy) return "vencido";
+  if (pagado > 0) return "parcial";
+  return "pendiente";
+};
+
+// Común: título de sección
+const SecTitle = ({ children, sub }) => (
+  <div style={{ marginBottom:20 }}>
+    <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:COLORS.text }}>{children}</div>
+    {sub && <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginTop:3 }}>{sub}</div>}
+  </div>
+);
+
+// Tarjeta KPI
+const KpiCard = ({ label, value, sub, color, icon }) => (
+  <div style={{ padding:"18px 20px", background:COLORS.card, border:`1px solid ${COLORS.border}`,
+    borderRadius:12, display:"flex", flexDirection:"column", gap:4 }}>
+    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+      <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted,
+        letterSpacing:"0.1em", textTransform:"uppercase" }}>{label}</div>
+      {icon && <span style={{ fontSize:16 }}>{icon}</span>}
+    </div>
+    <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700,
+      color:color||COLORS.text }}>{value}</div>
+    {sub && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{sub}</div>}
+  </div>
+);
+
+// Botón primario
+const BtnPrimary = ({ children, onClick, disabled }) => (
+  <button onClick={onClick} disabled={disabled}
+    style={{ padding:"9px 18px", background:COLORS.accent, border:"none", borderRadius:8,
+      color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700,
+      cursor:disabled?"not-allowed":"pointer", opacity:disabled?0.5:1 }}>
+    {children}
+  </button>
+);
+
+// Botón secundario
+const BtnSec = ({ children, onClick }) => (
+  <button onClick={onClick}
+    style={{ padding:"8px 14px", background:"transparent", border:`1px solid ${COLORS.border}`,
+      borderRadius:8, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer" }}>
+    {children}
+  </button>
+);
+
+// Input etiquetado
+const LabelInput = ({ label, ...props }) => (
+  <div style={{ marginBottom:14 }}>
+    {label && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+      letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>{label}</div>}
+    <input {...props} style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`,
+      borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text,
+      outline:"none", boxSizing:"border-box", ...props.style }} />
+  </div>
+);
+
+// Select etiquetado
+const LabelSelect = ({ label, children, ...props }) => (
+  <div style={{ marginBottom:14 }}>
+    {label && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+      letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>{label}</div>}
+    <select {...props} style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`,
+      borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text,
+      outline:"none", boxSizing:"border-box" }}>
+      {children}
+    </select>
+  </div>
+);
+
+// Modal contenedor
+const FinModal = ({ title, onClose, children, width=480 }) => (
+  <div style={{ position:"fixed", inset:0, background:"#000A", zIndex:200,
+    display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+    <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`,
+      borderRadius:12, padding:24, width:"100%", maxWidth:width,
+      maxHeight:"90vh", overflowY:"auto" }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+        <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text }}>{title}</div>
+        <button onClick={onClose} style={{ background:"transparent", border:"none",
+          color:COLORS.textMuted, cursor:"pointer", fontSize:18, lineHeight:1 }}>✕</button>
+      </div>
+      {children}
+    </div>
+  </div>
+);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 1. DASHBOARD F29 — Resumen mensual de IVA
+// ══════════════════════════════════════════════════════════════════════════════
+function FinanzasDashboard({ isMobile }) {
+  const hoy = new Date();
+  const [mes, setMes] = useState(hoy.getMonth() + 1);     // 1-12
+  const [anio, setAnio] = useState(hoy.getFullYear());
+  const [emitidas, setEmitidas] = useState([]);
+  const [recibidas, setRecibidas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [acumulado, setAcumulado] = useState({ remanente:0 });
+
+  useEffect(() => { loadData(); }, [mes, anio]);
+
+  const loadData = async () => {
+    setLoading(true);
+    const desde = `${anio}-${String(mes).padStart(2,"0")}-01`;
+    const hasta = new Date(anio, mes, 0).toISOString().slice(0,10);
+
+    const [{ data: em }, { data: re }] = await Promise.all([
+      supabase.from("facturas_emitidas")
+        .select("*").gte("fecha_emision", desde).lte("fecha_emision", hasta),
+      supabase.from("facturas_recibidas")
+        .select("*").gte("fecha_recepcion", desde).lte("fecha_recepcion", hasta),
+    ]);
+
+    // Remanente acumulado: crédito fiscal de meses anteriores no utilizado
+    const { data: antRec } = await supabase.from("facturas_recibidas")
+      .select("monto_iva").lt("fecha_recepcion", desde);
+    const { data: antEm } = await supabase.from("facturas_emitidas")
+      .select("monto_iva").lt("fecha_emision", desde);
+    const ivaCredAnt = (antRec||[]).reduce((s,r)=>s+(r.monto_iva||0),0);
+    const ivaDebAnt  = (antEm ||[]).reduce((s,r)=>s+(r.monto_iva||0),0);
+    const remAnt = Math.max(0, ivaCredAnt - ivaDebAnt);
+
+    setEmitidas(em || []);
+    setRecibidas(re || []);
+    setAcumulado({ remanente: remAnt });
+    setLoading(false);
+  };
+
+  // Cálculos F29
+  const debitoFiscal   = emitidas.reduce((s,f) => s + (f.monto_iva||0), 0);
+  const creditoFiscal  = recibidas.reduce((s,f) => s + (f.monto_iva||0), 0) + acumulado.remanente;
+  const saldoIVA       = debitoFiscal - creditoFiscal;
+  const ivaAPagar      = Math.max(0, saldoIVA);
+  const remanente      = Math.max(0, -saldoIVA);
+
+  // PPM: base sobre ventas netas (tasa referencial 1% PyME)
+  const ventasNetas = emitidas.reduce((s,f) => s + (f.monto_neto||0), 0);
+  const ppm = Math.round(ventasNetas * 0.01);
+
+  // Total F29
+  const totalF29 = ivaAPagar + ppm;
+
+  const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio",
+                 "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+  const gridCols = isMobile ? "1fr 1fr" : "repeat(4, 1fr)";
+
+  return (
+    <div>
+      <SecTitle sub="Cálculo estimado F29 · No reemplaza declaración oficial SII">
+        Resumen IVA — F29
+      </SecTitle>
+
+      {/* Selector mes/año */}
+      <div style={{ display:"flex", gap:10, marginBottom:24, flexWrap:"wrap", alignItems:"center" }}>
+        <select value={mes} onChange={e=>setMes(Number(e.target.value))}
+          style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8,
+            padding:"8px 14px", fontFamily:FONT_DISPLAY, fontSize:13, color:COLORS.text,
+            outline:"none", cursor:"pointer" }}>
+          {MESES.map((m,i)=><option key={i+1} value={i+1}>{m}</option>)}
+        </select>
+        <select value={anio} onChange={e=>setAnio(Number(e.target.value))}
+          style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8,
+            padding:"8px 14px", fontFamily:FONT_DISPLAY, fontSize:13, color:COLORS.text,
+            outline:"none", cursor:"pointer" }}>
+          {[2023,2024,2025,2026,2027].map(y=><option key={y} value={y}>{y}</option>)}
+        </select>
+        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, padding:"8px 0" }}>
+          {loading ? "Cargando…" : `${emitidas.length} facturas emitidas · ${recibidas.length} facturas recibidas`}
+        </div>
+      </div>
+
+      {/* KPIs F29 */}
+      <div style={{ display:"grid", gridTemplateColumns:gridCols, gap:12, marginBottom:24 }}>
+        <KpiCard label="Débito Fiscal (IVA emitido)"
+          value={fmtClp(debitoFiscal)} sub={`${emitidas.length} docs emitidos`}
+          color={COLORS.red} icon="📤" />
+        <KpiCard label="Crédito Fiscal (IVA recibido)"
+          value={fmtClp(creditoFiscal)}
+          sub={acumulado.remanente > 0 ? `+ ${fmtClp(acumulado.remanente)} remanente` : `${recibidas.length} docs recibidos`}
+          color={COLORS.green} icon="📥" />
+        <KpiCard label="IVA a Pagar / Remanente"
+          value={ivaAPagar > 0 ? fmtClp(ivaAPagar) : `↩ ${fmtClp(remanente)}`}
+          sub={ivaAPagar > 0 ? "Pago hasta día 12 del mes siguiente" : "Se arrastra al mes siguiente"}
+          color={ivaAPagar > 0 ? COLORS.yellow : COLORS.green} icon={ivaAPagar > 0 ? "⚠️" : "✅"} />
+        <KpiCard label="PPM estimado (1% ventas netas)"
+          value={fmtClp(ppm)} sub={`Base: ${fmtClp(ventasNetas)}`}
+          color={COLORS.accent} icon="📊" />
+      </div>
+
+      {/* Resumen F29 formal */}
+      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12,
+        padding:"20px 24px", marginBottom:24, maxWidth:520 }}>
+        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, letterSpacing:"0.12em",
+          textTransform:"uppercase", marginBottom:16 }}>Resumen F29 — {MESES[mes-1]} {anio}</div>
+
+        {[
+          { label:"Ventas netas del período",         val: ventasNetas,    note:"" },
+          { label:"Débito fiscal (IVA ventas 19%)",   val: debitoFiscal,   note:"+", color:COLORS.red },
+          { label:"Crédito fiscal (IVA compras 19%)", val: creditoFiscal,  note:"−", color:COLORS.green },
+          { label:"Remanente mes anterior",           val: acumulado.remanente, note:"", color:COLORS.green, show: acumulado.remanente > 0 },
+        ].filter(r => r.show !== false).map((row, i) => (
+          <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+            padding:"8px 0", borderBottom:`1px solid ${COLORS.border}` }}>
+            <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{row.label}</span>
+            <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600,
+              color:row.color||COLORS.text }}>{row.note} {fmtClp(row.val)}</span>
+          </div>
+        ))}
+
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+          padding:"12px 0 4px", marginTop:4 }}>
+          <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text }}>
+            {ivaAPagar > 0 ? "IVA A PAGAR" : "REMANENTE ACUMULADO"}
+          </span>
+          <span style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700,
+            color:ivaAPagar > 0 ? COLORS.yellow : COLORS.green }}>
+            {fmtClp(ivaAPagar > 0 ? ivaAPagar : remanente)}
+          </span>
+        </div>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0" }}>
+          <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text }}>PPM estimado</span>
+          <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.accent }}>{fmtClp(ppm)}</span>
+        </div>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+          padding:"10px 14px", background:COLORS.accentDim, borderRadius:8, marginTop:8 }}>
+          <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text }}>TOTAL F29 ESTIMADO</span>
+          <span style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:COLORS.accent }}>{fmtClp(totalF29)}</span>
+        </div>
+        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:10 }}>
+          * Estimación basada en documentos ingresados. Consulta con tu contador para la declaración oficial.
+        </div>
+      </div>
+
+      {/* Detalle documentos emitidos del período */}
+      <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted,
+        letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>
+        Facturas Emitidas — {MESES[mes-1]} {anio}
+      </div>
+      <_TablaDocumentos docs={emitidas} tipo="emitida" />
+
+      <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted,
+        letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10, marginTop:24 }}>
+        Facturas Recibidas — {MESES[mes-1]} {anio}
+      </div>
+      <_TablaDocumentos docs={recibidas} tipo="recibida" />
+    </div>
+  );
+}
+
+// Mini tabla documentos (reutilizable en dashboard)
+function _TablaDocumentos({ docs, tipo }) {
+  if (!docs.length) return (
+    <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10,
+      padding:"24px", textAlign:"center", fontFamily:FONT, fontSize:13, color:COLORS.textMuted }}>
+      Sin documentos registrados
+    </div>
+  );
+  return (
+    <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, overflow:"hidden" }}>
+      <div style={{ overflowX:"auto" }}>
+        <table style={{ width:"100%", borderCollapse:"collapse", fontFamily:FONT, fontSize:12 }}>
+          <thead>
+            <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+              {["N° Doc", tipo==="emitida"?"Cliente":"Proveedor", "Fecha", "Neto", "IVA", "Total", "Tipo"].map(h=>(
+                <th key={h} style={{ padding:"10px 14px", textAlign:"left", fontFamily:FONT,
+                  fontSize:10, color:COLORS.textMuted, letterSpacing:"0.08em",
+                  textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {docs.map(d => (
+              <tr key={d.id} style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                <td style={{ padding:"9px 14px", color:COLORS.accent, fontWeight:700 }}>
+                  {d.numero_documento || "—"}
+                </td>
+                <td style={{ padding:"9px 14px", color:COLORS.text }}>
+                  <div style={{ fontWeight:600 }}>{tipo==="emitida" ? d.razon_social_cliente : d.razon_social_proveedor}</div>
+                  <div style={{ fontSize:10, color:COLORS.textMuted }}>{tipo==="emitida" ? d.rut_cliente : d.rut_proveedor}</div>
+                </td>
+                <td style={{ padding:"9px 14px", color:COLORS.textMuted }}>
+                  {fmtFecha(tipo==="emitida" ? d.fecha_emision : d.fecha_recepcion)}
+                </td>
+                <td style={{ padding:"9px 14px", color:COLORS.text }}>{fmtClp(d.monto_neto)}</td>
+                <td style={{ padding:"9px 14px", color:d.aplica_iva ? COLORS.yellow : COLORS.textMuted }}>
+                  {d.aplica_iva ? fmtClp(d.monto_iva) : "Exenta"}
+                </td>
+                <td style={{ padding:"9px 14px", fontWeight:700, color:COLORS.text }}>{fmtClp(d.monto_total)}</td>
+                <td style={{ padding:"9px 14px" }}>
+                  <span style={{ fontSize:10, padding:"2px 8px", borderRadius:4,
+                    background:COLORS.accentDim, color:COLORS.accent, border:`1px solid ${COLORS.accentGlow}` }}>
+                    {d.tipo_documento || "Factura"}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 2. CUENTAS POR COBRAR — Facturas emitidas + pagos recibidos
+// ══════════════════════════════════════════════════════════════════════════════
+function CuentasPorCobrar({ isMobile }) {
+  const [facturas, setFacturas] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [modal, setModal]       = useState(null); // "nueva" | "pago" | null
+  const [saving, setSaving]     = useState(false);
+  const [pagoModal, setPagoModal] = useState(null); // {facturaId, facturaN}
+
+  // Form nueva factura emitida
+  const emptyForm = {
+    numero_documento:"", tipo_documento:"Factura", fecha_emision:"",
+    razon_social_cliente:"", rut_cliente:"",
+    monto_neto:"", aplica_iva:true, vencimiento:"",
+    referencia_cotizacion:"", notas:"",
+  };
+  const [form, setForm] = useState(emptyForm);
+  const setF = (k,v) => setForm(p=>({...p,[k]:v}));
+
+  // Form pago
+  const emptyPago = { fecha_pago:"", monto:"", metodo:"Transferencia", referencia:"" };
+  const [formPago, setFormPago] = useState(emptyPago);
+  const setFP = (k,v) => setFormPago(p=>({...p,[k]:v}));
+
+  useEffect(() => { loadFacturas(); }, []);
+
+  const loadFacturas = async () => {
+    setLoading(true);
+    const { data: facts } = await supabase.from("facturas_emitidas")
+      .select("*, pagos_recibidos(*)").order("fecha_emision", { ascending:false });
+    setFacturas(facts || []);
+    setLoading(false);
+  };
+
+  // Calcula neto + IVA automáticamente
+  const netoNum   = Number(form.monto_neto) || 0;
+  const ivaCalc   = form.aplica_iva ? Math.round(netoNum * IVA_RATE) : 0;
+  const totalCalc = netoNum + ivaCalc;
+
+  const saveFactura = async () => {
+    if (!form.numero_documento || !form.monto_neto || !form.fecha_emision) return;
+    setSaving(true);
+    const payload = {
+      numero_documento: form.numero_documento.trim(),
+      tipo_documento:   form.tipo_documento,
+      fecha_emision:    form.fecha_emision,
+      razon_social_cliente: form.razon_social_cliente.trim(),
+      rut_cliente:      form.rut_cliente.trim(),
+      monto_neto:       netoNum,
+      aplica_iva:       form.aplica_iva,
+      monto_iva:        ivaCalc,
+      monto_total:      totalCalc,
+      vencimiento:      form.vencimiento || null,
+      referencia_cotizacion: form.referencia_cotizacion.trim() || null,
+      notas:            form.notas.trim() || null,
+    };
+    await supabase.from("facturas_emitidas").insert(payload);
+    await loadFacturas();
+    setForm(emptyForm);
+    setModal(null);
+    setSaving(false);
+  };
+
+  const savePago = async () => {
+    if (!formPago.monto || !formPago.fecha_pago) return;
+    setSaving(true);
+    await supabase.from("pagos_recibidos").insert({
+      factura_id: pagoModal.facturaId,
+      fecha_pago: formPago.fecha_pago,
+      monto:      Number(formPago.monto),
+      metodo:     formPago.metodo,
+      referencia: formPago.referencia.trim() || null,
+    });
+    await loadFacturas();
+    setFormPago(emptyPago);
+    setPagoModal(null);
+    setSaving(false);
+  };
+
+  // KPIs CxC
+  const totalEmitido  = facturas.reduce((s,f) => s + (f.monto_total||0), 0);
+  const totalCobrado  = facturas.reduce((s,f) =>
+    s + (f.pagos_recibidos||[]).reduce((a,p)=>a+p.monto,0), 0);
+  const totalPendiente = totalEmitido - totalCobrado;
+  const vencidas = facturas.filter(f => {
+    const pag = (f.pagos_recibidos||[]).reduce((a,p)=>a+p.monto,0);
+    return calcEstado(f.monto_total, pag, f.vencimiento) === "vencido";
+  }).length;
+
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start",
+        marginBottom:20, flexWrap:"wrap", gap:12 }}>
+        <SecTitle sub="Facturas que emites a clientes · seguimiento de cobros">
+          Cuentas por Cobrar
+        </SecTitle>
+        <BtnPrimary onClick={()=>setModal("nueva")}>+ Nueva Factura Emitida</BtnPrimary>
+      </div>
+
+      {/* KPIs */}
+      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)", gap:12, marginBottom:24 }}>
+        <KpiCard label="Total Facturado" value={fmtClp(totalEmitido)} color={COLORS.text} icon="📋" />
+        <KpiCard label="Total Cobrado"   value={fmtClp(totalCobrado)} color={COLORS.green} icon="✅" />
+        <KpiCard label="Por Cobrar"      value={fmtClp(totalPendiente)} color={COLORS.yellow} icon="⏳"
+          sub={`${facturas.filter(f=>{const p=(f.pagos_recibidos||[]).reduce((a,x)=>a+x.monto,0); return p<f.monto_total;}).length} facturas activas`} />
+        <KpiCard label="Facturas Vencidas" value={vencidas}
+          color={vencidas>0?COLORS.red:COLORS.green} icon={vencidas>0?"🚨":"🎉"} />
+      </div>
+
+      {/* Tabla */}
+      {loading ? (
+        <div style={{ textAlign:"center", padding:40, fontFamily:FONT, color:COLORS.textMuted }}>Cargando…</div>
+      ) : (
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, overflow:"hidden" }}>
+          {facturas.length === 0 ? (
+            <div style={{ padding:40, textAlign:"center", fontFamily:FONT, fontSize:13, color:COLORS.textMuted }}>
+              Sin facturas registradas. Agrega la primera con el botón de arriba.
+            </div>
+          ) : (
+            <div style={{ overflowX:"auto" }}>
+              <table style={{ width:"100%", borderCollapse:"collapse" }}>
+                <thead>
+                  <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                    {["N° Doc","Cliente","Emisión","Vencim.","Neto","IVA","Total","Cobrado","Saldo","Estado",""].map(h=>(
+                      <th key={h} style={{ padding:"10px 12px", textAlign:"left", fontFamily:FONT,
+                        fontSize:10, color:COLORS.textMuted, letterSpacing:"0.07em",
+                        textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {facturas.map(f => {
+                    const cobrado = (f.pagos_recibidos||[]).reduce((a,p)=>a+p.monto,0);
+                    const saldo   = f.monto_total - cobrado;
+                    const estado  = calcEstado(f.monto_total, cobrado, f.vencimiento);
+                    return (
+                      <tr key={f.id} style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                        <td style={{ padding:"9px 12px", color:COLORS.accent, fontWeight:700, fontFamily:FONT }}>
+                          {f.numero_documento}
+                        </td>
+                        <td style={{ padding:"9px 12px" }}>
+                          <div style={{ fontWeight:600, color:COLORS.text, fontSize:13 }}>{f.razon_social_cliente||"—"}</div>
+                          <div style={{ fontSize:10, color:COLORS.textMuted }}>{f.rut_cliente}</div>
+                        </td>
+                        <td style={{ padding:"9px 12px", color:COLORS.textMuted, fontFamily:FONT, fontSize:12 }}>{fmtFecha(f.fecha_emision)}</td>
+                        <td style={{ padding:"9px 12px", color:COLORS.textMuted, fontFamily:FONT, fontSize:12 }}>{fmtFecha(f.vencimiento)}</td>
+                        <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.text }}>{fmtClp(f.monto_neto)}</td>
+                        <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12,
+                          color:f.aplica_iva?COLORS.yellow:COLORS.textMuted }}>
+                          {f.aplica_iva ? fmtClp(f.monto_iva) : "—"}
+                        </td>
+                        <td style={{ padding:"9px 12px", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text }}>{fmtClp(f.monto_total)}</td>
+                        <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.green }}>{fmtClp(cobrado)}</td>
+                        <td style={{ padding:"9px 12px", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700,
+                          color:saldo>0?COLORS.yellow:COLORS.green }}>{fmtClp(saldo)}</td>
+                        <td style={{ padding:"9px 12px" }}>{badgePago(estado)}</td>
+                        <td style={{ padding:"9px 12px" }}>
+                          {saldo > 0 && (
+                            <button onClick={()=>{ setPagoModal({facturaId:f.id, facturaN:f.numero_documento}); setFormPago(emptyPago); }}
+                              style={{ padding:"5px 10px", background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`,
+                                borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+                              + Cobro
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Modal nueva factura emitida */}
+      {modal === "nueva" && (
+        <FinModal title="Nueva Factura Emitida" onClose={()=>setModal(null)} width={520}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 14px" }}>
+            <LabelInput label="N° Documento" value={form.numero_documento}
+              onChange={e=>setF("numero_documento",e.target.value)} placeholder="Ej: 1234" />
+            <LabelSelect label="Tipo Documento" value={form.tipo_documento}
+              onChange={e=>setF("tipo_documento",e.target.value)}>
+              <option>Factura</option>
+              <option>Guía de Despacho</option>
+              <option>Nota de Crédito</option>
+              <option>Nota de Débito</option>
+            </LabelSelect>
+            <LabelInput label="Razón Social Cliente" value={form.razon_social_cliente}
+              onChange={e=>setF("razon_social_cliente",e.target.value)} placeholder="Empresa S.A." />
+            <LabelInput label="RUT Cliente" value={form.rut_cliente}
+              onChange={e=>setF("rut_cliente",e.target.value)} placeholder="76.XXX.XXX-X" />
+            <LabelInput label="Fecha Emisión" type="date" value={form.fecha_emision}
+              onChange={e=>setF("fecha_emision",e.target.value)} />
+            <LabelInput label="Vencimiento" type="date" value={form.vencimiento}
+              onChange={e=>setF("vencimiento",e.target.value)} />
+            <LabelInput label="Monto Neto (sin IVA)" type="number" value={form.monto_neto}
+              onChange={e=>setF("monto_neto",e.target.value)} placeholder="0" />
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+                letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>¿Aplica IVA?</div>
+              <div style={{ display:"flex", gap:10, marginTop:4 }}>
+                {[true,false].map(v=>(
+                  <button key={String(v)} onClick={()=>setF("aplica_iva",v)}
+                    style={{ flex:1, padding:"9px 0", borderRadius:6,
+                      background:form.aplica_iva===v ? COLORS.accentDim : "transparent",
+                      border:`1px solid ${form.aplica_iva===v ? COLORS.accent : COLORS.border}`,
+                      color:form.aplica_iva===v ? COLORS.accent : COLORS.textMuted,
+                      fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
+                    {v ? "Sí (19%)" : "No (Exenta)"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <LabelInput label="Ref. Cotización (opcional)" value={form.referencia_cotizacion}
+              onChange={e=>setF("referencia_cotizacion",e.target.value)} placeholder="COT-001" />
+          </div>
+          {/* Preview cálculo */}
+          {netoNum > 0 && (
+            <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8,
+              padding:"12px 16px", marginBottom:16, fontFamily:FONT, fontSize:12 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                <span style={{ color:COLORS.textMuted }}>Neto:</span>
+                <span style={{ color:COLORS.text }}>{fmtClp(netoNum)}</span>
+              </div>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                <span style={{ color:COLORS.textMuted }}>IVA 19%:</span>
+                <span style={{ color:COLORS.yellow }}>{form.aplica_iva ? fmtClp(ivaCalc) : "—"}</span>
+              </div>
+              <div style={{ display:"flex", justifyContent:"space-between", borderTop:`1px solid ${COLORS.border}`, paddingTop:6, marginTop:2 }}>
+                <span style={{ color:COLORS.text, fontWeight:700 }}>Total:</span>
+                <span style={{ color:COLORS.accent, fontWeight:700, fontSize:14 }}>{fmtClp(totalCalc)}</span>
+              </div>
+            </div>
+          )}
+          <LabelInput label="Notas (opcional)" value={form.notas}
+            onChange={e=>setF("notas",e.target.value)} placeholder="Referencia proyecto, OC cliente…" />
+          <div style={{ display:"flex", gap:10, marginTop:4 }}>
+            <BtnSec onClick={()=>setModal(null)}>Cancelar</BtnSec>
+            <BtnPrimary onClick={saveFactura} disabled={saving||!form.numero_documento||!form.monto_neto}>
+              {saving ? "Guardando…" : "Guardar Factura"}
+            </BtnPrimary>
+          </div>
+        </FinModal>
+      )}
+
+      {/* Modal registrar cobro */}
+      {pagoModal && (
+        <FinModal title={`Registrar Cobro — Doc ${pagoModal.facturaN}`} onClose={()=>setPagoModal(null)} width={400}>
+          <LabelInput label="Fecha de Pago" type="date" value={formPago.fecha_pago}
+            onChange={e=>setFP("fecha_pago",e.target.value)} />
+          <LabelInput label="Monto Cobrado" type="number" value={formPago.monto}
+            onChange={e=>setFP("monto",e.target.value)} placeholder="0" />
+          <LabelSelect label="Método de Pago" value={formPago.metodo}
+            onChange={e=>setFP("metodo",e.target.value)}>
+            <option>Transferencia</option>
+            <option>Cheque</option>
+            <option>Efectivo</option>
+            <option>Otro</option>
+          </LabelSelect>
+          <LabelInput label="Referencia (opcional)" value={formPago.referencia}
+            onChange={e=>setFP("referencia",e.target.value)} placeholder="N° transferencia, folio…" />
+          <div style={{ display:"flex", gap:10, marginTop:4 }}>
+            <BtnSec onClick={()=>setPagoModal(null)}>Cancelar</BtnSec>
+            <BtnPrimary onClick={savePago} disabled={saving||!formPago.monto||!formPago.fecha_pago}>
+              {saving?"Guardando…":"Registrar Cobro"}
+            </BtnPrimary>
+          </div>
+        </FinModal>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 3. CUENTAS POR PAGAR — Facturas recibidas (proveedores + subcontratistas)
+// ══════════════════════════════════════════════════════════════════════════════
+function CuentasPorPagar({ isMobile }) {
+  const [facturas, setFacturas] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [modal, setModal]       = useState(null);
+  const [pagoModal, setPagoModal] = useState(null);
+  const [saving, setSaving]     = useState(false);
+  const [filtroTipo, setFiltroTipo] = useState("todos");
+
+  const emptyForm = {
+    numero_documento:"", tipo_documento:"Factura", fecha_recepcion:"",
+    razon_social_proveedor:"", rut_proveedor:"", tipo_proveedor:"Proveedor",
+    monto_neto:"", aplica_iva:true, vencimiento:"",
+    referencia_oc:"", referencia_proyecto:"", notas:"",
+  };
+  const [form, setForm] = useState(emptyForm);
+  const setF = (k,v) => setForm(p=>({...p,[k]:v}));
+
+  const emptyPago = { fecha_pago:"", monto:"", metodo:"Transferencia", referencia:"" };
+  const [formPago, setFormPago] = useState(emptyPago);
+  const setFP = (k,v) => setFormPago(p=>({...p,[k]:v}));
+
+  useEffect(() => { loadFacturas(); }, []);
+
+  const loadFacturas = async () => {
+    setLoading(true);
+    const { data } = await supabase.from("facturas_recibidas")
+      .select("*, pagos_realizados(*)").order("fecha_recepcion", { ascending:false });
+    setFacturas(data || []);
+    setLoading(false);
+  };
+
+  const netoNum   = Number(form.monto_neto) || 0;
+  const ivaCalc   = form.aplica_iva ? Math.round(netoNum * IVA_RATE) : 0;
+  const totalCalc = netoNum + ivaCalc;
+
+  const saveFactura = async () => {
+    if (!form.numero_documento || !form.monto_neto || !form.fecha_recepcion) return;
+    setSaving(true);
+    await supabase.from("facturas_recibidas").insert({
+      numero_documento: form.numero_documento.trim(),
+      tipo_documento:   form.tipo_documento,
+      fecha_recepcion:  form.fecha_recepcion,
+      razon_social_proveedor: form.razon_social_proveedor.trim(),
+      rut_proveedor:    form.rut_proveedor.trim(),
+      tipo_proveedor:   form.tipo_proveedor,
+      monto_neto:       netoNum,
+      aplica_iva:       form.aplica_iva,
+      monto_iva:        ivaCalc,
+      monto_total:      totalCalc,
+      vencimiento:      form.vencimiento || null,
+      referencia_oc:    form.referencia_oc.trim() || null,
+      referencia_proyecto: form.referencia_proyecto.trim() || null,
+      notas:            form.notas.trim() || null,
+    });
+    await loadFacturas();
+    setForm(emptyForm);
+    setModal(null);
+    setSaving(false);
+  };
+
+  const savePago = async () => {
+    if (!formPago.monto || !formPago.fecha_pago) return;
+    setSaving(true);
+    await supabase.from("pagos_realizados").insert({
+      factura_id: pagoModal.facturaId,
+      fecha_pago: formPago.fecha_pago,
+      monto:      Number(formPago.monto),
+      metodo:     formPago.metodo,
+      referencia: formPago.referencia.trim() || null,
+    });
+    await loadFacturas();
+    setFormPago(emptyPago);
+    setPagoModal(null);
+    setSaving(false);
+  };
+
+  const filtradas = filtroTipo === "todos"
+    ? facturas
+    : facturas.filter(f => f.tipo_proveedor === filtroTipo);
+
+  const totalFacturado  = filtradas.reduce((s,f) => s + (f.monto_total||0), 0);
+  const totalPagado     = filtradas.reduce((s,f) =>
+    s + (f.pagos_realizados||[]).reduce((a,p)=>a+p.monto,0), 0);
+  const totalPendiente  = totalFacturado - totalPagado;
+  const creditoFiscal   = filtradas.filter(f=>f.aplica_iva).reduce((s,f)=>s+(f.monto_iva||0),0);
+
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start",
+        marginBottom:20, flexWrap:"wrap", gap:12 }}>
+        <SecTitle sub="Facturas de proveedores y subcontratistas · control de pagos">
+          Cuentas por Pagar
+        </SecTitle>
+        <BtnPrimary onClick={()=>setModal("nueva")}>+ Registrar Factura Recibida</BtnPrimary>
+      </div>
+
+      {/* Filtro tipo */}
+      <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap" }}>
+        {["todos","Proveedor","Subcontratista","Gasto General"].map(t=>(
+          <button key={t} onClick={()=>setFiltroTipo(t)}
+            style={{ padding:"6px 14px", borderRadius:20, fontFamily:FONT, fontSize:12, cursor:"pointer",
+              background:filtroTipo===t?COLORS.accentDim:"transparent",
+              border:`1px solid ${filtroTipo===t?COLORS.accent:COLORS.border}`,
+              color:filtroTipo===t?COLORS.accent:COLORS.textMuted }}>
+            {t==="todos"?"Todos":t}
+          </button>
+        ))}
+      </div>
+
+      {/* KPIs */}
+      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)", gap:12, marginBottom:24 }}>
+        <KpiCard label="Total Comprometido" value={fmtClp(totalFacturado)} color={COLORS.text} icon="📋" />
+        <KpiCard label="Total Pagado"        value={fmtClp(totalPagado)}   color={COLORS.green} icon="✅" />
+        <KpiCard label="Por Pagar"           value={fmtClp(totalPendiente)} color={COLORS.red} icon="⏳"
+          sub={`${filtradas.filter(f=>{const p=(f.pagos_realizados||[]).reduce((a,x)=>a+x.monto,0); return p<f.monto_total;}).length} pendientes`} />
+        <KpiCard label="Crédito Fiscal IVA"  value={fmtClp(creditoFiscal)} color={COLORS.green} icon="🧾"
+          sub="Usado en F29" />
+      </div>
+
+      {/* Tabla */}
+      {loading ? (
+        <div style={{ textAlign:"center", padding:40, fontFamily:FONT, color:COLORS.textMuted }}>Cargando…</div>
+      ) : (
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, overflow:"hidden" }}>
+          {filtradas.length === 0 ? (
+            <div style={{ padding:40, textAlign:"center", fontFamily:FONT, fontSize:13, color:COLORS.textMuted }}>
+              Sin facturas registradas.
+            </div>
+          ) : (
+            <div style={{ overflowX:"auto" }}>
+              <table style={{ width:"100%", borderCollapse:"collapse" }}>
+                <thead>
+                  <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                    {["N° Doc","Proveedor / Sub.","Tipo","Recepción","Vencim.","Neto","IVA","Total","Pagado","Saldo","Estado",""].map(h=>(
+                      <th key={h} style={{ padding:"10px 12px", textAlign:"left", fontFamily:FONT,
+                        fontSize:10, color:COLORS.textMuted, letterSpacing:"0.07em",
+                        textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtradas.map(f => {
+                    const pagado = (f.pagos_realizados||[]).reduce((a,p)=>a+p.monto,0);
+                    const saldo  = f.monto_total - pagado;
+                    const estado = calcEstado(f.monto_total, pagado, f.vencimiento);
+                    return (
+                      <tr key={f.id} style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                        <td style={{ padding:"9px 12px", color:COLORS.accent, fontWeight:700, fontFamily:FONT }}>
+                          {f.numero_documento}
+                        </td>
+                        <td style={{ padding:"9px 12px" }}>
+                          <div style={{ fontWeight:600, color:COLORS.text, fontSize:13 }}>{f.razon_social_proveedor||"—"}</div>
+                          <div style={{ fontSize:10, color:COLORS.textMuted }}>{f.rut_proveedor}</div>
+                        </td>
+                        <td style={{ padding:"9px 12px" }}>
+                          <span style={{ fontSize:10, padding:"2px 8px", borderRadius:4,
+                            background:f.tipo_proveedor==="Subcontratista"?COLORS.accentDim:COLORS.card,
+                            color:f.tipo_proveedor==="Subcontratista"?COLORS.accent:COLORS.textMuted,
+                            border:`1px solid ${COLORS.border}` }}>
+                            {f.tipo_proveedor}
+                          </span>
+                        </td>
+                        <td style={{ padding:"9px 12px", color:COLORS.textMuted, fontFamily:FONT, fontSize:12 }}>{fmtFecha(f.fecha_recepcion)}</td>
+                        <td style={{ padding:"9px 12px", color:COLORS.textMuted, fontFamily:FONT, fontSize:12 }}>{fmtFecha(f.vencimiento)}</td>
+                        <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.text }}>{fmtClp(f.monto_neto)}</td>
+                        <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12,
+                          color:f.aplica_iva?COLORS.yellow:COLORS.textMuted }}>
+                          {f.aplica_iva?fmtClp(f.monto_iva):"—"}
+                        </td>
+                        <td style={{ padding:"9px 12px", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text }}>{fmtClp(f.monto_total)}</td>
+                        <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.green }}>{fmtClp(pagado)}</td>
+                        <td style={{ padding:"9px 12px", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700,
+                          color:saldo>0?COLORS.red:COLORS.green }}>{fmtClp(saldo)}</td>
+                        <td style={{ padding:"9px 12px" }}>{badgePago(estado)}</td>
+                        <td style={{ padding:"9px 12px" }}>
+                          {saldo > 0 && (
+                            <button onClick={()=>{ setPagoModal({facturaId:f.id, facturaN:f.numero_documento}); setFormPago(emptyPago); }}
+                              style={{ padding:"5px 10px", background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`,
+                                borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+                              + Pago
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Modal nueva factura recibida */}
+      {modal === "nueva" && (
+        <FinModal title="Registrar Factura Recibida" onClose={()=>setModal(null)} width={540}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 14px" }}>
+            <LabelInput label="N° Documento" value={form.numero_documento}
+              onChange={e=>setF("numero_documento",e.target.value)} placeholder="Ej: 9876" />
+            <LabelSelect label="Tipo Documento" value={form.tipo_documento}
+              onChange={e=>setF("tipo_documento",e.target.value)}>
+              <option>Factura</option>
+              <option>Boleta</option>
+              <option>Guía de Despacho</option>
+              <option>Nota de Crédito</option>
+            </LabelSelect>
+            <LabelInput label="Razón Social" value={form.razon_social_proveedor}
+              onChange={e=>setF("razon_social_proveedor",e.target.value)} placeholder="Proveedor S.A." />
+            <LabelInput label="RUT" value={form.rut_proveedor}
+              onChange={e=>setF("rut_proveedor",e.target.value)} placeholder="76.XXX.XXX-X" />
+            <LabelSelect label="Tipo Proveedor" value={form.tipo_proveedor}
+              onChange={e=>setF("tipo_proveedor",e.target.value)}>
+              <option>Proveedor</option>
+              <option>Subcontratista</option>
+              <option>Gasto General</option>
+            </LabelSelect>
+            <LabelInput label="Fecha Recepción" type="date" value={form.fecha_recepcion}
+              onChange={e=>setF("fecha_recepcion",e.target.value)} />
+            <LabelInput label="Vencimiento" type="date" value={form.vencimiento}
+              onChange={e=>setF("vencimiento",e.target.value)} />
+            <LabelInput label="Monto Neto (sin IVA)" type="number" value={form.monto_neto}
+              onChange={e=>setF("monto_neto",e.target.value)} placeholder="0" />
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+                letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>¿Aplica IVA?</div>
+              <div style={{ display:"flex", gap:10, marginTop:4 }}>
+                {[true,false].map(v=>(
+                  <button key={String(v)} onClick={()=>setF("aplica_iva",v)}
+                    style={{ flex:1, padding:"9px 0", borderRadius:6,
+                      background:form.aplica_iva===v?COLORS.accentDim:"transparent",
+                      border:`1px solid ${form.aplica_iva===v?COLORS.accent:COLORS.border}`,
+                      color:form.aplica_iva===v?COLORS.accent:COLORS.textMuted,
+                      fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
+                    {v?"Sí (19%)":"No (Exenta)"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <LabelInput label="Ref. Orden de Compra" value={form.referencia_oc}
+              onChange={e=>setF("referencia_oc",e.target.value)} placeholder="OC-001" />
+            <LabelInput label="Ref. Proyecto / Cotización" value={form.referencia_proyecto}
+              onChange={e=>setF("referencia_proyecto",e.target.value)} placeholder="COT-005" />
+          </div>
+          {netoNum > 0 && (
+            <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8,
+              padding:"12px 16px", marginBottom:16, fontFamily:FONT, fontSize:12 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                <span style={{ color:COLORS.textMuted }}>Neto:</span>
+                <span style={{ color:COLORS.text }}>{fmtClp(netoNum)}</span>
+              </div>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                <span style={{ color:COLORS.textMuted }}>IVA 19%:</span>
+                <span style={{ color:form.aplica_iva?COLORS.green:COLORS.textMuted }}>
+                  {form.aplica_iva ? `+ ${fmtClp(ivaCalc)} ← crédito fiscal` : "—"}
+                </span>
+              </div>
+              <div style={{ display:"flex", justifyContent:"space-between", borderTop:`1px solid ${COLORS.border}`, paddingTop:6, marginTop:2 }}>
+                <span style={{ color:COLORS.text, fontWeight:700 }}>Total a Pagar:</span>
+                <span style={{ color:COLORS.red, fontWeight:700, fontSize:14 }}>{fmtClp(totalCalc)}</span>
+              </div>
+            </div>
+          )}
+          <LabelInput label="Notas (opcional)" value={form.notas}
+            onChange={e=>setF("notas",e.target.value)} placeholder="Descripción del gasto…" />
+          <div style={{ display:"flex", gap:10, marginTop:4 }}>
+            <BtnSec onClick={()=>setModal(null)}>Cancelar</BtnSec>
+            <BtnPrimary onClick={saveFactura} disabled={saving||!form.numero_documento||!form.monto_neto}>
+              {saving?"Guardando…":"Guardar Factura"}
+            </BtnPrimary>
+          </div>
+        </FinModal>
+      )}
+
+      {/* Modal registrar pago */}
+      {pagoModal && (
+        <FinModal title={`Registrar Pago — Doc ${pagoModal.facturaN}`} onClose={()=>setPagoModal(null)} width={400}>
+          <LabelInput label="Fecha de Pago" type="date" value={formPago.fecha_pago}
+            onChange={e=>setFP("fecha_pago",e.target.value)} />
+          <LabelInput label="Monto Pagado" type="number" value={formPago.monto}
+            onChange={e=>setFP("monto",e.target.value)} placeholder="0" />
+          <LabelSelect label="Método de Pago" value={formPago.metodo}
+            onChange={e=>setFP("metodo",e.target.value)}>
+            <option>Transferencia</option>
+            <option>Cheque</option>
+            <option>Efectivo</option>
+            <option>Otro</option>
+          </LabelSelect>
+          <LabelInput label="Referencia (opcional)" value={formPago.referencia}
+            onChange={e=>setFP("referencia",e.target.value)} placeholder="N° transferencia…" />
+          <div style={{ display:"flex", gap:10, marginTop:4 }}>
+            <BtnSec onClick={()=>setPagoModal(null)}>Cancelar</BtnSec>
+            <BtnPrimary onClick={savePago} disabled={saving||!formPago.monto||!formPago.fecha_pago}>
+              {saving?"Guardando…":"Registrar Pago"}
+            </BtnPrimary>
+          </div>
+        </FinModal>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 4. RENDIMIENTO POR COTIZACIÓN — margen real vs presupuestado
+// ══════════════════════════════════════════════════════════════════════════════
+function RendimientoCotizaciones({ isMobile }) {
+  const [cotizaciones, setCotizaciones] = useState([]);
+  const [facturasEmitidas, setFacturasEmitidas] = useState([]);
+  const [facturasRecibidas, setFacturasRecibidas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState(null);
+
+  useEffect(() => { loadAll(); }, []);
+
+  const loadAll = async () => {
+    setLoading(true);
+    const [{ data: cots }, { data: em }, { data: re }] = await Promise.all([
+      supabase.from("cotizaciones").select("id, numero, razon_social, total, aplica_iva").order("created_at", { ascending:false }),
+      supabase.from("facturas_emitidas").select("id, referencia_cotizacion, monto_neto, monto_iva, monto_total, razon_social_cliente"),
+      supabase.from("facturas_recibidas").select("id, referencia_proyecto, monto_neto, monto_iva, monto_total, tipo_proveedor"),
+    ]);
+    setCotizaciones(cots || []);
+    setFacturasEmitidas(em || []);
+    setFacturasRecibidas(re || []);
+    setLoading(false);
+  };
+
+  // Por cada cotización, cruzar con facturas emitidas y recibidas
+  const enriched = cotizaciones.map(cot => {
+    const cotRef = `COT-${cot.numero}`;
+    // Facturado al cliente (ingresos reales)
+    const ingresosFacturas = facturasEmitidas
+      .filter(f => f.referencia_cotizacion === cotRef || f.referencia_cotizacion === String(cot.numero));
+    const ingresoReal = ingresosFacturas.reduce((s,f)=>s+(f.monto_neto||0),0);
+
+    // Gastos asociados (compras + subcontratistas)
+    const gastosFacturas = facturasRecibidas
+      .filter(f => f.referencia_proyecto === cotRef || f.referencia_proyecto === String(cot.numero));
+    const gastoReal = gastosFacturas.reduce((s,f)=>s+(f.monto_neto||0),0);
+
+    const presupuesto = cot.total || 0; // total cotizado (con o sin IVA según aplica_iva)
+    const margenReal  = ingresoReal - gastoReal;
+    const pctMargen   = ingresoReal > 0 ? Math.round((margenReal/ingresoReal)*100) : 0;
+
+    return { ...cot, ingresoReal, gastoReal, margenReal, pctMargen, presupuesto,
+             ingresosFacturas, gastosFacturas };
+  });
+
+  const totalPresupuestado = enriched.reduce((s,c)=>s+c.presupuesto,0);
+  const totalIngresoReal   = enriched.reduce((s,c)=>s+c.ingresoReal,0);
+  const totalGastoReal     = enriched.reduce((s,c)=>s+c.gastoReal,0);
+  const totalMargenReal    = totalIngresoReal - totalGastoReal;
+
+  const sel = selected ? enriched.find(c=>c.id===selected) : null;
+
+  return (
+    <div>
+      <SecTitle sub="Cotizado vs facturado vs gastado · margen real por proyecto">
+        Rendimiento por Cotización
+      </SecTitle>
+
+      {/* KPIs globales */}
+      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)", gap:12, marginBottom:24 }}>
+        <KpiCard label="Total Presupuestado" value={fmtClp(totalPresupuestado)} icon="📝" />
+        <KpiCard label="Total Facturado (ingreso real)" value={fmtClp(totalIngresoReal)} color={COLORS.accent} icon="💰" />
+        <KpiCard label="Total Gastos Asociados" value={fmtClp(totalGastoReal)} color={COLORS.red} icon="🧾" />
+        <KpiCard label="Margen Real Acumulado"
+          value={fmtClp(totalMargenReal)}
+          sub={totalIngresoReal>0 ? `${Math.round((totalMargenReal/totalIngresoReal)*100)}% del ingreso` : "—"}
+          color={totalMargenReal>=0?COLORS.green:COLORS.red} icon="📈" />
+      </div>
+
+      {/* Tabla cotizaciones */}
+      {loading ? (
+        <div style={{ textAlign:"center", padding:40, fontFamily:FONT, color:COLORS.textMuted }}>Cargando…</div>
+      ) : (
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, overflow:"hidden" }}>
+          <div style={{ overflowX:"auto" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse" }}>
+              <thead>
+                <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                  {["COT N°","Cliente","Presupuesto","Facturado","Gastos","Margen $","Margen %",""].map(h=>(
+                    <th key={h} style={{ padding:"10px 14px", textAlign:"left", fontFamily:FONT,
+                      fontSize:10, color:COLORS.textMuted, letterSpacing:"0.07em",
+                      textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {enriched.map(c => {
+                  const color = c.margenReal >= 0 ? COLORS.green : COLORS.red;
+                  return (
+                    <tr key={c.id} style={{ borderBottom:`1px solid ${COLORS.border}`,
+                      background:selected===c.id?COLORS.accentDim:"transparent",
+                      cursor:"pointer" }}
+                      onClick={()=>setSelected(selected===c.id?null:c.id)}>
+                      <td style={{ padding:"9px 14px", color:COLORS.accent, fontWeight:700, fontFamily:FONT }}>
+                        COT-{c.numero}
+                      </td>
+                      <td style={{ padding:"9px 14px", color:COLORS.text, fontWeight:600, fontSize:13 }}>
+                        {c.razon_social||"—"}
+                      </td>
+                      <td style={{ padding:"9px 14px", fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>
+                        {fmtClp(c.presupuesto)}
+                      </td>
+                      <td style={{ padding:"9px 14px", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text }}>
+                        {c.ingresoReal > 0 ? fmtClp(c.ingresoReal) : <span style={{color:COLORS.textMuted}}>Sin factura</span>}
+                      </td>
+                      <td style={{ padding:"9px 14px", fontFamily:FONT, fontSize:12,
+                        color:c.gastoReal>0?COLORS.red:COLORS.textMuted }}>
+                        {c.gastoReal > 0 ? fmtClp(c.gastoReal) : "—"}
+                      </td>
+                      <td style={{ padding:"9px 14px", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color }}>
+                        {c.ingresoReal > 0 ? fmtClp(c.margenReal) : "—"}
+                      </td>
+                      <td style={{ padding:"9px 14px" }}>
+                        {c.ingresoReal > 0 ? (
+                          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                            <div style={{ width:60, height:6, background:COLORS.border, borderRadius:3 }}>
+                              <div style={{ width:`${Math.min(100,Math.max(0,c.pctMargen))}%`,
+                                height:6, borderRadius:3, background:color }} />
+                            </div>
+                            <span style={{ fontFamily:FONT, fontSize:12, color, fontWeight:700 }}>
+                              {c.pctMargen}%
+                            </span>
+                          </div>
+                        ) : <span style={{ color:COLORS.textMuted, fontSize:11 }}>—</span>}
+                      </td>
+                      <td style={{ padding:"9px 14px" }}>
+                        <span style={{ fontSize:12, color:COLORS.textMuted }}>
+                          {selected===c.id?"▲":"▼"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Detalle expandido */}
+      {sel && (
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`,
+          borderRadius:12, padding:20, marginTop:14 }}>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700,
+            color:COLORS.text, marginBottom:14 }}>
+            Detalle — COT-{sel.numero} · {sel.razon_social}
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:16 }}>
+            <div>
+              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted,
+                textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>
+                Facturas Emitidas al Cliente
+              </div>
+              {sel.ingresosFacturas.length === 0
+                ? <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin facturas vinculadas. Usa "COT-{sel.numero}" como referencia al crear la factura.</div>
+                : sel.ingresosFacturas.map(f=>(
+                  <div key={f.id} style={{ display:"flex", justifyContent:"space-between",
+                    padding:"7px 12px", background:COLORS.surface, borderRadius:6,
+                    marginBottom:4, border:`1px solid ${COLORS.border}` }}>
+                    <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{f.razon_social_cliente}</span>
+                    <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.green }}>{fmtClp(f.monto_neto)}</span>
+                  </div>
+                ))}
+            </div>
+            <div>
+              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted,
+                textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>
+                Gastos / Facturas Recibidas
+              </div>
+              {sel.gastosFacturas.length === 0
+                ? <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin gastos vinculados. Usa "COT-{sel.numero}" como referencia al crear la factura recibida.</div>
+                : sel.gastosFacturas.map(f=>(
+                  <div key={f.id} style={{ display:"flex", justifyContent:"space-between",
+                    padding:"7px 12px", background:COLORS.surface, borderRadius:6,
+                    marginBottom:4, border:`1px solid ${COLORS.border}` }}>
+                    <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{f.tipo_proveedor}</span>
+                    <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.red }}>{fmtClp(f.monto_neto)}</span>
+                  </div>
+                ))}
+            </div>
+          </div>
+          {/* Mini P&L por cotización */}
+          {sel.ingresoReal > 0 && (
+            <div style={{ marginTop:16, background:COLORS.bg, borderRadius:8, padding:"14px 18px",
+              border:`1px solid ${COLORS.border}`, maxWidth:400 }}>
+              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent,
+                letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>P&L Cotización</div>
+              {[
+                { l:"Ingreso real (neto s/IVA)", v:sel.ingresoReal, c:COLORS.green },
+                { l:"Gastos directos (neto s/IVA)", v:-sel.gastoReal, c:COLORS.red },
+              ].map((r,i)=>(
+                <div key={i} style={{ display:"flex", justifyContent:"space-between",
+                  padding:"6px 0", borderBottom:`1px solid ${COLORS.border}` }}>
+                  <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{r.l}</span>
+                  <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:r.c }}>
+                    {fmtClp(Math.abs(r.v))}
+                  </span>
+                </div>
+              ))}
+              <div style={{ display:"flex", justifyContent:"space-between", paddingTop:10, marginTop:2 }}>
+                <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text }}>MARGEN BRUTO</span>
+                <span style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700,
+                  color:sel.margenReal>=0?COLORS.green:COLORS.red }}>
+                  {fmtClp(sel.margenReal)} ({sel.pctMargen}%)
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+
 const NAV_GROUPS = [
   {
     key: "dashboard", label: "Dashboard", Icon: LayoutDashboard, single: true,
@@ -9178,6 +10318,14 @@ const NAV_GROUPS = [
       { key:"operaciones", label:"Terreno",   Icon: Wrench       },
       { key:"tasks",       label:"Tareas",    Icon: CheckSquare  },
       { key:"incidencias",  label:"Incidencias", Icon: AlertTriangle },
+    ],
+  },
+  {
+    key: "finanzas", label: "Finanzas", Icon: TrendingUp, children: [
+      { key:"finanzas_dashboard", label:"Resumen F29",    Icon: TrendingUp },
+      { key:"cxc",                label:"Ctas. x Cobrar", Icon: TrendingUp },
+      { key:"cxp",                label:"Ctas. x Pagar",  Icon: TrendingUp },
+      { key:"rendimiento_cot",    label:"Rendimiento",     Icon: TrendingUp },
     ],
   },
   {
@@ -11878,6 +13026,10 @@ export default function CRM() {
           {view==="incidencias" && <IncidenciasView contacts={contacts} isMobile={isMobile} />}
           {view==="proposals" && <ProposalsView contacts={contacts} isMobile={isMobile} />}
           {view==="reports"   && <ReportsView contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} />}
+          {view==="finanzas_dashboard" && <FinanzasDashboard isMobile={isMobile} />}
+          {view==="cxc"                && <CuentasPorCobrar  isMobile={isMobile} />}
+          {view==="cxp"                && <CuentasPorPagar   isMobile={isMobile} />}
+          {view==="rendimiento_cot"    && <RendimientoCotizaciones isMobile={isMobile} />}
         </div>
       </main>
 
