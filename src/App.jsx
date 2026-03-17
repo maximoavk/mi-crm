@@ -9751,6 +9751,8 @@ function FinanzasDashboard({ isMobile }) {
         Facturas Recibidas — {MESES[mes-1]} {anio}
       </div>
       <_TablaDocumentos docs={recibidas} tipo="recibida" />
+      </div>
+      )} {/* cierre tab f29 */}
     </div>
   );
 }
@@ -9805,7 +9807,6 @@ function _TablaDocumentos({ docs, tipo }) {
           </tbody>
         </table>
       </div>
-      )} {/* cierre tab f29 */}
     </div>
   );
 }
