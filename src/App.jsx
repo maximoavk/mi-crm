@@ -10730,17 +10730,20 @@ function CuentasPorPagar({ isMobile }) {
   const savePago = async () => {
     if (!formPago.monto || !formPago.fecha_pago) return;
     setSaving(true);
-    await supabase.from("pagos_realizados").insert({
-      factura_id: pagoModal.facturaId,
-      fecha_pago: formPago.fecha_pago,
-      monto:      Number(formPago.monto),
-      metodo:     formPago.metodo,
-      referencia: formPago.referencia.trim() || null,
-    });
-    await loadFacturas();
-    setFormPago(emptyPago);
-    setPagoModal(null);
-    setSaving(false);
+    try {
+      await supabase.from("pagos_realizados").insert({
+        factura_id: pagoModal.facturaId,
+        fecha_pago: formPago.fecha_pago,
+        monto:      Number(formPago.monto),
+        metodo:     formPago.metodo,
+        referencia: formPago.referencia.trim() || null,
+      });
+      await loadAll();
+      setFormPago(emptyPago);
+      setPagoModal(null);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const filtradas = filtroTipo === "todos"
