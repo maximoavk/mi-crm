@@ -6945,8 +6945,55 @@ function PurchaseView({ isMobile }) {
     "Magallanes":            { ciudades:["Punta Arenas","Puerto Natales","Porvenir"], comunas:["Antártica","Cabo de Hornos","Laguna Blanca","Natales","Porvenir","Primavera","Punta Arenas","Río Verde","San Gregorio","Timaukel","Torres del Paine"] },
   };
 
-  // Formulario OC
-  const emptyOC = { cotizacion_id:"", supplier_id:"", estado:"PENDIENTE", notas:"" };
+  // Auto-cargar líneas tipo producto desde una cotización
+  const loadCotLines = async (cotizacion_id) => {
+    if (!cotizacion_id) return;
+    const cot = quotes.find(q => q.id === cotizacion_id);
+    if (!cot) return;
+
+    // Traer quote_lines tipo "item" (no hitos) de esa cotización
+    const { data: qlines } = await supabase
+      .from("quote_lines")
+      .select("*, products(id, codigo, nombre, tipo)")
+      .eq("quote_id", cot.id)
+      .neq("tipo_linea", "hito")
+      .order("orden");
+
+    if (!qlines?.length) return;
+
+    // Filtrar solo las de tipo producto (no servicio)
+    const productoLines = qlines.filter(ql =>
+      ql.products?.tipo === "producto" || (!ql.products && ql.product_id)
+    );
+
+    if (!productoLines.length) return;
+
+    // Convertir a líneas de OC
+    const newLines = productoLines.map(ql => {
+      const precioNeto = Math.round(Number(ql.precio_unitario || 0));
+      // Buscar precio de proveedor si existe
+      const pp = productPrices.find(p => p.product_id === ql.product_id);
+      const precioFinal = pp?.precio_bruto
+        ? Math.round(Number(pp.precio_bruto) / 1.19)
+        : precioNeto;
+      return {
+        _key:             Date.now() + Math.random(),
+        product_id:       ql.product_id || "",
+        supplier_price_id: pp?.id || "",
+        cantidad:         Number(ql.cantidad || 1),
+        precio_unitario:  precioFinal,
+        _search:          ql.products?.nombre || ql.descripcion || "",
+        _fromCot:         true, // marca visual
+      };
+    });
+
+    setLines(prev => {
+      // Si ya hay líneas vacías, reemplazarlas; si hay contenido, agregar
+      const hasContent = prev.some(l => l.product_id);
+      return hasContent ? [...prev, ...newLines] : newLines;
+    });
+  };
+
   const [ocForm, setOcForm]   = useState(emptyOC);
   const [lines, setLines]     = useState([]);
   const [savingOC, setSavingOC] = useState(false);
@@ -7578,11 +7625,21 @@ function PurchaseView({ isMobile }) {
               </div>
               <div>
                 <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Cotización referencia</div>
-                <select value={ocForm.cotizacion_id} onChange={e=>setOcForm(p=>({...p,cotizacion_id:e.target.value}))}
-                  style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:ocForm.cotizacion_id?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box" }}>
+                <select value={ocForm.cotizacion_id}
+                  onChange={e => {
+                    const newCotId = e.target.value;
+                    setOcForm(p=>({...p, cotizacion_id: newCotId}));
+                    if (newCotId && !editingOC) loadCotLines(newCotId);
+                  }}
+                  style={{ width:"100%", background:COLORS.bg, border:`1px solid ${ocForm.cotizacion_id?COLORS.green+"55":COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:ocForm.cotizacion_id?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box" }}>
                   <option value="">— Sin cotización —</option>
                   {quotes.map(q=><option key={q.id} value={q.id}>#{q.numero} · {q.nombre_cliente||q.razon_social||"Sin nombre"}</option>)}
                 </select>
+                {ocForm.cotizacion_id && !editingOC && (
+                  <div style={{ marginTop:4, fontFamily:FONT, fontSize:10, color:COLORS.green }}>
+                    ✓ Líneas de producto pre-cargadas desde la COT
+                  </div>
+                )}
               </div>
             </div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
@@ -7603,7 +7660,16 @@ function PurchaseView({ isMobile }) {
             {/* Líneas de productos */}
             <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.accent}33`, borderRadius:10, padding:14, marginBottom:14 }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600 }}>📦 Ítems de la OC</div>
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600 }}>📦 Ítems de la OC</div>
+                  {lines.some(l=>l._fromCot) && (
+                    <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.green,
+                      background:COLORS.green+"18", border:`1px solid ${COLORS.green}33`,
+                      borderRadius:4, padding:"1px 7px" }}>
+                      ↑ Pre-cargado desde COT
+                    </span>
+                  )}
+                </div>
                 <button onClick={addLine}
                   style={{ padding:"3px 10px", background:COLORS.accent, border:"none", borderRadius:5, color:COLORS.bg, fontFamily:FONT, fontSize:11, fontWeight:700, cursor:"pointer" }}>+ Línea</button>
               </div>
@@ -10396,10 +10462,67 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
   const [prodSel, setProdSel]   = useState(null);
   const [showProdDrop, setShowProdDrop] = useState(false);
   const [esExtraordinario, setEsExtraordinario] = useState(false);
+  const [serviceLines, setServiceLines] = useState([]); // líneas servicio pendientes de la COT
+  const [loadingLines, setLoadingLines] = useState(true);
+  const [selectedLine, setSelectedLine] = useState(null); // línea COT pre-seleccionada
 
   const emptyF = { descripcion:"", codigo:"", cantidad:"1", precio_unitario:"", aplica_iva:true, notas:"" };
   const [form, setForm] = useState(emptyF);
   const setF = (k,v) => setForm(p=>({...p,[k]:v}));
+
+  // Cargar líneas de servicio pendientes de la COT
+  useEffect(() => {
+    const load = async () => {
+      setLoadingLines(true);
+      const { data: qlines } = await supabase
+        .from("quote_lines")
+        .select("id, codigo, descripcion, cantidad, precio_unitario, subtotal, product_id, products(id, codigo, nombre, tipo, proveedor)")
+        .eq("quote_id", cotizacion.cotizacion_id)
+        .neq("tipo_linea", "hito")
+        .order("orden");
+
+      // Solo tipo servicio
+      const svcLines = (qlines||[]).filter(ql =>
+        ql.products?.tipo === "servicio" || (!ql.product_id && ql.tipo_linea !== "hito")
+      );
+
+      // Filtrar las que ya están en cot_service_lines (ya registradas)
+      const { data: existing } = await supabase
+        .from("cot_service_lines")
+        .select("product_id, descripcion")
+        .eq("cotizacion_id", cotizacion.cotizacion_id);
+
+      const existingDesc = new Set((existing||[]).map(e => e.descripcion));
+      const existingProd = new Set((existing||[]).map(e => e.product_id).filter(Boolean));
+
+      const pending = svcLines.filter(ql =>
+        !existingDesc.has(ql.descripcion) &&
+        !(ql.product_id && existingProd.has(ql.product_id))
+      );
+
+      setServiceLines(pending);
+      setLoadingLines(false);
+    };
+    load();
+  }, [cotizacion.cotizacion_id]);
+
+  // Al seleccionar una línea pendiente, pre-cargar el form
+  const selectLine = (ql) => {
+    setSelectedLine(ql.id);
+    setF("descripcion", ql.descripcion || ql.products?.nombre || "");
+    setF("codigo", ql.codigo || ql.products?.codigo || "");
+    setF("cantidad", String(ql.cantidad || 1));
+    setF("precio_unitario", String(Math.round(Number(ql.precio_unitario || 0))));
+    setProdSel(ql.products || null);
+    setBusqProd(ql.products?.nombre || ql.descripcion || "");
+    // Auto-seleccionar proveedor si el producto tiene uno
+    if (ql.products?.proveedor) {
+      const sup = suppliers.find(s =>
+        s.nombre?.toLowerCase().includes(ql.products.proveedor.toLowerCase())
+      );
+      if (sup) { setSupSel(sup); setBusqSup(sup.nombre); }
+    }
+  };
 
   const sugSup  = busqSup.length >= 1
     ? suppliers.filter(s => s.nombre?.toLowerCase().includes(busqSup.toLowerCase()) ||
@@ -10449,7 +10572,63 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
 
   return (
     <FinModal title={`Nueva línea de servicio — COT-${cotizacion.numero_cotizacion}`} onClose={onClose} width={540}>
-      {/* Toggle extraordinario */}
+
+      {/* ── LÍNEAS PENDIENTES DE LA COT ── */}
+      {!loadingLines && serviceLines.length > 0 && (
+        <div style={{ marginBottom:18 }}>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent,
+            letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>
+            Servicios pendientes de esta COT — selecciona para pre-cargar
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+            {serviceLines.map(ql => (
+              <button key={ql.id}
+                onClick={() => selectLine(ql)}
+                style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+                  padding:"9px 14px", borderRadius:8, cursor:"pointer", textAlign:"left",
+                  background: selectedLine===ql.id ? COLORS.accentDim : COLORS.bg,
+                  border: `1px solid ${selectedLine===ql.id ? COLORS.accent : COLORS.border}`,
+                  transition:"all 0.15s" }}>
+                <div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600,
+                    color: selectedLine===ql.id ? COLORS.accent : COLORS.text }}>
+                    {ql.codigo && <span style={{ fontFamily:FONT, color:COLORS.accent,
+                      marginRight:8 }}>{ql.codigo}</span>}
+                    {ql.descripcion || ql.products?.nombre}
+                  </div>
+                  {ql.products?.proveedor && (
+                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:2 }}>
+                      Proveedor: {ql.products.proveedor}
+                    </div>
+                  )}
+                </div>
+                <div style={{ textAlign:"right", flexShrink:0, marginLeft:12 }}>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700,
+                    color:COLORS.text }}>{fmtClp(ql.subtotal || ql.precio_unitario * ql.cantidad)}</div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
+                    {ql.cantidad} × {fmtClp(ql.precio_unitario)}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:6 }}>
+            O completa el formulario manualmente abajo
+          </div>
+          <div style={{ height:1, background:COLORS.border, margin:"14px 0" }} />
+        </div>
+      )}
+      {loadingLines && (
+        <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted,
+          marginBottom:14, padding:"8px 0" }}>Cargando servicios de la COT…</div>
+      )}
+      {!loadingLines && serviceLines.length === 0 && (
+        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+          marginBottom:14, padding:"8px 12px", background:COLORS.bg,
+          borderRadius:6, border:`1px solid ${COLORS.border}` }}>
+          Todos los servicios de esta COT ya están registrados — o puedes agregar uno nuevo abajo.
+        </div>
+      )}
       <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16,
         padding:"10px 14px", background:esExtraordinario?COLORS.yellow+"18":COLORS.bg,
         border:`1px solid ${esExtraordinario?COLORS.yellow+"44":COLORS.border}`, borderRadius:8 }}>
@@ -13371,23 +13550,35 @@ function ColaboradorView({ session }) {
 
   useEffect(() => {
     (async () => {
-      // Cargar pedidos tipo "pf" (pre-facturas)
       const { data: grupos } = await supabase.from("pedidos")
         .select("*").eq("tipo","pf").order("created_at", { ascending:false });
       if (!grupos) { setLoading(false); return; }
-      // Para cada PF, cargar sus cotizaciones via quote_ids
+
       const allQuoteIds = [...new Set(grupos.flatMap(g => g.quote_ids||[]))];
       let quotesMap = {};
       if (allQuoteIds.length > 0) {
         const { data: cots } = await supabase.from("cotizaciones")
-          .select("id,numero,nombre_cliente,razon_social,total,aplica_iva,direccion")
+          .select("id,numero,nombre_cliente,razon_social,rut_cliente,total,aplica_iva,direccion")
           .in("id", allQuoteIds);
         (cots||[]).forEach(c => { quotesMap[c.id] = c; });
       }
-      const results = grupos.map(g => ({
-        ...g,
-        cots: (g.quote_ids||[]).map(qid => quotesMap[qid]).filter(Boolean)
-      }));
+
+      // Traer comprobantes_pago para calcular monto pagado por pedido
+      const { data: comprobantes } = await supabase
+        .from("comprobantes_pago")
+        .select("quote_ids, monto_pagado")
+        .in("estado", ["pf", "emitido", "pagado"]);
+
+      const results = grupos.map(g => {
+        const cots = (g.quote_ids||[]).map(qid => quotesMap[qid]).filter(Boolean);
+        // Sumar monto_pagado de comprobantes que comparten quote_ids con este pedido
+        const pedidoQuoteSet = new Set(g.quote_ids||[]);
+        const montoPagado = (comprobantes||[])
+          .filter(cp => (cp.quote_ids||[]).some(qid => pedidoQuoteSet.has(qid)))
+          .reduce((s, cp) => s + Number(cp.monto_pagado||0), 0);
+        return { ...g, cots, monto_pagado_calculado: montoPagado };
+      });
+
       setPfs(results);
       setLoading(false);
     })();
@@ -13406,7 +13597,7 @@ function ColaboradorView({ session }) {
       const IVA = 0.19;
       // Calcular el monto según la opción elegida
       const totalCot = pf.cots.reduce((s,c) => s + Number(c.total||0), 0);
-      const montoPF  = Number(pf.monto_pagado || 0);
+      const montoPF  = Number(pf.monto_pagado_calculado || 0);
 
       let montoTotal = 0;
       if (syncMonto === "total_cot")  montoTotal = totalCot;
@@ -13624,7 +13815,7 @@ function ColaboradorView({ session }) {
       {editFact && (() => {
         const pf         = editFact.pf;
         const totalCot   = pf.cots.reduce((s,c) => s + Number(c.total||0), 0);
-        const montoPF    = Number(pf.monto_pagado || 0);
+        const montoPF    = Number(pf.monto_pagado_calculado || 0);
         const montoPreview =
           syncMonto === "total_cot"  ? totalCot :
           syncMonto === "monto_pf"   ? montoPF  :
@@ -13720,7 +13911,7 @@ function ColaboradorView({ session }) {
                   <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:14 }}>
                     {[
                       { key:"total_cot", label:"Total de la(s) cotización(es)", sub:`${fmt(totalCot)} · suma de COTs vinculadas`, color:COLORS.accent },
-                      { key:"monto_pf",  label:"Monto pagado en este PF", sub:`${fmt(montoPF)} · lo registrado en el comprobante`, color:COLORS.green },
+                      { key:"monto_pf",  label:"Monto pagado en comprobantes", sub:`${fmt(montoPF)} · suma de comprobantes vinculados`, color:COLORS.green },
                       { key:"manual",    label:"Monto manual", sub:"Lo ingreso yo", color:COLORS.yellow },
                     ].map(opt => (
                       <button key={opt.key} onClick={()=>setSyncMonto(opt.key)}
