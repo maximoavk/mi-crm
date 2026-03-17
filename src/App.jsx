@@ -10526,8 +10526,11 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
         (s.rut||"").replace(/[.\-]/g,"").includes(busqSup.replace(/[.\-]/g,""))).slice(0,6)
     : [];
   const sugProd = busqProd.length >= 1
-    ? products.filter(p => p.nombre?.toLowerCase().includes(busqProd.toLowerCase()) ||
-        (p.codigo||"").toLowerCase().includes(busqProd.toLowerCase())).slice(0,6)
+    ? products.filter(p =>
+        (p.type === "servicio" || p.tipo === "servicio") &&
+        (p.nombre?.toLowerCase().includes(busqProd.toLowerCase()) ||
+        (p.codigo||"").toLowerCase().includes(busqProd.toLowerCase()))
+      ).slice(0,6)
     : [];
 
   const neto  = Number(form.precio_unitario) * Number(form.cantidad||1);
@@ -10536,6 +10539,11 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
 
   const save = async () => {
     if (!form.descripcion || !form.precio_unitario) return;
+    // Validación: no permitir ítems de tipo producto
+    if (prodSel && (prodSel.type === "producto" || prodSel.tipo === "producto")) {
+      alert(`"${prodSel.nombre}" es un producto — debe ir en una Orden de Compra, no como línea de servicio.`);
+      return;
+    }
     setSaving(true);
     // Si es extraordinario, guardar primero en products
     let productId = prodSel?.id || null;
@@ -10682,17 +10690,23 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
       {!esExtraordinario && (
         <div style={{ marginBottom:14 }}>
           <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
-            letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>Producto / Servicio del maestro</div>
+            letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>
+            Servicio del maestro <span style={{ color:COLORS.accent, textTransform:"none",
+              letterSpacing:0 }}>(solo tipo "servicio")</span>
+          </div>
           <div style={{ position:"relative" }}>
             <input value={busqProd} onChange={e=>{ setBusqProd(e.target.value); setShowProdDrop(true);
               if(!e.target.value){ setProdSel(null); setF("descripcion",""); setF("precio_unitario",""); setF("codigo",""); } }}
               onFocus={()=>setShowProdDrop(true)} onBlur={()=>setTimeout(()=>setShowProdDrop(false),150)}
               placeholder="Buscar por nombre o código…"
-              style={{ width:"100%", background:COLORS.bg, border:`1px solid ${prodSel?COLORS.green:COLORS.border}`,
+              style={{ width:"100%", background:COLORS.bg,
+                border:`1px solid ${prodSel ? (prodSel.type==="producto"||prodSel.tipo==="producto" ? COLORS.red : COLORS.green) : COLORS.border}`,
                 borderRadius:6, padding:"9px 36px 9px 12px", fontFamily:FONT, fontSize:13,
                 color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
             <span style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)",
-              fontSize:13, pointerEvents:"none" }}>{prodSel?"✅":"🔍"}</span>
+              fontSize:13, pointerEvents:"none" }}>
+              {prodSel ? (prodSel.type==="producto"||prodSel.tipo==="producto" ? "⚠️" : "✅") : "🔍"}
+            </span>
             {showProdDrop && sugProd.length > 0 && (
               <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:300,
                 background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8,
@@ -10710,16 +10724,62 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
                     onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                       <div>
-                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text }}>{p.nombre}</div>
-                        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{p.codigo}</div>
+                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600,
+                          color:COLORS.text }}>{p.nombre}</div>
+                        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                          {p.codigo}
+                          <span style={{ marginLeft:8, color:COLORS.accent,
+                            background:COLORS.accentDim, borderRadius:3, padding:"1px 5px",
+                            fontSize:10 }}>servicio</span>
+                        </div>
                       </div>
-                      <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.accent }}>{fmtClp(Math.round((p.precio||0)/1.19))} neto</div>
+                      <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.accent }}>
+                        {fmtClp(Math.round((p.precio||0)/1.19))} neto
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
             )}
+            {/* Aviso si busca y no encuentra servicios pero sí hay productos */}
+            {showProdDrop && busqProd.length >= 2 && sugProd.length === 0 && (() => {
+              const hayProductos = products.filter(p =>
+                (p.type === "producto" || p.tipo === "producto") &&
+                (p.nombre?.toLowerCase().includes(busqProd.toLowerCase()) ||
+                (p.codigo||"").toLowerCase().includes(busqProd.toLowerCase()))
+              ).length > 0;
+              return hayProductos ? (
+                <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:300,
+                  background:COLORS.surface, border:`1px solid ${COLORS.yellow}44`,
+                  borderRadius:8, padding:"10px 14px", boxShadow:"0 6px 20px #0005" }}>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600,
+                    color:COLORS.yellow, marginBottom:4 }}>
+                    ⚠️ Ítem encontrado pero es tipo "producto"
+                  </div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                    Los productos van en Órdenes de Compra (Catálogo → Compras), no aquí.
+                    Si es un gasto de servicio nuevo, activa "Ítem extraordinario" arriba.
+                  </div>
+                </div>
+              ) : (
+                <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:300,
+                  background:COLORS.surface, border:`1px solid ${COLORS.border}`,
+                  borderRadius:8, padding:"10px 14px" }}>
+                  <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>
+                    No encontrado — usa "Ítem extraordinario" para crearlo
+                  </div>
+                </div>
+              );
+            })()}
           </div>
+          {/* Aviso si seleccionó un producto */}
+          {prodSel && (prodSel.type==="producto"||prodSel.tipo==="producto") && (
+            <div style={{ marginTop:6, padding:"7px 12px", background:COLORS.yellow+"18",
+              border:`1px solid ${COLORS.yellow}44`, borderRadius:6,
+              fontFamily:FONT, fontSize:11, color:COLORS.yellow }}>
+              ⚠️ Este ítem es tipo "producto" — debe ir en una OC en Catálogo → Compras.
+            </div>
+          )}
         </div>
       )}
 
