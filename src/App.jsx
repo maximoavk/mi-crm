@@ -10536,6 +10536,8 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved, modo
     setF("precio_unitario","");
     setPrecioVentaCot(0);
   }, [esModoProd]);
+
+  const sugSup  = busqSup.length >= 1
     ? suppliers.filter(s => s.nombre?.toLowerCase().includes(busqSup.toLowerCase()) ||
         (s.rut||"").replace(/[.\-]/g,"").includes(busqSup.replace(/[.\-]/g,""))).slice(0,6)
     : [];
