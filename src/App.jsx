@@ -10386,213 +10386,647 @@ function CuentasPorPagar({ isMobile }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // 4. RENDIMIENTO POR COTIZACIÓN — margen real vs presupuestado
 // ══════════════════════════════════════════════════════════════════════════════
+// ── SUBCOMPONENTE: Modal para agregar línea de servicio ──────────────────────
+function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
+  const [saving, setSaving] = useState(false);
+  const [busqSup, setBusqSup] = useState("");
+  const [supSel, setSupSel]   = useState(null);
+  const [showSupDrop, setShowSupDrop] = useState(false);
+  const [busqProd, setBusqProd] = useState("");
+  const [prodSel, setProdSel]   = useState(null);
+  const [showProdDrop, setShowProdDrop] = useState(false);
+  const [esExtraordinario, setEsExtraordinario] = useState(false);
+
+  const emptyF = { descripcion:"", codigo:"", cantidad:"1", precio_unitario:"", aplica_iva:true, notas:"" };
+  const [form, setForm] = useState(emptyF);
+  const setF = (k,v) => setForm(p=>({...p,[k]:v}));
+
+  const sugSup  = busqSup.length >= 1
+    ? suppliers.filter(s => s.nombre?.toLowerCase().includes(busqSup.toLowerCase()) ||
+        (s.rut||"").replace(/[.\-]/g,"").includes(busqSup.replace(/[.\-]/g,""))).slice(0,6)
+    : [];
+  const sugProd = busqProd.length >= 1
+    ? products.filter(p => p.nombre?.toLowerCase().includes(busqProd.toLowerCase()) ||
+        (p.codigo||"").toLowerCase().includes(busqProd.toLowerCase())).slice(0,6)
+    : [];
+
+  const neto  = Number(form.precio_unitario) * Number(form.cantidad||1);
+  const iva   = form.aplica_iva ? Math.round(neto * 0.19) : 0;
+  const total = neto + iva;
+
+  const save = async () => {
+    if (!form.descripcion || !form.precio_unitario) return;
+    setSaving(true);
+    // Si es extraordinario, guardar primero en products
+    let productId = prodSel?.id || null;
+    if (esExtraordinario && form.descripcion) {
+      const { data: newProd } = await supabase.from("products").insert({
+        codigo: form.codigo || `EXT-${Date.now()}`,
+        nombre: form.descripcion,
+        precio: Math.round(neto * 1.19),
+        unidad: "gl",
+        categoria: "Servicios",
+        tipo: "servicio",
+        es_extraordinario: true,
+        origen_cotizacion_id: cotizacion.cotizacion_id,
+      }).select("id").single();
+      if (newProd) productId = newProd.id;
+    }
+    await supabase.from("cot_service_lines").insert({
+      cotizacion_id:   cotizacion.cotizacion_id,
+      supplier_id:     supSel?.id || null,
+      product_id:      productId,
+      descripcion:     form.descripcion,
+      codigo:          form.codigo || "",
+      cantidad:        Number(form.cantidad) || 1,
+      precio_unitario: Math.round(Number(form.precio_unitario)),
+      aplica_iva:      form.aplica_iva,
+      notas:           form.notas || null,
+    });
+    setSaving(false);
+    onSaved();
+  };
+
+  return (
+    <FinModal title={`Nueva línea de servicio — COT-${cotizacion.numero_cotizacion}`} onClose={onClose} width={540}>
+      {/* Toggle extraordinario */}
+      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16,
+        padding:"10px 14px", background:esExtraordinario?COLORS.yellow+"18":COLORS.bg,
+        border:`1px solid ${esExtraordinario?COLORS.yellow+"44":COLORS.border}`, borderRadius:8 }}>
+        <button onClick={()=>setEsExtraordinario(p=>!p)}
+          style={{ width:36, height:20, borderRadius:10, border:"none", cursor:"pointer",
+            background:esExtraordinario?COLORS.yellow:COLORS.border, position:"relative", flexShrink:0 }}>
+          <div style={{ position:"absolute", top:2, left:esExtraordinario?18:2,
+            width:16, height:16, borderRadius:"50%", background:"#fff", transition:"left 0.15s" }} />
+        </button>
+        <div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600,
+            color:esExtraordinario?COLORS.yellow:COLORS.text }}>
+            {esExtraordinario ? "Ítem extraordinario" : "Ítem del maestro"}
+          </div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+            {esExtraordinario ? "Se guardará en el maestro de productos" : "Busca un producto existente"}
+          </div>
+        </div>
+      </div>
+
+      {/* Buscador subcontratista */}
+      <div style={{ marginBottom:14 }}>
+        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+          letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>Subcontratista / Proveedor</div>
+        <div style={{ position:"relative" }}>
+          <input value={busqSup} onChange={e=>{ setBusqSup(e.target.value); setShowSupDrop(true);
+            if(!e.target.value){ setSupSel(null); } }}
+            onFocus={()=>setShowSupDrop(true)} onBlur={()=>setTimeout(()=>setShowSupDrop(false),150)}
+            placeholder="Buscar por nombre o RUT…"
+            style={{ width:"100%", background:COLORS.bg, border:`1px solid ${supSel?COLORS.green:COLORS.border}`,
+              borderRadius:6, padding:"9px 36px 9px 12px", fontFamily:FONT, fontSize:13,
+              color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+          <span style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)",
+            fontSize:13, pointerEvents:"none" }}>{supSel?"✅":"🔍"}</span>
+          {showSupDrop && sugSup.length > 0 && (
+            <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:300,
+              background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8,
+              maxHeight:180, overflowY:"auto", boxShadow:"0 6px 20px #0005" }}>
+              {sugSup.map(s=>(
+                <div key={s.id} onMouseDown={()=>{ setSupSel(s); setBusqSup(s.nombre); setShowSupDrop(false); }}
+                  style={{ padding:"9px 14px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}` }}
+                  onMouseEnter={e=>e.currentTarget.style.background=COLORS.card}
+                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text }}>{s.nombre}</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{s.rut}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Buscador producto (solo si no es extraordinario) */}
+      {!esExtraordinario && (
+        <div style={{ marginBottom:14 }}>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+            letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>Producto / Servicio del maestro</div>
+          <div style={{ position:"relative" }}>
+            <input value={busqProd} onChange={e=>{ setBusqProd(e.target.value); setShowProdDrop(true);
+              if(!e.target.value){ setProdSel(null); setF("descripcion",""); setF("precio_unitario",""); setF("codigo",""); } }}
+              onFocus={()=>setShowProdDrop(true)} onBlur={()=>setTimeout(()=>setShowProdDrop(false),150)}
+              placeholder="Buscar por nombre o código…"
+              style={{ width:"100%", background:COLORS.bg, border:`1px solid ${prodSel?COLORS.green:COLORS.border}`,
+                borderRadius:6, padding:"9px 36px 9px 12px", fontFamily:FONT, fontSize:13,
+                color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+            <span style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)",
+              fontSize:13, pointerEvents:"none" }}>{prodSel?"✅":"🔍"}</span>
+            {showProdDrop && sugProd.length > 0 && (
+              <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:300,
+                background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8,
+                maxHeight:180, overflowY:"auto", boxShadow:"0 6px 20px #0005" }}>
+                {sugProd.map(p=>(
+                  <div key={p.id} onMouseDown={()=>{
+                    setProdSel(p); setBusqProd(p.nombre);
+                    setF("descripcion", p.nombre);
+                    setF("codigo", p.codigo||"");
+                    setF("precio_unitario", String(Math.round((p.precio||0)/1.19)));
+                    setShowProdDrop(false);
+                  }}
+                    style={{ padding:"9px 14px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}` }}
+                    onMouseEnter={e=>e.currentTarget.style.background=COLORS.card}
+                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <div>
+                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text }}>{p.nombre}</div>
+                        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{p.codigo}</div>
+                      </div>
+                      <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.accent }}>{fmtClp(Math.round((p.precio||0)/1.19))} neto</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Campos del ítem */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 14px" }}>
+        <div style={{ gridColumn:"1/-1" }}>
+          <LabelInput label="Descripción" value={form.descripcion}
+            onChange={e=>setF("descripcion",e.target.value)} placeholder="Descripción del servicio…" />
+        </div>
+        <LabelInput label="Código" value={form.codigo}
+          onChange={e=>setF("codigo",e.target.value)} placeholder="SVC-001" />
+        <LabelInput label="Cantidad" type="number" value={form.cantidad}
+          onChange={e=>setF("cantidad",e.target.value)} placeholder="1" />
+        <LabelInput label="Precio unitario (neto)" type="number" value={form.precio_unitario}
+          onChange={e=>setF("precio_unitario",e.target.value)} placeholder="0" />
+        <div style={{ marginBottom:14 }}>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+            letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>¿Aplica IVA?</div>
+          <div style={{ display:"flex", gap:10 }}>
+            {[true,false].map(v=>(
+              <button key={String(v)} onClick={()=>setF("aplica_iva",v)}
+                style={{ flex:1, padding:"9px 0", borderRadius:6,
+                  background:form.aplica_iva===v?COLORS.accentDim:"transparent",
+                  border:`1px solid ${form.aplica_iva===v?COLORS.accent:COLORS.border}`,
+                  color:form.aplica_iva===v?COLORS.accent:COLORS.textMuted,
+                  fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
+                {v?"Sí (19%)":"No (Exenta)"}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Preview */}
+      {neto > 0 && (
+        <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8,
+          padding:"10px 14px", marginBottom:14, fontFamily:FONT, fontSize:12 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+            <span style={{ color:COLORS.textMuted }}>Neto:</span>
+            <span style={{ color:COLORS.text }}>{fmtClp(neto)}</span>
+          </div>
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+            <span style={{ color:COLORS.textMuted }}>IVA 19%:</span>
+            <span style={{ color:COLORS.green }}>{form.aplica_iva?fmtClp(iva):"—"}</span>
+          </div>
+          <div style={{ display:"flex", justifyContent:"space-between",
+            borderTop:`1px solid ${COLORS.border}`, paddingTop:6 }}>
+            <span style={{ color:COLORS.text, fontWeight:700 }}>Total:</span>
+            <span style={{ color:COLORS.accent, fontWeight:700, fontSize:14 }}>{fmtClp(total)}</span>
+          </div>
+        </div>
+      )}
+      <LabelInput label="Notas (opcional)" value={form.notas}
+        onChange={e=>setF("notas",e.target.value)} placeholder="Observaciones…" />
+      <div style={{ display:"flex", gap:10 }}>
+        <BtnSec onClick={onClose}>Cancelar</BtnSec>
+        <BtnPrimary onClick={save} disabled={saving||!form.descripcion||!form.precio_unitario}>
+          {saving?"Guardando…":"Agregar Línea"}
+        </BtnPrimary>
+      </div>
+    </FinModal>
+  );
+}
+
+// ── COMPONENTE TARJETA COT (documento padre expandible) ──────────────────────
+function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
+  const [open, setOpen]           = useState(false);
+  const [detail, setDetail]       = useState(null); // datos detallados lazy-loaded
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [modalServicio, setModalServicio] = useState(false);
+
+  const pct = cot.presupuesto_total > 0
+    ? Math.min(100, Math.round((
+        (Number(cot.total_neto_compras)||0) +
+        (Number(cot.total_neto_servicios)||0) +
+        (Number(cot.total_neto_fr)||0)
+      ) / (Number(cot.presupuesto_total)||1) * 100))
+    : 0;
+
+  const margen     = Number(cot.margen_neto) || 0;
+  const pctMargen  = Number(cot.pct_margen)  || 0;
+  const margenColor = margen >= 0 ? COLORS.green : COLORS.red;
+
+  const estadoColor = {
+    aprobada:"#00C2FF", enviada:"#FFB800", cerrado:"#00E5A0",
+    por_facturar:"#A855F7", facturada:"#00E5A0",
+  }[cot.estado_cotizacion] || COLORS.textMuted;
+
+  const loadDetail = async () => {
+    if (detail) return;
+    setLoadingDetail(true);
+    const [{ data: ocs }, { data: sls }, { data: fes }, { data: frs }] = await Promise.all([
+      supabase.from("purchase_orders")
+        .select("id, numero_oc, estado, suppliers(nombre), purchase_order_lines(cantidad, precio_unitario)")
+        .eq("cotizacion_id", cot.cotizacion_id),
+      supabase.from("cot_service_lines")
+        .select("id, descripcion, codigo, cantidad, precio_unitario, subtotal_neto, monto_iva, subtotal_total, aplica_iva, estado_pago, suppliers(nombre)")
+        .eq("cotizacion_id", cot.cotizacion_id),
+      supabase.from("facturas_emitidas")
+        .select("id, numero_documento, fecha_emision, monto_neto, monto_iva, monto_total, razon_social_cliente, pagos_recibidos(monto)")
+        .eq("cotizacion_id", cot.cotizacion_id),
+      supabase.from("facturas_recibidas")
+        .select("id, numero_documento, fecha_recepcion, monto_neto, monto_iva, monto_total, razon_social_proveedor, tipo_proveedor")
+        .eq("cotizacion_id", cot.cotizacion_id),
+    ]);
+    setDetail({ ocs: ocs||[], sls: sls||[], fes: fes||[], frs: frs||[] });
+    setLoadingDetail(false);
+  };
+
+  const toggle = () => {
+    if (!open) loadDetail();
+    setOpen(p=>!p);
+  };
+
+  const SubHeader = ({ label, count, color }) => (
+    <div style={{ fontFamily:FONT, fontSize:10, color:color||COLORS.textMuted,
+      letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8,
+      display:"flex", alignItems:"center", gap:8 }}>
+      {label}
+      {count > 0 && <span style={{ background:color+"22", color, border:`1px solid ${color}44`,
+        borderRadius:10, padding:"1px 7px", fontSize:10 }}>{count}</span>}
+    </div>
+  );
+
+  const EmptyRow = ({ msg }) => (
+    <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textDim,
+      padding:"8px 0", fontStyle:"italic" }}>{msg}</div>
+  );
+
+  return (
+    <div style={{ background:COLORS.card, border:`1px solid ${open?COLORS.accent:COLORS.border}`,
+      borderRadius:12, marginBottom:12, overflow:"hidden",
+      transition:"border-color 0.15s" }}>
+
+      {/* ── CABECERA TARJETA ── */}
+      <div onClick={toggle} style={{ padding:"16px 20px", cursor:"pointer",
+        display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>
+
+        {/* COT badge */}
+        <div style={{ fontFamily:FONT, fontSize:13, fontWeight:700, color:COLORS.accent,
+          background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`,
+          borderRadius:6, padding:"4px 12px", flexShrink:0 }}>
+          COT-{cot.numero_cotizacion}
+        </div>
+
+        {/* Cliente + estado */}
+        <div style={{ flex:1, minWidth:120 }}>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700,
+            color:COLORS.text }}>{cot.cliente || "—"}</div>
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:2 }}>
+            <span style={{ fontFamily:FONT, fontSize:10, color:estadoColor,
+              background:estadoColor+"18", border:`1px solid ${estadoColor}33`,
+              borderRadius:4, padding:"1px 7px", textTransform:"uppercase",
+              letterSpacing:"0.06em" }}>{cot.estado_cotizacion}</span>
+          </div>
+        </div>
+
+        {/* Barra presupuesto */}
+        {!isMobile && (
+          <div style={{ width:140, flexShrink:0 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+              <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Ejecutado</span>
+              <span style={{ fontFamily:FONT, fontSize:10, fontWeight:700,
+                color:pct>90?COLORS.red:COLORS.text }}>{pct}%</span>
+            </div>
+            <div style={{ height:6, background:COLORS.border, borderRadius:3 }}>
+              <div style={{ height:6, borderRadius:3, width:`${pct}%`,
+                background:pct>90?COLORS.red:pct>70?COLORS.yellow:COLORS.green,
+                transition:"width 0.3s" }} />
+            </div>
+          </div>
+        )}
+
+        {/* Montos clave */}
+        <div style={{ textAlign:"right", flexShrink:0 }}>
+          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Presupuesto</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700,
+            color:COLORS.text }}>{fmtClp(cot.presupuesto_total)}</div>
+        </div>
+        <div style={{ textAlign:"right", flexShrink:0 }}>
+          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Margen</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700,
+            color:margenColor }}>
+            {Number(cot.total_neto_emitido)>0 ? `${pctMargen}%` : "—"}
+          </div>
+        </div>
+
+        <span style={{ color:COLORS.textMuted, fontSize:16, flexShrink:0 }}>{open?"▲":"▼"}</span>
+      </div>
+
+      {/* ── DETALLE EXPANDIDO ── */}
+      {open && (
+        <div style={{ borderTop:`1px solid ${COLORS.border}`, padding:"18px 20px" }}>
+          {loadingDetail ? (
+            <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted,
+              textAlign:"center", padding:20 }}>Cargando detalle…</div>
+          ) : detail && (
+            <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:20 }}>
+
+              {/* ── COL IZQ: EGRESOS ── */}
+              <div>
+                {/* OC de compras */}
+                <SubHeader label="Órdenes de compra" count={detail.ocs.length} color={COLORS.accent} />
+                {detail.ocs.length === 0
+                  ? <EmptyRow msg="Sin OC vinculadas" />
+                  : detail.ocs.map(oc => {
+                    const totalOC = (oc.purchase_order_lines||[])
+                      .reduce((s,l)=>s+(l.cantidad*l.precio_unitario),0);
+                    return (
+                      <div key={oc.id} style={{ display:"flex", justifyContent:"space-between",
+                        alignItems:"center", padding:"8px 12px", background:COLORS.surface,
+                        borderRadius:7, marginBottom:5, border:`1px solid ${COLORS.border}` }}>
+                        <div>
+                          <div style={{ fontFamily:FONT, fontSize:12, fontWeight:700,
+                            color:COLORS.accent }}>{oc.numero_oc}</div>
+                          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                            {oc.suppliers?.nombre || "—"}
+                          </div>
+                        </div>
+                        <div style={{ textAlign:"right" }}>
+                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700,
+                            color:COLORS.text }}>{fmtClp(Math.round(totalOC/1.19))}</div>
+                          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>neto</div>
+                        </div>
+                      </div>
+                    );
+                  })
+                }
+
+                {/* Líneas de servicio */}
+                <div style={{ marginTop:16 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+                    marginBottom:8 }}>
+                    <SubHeader label="Servicios / Subcontratistas"
+                      count={detail.sls.length} color={COLORS.purple} />
+                    <button onClick={()=>setModalServicio(true)}
+                      style={{ padding:"4px 10px", background:COLORS.purple+"22",
+                        border:`1px solid ${COLORS.purple}44`, borderRadius:6,
+                        color:COLORS.purple, fontFamily:FONT, fontSize:11, cursor:"pointer",
+                        marginBottom:8 }}>
+                      + Agregar
+                    </button>
+                  </div>
+                  {detail.sls.length === 0
+                    ? <EmptyRow msg="Sin líneas de servicio" />
+                    : detail.sls.map(sl => (
+                      <div key={sl.id} style={{ display:"flex", justifyContent:"space-between",
+                        alignItems:"center", padding:"8px 12px", background:COLORS.surface,
+                        borderRadius:7, marginBottom:5, border:`1px solid ${COLORS.border}` }}>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600,
+                            color:COLORS.text, overflow:"hidden", textOverflow:"ellipsis",
+                            whiteSpace:"nowrap" }}>{sl.descripcion}</div>
+                          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                            {sl.suppliers?.nombre || "Sin subcontratista"}
+                            {sl.codigo ? ` · ${sl.codigo}` : ""}
+                          </div>
+                        </div>
+                        <div style={{ textAlign:"right", flexShrink:0, marginLeft:10 }}>
+                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700,
+                            color:COLORS.red }}>{fmtClp(sl.subtotal_neto)}</div>
+                          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>neto</div>
+                        </div>
+                      </div>
+                    ))
+                  }
+                </div>
+              </div>
+
+              {/* ── COL DER: INGRESOS + IVA ── */}
+              <div>
+                {/* Facturas emitidas */}
+                <SubHeader label="Facturas emitidas al cliente"
+                  count={detail.fes.length} color={COLORS.green} />
+                {detail.fes.length === 0
+                  ? <EmptyRow msg="Sin facturas emitidas vinculadas" />
+                  : detail.fes.map(fe => {
+                    const cobrado = (fe.pagos_recibidos||[]).reduce((s,p)=>s+p.monto,0);
+                    const saldo   = fe.monto_total - cobrado;
+                    return (
+                      <div key={fe.id} style={{ padding:"8px 12px", background:COLORS.surface,
+                        borderRadius:7, marginBottom:5, border:`1px solid ${COLORS.border}` }}>
+                        <div style={{ display:"flex", justifyContent:"space-between" }}>
+                          <div>
+                            <div style={{ fontFamily:FONT, fontSize:12, fontWeight:700,
+                              color:COLORS.green }}>N° {fe.numero_documento}</div>
+                            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                              {fmtFecha(fe.fecha_emision)}
+                            </div>
+                          </div>
+                          <div style={{ textAlign:"right" }}>
+                            <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700,
+                              color:COLORS.text }}>{fmtClp(fe.monto_total)}</div>
+                            {saldo > 0 && (
+                              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.yellow }}>
+                                Saldo: {fmtClp(saldo)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                }
+
+                {/* Panel IVA neteo */}
+                <div style={{ marginTop:16, background:COLORS.bg, borderRadius:8,
+                  border:`1px solid ${COLORS.border}`, padding:"12px 16px" }}>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent,
+                    letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>
+                    IVA — Neteo por cotización
+                  </div>
+                  {[
+                    { l:"Débito fiscal (IVA venta)",    v: Number(cot.total_debito_fiscal),  c:COLORS.red   },
+                    { l:"Crédito fiscal (IVA compras)", v: Number(cot.total_credito_fiscal), c:COLORS.green },
+                  ].map((r,i)=>(
+                    <div key={i} style={{ display:"flex", justifyContent:"space-between",
+                      padding:"6px 0", borderBottom:`1px solid ${COLORS.border}` }}>
+                      <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{r.l}</span>
+                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600,
+                        color:r.c }}>{fmtClp(r.v)}</span>
+                    </div>
+                  ))}
+                  {(() => {
+                    const neto = Number(cot.total_debito_fiscal) - Number(cot.total_credito_fiscal);
+                    return (
+                      <div style={{ display:"flex", justifyContent:"space-between", paddingTop:8 }}>
+                        <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700,
+                          color:COLORS.text }}>{neto>=0?"IVA neto a pagar":"Remanente"}</span>
+                        <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700,
+                          color:neto>=0?COLORS.yellow:COLORS.green }}>{fmtClp(Math.abs(neto))}</span>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* P&L */}
+                <div style={{ marginTop:12, background:COLORS.bg, borderRadius:8,
+                  border:`1px solid ${COLORS.border}`, padding:"12px 16px" }}>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent,
+                    letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>
+                    P&L — Margen bruto
+                  </div>
+                  {[
+                    { l:"Ingreso neto (facturado)", v: Number(cot.total_neto_emitido),    c:COLORS.green },
+                    { l:"Compras (neto)",            v: Number(cot.total_neto_compras),    c:COLORS.red   },
+                    { l:"Servicios (neto)",           v: Number(cot.total_neto_servicios), c:COLORS.red   },
+                    { l:"Fact. recibidas (neto)",     v: Number(cot.total_neto_fr),        c:COLORS.red   },
+                  ].map((r,i)=>(
+                    <div key={i} style={{ display:"flex", justifyContent:"space-between",
+                      padding:"5px 0", borderBottom:`1px solid ${COLORS.border}` }}>
+                      <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{r.l}</span>
+                      <span style={{ fontFamily:FONT, fontSize:11, fontWeight:600,
+                        color:r.v>0?r.c:COLORS.textDim }}>{r.v>0?fmtClp(r.v):"—"}</span>
+                    </div>
+                  ))}
+                  <div style={{ display:"flex", justifyContent:"space-between",
+                    alignItems:"center", paddingTop:8, marginTop:2 }}>
+                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700,
+                      color:COLORS.text }}>Margen bruto</span>
+                    <div style={{ textAlign:"right" }}>
+                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700,
+                        color:margenColor }}>{fmtClp(margen)}</div>
+                      <div style={{ fontFamily:FONT, fontSize:11, color:margenColor }}>{pctMargen}%</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Modal agregar servicio */}
+      {modalServicio && (
+        <ModalServicio
+          cotizacion={cot}
+          suppliers={suppliers}
+          products={products}
+          onClose={()=>setModalServicio(false)}
+          onSaved={()=>{ setModalServicio(false); setDetail(null); loadDetail(); onRefresh(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── VISTA PRINCIPAL: RENDIMIENTO POR COTIZACIÓN ───────────────────────────────
 function RendimientoCotizaciones({ isMobile }) {
-  const [cotizaciones, setCotizaciones] = useState([]);
-  const [facturasEmitidas, setFacturasEmitidas] = useState([]);
-  const [facturasRecibidas, setFacturasRecibidas] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState(null);
+  const [rows, setRows]         = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [products, setProducts]   = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [busqueda, setBusqueda] = useState("");
 
   useEffect(() => { loadAll(); }, []);
 
   const loadAll = async () => {
     setLoading(true);
-    const [{ data: cots }, { data: em }, { data: re }] = await Promise.all([
-      supabase.from("cotizaciones").select("id, numero, razon_social, total, aplica_iva").order("created_at", { ascending:false }),
-      supabase.from("facturas_emitidas").select("id, referencia_cotizacion, monto_neto, monto_iva, monto_total, razon_social_cliente"),
-      supabase.from("facturas_recibidas").select("id, referencia_proyecto, monto_neto, monto_iva, monto_total, tipo_proveedor"),
+    const [{ data: vRows }, { data: sups }, { data: prods }] = await Promise.all([
+      supabase.from("v_rendimiento_cotizacion").select("*"),
+      supabase.from("suppliers").select("id, nombre, rut").order("nombre"),
+      supabase.from("products").select("id, codigo, nombre, precio, tipo").order("nombre"),
     ]);
-    setCotizaciones(cots || []);
-    setFacturasEmitidas(em || []);
-    setFacturasRecibidas(re || []);
+    setRows(vRows || []);
+    setSuppliers(sups || []);
+    setProducts(prods || []);
     setLoading(false);
   };
 
-  // Por cada cotización, cruzar con facturas emitidas y recibidas
-  const enriched = cotizaciones.map(cot => {
-    const cotRef = `COT-${cot.numero}`;
-    // Facturado al cliente (ingresos reales)
-    const ingresosFacturas = facturasEmitidas
-      .filter(f => f.referencia_cotizacion === cotRef || f.referencia_cotizacion === String(cot.numero));
-    const ingresoReal = ingresosFacturas.reduce((s,f)=>s+(f.monto_neto||0),0);
+  const filtered = busqueda.trim()
+    ? rows.filter(r =>
+        String(r.numero_cotizacion).includes(busqueda) ||
+        (r.cliente||"").toLowerCase().includes(busqueda.toLowerCase()) ||
+        (r.rut_cliente||"").includes(busqueda))
+    : rows;
 
-    // Gastos asociados (compras + subcontratistas)
-    const gastosFacturas = facturasRecibidas
-      .filter(f => f.referencia_proyecto === cotRef || f.referencia_proyecto === String(cot.numero));
-    const gastoReal = gastosFacturas.reduce((s,f)=>s+(f.monto_neto||0),0);
-
-    const presupuesto = cot.total || 0; // total cotizado (con o sin IVA según aplica_iva)
-    const margenReal  = ingresoReal - gastoReal;
-    const pctMargen   = ingresoReal > 0 ? Math.round((margenReal/ingresoReal)*100) : 0;
-
-    return { ...cot, ingresoReal, gastoReal, margenReal, pctMargen, presupuesto,
-             ingresosFacturas, gastosFacturas };
-  });
-
-  const totalPresupuestado = enriched.reduce((s,c)=>s+c.presupuesto,0);
-  const totalIngresoReal   = enriched.reduce((s,c)=>s+c.ingresoReal,0);
-  const totalGastoReal     = enriched.reduce((s,c)=>s+c.gastoReal,0);
-  const totalMargenReal    = totalIngresoReal - totalGastoReal;
-
-  const sel = selected ? enriched.find(c=>c.id===selected) : null;
+  // KPIs globales
+  const totalPresup   = rows.reduce((s,r)=>s+Number(r.presupuesto_total||0),0);
+  const totalFacturado= rows.reduce((s,r)=>s+Number(r.total_neto_emitido||0),0);
+  const totalGastos   = rows.reduce((s,r)=>s+Number(r.total_neto_compras||0)+Number(r.total_neto_servicios||0)+Number(r.total_neto_fr||0),0);
+  const totalMargen   = rows.reduce((s,r)=>s+Number(r.margen_neto||0),0);
+  const totalDebito   = rows.reduce((s,r)=>s+Number(r.total_debito_fiscal||0),0);
+  const totalCredito  = rows.reduce((s,r)=>s+Number(r.total_credito_fiscal||0),0);
 
   return (
     <div>
-      <SecTitle sub="Cotizado vs facturado vs gastado · margen real por proyecto">
-        Rendimiento por Cotización
-      </SecTitle>
-
-      {/* KPIs globales */}
-      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)", gap:12, marginBottom:24 }}>
-        <KpiCard label="Total Presupuestado" value={fmtClp(totalPresupuestado)} icon="📝" />
-        <KpiCard label="Total Facturado (ingreso real)" value={fmtClp(totalIngresoReal)} color={COLORS.accent} icon="💰" />
-        <KpiCard label="Total Gastos Asociados" value={fmtClp(totalGastoReal)} color={COLORS.red} icon="🧾" />
-        <KpiCard label="Margen Real Acumulado"
-          value={fmtClp(totalMargenReal)}
-          sub={totalIngresoReal>0 ? `${Math.round((totalMargenReal/totalIngresoReal)*100)}% del ingreso` : "—"}
-          color={totalMargenReal>=0?COLORS.green:COLORS.red} icon="📈" />
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start",
+        marginBottom:20, flexWrap:"wrap", gap:12 }}>
+        <SecTitle sub="Vista padre → hijo · OC · servicios · facturas · IVA · margen">
+          Rendimiento por Cotización
+        </SecTitle>
+        <button onClick={loadAll}
+          style={{ padding:"8px 16px", background:"transparent",
+            border:`1px solid ${COLORS.border}`, borderRadius:8,
+            color:COLORS.textMuted, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
+          ↺ Actualizar
+        </button>
       </div>
 
-      {/* Tabla cotizaciones */}
-      {loading ? (
-        <div style={{ textAlign:"center", padding:40, fontFamily:FONT, color:COLORS.textMuted }}>Cargando…</div>
-      ) : (
-        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, overflow:"hidden" }}>
-          <div style={{ overflowX:"auto" }}>
-            <table style={{ width:"100%", borderCollapse:"collapse" }}>
-              <thead>
-                <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
-                  {["COT N°","Cliente","Presupuesto","Facturado","Gastos","Margen $","Margen %",""].map(h=>(
-                    <th key={h} style={{ padding:"10px 14px", textAlign:"left", fontFamily:FONT,
-                      fontSize:10, color:COLORS.textMuted, letterSpacing:"0.07em",
-                      textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {enriched.map(c => {
-                  const color = c.margenReal >= 0 ? COLORS.green : COLORS.red;
-                  return (
-                    <tr key={c.id} style={{ borderBottom:`1px solid ${COLORS.border}`,
-                      background:selected===c.id?COLORS.accentDim:"transparent",
-                      cursor:"pointer" }}
-                      onClick={()=>setSelected(selected===c.id?null:c.id)}>
-                      <td style={{ padding:"9px 14px", color:COLORS.accent, fontWeight:700, fontFamily:FONT }}>
-                        COT-{c.numero}
-                      </td>
-                      <td style={{ padding:"9px 14px", color:COLORS.text, fontWeight:600, fontSize:13 }}>
-                        {c.razon_social||"—"}
-                      </td>
-                      <td style={{ padding:"9px 14px", fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>
-                        {fmtClp(c.presupuesto)}
-                      </td>
-                      <td style={{ padding:"9px 14px", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text }}>
-                        {c.ingresoReal > 0 ? fmtClp(c.ingresoReal) : <span style={{color:COLORS.textMuted}}>Sin factura</span>}
-                      </td>
-                      <td style={{ padding:"9px 14px", fontFamily:FONT, fontSize:12,
-                        color:c.gastoReal>0?COLORS.red:COLORS.textMuted }}>
-                        {c.gastoReal > 0 ? fmtClp(c.gastoReal) : "—"}
-                      </td>
-                      <td style={{ padding:"9px 14px", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color }}>
-                        {c.ingresoReal > 0 ? fmtClp(c.margenReal) : "—"}
-                      </td>
-                      <td style={{ padding:"9px 14px" }}>
-                        {c.ingresoReal > 0 ? (
-                          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                            <div style={{ width:60, height:6, background:COLORS.border, borderRadius:3 }}>
-                              <div style={{ width:`${Math.min(100,Math.max(0,c.pctMargen))}%`,
-                                height:6, borderRadius:3, background:color }} />
-                            </div>
-                            <span style={{ fontFamily:FONT, fontSize:12, color, fontWeight:700 }}>
-                              {c.pctMargen}%
-                            </span>
-                          </div>
-                        ) : <span style={{ color:COLORS.textMuted, fontSize:11 }}>—</span>}
-                      </td>
-                      <td style={{ padding:"9px 14px" }}>
-                        <span style={{ fontSize:12, color:COLORS.textMuted }}>
-                          {selected===c.id?"▲":"▼"}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {/* KPIs globales */}
+      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr) repeat(2,1fr)", gap:12, marginBottom:24 }}>
+        <KpiCard label="Total presupuestado" value={fmtClp(totalPresup)} icon="📋" />
+        <KpiCard label="Total facturado" value={fmtClp(totalFacturado)} color={COLORS.green} icon="💰" />
+        <KpiCard label="Total gastos" value={fmtClp(totalGastos)} color={COLORS.red} icon="🧾" />
+        <KpiCard label="Margen bruto acumulado"
+          value={fmtClp(totalMargen)}
+          sub={totalFacturado>0?`${Math.round(totalMargen/totalFacturado*100)}% del ingreso`:"—"}
+          color={totalMargen>=0?COLORS.green:COLORS.red} icon="📈" />
+        <KpiCard label="IVA neto acumulado"
+          value={fmtClp(Math.abs(totalDebito-totalCredito))}
+          sub={totalDebito>=totalCredito?"A pagar":"Remanente"}
+          color={totalDebito>=totalCredito?COLORS.yellow:COLORS.green} icon="🧮" />
+      </div>
 
-      {/* Detalle expandido */}
-      {sel && (
-        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`,
-          borderRadius:12, padding:20, marginTop:14 }}>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700,
-            color:COLORS.text, marginBottom:14 }}>
-            Detalle — COT-{sel.numero} · {sel.razon_social}
-          </div>
-          <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:16 }}>
-            <div>
-              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted,
-                textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>
-                Facturas Emitidas al Cliente
-              </div>
-              {sel.ingresosFacturas.length === 0
-                ? <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin facturas vinculadas. Usa "COT-{sel.numero}" como referencia al crear la factura.</div>
-                : sel.ingresosFacturas.map(f=>(
-                  <div key={f.id} style={{ display:"flex", justifyContent:"space-between",
-                    padding:"7px 12px", background:COLORS.surface, borderRadius:6,
-                    marginBottom:4, border:`1px solid ${COLORS.border}` }}>
-                    <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{f.razon_social_cliente}</span>
-                    <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.green }}>{fmtClp(f.monto_neto)}</span>
-                  </div>
-                ))}
-            </div>
-            <div>
-              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted,
-                textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>
-                Gastos / Facturas Recibidas
-              </div>
-              {sel.gastosFacturas.length === 0
-                ? <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin gastos vinculados. Usa "COT-{sel.numero}" como referencia al crear la factura recibida.</div>
-                : sel.gastosFacturas.map(f=>(
-                  <div key={f.id} style={{ display:"flex", justifyContent:"space-between",
-                    padding:"7px 12px", background:COLORS.surface, borderRadius:6,
-                    marginBottom:4, border:`1px solid ${COLORS.border}` }}>
-                    <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{f.tipo_proveedor}</span>
-                    <span style={{ fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.red }}>{fmtClp(f.monto_neto)}</span>
-                  </div>
-                ))}
-            </div>
-          </div>
-          {/* Mini P&L por cotización */}
-          {sel.ingresoReal > 0 && (
-            <div style={{ marginTop:16, background:COLORS.bg, borderRadius:8, padding:"14px 18px",
-              border:`1px solid ${COLORS.border}`, maxWidth:400 }}>
-              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent,
-                letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>P&L Cotización</div>
-              {[
-                { l:"Ingreso real (neto s/IVA)", v:sel.ingresoReal, c:COLORS.green },
-                { l:"Gastos directos (neto s/IVA)", v:-sel.gastoReal, c:COLORS.red },
-              ].map((r,i)=>(
-                <div key={i} style={{ display:"flex", justifyContent:"space-between",
-                  padding:"6px 0", borderBottom:`1px solid ${COLORS.border}` }}>
-                  <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{r.l}</span>
-                  <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:r.c }}>
-                    {fmtClp(Math.abs(r.v))}
-                  </span>
-                </div>
-              ))}
-              <div style={{ display:"flex", justifyContent:"space-between", paddingTop:10, marginTop:2 }}>
-                <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text }}>MARGEN BRUTO</span>
-                <span style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700,
-                  color:sel.margenReal>=0?COLORS.green:COLORS.red }}>
-                  {fmtClp(sel.margenReal)} ({sel.pctMargen}%)
-                </span>
-              </div>
-            </div>
-          )}
+      {/* Buscador */}
+      <div style={{ marginBottom:16 }}>
+        <input value={busqueda} onChange={e=>setBusqueda(e.target.value)}
+          placeholder="Buscar por N° COT, cliente o RUT…"
+          style={{ width:"100%", background:COLORS.card, border:`1px solid ${COLORS.border}`,
+            borderRadius:8, padding:"10px 16px", fontFamily:FONT, fontSize:13,
+            color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+      </div>
+
+      {/* Tarjetas */}
+      {loading ? (
+        <div style={{ textAlign:"center", padding:48, fontFamily:FONT,
+          color:COLORS.textMuted }}>Cargando cotizaciones…</div>
+      ) : filtered.length === 0 ? (
+        <div style={{ textAlign:"center", padding:48, fontFamily:FONT,
+          color:COLORS.textMuted }}>
+          {busqueda ? "Sin resultados para esa búsqueda" : "No hay cotizaciones aprobadas aún"}
         </div>
+      ) : (
+        filtered.map(cot => (
+          <CotCard key={cot.cotizacion_id}
+            cot={cot}
+            suppliers={suppliers}
+            products={products}
+            onRefresh={loadAll}
+            isMobile={isMobile}
+          />
+        ))
       )}
     </div>
   );
