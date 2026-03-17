@@ -11477,6 +11477,165 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved, modo
 }
 
 // ── COMPONENTE TARJETA COT (documento padre expandible) ──────────────────────
+const CATS_GASTO_DIRECTO = [
+  "Ferretería / Tornillería",
+  "Gasolina / Traslado",
+  "Alimentación en terreno",
+  "Otro",
+];
+
+function ModalGastoDirecto({ cotizacion, onClose, onSaved }) {
+  const [saving, setSaving] = useState(false);
+  const emptyF = {
+    categoria: "Ferretería / Tornillería",
+    descripcion: "", proveedor: "", numero_documento: "",
+    fecha: new Date().toISOString().slice(0,10),
+    monto_neto: "", aplica_iva: true, notas: "",
+  };
+  const [form, setForm] = useState(emptyF);
+  const setF = (k,v) => setForm(p=>({...p,[k]:v}));
+
+  const neto  = Number(form.monto_neto)||0;
+  const iva   = form.aplica_iva ? Math.round(neto*0.19) : 0;
+  const total = neto + iva;
+
+  const save = async () => {
+    if (!form.descripcion || !neto) return;
+    setSaving(true);
+    const { data, error } = await supabase.from("cot_gastos_directos").insert({
+      cotizacion_id:    cotizacion.cotizacion_id,
+      fecha:            form.fecha,
+      categoria:        form.categoria,
+      descripcion:      form.descripcion,
+      monto_neto:       neto,
+      aplica_iva:       form.aplica_iva,
+      numero_documento: form.numero_documento || null,
+      proveedor:        form.proveedor || null,
+      notas:            form.notas || null,
+    }).select().single();
+    setSaving(false);
+    if (error) { alert("Error: "+error.message); return; }
+    onSaved(data);
+  };
+
+  return (
+    <FinModal title={`Gasto de terreno — COT-${cotizacion.numero_cotizacion}`}
+      onClose={onClose} width={460}>
+
+      {/* Categoría */}
+      <div style={{ marginBottom:14 }}>
+        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+          textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>
+          Categoría
+        </div>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+          {CATS_GASTO_DIRECTO.map(cat=>(
+            <button key={cat} onClick={()=>setF("categoria",cat)}
+              style={{ padding:"6px 12px", borderRadius:6, cursor:"pointer",
+                fontFamily:FONT, fontSize:11,
+                background: form.categoria===cat ? "#F9731622" : "transparent",
+                border: `1px solid ${form.categoria===cat ? "#F97316" : COLORS.border}`,
+                color: form.categoria===cat ? "#F97316" : COLORS.textMuted }}>
+              {cat}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 14px" }}>
+        <div style={{ gridColumn:"1/-1" }}>
+          <LabelInput label="Descripción *" value={form.descripcion}
+            onChange={e=>setF("descripcion",e.target.value)}
+            placeholder="Ej: Tornillos 1/4, Silicona, Cinta…" />
+        </div>
+        <LabelInput label="Proveedor / Lugar" value={form.proveedor}
+          onChange={e=>setF("proveedor",e.target.value)}
+          placeholder="Ej: Easy, Copec, Sodimac…" />
+        <LabelInput label="N° Boleta / Factura" value={form.numero_documento}
+          onChange={e=>setF("numero_documento",e.target.value)}
+          placeholder="Opcional" />
+        <div style={{ marginBottom:14 }}>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+            textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>
+            Fecha
+          </div>
+          <input type="date" value={form.fecha} onChange={e=>setF("fecha",e.target.value)}
+            style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`,
+              borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13,
+              color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+        </div>
+        <div style={{ marginBottom:14 }}>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+            textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>
+            Monto neto *
+          </div>
+          <input type="number" value={form.monto_neto}
+            onChange={e=>setF("monto_neto",e.target.value)}
+            placeholder="0"
+            style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`,
+              borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13,
+              color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+        </div>
+        <div style={{ gridColumn:"1/-1", marginBottom:14 }}>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+            textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>
+            ¿Aplica IVA?
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            {[true,false].map(v=>(
+              <button key={String(v)} onClick={()=>setF("aplica_iva",v)}
+                style={{ flex:1, padding:"8px 0", borderRadius:6, cursor:"pointer",
+                  background:form.aplica_iva===v?COLORS.accentDim:"transparent",
+                  border:`1px solid ${form.aplica_iva===v?COLORS.accent:COLORS.border}`,
+                  color:form.aplica_iva===v?COLORS.accent:COLORS.textMuted,
+                  fontFamily:FONT, fontSize:12 }}>
+                {v?"Sí (19%)":"No (Exenta / Boleta)"}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Preview */}
+      {neto > 0 && (
+        <div style={{ background:COLORS.bg, border:"1px solid #F9731633",
+          borderRadius:8, padding:"10px 16px", marginBottom:14,
+          fontFamily:FONT, fontSize:12 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+            <span style={{ color:COLORS.textMuted }}>Neto:</span>
+            <span style={{ color:COLORS.text }}>{fmtClp(neto)}</span>
+          </div>
+          {form.aplica_iva && (
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+              <span style={{ color:COLORS.textMuted }}>IVA 19% (crédito fiscal):</span>
+              <span style={{ color:COLORS.green }}>{fmtClp(iva)}</span>
+            </div>
+          )}
+          <div style={{ display:"flex", justifyContent:"space-between",
+            borderTop:`1px solid ${COLORS.border}`, paddingTop:6, marginTop:2 }}>
+            <span style={{ fontFamily:FONT_DISPLAY, fontWeight:700,
+              color:COLORS.text }}>Total:</span>
+            <span style={{ fontFamily:FONT_DISPLAY, fontWeight:700,
+              fontSize:14, color:"#F97316" }}>{fmtClp(total)}</span>
+          </div>
+        </div>
+      )}
+
+      <LabelInput label="Notas (opcional)" value={form.notas}
+        onChange={e=>setF("notas",e.target.value)}
+        placeholder="Observaciones…" />
+
+      <div style={{ display:"flex", gap:10 }}>
+        <BtnSec onClick={onClose}>Cancelar</BtnSec>
+        <BtnPrimary onClick={save}
+          disabled={saving || !form.descripcion || !neto}>
+          {saving ? "Guardando…" : "Registrar gasto"}
+        </BtnPrimary>
+      </div>
+    </FinModal>
+  );
+}
+
 // ── COMPONENTE FILA DE SERVICIO/PRODUCTO (reutilizable) ──────────────────────
 function SlRow({ sl, products, editSl, setEditSl, savingEdit, setSavingEdit, cot, setDetail, onRefresh, color }) {
   const prod = products.find(p => p.id === sl.product_id);
@@ -11586,13 +11745,15 @@ function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [modalServicio, setModalServicio] = useState(false);
   const [modalProducto, setModalProducto] = useState(false);
-  const [editSl, setEditSl]       = useState(null); // línea siendo editada
+  const [modalGasto, setModalGasto]       = useState(false);
+  const [editSl, setEditSl]       = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
 
   const pct = cot.presupuesto_total > 0
     ? Math.min(100, Math.round((
         (Number(cot.total_neto_compras)||0) +
         (Number(cot.total_neto_servicios)||0) +
+        (Number(cot.total_neto_gastos)||0) +
         (Number(cot.total_neto_fr)||0)
       ) / (Number(cot.presupuesto_total)||1) * 100))
     : 0;
@@ -11609,7 +11770,7 @@ function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
   const loadDetail = async () => {
     if (detail) return;
     setLoadingDetail(true);
-    const [{ data: ocs }, { data: sls }, { data: fes }, { data: frs }] = await Promise.all([
+    const [{ data: ocs }, { data: sls }, { data: fes }, { data: frs }, { data: gds }] = await Promise.all([
       supabase.from("purchase_orders")
         .select("id, numero_oc, estado, suppliers(nombre), purchase_order_lines(cantidad, precio_unitario)")
         .eq("cotizacion_id", cot.cotizacion_id),
@@ -11622,8 +11783,12 @@ function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
       supabase.from("facturas_recibidas")
         .select("id, numero_documento, fecha_recepcion, monto_neto, monto_iva, monto_total, razon_social_proveedor, tipo_proveedor")
         .eq("cotizacion_id", cot.cotizacion_id),
+      supabase.from("cot_gastos_directos")
+        .select("id, fecha, categoria, descripcion, monto_neto, aplica_iva, monto_iva, monto_total, numero_documento, proveedor, notas")
+        .eq("cotizacion_id", cot.cotizacion_id)
+        .order("fecha", { ascending: false }),
     ]);
-    setDetail({ ocs: ocs||[], sls: sls||[], fes: fes||[], frs: frs||[] });
+    setDetail({ ocs: ocs||[], sls: sls||[], fes: fes||[], frs: frs||[], gds: gds||[] });
     setLoadingDetail(false);
   };
 
@@ -11797,9 +11962,75 @@ function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
                     }).map(sl => <SlRow key={sl.id} sl={sl} products={products} editSl={editSl} setEditSl={setEditSl} savingEdit={savingEdit} setSavingEdit={setSavingEdit} cot={cot} setDetail={setDetail} onRefresh={onRefresh} color={COLORS.yellow} />)}
                   </div>
                 )}
-              </div>
 
-              {/* ── COL DER: INGRESOS + IVA ── */}
+                {/* Materiales / Gastos directos de terreno — naranja oscuro */}
+                <div style={{ marginTop:16 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between",
+                    alignItems:"center", marginBottom:8 }}>
+                    <SubHeader label="Materiales / Ferretería"
+                      count={detail.gds.length} color="#F97316" />
+                    <button onClick={()=>setModalGasto(true)}
+                      style={{ padding:"4px 10px", background:"#F9731622",
+                        border:"1px solid #F9731644", borderRadius:6,
+                        color:"#F97316", fontFamily:FONT, fontSize:11,
+                        cursor:"pointer", marginBottom:8 }}>
+                      + Gasto
+                    </button>
+                  </div>
+                  {detail.gds.length === 0
+                    ? <EmptyRow msg="Sin gastos de terreno registrados" />
+                    : detail.gds.map(gd => (
+                      <div key={gd.id} style={{ display:"flex", justifyContent:"space-between",
+                        alignItems:"center", padding:"8px 12px", background:COLORS.surface,
+                        borderRadius:7, marginBottom:5,
+                        border:"1px solid #F9731622" }}>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
+                            <span style={{ fontFamily:FONT, fontSize:10, color:"#F97316",
+                              background:"#F9731618", borderRadius:3, padding:"1px 6px" }}>
+                              {gd.categoria}
+                            </span>
+                            <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
+                              {fmtFecha(gd.fecha)}
+                            </span>
+                          </div>
+                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600,
+                            color:COLORS.text, overflow:"hidden", textOverflow:"ellipsis",
+                            whiteSpace:"nowrap" }}>{gd.descripcion}</div>
+                          {gd.proveedor && (
+                            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                              {gd.proveedor}
+                              {gd.numero_documento ? ` · N° ${gd.numero_documento}` : ""}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ display:"flex", alignItems:"center", gap:8,
+                          flexShrink:0, marginLeft:10 }}>
+                          <div style={{ textAlign:"right" }}>
+                            <div style={{ fontFamily:FONT_DISPLAY, fontSize:12,
+                              fontWeight:700, color:"#F97316" }}>{fmtClp(gd.monto_neto)}</div>
+                            {gd.aplica_iva && (
+                              <div style={{ fontFamily:FONT, fontSize:10,
+                                color:COLORS.green }}>IVA: {fmtClp(gd.monto_iva)}</div>
+                            )}
+                          </div>
+                          <button onClick={async ()=>{
+                              if (!window.confirm("¿Eliminar este gasto?")) return;
+                              await supabase.from("cot_gastos_directos").delete().eq("id", gd.id);
+                              setDetail(p=>({...p, gds: p.gds.filter(x=>x.id!==gd.id)}));
+                              onRefresh();
+                            }}
+                            style={{ padding:"4px 8px", background:COLORS.red+"18",
+                              border:`1px solid ${COLORS.red}44`, borderRadius:5,
+                              color:COLORS.red, fontFamily:FONT, fontSize:10,
+                              cursor:"pointer" }}>✕</button>
+                        </div>
+                      </div>
+                    ))
+                  }
+                </div>
+
+              </div>
               <div>
                 {/* Facturas emitidas */}
                 <SubHeader label="Facturas emitidas al cliente"
@@ -11878,6 +12109,7 @@ function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
                     { l:"Compras (neto)",            v: Number(cot.total_neto_compras)||0,    c:COLORS.red   },
                     { l:"Flete (neto)",               v: Number(cot.total_neto_flete)||0,      c:COLORS.red, always:true },
                     { l:"Servicios (neto)",           v: Number(cot.total_neto_servicios)||0, c:COLORS.red   },
+                    { l:"Materiales / Terreno (neto)",v: Number(cot.total_neto_gastos)||0,    c:"#F97316"    },
                     { l:"Fact. recibidas (neto)",     v: Number(cot.total_neto_fr)||0,        c:COLORS.red   },
                   ].filter(r => r.always || r.v > 0).map((r,i)=>(
                     <div key={i} style={{ display:"flex", justifyContent:"space-between",
@@ -11913,6 +12145,19 @@ function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
           modo="servicio"
           onClose={()=>setModalServicio(false)}
           onSaved={()=>{ setModalServicio(false); setDetail(null); loadDetail(); onRefresh(); }}
+        />
+      )}
+
+      {/* Modal agregar gasto directo de terreno */}
+      {modalGasto && (
+        <ModalGastoDirecto
+          cotizacion={cot}
+          onClose={()=>setModalGasto(false)}
+          onSaved={(gd)=>{
+            setDetail(p=>({...p, gds: [gd, ...(p?.gds||[])]}));
+            setModalGasto(false);
+            onRefresh();
+          }}
         />
       )}
 
