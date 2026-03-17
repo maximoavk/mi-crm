@@ -11526,12 +11526,12 @@ function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
                     P&L — Margen bruto
                   </div>
                   {[
-                    { l:"Ingreso neto (facturado)", v: Number(cot.total_neto_emitido),    c:COLORS.green },
-                    { l:"Compras (neto)",            v: Number(cot.total_neto_compras),    c:COLORS.red   },
-                    { l:"Flete (neto)",               v: Number(cot.total_neto_flete),      c:COLORS.red   },
-                    { l:"Servicios (neto)",           v: Number(cot.total_neto_servicios), c:COLORS.red   },
-                    { l:"Fact. recibidas (neto)",     v: Number(cot.total_neto_fr),        c:COLORS.red   },
-                  ].map((r,i)=>(
+                    { l:"Ingreso neto (facturado)", v: Number(cot.total_neto_emitido)||0,    c:COLORS.green },
+                    { l:"Compras (neto)",            v: Number(cot.total_neto_compras)||0,    c:COLORS.red   },
+                    { l:"Flete (neto)",               v: Number(cot.total_neto_flete)||0,      c:COLORS.red, always:true },
+                    { l:"Servicios (neto)",           v: Number(cot.total_neto_servicios)||0, c:COLORS.red   },
+                    { l:"Fact. recibidas (neto)",     v: Number(cot.total_neto_fr)||0,        c:COLORS.red   },
+                  ].filter(r => r.always || r.v > 0).map((r,i)=>(
                     <div key={i} style={{ display:"flex", justifyContent:"space-between",
                       padding:"5px 0", borderBottom:`1px solid ${COLORS.border}` }}>
                       <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{r.l}</span>
