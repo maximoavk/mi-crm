@@ -10731,14 +10731,20 @@ function CuentasPorPagar({ isMobile }) {
     if (!formPago.monto || !formPago.fecha_pago) return;
     setSaving(true);
     try {
-      await supabase.from("pagos_realizados").insert({
+      const { data: nuevoPago } = await supabase.from("pagos_realizados").insert({
         factura_id: pagoModal.facturaId,
         fecha_pago: formPago.fecha_pago,
         monto:      Number(formPago.monto),
         metodo:     formPago.metodo,
         referencia: formPago.referencia.trim() || null,
-      });
-      await loadAll();
+      }).select().single();
+      if (nuevoPago) {
+        setFacturas(prev => prev.map(f =>
+          f.id === pagoModal.facturaId
+            ? { ...f, pagos_realizados: [...(f.pagos_realizados||[]), nuevoPago] }
+            : f
+        ));
+      }
       setFormPago(emptyPago);
       setPagoModal(null);
     } finally {
