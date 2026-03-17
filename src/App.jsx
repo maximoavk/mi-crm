@@ -10450,7 +10450,9 @@ function CuentasPorPagar({ isMobile }) {
 // 4. RENDIMIENTO POR COTIZACIÓN — margen real vs presupuestado
 // ══════════════════════════════════════════════════════════════════════════════
 // ── SUBCOMPONENTE: Modal para agregar línea de servicio ──────────────────────
-function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
+function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved, modo="servicio" }) {
+  // modo: "servicio" | "producto"
+  const esModoProd = modo === "producto";
   const [saving, setSaving] = useState(false);
   const [busqSup, setBusqSup] = useState("");
   const [supSel, setSupSel]   = useState(null);
@@ -10478,12 +10480,13 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
         .neq("tipo_linea", "hito")
         .order("orden");
 
-      // Solo tipo servicio
-      const svcLines = (qlines||[]).filter(ql =>
-        ql.products?.tipo === "servicio" || (!ql.product_id && ql.tipo_linea !== "hito")
-      );
+      // Filtrar por tipo según modo
+      const filtered = (qlines||[]).filter(ql => {
+        const tipo = ql.products?.tipo || "";
+        return esModoProd ? tipo === "producto" : (tipo === "servicio" || (!ql.product_id));
+      });
 
-      // Filtrar las que ya están en cot_service_lines (ya registradas)
+      // Excluir las que ya están en cot_service_lines
       const { data: existing } = await supabase
         .from("cot_service_lines")
         .select("product_id, descripcion")
@@ -10492,7 +10495,7 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
       const existingDesc = new Set((existing||[]).map(e => e.descripcion));
       const existingProd = new Set((existing||[]).map(e => e.product_id).filter(Boolean));
 
-      const pending = svcLines.filter(ql =>
+      const pending = filtered.filter(ql =>
         !existingDesc.has(ql.descripcion) &&
         !(ql.product_id && existingProd.has(ql.product_id))
       );
@@ -10501,7 +10504,7 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
       setLoadingLines(false);
     };
     load();
-  }, [cotizacion.cotizacion_id]);
+  }, [cotizacion.cotizacion_id, esModoProd]);
 
   const [precioVentaCot, setPrecioVentaCot] = useState(0); // precio de venta de la COT (referencia)
 
@@ -10529,11 +10532,14 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
         (s.rut||"").replace(/[.\-]/g,"").includes(busqSup.replace(/[.\-]/g,""))).slice(0,6)
     : [];
   const sugProd = busqProd.length >= 1
-    ? products.filter(p =>
-        (p.type === "servicio" || p.tipo === "servicio") &&
-        (p.nombre?.toLowerCase().includes(busqProd.toLowerCase()) ||
-        (p.codigo||"").toLowerCase().includes(busqProd.toLowerCase()))
-      ).slice(0,6)
+    ? products.filter(p => {
+        const tipo = p.type || p.tipo || "";
+        const tipoOk = esModoProd ? tipo === "producto" : tipo === "servicio";
+        return tipoOk && (
+          p.nombre?.toLowerCase().includes(busqProd.toLowerCase()) ||
+          (p.codigo||"").toLowerCase().includes(busqProd.toLowerCase())
+        );
+      }).slice(0,6)
     : [];
 
   const neto  = Number(form.precio_unitario) * Number(form.cantidad||1);
@@ -10579,14 +10585,17 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
   };
 
   return (
-    <FinModal title={`Nueva línea de servicio — COT-${cotizacion.numero_cotizacion}`} onClose={onClose} width={540}>
+    <FinModal
+      title={`${esModoProd ? "Agregar producto" : "Nueva línea de servicio"} — COT-${cotizacion.numero_cotizacion}`}
+      onClose={onClose} width={540}>
 
       {/* ── LÍNEAS PENDIENTES DE LA COT ── */}
       {!loadingLines && serviceLines.length > 0 && (
         <div style={{ marginBottom:18 }}>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent,
+          <div style={{ fontFamily:FONT, fontSize:11,
+            color: esModoProd ? COLORS.accent : COLORS.purple,
             letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>
-            Servicios pendientes de esta COT — selecciona para pre-cargar
+            {esModoProd ? "Productos" : "Servicios"} pendientes de esta COT — selecciona para pre-cargar
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
             {serviceLines.map(ql => (
@@ -10689,13 +10698,15 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
         </div>
       </div>
 
-      {/* Buscador producto (solo si no es extraordinario) */}
+      {/* Buscador producto/servicio del maestro (solo si no es extraordinario) */}
       {!esExtraordinario && (
         <div style={{ marginBottom:14 }}>
           <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
             letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>
-            Servicio del maestro <span style={{ color:COLORS.accent, textTransform:"none",
-              letterSpacing:0 }}>(solo tipo "servicio")</span>
+            {esModoProd ? "Producto del maestro" : "Servicio del maestro"}
+            <span style={{ color:COLORS.accent, textTransform:"none", letterSpacing:0, marginLeft:6 }}>
+              (solo tipo "{esModoProd ? "producto" : "servicio"}")
+            </span>
           </div>
           <div style={{ position:"relative" }}>
             <input value={busqProd} onChange={e=>{ setBusqProd(e.target.value); setShowProdDrop(true);
@@ -10703,13 +10714,11 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
               onFocus={()=>setShowProdDrop(true)} onBlur={()=>setTimeout(()=>setShowProdDrop(false),150)}
               placeholder="Buscar por nombre o código…"
               style={{ width:"100%", background:COLORS.bg,
-                border:`1px solid ${prodSel ? (prodSel.type==="producto"||prodSel.tipo==="producto" ? COLORS.red : COLORS.green) : COLORS.border}`,
+                border:`1px solid ${prodSel ? COLORS.green : COLORS.border}`,
                 borderRadius:6, padding:"9px 36px 9px 12px", fontFamily:FONT, fontSize:13,
                 color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
             <span style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)",
-              fontSize:13, pointerEvents:"none" }}>
-              {prodSel ? (prodSel.type==="producto"||prodSel.tipo==="producto" ? "⚠️" : "✅") : "🔍"}
-            </span>
+              fontSize:13, pointerEvents:"none" }}>{prodSel ? "✅" : "🔍"}</span>
             {showProdDrop && sugProd.length > 0 && (
               <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:300,
                 background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8,
@@ -10719,7 +10728,9 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
                     setProdSel(p); setBusqProd(p.nombre);
                     setF("descripcion", p.nombre);
                     setF("codigo", p.codigo||"");
-                    setF("precio_unitario", String(Math.round((p.precio||0)/1.19)));
+                    const precioNeto = Math.round((p.precio||0)/1.19);
+                    setF("precio_unitario", String(precioNeto));
+                    setPrecioVentaCot(precioNeto);
                     setShowProdDrop(false);
                   }}
                     style={{ padding:"9px 14px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}` }}
@@ -10727,13 +10738,14 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
                     onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                       <div>
-                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600,
-                          color:COLORS.text }}>{p.nombre}</div>
+                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text }}>{p.nombre}</div>
                         <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
                           {p.codigo}
-                          <span style={{ marginLeft:8, color:COLORS.accent,
-                            background:COLORS.accentDim, borderRadius:3, padding:"1px 5px",
-                            fontSize:10 }}>servicio</span>
+                          <span style={{ marginLeft:8, borderRadius:3, padding:"1px 5px", fontSize:10,
+                            color: esModoProd ? COLORS.yellow : COLORS.accent,
+                            background: esModoProd ? COLORS.yellow+"18" : COLORS.accentDim }}>
+                            {esModoProd ? "producto" : "servicio"}
+                          </span>
                         </div>
                       </div>
                       <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.accent }}>
@@ -10744,45 +10756,40 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
                 ))}
               </div>
             )}
-            {/* Aviso si busca y no encuentra servicios pero sí hay productos */}
+            {/* Sin resultados — aviso si hay del tipo opuesto */}
             {showProdDrop && busqProd.length >= 2 && sugProd.length === 0 && (() => {
-              const hayProductos = products.filter(p =>
-                (p.type === "producto" || p.tipo === "producto") &&
+              const tipoOpuesto = esModoProd ? "servicio" : "producto";
+              const hayOpuesto = products.some(p =>
+                (p.type === tipoOpuesto || p.tipo === tipoOpuesto) &&
                 (p.nombre?.toLowerCase().includes(busqProd.toLowerCase()) ||
                 (p.codigo||"").toLowerCase().includes(busqProd.toLowerCase()))
-              ).length > 0;
-              return hayProductos ? (
+              );
+              return (
                 <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:300,
-                  background:COLORS.surface, border:`1px solid ${COLORS.yellow}44`,
+                  background:COLORS.surface,
+                  border:`1px solid ${hayOpuesto ? COLORS.yellow+"44" : COLORS.border}`,
                   borderRadius:8, padding:"10px 14px", boxShadow:"0 6px 20px #0005" }}>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600,
-                    color:COLORS.yellow, marginBottom:4 }}>
-                    ⚠️ Ítem encontrado pero es tipo "producto"
-                  </div>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
-                    Los productos van en Órdenes de Compra (Catálogo → Compras), no aquí.
-                    Si es un gasto de servicio nuevo, activa "Ítem extraordinario" arriba.
-                  </div>
-                </div>
-              ) : (
-                <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:300,
-                  background:COLORS.surface, border:`1px solid ${COLORS.border}`,
-                  borderRadius:8, padding:"10px 14px" }}>
-                  <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>
-                    No encontrado — usa "Ítem extraordinario" para crearlo
-                  </div>
+                  {hayOpuesto ? (
+                    <>
+                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600,
+                        color:COLORS.yellow, marginBottom:4 }}>
+                        ⚠️ Ítem encontrado pero es tipo "{tipoOpuesto}"
+                      </div>
+                      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                        {esModoProd
+                          ? "Este ítem es un servicio — usa el botón \"+ Agregar\" en cambio."
+                          : "Este ítem es un producto — usa el botón \"+ Producto\" en cambio."}
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>
+                      No encontrado — activa "Ítem extraordinario" para crearlo
+                    </div>
+                  )}
                 </div>
               );
             })()}
           </div>
-          {/* Aviso si seleccionó un producto */}
-          {prodSel && (prodSel.type==="producto"||prodSel.tipo==="producto") && (
-            <div style={{ marginTop:6, padding:"7px 12px", background:COLORS.yellow+"18",
-              border:`1px solid ${COLORS.yellow}44`, borderRadius:6,
-              fontFamily:FONT, fontSize:11, color:COLORS.yellow }}>
-              ⚠️ Este ítem es tipo "producto" — debe ir en una OC en Catálogo → Compras.
-            </div>
-          )}
         </div>
       )}
 
@@ -10906,6 +10913,7 @@ function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
   const [detail, setDetail]       = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [modalServicio, setModalServicio] = useState(false);
+  const [modalProducto, setModalProducto] = useState(false);
   const [editSl, setEditSl]       = useState(null); // línea siendo editada
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -11073,13 +11081,20 @@ function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
                     marginBottom:8 }}>
                     <SubHeader label="Servicios / Subcontratistas"
                       count={detail.sls.length} color={COLORS.purple} />
-                    <button onClick={()=>setModalServicio(true)}
-                      style={{ padding:"4px 10px", background:COLORS.purple+"22",
-                        border:`1px solid ${COLORS.purple}44`, borderRadius:6,
-                        color:COLORS.purple, fontFamily:FONT, fontSize:11, cursor:"pointer",
-                        marginBottom:8 }}>
-                      + Agregar
-                    </button>
+                    <div style={{ display:"flex", gap:6, marginBottom:8 }}>
+                      <button onClick={()=>setModalServicio(true)}
+                        style={{ padding:"4px 10px", background:COLORS.purple+"22",
+                          border:`1px solid ${COLORS.purple}44`, borderRadius:6,
+                          color:COLORS.purple, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+                        + Servicio
+                      </button>
+                      <button onClick={()=>setModalProducto(true)}
+                        style={{ padding:"4px 10px", background:COLORS.yellow+"22",
+                          border:`1px solid ${COLORS.yellow}44`, borderRadius:6,
+                          color:COLORS.yellow, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+                        + Producto
+                      </button>
+                    </div>
                   </div>
                   {detail.sls.length === 0
                     ? <EmptyRow msg="Sin líneas de servicio" />
@@ -11304,8 +11319,21 @@ function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
           cotizacion={cot}
           suppliers={suppliers}
           products={products}
+          modo="servicio"
           onClose={()=>setModalServicio(false)}
           onSaved={()=>{ setModalServicio(false); setDetail(null); loadDetail(); onRefresh(); }}
+        />
+      )}
+
+      {/* Modal agregar producto (costo sin OC) */}
+      {modalProducto && (
+        <ModalServicio
+          cotizacion={cot}
+          suppliers={suppliers}
+          products={products}
+          modo="producto"
+          onClose={()=>setModalProducto(false)}
+          onSaved={()=>{ setModalProducto(false); setDetail(null); loadDetail(); onRefresh(); }}
         />
       )}
     </div>
