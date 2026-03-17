@@ -9696,7 +9696,7 @@ function GastosGenerales({ isMobile }) {
   const emptyForm = {
     numero_documento:"", tipo_documento:"Boleta", fecha_recepcion: new Date().toISOString().slice(0,10),
     razon_social_proveedor:"", rut_proveedor:"", categoria:"Gasolina / Transporte",
-    monto_neto:0, aplica_iva:true, monto_iva:0, monto_total:0, notas:"",
+    monto_neto:0, aplica_iva:true, monto_iva:0, monto_total:0, notas:"", linea_negocio:"",
   };
   const [form, setForm] = useState(emptyForm);
   const setF = (k,v) => setForm(p => {
@@ -9740,6 +9740,7 @@ function GastosGenerales({ isMobile }) {
       monto_iva:             Number(form.monto_iva)||0,
       monto_total:           Number(form.monto_total)||0,
       notas:                 form.notas || null,
+      linea_negocio:         form.linea_negocio || null,
       cotizacion_id:         null,
     }).select().single();
     if (data) setGastos(p => [data, ...p]);
@@ -9958,6 +9959,23 @@ function GastosGenerales({ isMobile }) {
           )}
           <LabelInput label="Notas (opcional)" value={form.notas}
             onChange={e=>setF("notas",e.target.value)} placeholder="Descripción del gasto…" />
+
+          {/* Línea de negocio */}
+          <div style={{ marginBottom:14 }}>
+            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Línea de negocio</div>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+              {LINEAS_NEGOCIO.map(ln=>(
+                <button key={ln} onClick={()=>setF("linea_negocio", form.linea_negocio===ln?"":ln)}
+                  style={{ padding:"5px 12px", borderRadius:6, cursor:"pointer", fontFamily:FONT, fontSize:11,
+                    background: form.linea_negocio===ln ? `${COLORS.purple}22` : "transparent",
+                    border:`1px solid ${form.linea_negocio===ln ? COLORS.purple : COLORS.border}`,
+                    color: form.linea_negocio===ln ? COLORS.purple : COLORS.textMuted }}>
+                  {ln}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div style={{ display:"flex", gap:10 }}>
             <BtnSec onClick={()=>setShowModal(false)}>Cancelar</BtnSec>
             <BtnPrimary onClick={save}
@@ -10670,7 +10688,7 @@ function CuentasPorPagar({ isMobile }) {
     numero_documento:"", tipo_documento:"Factura", fecha_recepcion:"",
     razon_social_proveedor:"", rut_proveedor:"", tipo_proveedor:"Proveedor",
     monto_neto:"", aplica_iva:true, vencimiento:"",
-    referencia_oc:"", referencia_proyecto:"", notas:"",
+    referencia_oc:"", referencia_proyecto:"", notas:"", linea_negocio:"",
   };
   const [form, setForm] = useState(emptyForm);
   const setF = (k,v) => setForm(p=>({...p,[k]:v}));
@@ -10743,6 +10761,7 @@ function CuentasPorPagar({ isMobile }) {
       referencia_oc:    form.referencia_oc.trim() || null,
       referencia_proyecto: form.referencia_proyecto.trim() || null,
       notas:            form.notas.trim() || null,
+      linea_negocio:    form.linea_negocio || null,
     });
     await loadAll();
     setForm(emptyForm);
@@ -11083,6 +11102,23 @@ function CuentasPorPagar({ isMobile }) {
           )}
           <LabelInput label="Notas (opcional)" value={form.notas}
             onChange={e=>setF("notas",e.target.value)} placeholder="Descripción del gasto…" />
+
+          {/* Línea de negocio */}
+          <div style={{ marginBottom:14 }}>
+            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Línea de negocio</div>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+              {LINEAS_NEGOCIO.map(ln=>(
+                <button key={ln} onClick={()=>setF("linea_negocio", form.linea_negocio===ln?"":ln)}
+                  style={{ padding:"5px 12px", borderRadius:6, cursor:"pointer", fontFamily:FONT, fontSize:11,
+                    background: form.linea_negocio===ln ? `${COLORS.purple}22` : "transparent",
+                    border:`1px solid ${form.linea_negocio===ln ? COLORS.purple : COLORS.border}`,
+                    color: form.linea_negocio===ln ? COLORS.purple : COLORS.textMuted }}>
+                  {ln}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div style={{ display:"flex", gap:10, marginTop:4 }}>
             <BtnSec onClick={()=>setModal(null)}>Cancelar</BtnSec>
             <BtnPrimary onClick={saveFactura}
@@ -11141,7 +11177,7 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved, modo
   const [loadingLines, setLoadingLines] = useState(true);
   const [selectedLine, setSelectedLine] = useState(null); // línea COT pre-seleccionada
 
-  const emptyF = { descripcion:"", codigo:"", cantidad:"1", precio_unitario:"", aplica_iva:true, notas:"" };
+  const emptyF = { descripcion:"", codigo:"", cantidad:"1", precio_unitario:"", aplica_iva:true, notas:"", linea_negocio:"" };
   const [form, setForm] = useState(emptyF);
   const setF = (k,v) => setForm(p=>({...p,[k]:v}));
 
@@ -11260,6 +11296,7 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved, modo
       precio_unitario: Math.round(Number(form.precio_unitario)),
       aplica_iva:      form.aplica_iva,
       notas:           form.notas || null,
+      linea_negocio:   form.linea_negocio || null,
     });
     setSaving(false);
     onSaved();
@@ -11577,6 +11614,23 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved, modo
       )}
       <LabelInput label="Notas (opcional)" value={form.notas}
         onChange={e=>setF("notas",e.target.value)} placeholder="Observaciones…" />
+
+      {/* Línea de negocio */}
+      <div style={{ marginBottom:14 }}>
+        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Línea de negocio</div>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+          {LINEAS_NEGOCIO.map(ln=>(
+            <button key={ln} onClick={()=>setF("linea_negocio", form.linea_negocio===ln?"":ln)}
+              style={{ padding:"5px 12px", borderRadius:6, cursor:"pointer", fontFamily:FONT, fontSize:11,
+                background: form.linea_negocio===ln ? `${COLORS.purple}22` : "transparent",
+                border:`1px solid ${form.linea_negocio===ln ? COLORS.purple : COLORS.border}`,
+                color: form.linea_negocio===ln ? COLORS.purple : COLORS.textMuted }}>
+              {ln}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div style={{ display:"flex", gap:10 }}>
         <BtnSec onClick={onClose}>Cancelar</BtnSec>
         <BtnPrimary onClick={save}
@@ -11589,6 +11643,8 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved, modo
 }
 
 // ── COMPONENTE TARJETA COT (documento padre expandible) ──────────────────────
+const LINEAS_NEGOCIO = ["CCTV", "Portones", "Cerraduras", "Citófonos", "Otro"];
+
 const CATS_GASTO_DIRECTO = [
   "Ferretería / Tornillería",
   "Gasolina / Traslado",
@@ -11887,13 +11943,13 @@ function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
         .select("id, numero_oc, estado, suppliers(nombre), purchase_order_lines(cantidad, precio_unitario)")
         .eq("cotizacion_id", cot.cotizacion_id),
       supabase.from("cot_service_lines")
-        .select("id, descripcion, codigo, cantidad, precio_unitario, subtotal_neto, monto_iva, subtotal_total, aplica_iva, estado_pago, product_id, suppliers(nombre)")
+        .select("id, descripcion, codigo, cantidad, precio_unitario, subtotal_neto, monto_iva, subtotal_total, aplica_iva, estado_pago, product_id, linea_negocio, suppliers(nombre)")
         .eq("cotizacion_id", cot.cotizacion_id),
       supabase.from("facturas_emitidas")
         .select("id, numero_documento, fecha_emision, monto_neto, monto_iva, monto_total, razon_social_cliente, pagos_recibidos(monto)")
         .eq("cotizacion_id", cot.cotizacion_id),
       supabase.from("facturas_recibidas")
-        .select("id, numero_documento, fecha_recepcion, monto_neto, monto_iva, monto_total, razon_social_proveedor, tipo_proveedor")
+        .select("id, numero_documento, fecha_recepcion, monto_neto, monto_iva, monto_total, razon_social_proveedor, tipo_proveedor, linea_negocio")
         .eq("cotizacion_id", cot.cotizacion_id),
       supabase.from("cot_gastos_directos")
         .select("id, fecha, categoria, descripcion, monto_neto, aplica_iva, monto_iva, monto_total, numero_documento, proveedor, notas")
@@ -12463,23 +12519,39 @@ function RendimientoCotizaciones({ isMobile }) {
   const [products, setProducts]   = useState([]);
   const [loading, setLoading]   = useState(true);
   const [busqueda, setBusqueda] = useState("");
+  const [lnData, setLnData]     = useState([]); // reporte cruzado por línea de negocio
 
   useEffect(() => { loadAll(); }, []);
 
   const loadAll = async () => {
     setLoading(true);
-    const [{ data: vRows }, { data: peds }, { data: sups }, { data: prods }] = await Promise.all([
+    const [{ data: vRows }, { data: peds }, { data: sups }, { data: prods }, { data: slsLn }, { data: frLn }] = await Promise.all([
       supabase.from("v_rendimiento_cotizacion").select("*")
         .eq("estado_cotizacion", "aprobada"),
       supabase.from("pedidos").select("id, nombre, numero_factura, quote_ids, cliente")
         .eq("tipo","pf").order("created_at", { ascending:false }),
       supabase.from("suppliers").select("id, nombre, rut").order("nombre"),
       supabase.from("products").select("id, codigo, nombre, precio, tipo").order("nombre"),
+      supabase.from("cot_service_lines").select("linea_negocio, subtotal_neto").not("linea_negocio","is",null),
+      supabase.from("facturas_recibidas").select("linea_negocio, monto_neto").not("linea_negocio","is",null),
     ]);
     setRows(vRows || []);
     setPedidos(peds || []);
     setSuppliers(sups || []);
     setProducts(prods || []);
+    // Cruzar por línea de negocio
+    const lnMap = {};
+    (slsLn||[]).forEach(r => {
+      const ln = r.linea_negocio || "Sin etiqueta";
+      lnMap[ln] = lnMap[ln] || { servicios:0, facturas:0 };
+      lnMap[ln].servicios += Number(r.subtotal_neto||0);
+    });
+    (frLn||[]).forEach(r => {
+      const ln = r.linea_negocio || "Sin etiqueta";
+      lnMap[ln] = lnMap[ln] || { servicios:0, facturas:0 };
+      lnMap[ln].facturas += Number(r.monto_neto||0);
+    });
+    setLnData(Object.entries(lnMap).map(([ln, v]) => ({ ln, ...v, total: v.servicios + v.facturas })).sort((a,b)=>b.total-a.total));
     setLoading(false);
   };
 
@@ -12546,6 +12618,36 @@ function RendimientoCotizaciones({ isMobile }) {
           sub={totalDebito>=totalCredito?"A pagar":"Remanente"}
           color={totalDebito>=totalCredito?COLORS.yellow:COLORS.green} />
       </div>
+
+      {/* Reporte cruzado por línea de negocio */}
+      {lnData.length > 0 && (
+        <div style={{ marginBottom:24, background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:"16px 20px" }}>
+          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.purple, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600, marginBottom:12 }}>
+            Costo por línea de negocio
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {lnData.map(({ ln, servicios, facturas, total }) => {
+              const maxTotal = lnData[0].total;
+              const pct = maxTotal > 0 ? Math.round(total / maxTotal * 100) : 0;
+              return (
+                <div key={ln}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                    <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text }}>{ln}</span>
+                      {servicios > 0 && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Serv: {fmtClp(servicios)}</span>}
+                      {facturas > 0 && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>FR: {fmtClp(facturas)}</span>}
+                    </div>
+                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.purple }}>{fmtClp(total)}</span>
+                  </div>
+                  <div style={{ height:4, background:COLORS.border, borderRadius:2 }}>
+                    <div style={{ width:`${pct}%`, height:"100%", background:COLORS.purple, borderRadius:2, transition:"width 0.4s" }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Buscador */}
       <div style={{ marginBottom:16 }}>
