@@ -1576,7 +1576,7 @@ function GanttView({ isMobile }) {
         id: r.id, tipo: r.tipo, nombre: r.nombre, rol: r.rol||"",
         responsable: r.responsable||"", inicio: r.fecha_inicio, fin: r.fecha_fin,
         pctPlan: r.pct_plan||0, pctAvance: r.pct_avance||0,
-        hhPresup: r.hh_presup||0, hhReal: r.hh_real||0,
+        hhPresup: r.hh_presup||0, hhReal: r.hh_real||0, hhTerceros: r.hh_terceros||0,
         depende: r.depende_de||"", orden: r.orden||0, parentId: r.parent_id||null,
       })));
     } else {
@@ -1589,7 +1589,7 @@ function GanttView({ isMobile }) {
         const imported = (lines||[]).map((l,i)=>({
           id: `new_${Date.now()}_${i}`, tipo:"F", nombre: l.descripcion||`Fase ${i+1}`,
           rol:"PM", responsable:"", inicio: today, fin: addDays(today, 14),
-          pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, depende:"", orden:i, parentId:null,
+          pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, hhTerceros:0, depende:"", orden:i, parentId:null,
         }));
         setTasks(imported);
         setGanttId(null);
@@ -1621,7 +1621,7 @@ function GanttView({ isMobile }) {
       gantt_id: gId, tipo: t.tipo, nombre: t.nombre, rol: t.rol,
       responsable: t.responsable, fecha_inicio: t.inicio, fecha_fin: t.fin,
       pct_plan: Number(t.pctPlan)||0, pct_avance: Number(t.pctAvance)||0,
-      hh_presup: Number(t.hhPresup)||0, hh_real: Number(t.hhReal)||0,
+      hh_presup: Number(t.hhPresup)||0, hh_real: Number(t.hhReal)||0, hh_terceros: Number(t.hhTerceros)||0,
       depende_de: t.depende||"", orden: i, parent_id: t.parentId||null,
     }));
     await supabase.from("gantt_tareas").insert(rows);
@@ -1635,12 +1635,23 @@ function GanttView({ isMobile }) {
     setTasks(t=>[...t, {
       id:`new_${Date.now()}`, tipo, nombre: tipo==="H"?"Hito nuevo":tipo==="F"?"Nueva Fase":"Nueva Tarea",
       rol:"EXC", responsable:"", inicio:start, fin: addDays(start, tipo==="H"?0:5),
-      pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, depende:"", orden:t.length, parentId:null,
+      pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, hhTerceros:0, depende:"", orden:t.length, parentId:null,
     }]);
   };
 
   const updateTask = (id, field, val) => setTasks(t=>t.map(r=>r.id===id?{...r,[field]:val}:r));
   const deleteTask = (id) => setTasks(t=>t.filter(r=>r.id!==id));
+  const duplicateTask = (id) => {
+    setTasks(prev => {
+      const idx = prev.findIndex(t=>t.id===id);
+      if(idx<0) return prev;
+      const orig = prev[idx];
+      const copy = { ...orig, id:`new_${Date.now()}`, nombre: orig.nombre+" (copia)" };
+      const next = [...prev];
+      next.splice(idx+1, 0, copy);
+      return next;
+    });
+  };
   const moveTask   = (id, dir) => {
     const idx = tasks.findIndex(t=>t.id===id);
     if(idx<0) return;
@@ -1828,7 +1839,7 @@ function GanttView({ isMobile }) {
                 {/* Fila meses */}
                 <tr style={{ background:COLORS.surface }}>
                   {/* Columnas fijas */}
-                  {[["#",28],["Tipo",44],["Descripción",180],["Rol",50],["Responsable",90],["Inicio",88],["Fin",88],["Plan%",52],["Av.%",52],["HH Pres.",62],["HH Real",62],["Dep.",48],["",52]].map(([h,w])=>(
+                  {[["#",28],["Tipo",44],["Descripción",180],["Rol",50],["Responsable",90],["Inicio",88],["Fin",88],["Plan%",52],["Av.%",52],["HH Pres.",62],["HH Real",62],["HH 3ros",62],["Dep.",48],["",52]].map(([h,w])=>(
                     <th key={h} style={{ padding:"6px 4px", color:COLORS.textMuted, whiteSpace:"nowrap", minWidth:w, maxWidth:w, borderRight:`1px solid ${COLORS.border}`, textAlign:"center", letterSpacing:"0.06em", fontSize:9 }}>{h}</th>
                   ))}
                   {/* Meses */}
@@ -1841,7 +1852,7 @@ function GanttView({ isMobile }) {
                 {/* Fila días */}
                 <tr style={{ background:COLORS.bg }}>
                   {/* Columnas fijas vacías */}
-                  {Array(13).fill(0).map((_,i)=>(
+                  {Array(14).fill(0).map((_,i)=>(
                     <th key={i} style={{ borderRight:`1px solid ${COLORS.border}`, borderBottom:`1px solid ${COLORS.border}` }} />
                   ))}
                   {/* Días */}
@@ -1884,11 +1895,18 @@ function GanttView({ isMobile }) {
                             {Object.entries(TIPO_LABEL).map(([k,v])=><option key={k} value={k}>{v}</option>)}
                           </select>
                         ) : (
-                          <span style={{ padding:"2px 6px", borderRadius:4, fontSize:9, fontWeight:700,
-                            background: isFase?`${GANTT_COLORS.fase}22`:isHito?`${GANTT_COLORS.hito}22`:`${GANTT_COLORS.tarea}22`,
-                            color: isFase?GANTT_COLORS.fase:isHito?GANTT_COLORS.hito:GANTT_COLORS.tarea }}>
-                            {TIPO_LABEL[t.tipo]}
-                          </span>
+                          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
+                            <span style={{ padding:"2px 6px", borderRadius:4, fontSize:9, fontWeight:700,
+                              background: isFase?`${GANTT_COLORS.fase}22`:isHito?`${GANTT_COLORS.hito}22`:`${GANTT_COLORS.tarea}22`,
+                              color: isFase?GANTT_COLORS.fase:isHito?GANTT_COLORS.hito:GANTT_COLORS.tarea }}>
+                              {TIPO_LABEL[t.tipo]}
+                            </span>
+                            <button onClick={e=>{ e.stopPropagation(); duplicateTask(t.id); }}
+                              title="Duplicar fila"
+                              style={{ background:"none", border:`1px solid ${COLORS.border}`, borderRadius:3, color:COLORS.textMuted, cursor:"pointer", fontSize:8, padding:"0px 4px", lineHeight:"14px" }}>
+                              ⧉
+                            </button>
+                          </div>
                         )}
                       </td>
                       {/* Descripción */}
@@ -1959,6 +1977,12 @@ function GanttView({ isMobile }) {
                           <input type="number" value={t.hhReal} onChange={e=>updateTask(t.id,"hhReal",e.target.value)} style={{...s,width:54,color:"#39ff14"}} />
                         ) : <span style={{ fontFamily:"monospace", fontSize:10, color: t.hhReal>t.hhPresup&&t.hhPresup>0?GANTT_COLORS.late:"#39ff14" }}>{t.hhReal>0?t.hhReal:"-"}</span>}
                       </td>
+                      {/* HH 3ros */}
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                        {editing ? (
+                          <input type="number" value={t.hhTerceros} onChange={e=>updateTask(t.id,"hhTerceros",e.target.value)} style={{...s,width:54,color:COLORS.purple}} />
+                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.purple }}>{t.hhTerceros>0?t.hhTerceros:"-"}</span>}
+                      </td>
                       {/* Dependencia */}
                       <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
                         {editing ? (
@@ -1999,6 +2023,7 @@ function GanttView({ isMobile }) {
               { label:"Atrasadas", val: tasks.filter(t=>t.fin<today&&Number(t.pctAvance)<100).length, color:GANTT_COLORS.late },
               { label:"HH Presup.", val: tasks.reduce((s,t)=>s+Number(t.hhPresup),0), color:COLORS.textMuted, suffix:"HH" },
               { label:"HH Real", val: tasks.reduce((s,t)=>s+Number(t.hhReal),0), color:"#39ff14", suffix:"HH" },
+              { label:"HH 3ros", val: tasks.reduce((s,t)=>s+Number(t.hhTerceros||0),0), color:COLORS.purple, suffix:"HH" },
               { label:"Avance Prom.", val: tasks.filter(t=>t.tipo!=="H").length ? Math.round(tasks.filter(t=>t.tipo!=="H").reduce((s,t)=>s+Number(t.pctAvance),0)/tasks.filter(t=>t.tipo!=="H").length) : 0, color:COLORS.accent, suffix:"%" },
             ].map(k=>(
               <div key={k.label} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 16px", flex:1, minWidth:100 }}>
