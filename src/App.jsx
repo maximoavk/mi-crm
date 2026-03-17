@@ -7143,6 +7143,10 @@ function PurchaseView({ isMobile }) {
   const [editingGuiaId, setEditingGuiaId]       = useState(null);
   const [editingGuiaVal, setEditingGuiaVal]     = useState("");
   const [editingGuiaCourier, setEditingGuiaCourier] = useState("Starken");
+  const [editingTrackingId, setEditingTrackingId] = useState(null);
+  const [editingTrackingVal, setEditingTrackingVal] = useState("");
+  const [editingCostoId, setEditingCostoId]     = useState(null);
+  const [editingCostoVal, setEditingCostoVal]   = useState("");
   const SHIP_ESTADOS = [
     { key:"GENERADA",    color:"#6b7a99", icon:"📋" },
     { key:"EN_TRANSITO", color:"#A855F7", icon:"🚚" },
@@ -7783,13 +7787,39 @@ function PurchaseView({ isMobile }) {
                               </div>
 
                               {/* ── Tracking ── */}
-                              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                                <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Tracking:</span>
-                                {ship.tracking_code ? (
-                                  <a href={`${courierInfo?.url||""}${ship.tracking_code}`} target="_blank" rel="noopener noreferrer"
-                                    style={{ fontFamily:FONT, fontSize:11, fontWeight:700, color:courierInfo?.color||COLORS.accent, textDecoration:"none", padding:"2px 8px", background:`${courierInfo?.color||COLORS.accent}11`, borderRadius:4, border:`1px solid ${courierInfo?.color||COLORS.accent}33` }}>
-                                    🔗 {ship.tracking_code}
-                                  </a>
+                              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:5 }}>
+                                <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, flexShrink:0 }}>Tracking:</span>
+                                {editingTrackingId === ship.id ? (
+                                  <div style={{ display:"flex", gap:5, alignItems:"center", flex:1 }}>
+                                    <input autoFocus value={editingTrackingVal} onChange={e=>setEditingTrackingVal(e.target.value)}
+                                      placeholder="Código de seguimiento..."
+                                      onKeyDown={async e=>{
+                                        if (e.key==="Enter") {
+                                          const val = editingTrackingVal.trim();
+                                          await supabase.from("shipments").update({ tracking_code: val||null }).eq("id",ship.id);
+                                          setShipments(prev=>prev.map(s=>s.id===ship.id?{...s,tracking_code:val||null}:s));
+                                          setEditingTrackingId(null);
+                                        } else if (e.key==="Escape") { setEditingTrackingId(null); }
+                                      }}
+                                      style={{ flex:1, background:COLORS.bg, border:`1px solid ${COLORS.accent}`, borderRadius:4, padding:"3px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none" }}
+                                    />
+                                    <button onClick={async()=>{
+                                      const val = editingTrackingVal.trim();
+                                      await supabase.from("shipments").update({ tracking_code: val||null }).eq("id",ship.id);
+                                      setShipments(prev=>prev.map(s=>s.id===ship.id?{...s,tracking_code:val||null}:s));
+                                      setEditingTrackingId(null);
+                                    }} style={{ padding:"3px 8px", background:COLORS.green, border:"none", borderRadius:5, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer" }}>✓</button>
+                                    <button onClick={()=>setEditingTrackingId(null)} style={{ padding:"3px 7px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>✕</button>
+                                  </div>
+                                ) : ship.tracking_code ? (
+                                  <>
+                                    <a href={`${courierInfo?.url||""}${ship.tracking_code}`} target="_blank" rel="noopener noreferrer"
+                                      style={{ fontFamily:FONT, fontSize:11, fontWeight:700, color:courierInfo?.color||COLORS.accent, textDecoration:"none", padding:"2px 8px", background:`${courierInfo?.color||COLORS.accent}11`, borderRadius:4, border:`1px solid ${courierInfo?.color||COLORS.accent}33` }}>
+                                      🔗 {ship.tracking_code}
+                                    </a>
+                                    <button onClick={()=>{ setEditingTrackingId(ship.id); setEditingTrackingVal(ship.tracking_code); }}
+                                      style={{ padding:"2px 6px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:4, color:COLORS.textMuted, fontFamily:FONT, fontSize:9, cursor:"pointer" }}>✏️</button>
+                                  </>
                                 ) : (
                                   <input placeholder="Ingresar código de seguimiento..."
                                     onBlur={async e=>{
@@ -7800,6 +7830,56 @@ function PurchaseView({ isMobile }) {
                                     }}
                                     style={{ flex:1, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"3px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none" }}
                                   />
+                                )}
+                              </div>
+
+                              {/* ── Costo despacho ── */}
+                              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                                <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, flexShrink:0 }}>Flete:</span>
+                                {editingCostoId === ship.id ? (
+                                  <div style={{ display:"flex", gap:5, alignItems:"center", flex:1 }}>
+                                    <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>$</span>
+                                    <input autoFocus value={editingCostoVal} onChange={e=>setEditingCostoVal(e.target.value)}
+                                      type="number" placeholder="0"
+                                      onKeyDown={async e=>{
+                                        if (e.key==="Enter") {
+                                          const costo = Number(editingCostoVal)||null;
+                                          await supabase.from("shipments").update({ costo_despacho:costo }).eq("id",ship.id);
+                                          setShipments(prev=>prev.map(s=>s.id===ship.id?{...s,costo_despacho:costo}:s));
+                                          setEditingCostoId(null);
+                                        } else if (e.key==="Escape") { setEditingCostoId(null); }
+                                      }}
+                                      style={{ width:100, background:COLORS.bg, border:`1px solid ${COLORS.accent}`, borderRadius:4, padding:"3px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none" }}
+                                    />
+                                    <label style={{ display:"flex", alignItems:"center", gap:4, fontFamily:FONT, fontSize:10, color:COLORS.textMuted, cursor:"pointer" }}>
+                                      <input type="checkbox" checked={!!ship.aplica_iva_despacho}
+                                        onChange={async e=>{
+                                          await supabase.from("shipments").update({ aplica_iva_despacho:e.target.checked }).eq("id",ship.id);
+                                          setShipments(prev=>prev.map(s=>s.id===ship.id?{...s,aplica_iva_despacho:e.target.checked}:s));
+                                        }}
+                                      />
+                                      IVA
+                                    </label>
+                                    <button onClick={async()=>{
+                                      const costo = Number(editingCostoVal)||null;
+                                      await supabase.from("shipments").update({ costo_despacho:costo }).eq("id",ship.id);
+                                      setShipments(prev=>prev.map(s=>s.id===ship.id?{...s,costo_despacho:costo}:s));
+                                      setEditingCostoId(null);
+                                    }} style={{ padding:"3px 8px", background:COLORS.green, border:"none", borderRadius:5, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer" }}>✓</button>
+                                    <button onClick={()=>setEditingCostoId(null)} style={{ padding:"3px 7px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>✕</button>
+                                  </div>
+                                ) : (
+                                  <>
+                                    {ship.costo_despacho ? (
+                                      <span style={{ fontFamily:FONT, fontSize:11, fontWeight:700, color:COLORS.yellow }}>
+                                        {fmtClp(ship.costo_despacho)} neto{ship.aplica_iva_despacho ? ` + IVA ($${Math.round(ship.costo_despacho*0.19).toLocaleString("es-CL")})` : " (sin IVA)"}
+                                      </span>
+                                    ) : (
+                                      <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim }}>Sin costo registrado</span>
+                                    )}
+                                    <button onClick={()=>{ setEditingCostoId(ship.id); setEditingCostoVal(ship.costo_despacho||""); }}
+                                      style={{ padding:"2px 6px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:4, color:COLORS.textMuted, fontFamily:FONT, fontSize:9, cursor:"pointer" }}>✏️</button>
+                                  </>
                                 )}
                               </div>
                               {ship.notas && <div style={{ marginTop:5, fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>📝 Cot. Prov: {ship.notas}</div>}
