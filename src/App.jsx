@@ -10527,7 +10527,15 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved, modo
     }
   };
 
-  const sugSup  = busqSup.length >= 1
+  // Limpiar selección de producto si cambia el modo
+  useEffect(() => {
+    setProdSel(null);
+    setBusqProd("");
+    setF("descripcion","");
+    setF("codigo","");
+    setF("precio_unitario","");
+    setPrecioVentaCot(0);
+  }, [esModoProd]);
     ? suppliers.filter(s => s.nombre?.toLowerCase().includes(busqSup.toLowerCase()) ||
         (s.rut||"").replace(/[.\-]/g,"").includes(busqSup.replace(/[.\-]/g,""))).slice(0,6)
     : [];
@@ -10547,12 +10555,7 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved, modo
   const total = neto + iva;
 
   const save = async () => {
-    if (!form.descripcion || !form.precio_unitario) return;
-    // Validación: no permitir ítems de tipo producto
-    if (prodSel && (prodSel.type === "producto" || prodSel.tipo === "producto")) {
-      alert(`"${prodSel.nombre}" es un producto — debe ir en una Orden de Compra, no como línea de servicio.`);
-      return;
-    }
+    if (!form.descripcion || form.precio_unitario === "") return;
     setSaving(true);
     // Si es extraordinario, guardar primero en products
     let productId = prodSel?.id || null;
