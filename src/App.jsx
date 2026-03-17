@@ -9677,13 +9677,26 @@ const FinModal = ({ title, onClose, children, width=480 }) => (
 // ══════════════════════════════════════════════════════════════════════════════
 // GASTOS GENERALES — Facturas de gasto no asociadas a COT
 // ══════════════════════════════════════════════════════════════════════════════
+// Alineadas con GASTOS_FIJOS + GASTOS_VARIABLES del Presupuesto Operacional
 const CATEGORIAS_GASTO = [
+  // Fijos
+  "Arriendo",
+  "Sueldos / Remuneraciones",
+  "Servicios básicos",
+  "Internet / Telefonía",
+  "Contabilidad / Asesoría",
+  "Seguros",
+  "Suscripciones",
+  "Otro fijo",
+  // Variables
   "Gasolina / Transporte",
   "Ferretería / Materiales",
+  "Alimentación",
   "Oficina / Útiles",
-  "Servicios básicos",
-  "Honorarios",
-  "Otro",
+  "Marketing / Publicidad",
+  "Honorarios externos",
+  "Mantención",
+  "Otro variable",
 ];
 
 function GastosGenerales({ isMobile }) {
@@ -9695,7 +9708,7 @@ function GastosGenerales({ isMobile }) {
 
   const emptyForm = {
     numero_documento:"", tipo_documento:"Boleta", fecha_recepcion: new Date().toISOString().slice(0,10),
-    razon_social_proveedor:"", rut_proveedor:"", categoria:"Gasolina / Transporte",
+    razon_social_proveedor:"", rut_proveedor:"", categoria:"Otro variable",
     monto_neto:0, aplica_iva:true, monto_iva:0, monto_total:0, notas:"", linea_negocio:"",
   };
   const [form, setForm] = useState(emptyForm);
@@ -9817,9 +9830,13 @@ function GastosGenerales({ isMobile }) {
               <div style={{ flexShrink:0, width:32, height:32, borderRadius:8,
                 background:COLORS.accentDim, display:"flex", alignItems:"center",
                 justifyContent:"center", fontSize:16 }}>
-                {{"Gasolina / Transporte":"⛽","Ferretería / Materiales":"🔧",
-                  "Oficina / Útiles":"📎","Servicios básicos":"💡",
-                  "Honorarios":"👤","Otro":"📄"}[g.referencia_proyecto] || "📄"}
+                {{"Arriendo":"🏢","Sueldos / Remuneraciones":"👥","Servicios básicos":"💡",
+                  "Internet / Telefonía":"📡","Contabilidad / Asesoría":"📊","Seguros":"🛡️",
+                  "Suscripciones":"🔄","Otro fijo":"📌",
+                  "Gasolina / Transporte":"⛽","Ferretería / Materiales":"🔧",
+                  "Alimentación":"🍽️","Oficina / Útiles":"📎",
+                  "Marketing / Publicidad":"📣","Honorarios externos":"👤",
+                  "Mantención":"🛠️","Otro variable":"📄"}[g.referencia_proyecto] || "📄"}
               </div>
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600,
