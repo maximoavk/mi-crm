@@ -6945,58 +6945,55 @@ function PurchaseView({ isMobile }) {
     "Magallanes":            { ciudades:["Punta Arenas","Puerto Natales","Porvenir"], comunas:["Antártica","Cabo de Hornos","Laguna Blanca","Natales","Porvenir","Primavera","Punta Arenas","Río Verde","San Gregorio","Timaukel","Torres del Paine"] },
   };
 
+  // Formulario OC
+  const [ocForm, setOcForm]   = useState({ cotizacion_id:"", supplier_id:"", estado:"PENDIENTE", notas:"" });
+  const [lines, setLines]     = useState([]);
+  const [savingOC, setSavingOC] = useState(false);
+
   // Auto-cargar líneas tipo producto desde una cotización
   const loadCotLines = async (cotizacion_id) => {
     if (!cotizacion_id) return;
     const cot = quotes.find(q => q.id === cotizacion_id);
     if (!cot) return;
 
-    // Traer quote_lines tipo "item" (no hitos) de esa cotización
+    // quote_id es texto en la BD — usar el id como string
     const { data: qlines } = await supabase
       .from("quote_lines")
       .select("*, products(id, codigo, nombre, tipo)")
-      .eq("quote_id", cot.id)
+      .eq("quote_id", cot.id.toString())
       .neq("tipo_linea", "hito")
       .order("orden");
 
     if (!qlines?.length) return;
 
-    // Filtrar solo las de tipo producto (no servicio)
+    // Solo líneas de tipo producto
     const productoLines = qlines.filter(ql =>
       ql.products?.tipo === "producto" || (!ql.products && ql.product_id)
     );
-
     if (!productoLines.length) return;
 
-    // Convertir a líneas de OC
     const newLines = productoLines.map(ql => {
       const precioNeto = Math.round(Number(ql.precio_unitario || 0));
-      // Buscar precio de proveedor si existe
       const pp = productPrices.find(p => p.product_id === ql.product_id);
       const precioFinal = pp?.precio_bruto
         ? Math.round(Number(pp.precio_bruto) / 1.19)
         : precioNeto;
       return {
-        _key:             Date.now() + Math.random(),
-        product_id:       ql.product_id || "",
+        _key:              Date.now() + Math.random(),
+        product_id:        ql.product_id || "",
         supplier_price_id: pp?.id || "",
-        cantidad:         Number(ql.cantidad || 1),
-        precio_unitario:  precioFinal,
-        _search:          ql.products?.nombre || ql.descripcion || "",
-        _fromCot:         true, // marca visual
+        cantidad:          Number(ql.cantidad || 1),
+        precio_unitario:   precioFinal,
+        _search:           ql.products?.nombre || ql.descripcion || "",
+        _fromCot:          true,
       };
     });
 
     setLines(prev => {
-      // Si ya hay líneas vacías, reemplazarlas; si hay contenido, agregar
       const hasContent = prev.some(l => l.product_id);
       return hasContent ? [...prev, ...newLines] : newLines;
     });
   };
-
-  const [ocForm, setOcForm]   = useState(emptyOC);
-  const [lines, setLines]     = useState([]);
-  const [savingOC, setSavingOC] = useState(false);
 
   useEffect(()=>{ loadAll(); },[]);
 
@@ -7047,7 +7044,7 @@ function PurchaseView({ isMobile }) {
 
   const openNew = () => {
     setEditingOC(null);
-    setOcForm(emptyOC);
+    setOcForm({ cotizacion_id:"", supplier_id:"", estado:"PENDIENTE", notas:"" });
     setLines([{ product_id:"", supplier_price_id:"", cantidad:1, precio_unitario:0, _key: Date.now() }]);
     setShowModal(true);
   };
@@ -10477,7 +10474,7 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
       const { data: qlines } = await supabase
         .from("quote_lines")
         .select("id, codigo, descripcion, cantidad, precio_unitario, subtotal, product_id, products(id, codigo, nombre, tipo, proveedor)")
-        .eq("quote_id", cotizacion.cotizacion_id)
+        .eq("quote_id", cotizacion.cotizacion_id.toString())
         .neq("tipo_linea", "hito")
         .order("orden");
 
