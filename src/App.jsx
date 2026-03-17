@@ -4297,6 +4297,8 @@ function PrestacionesView({ isMobile }) {
     setSavingFact(false);
     setFacturaModal(null);
   };
+
+  const TAB_STYLE = (active, color) => ({
     padding:"8px 22px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700,
     cursor:"pointer", border:`1px solid ${active?color:COLORS.border}`,
     background:active?`${color}22`:"transparent", color:active?color:COLORS.textMuted,
