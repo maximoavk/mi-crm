@@ -11528,6 +11528,7 @@ function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
                   {[
                     { l:"Ingreso neto (facturado)", v: Number(cot.total_neto_emitido),    c:COLORS.green },
                     { l:"Compras (neto)",            v: Number(cot.total_neto_compras),    c:COLORS.red   },
+                    { l:"Flete (neto)",               v: Number(cot.total_neto_flete),      c:COLORS.red   },
                     { l:"Servicios (neto)",           v: Number(cot.total_neto_servicios), c:COLORS.red   },
                     { l:"Fact. recibidas (neto)",     v: Number(cot.total_neto_fr),        c:COLORS.red   },
                   ].map((r,i)=>(
