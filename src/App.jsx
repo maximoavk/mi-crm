@@ -10787,9 +10787,11 @@ function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved }) {
 // ── COMPONENTE TARJETA COT (documento padre expandible) ──────────────────────
 function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
   const [open, setOpen]           = useState(false);
-  const [detail, setDetail]       = useState(null); // datos detallados lazy-loaded
+  const [detail, setDetail]       = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [modalServicio, setModalServicio] = useState(false);
+  const [editSl, setEditSl]       = useState(null); // línea siendo editada
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const pct = cot.presupuesto_total > 0
     ? Math.min(100, Math.round((
@@ -10966,23 +10968,110 @@ function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
                   {detail.sls.length === 0
                     ? <EmptyRow msg="Sin líneas de servicio" />
                     : detail.sls.map(sl => (
-                      <div key={sl.id} style={{ display:"flex", justifyContent:"space-between",
-                        alignItems:"center", padding:"8px 12px", background:COLORS.surface,
-                        borderRadius:7, marginBottom:5, border:`1px solid ${COLORS.border}` }}>
-                        <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600,
-                            color:COLORS.text, overflow:"hidden", textOverflow:"ellipsis",
-                            whiteSpace:"nowrap" }}>{sl.descripcion}</div>
-                          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
-                            {sl.suppliers?.nombre || "Sin subcontratista"}
-                            {sl.codigo ? ` · ${sl.codigo}` : ""}
+                      <div key={sl.id}>
+                        {/* Vista normal */}
+                        {editSl?.id !== sl.id ? (
+                          <div style={{ display:"flex", justifyContent:"space-between",
+                            alignItems:"center", padding:"8px 12px", background:COLORS.surface,
+                            borderRadius:7, marginBottom:5, border:`1px solid ${COLORS.border}` }}>
+                            <div style={{ flex:1, minWidth:0 }}>
+                              <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600,
+                                color:COLORS.text, overflow:"hidden", textOverflow:"ellipsis",
+                                whiteSpace:"nowrap" }}>{sl.descripcion}</div>
+                              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                                {sl.suppliers?.nombre || "Sin subcontratista"}
+                                {sl.codigo ? ` · ${sl.codigo}` : ""}
+                              </div>
+                            </div>
+                            <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0, marginLeft:10 }}>
+                              <div style={{ textAlign:"right" }}>
+                                <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700,
+                                  color:COLORS.red }}>{fmtClp(sl.subtotal_neto)}</div>
+                                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>neto</div>
+                              </div>
+                              {/* Botón editar */}
+                              <button onClick={()=>setEditSl({
+                                  id: sl.id,
+                                  descripcion: sl.descripcion,
+                                  codigo: sl.codigo||"",
+                                  cantidad: String(sl.cantidad||1),
+                                  precio_unitario: String(sl.precio_unitario||0),
+                                  aplica_iva: sl.aplica_iva,
+                                  notas: sl.notas||"",
+                                })}
+                                style={{ padding:"4px 8px", background:COLORS.accentDim,
+                                  border:`1px solid ${COLORS.accentGlow}`, borderRadius:5,
+                                  color:COLORS.accent, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>
+                                ✏️
+                              </button>
+                              {/* Botón eliminar */}
+                              <button onClick={async ()=>{
+                                  if (!window.confirm("¿Eliminar esta línea de servicio?")) return;
+                                  await supabase.from("cot_service_lines").delete().eq("id", sl.id);
+                                  setDetail(p=>({...p, sls: p.sls.filter(x=>x.id!==sl.id)}));
+                                  onRefresh();
+                                }}
+                                style={{ padding:"4px 8px", background:COLORS.red+"18",
+                                  border:`1px solid ${COLORS.red}44`, borderRadius:5,
+                                  color:COLORS.red, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>
+                                ✕
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                        <div style={{ textAlign:"right", flexShrink:0, marginLeft:10 }}>
-                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700,
-                            color:COLORS.red }}>{fmtClp(sl.subtotal_neto)}</div>
-                          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>neto</div>
-                        </div>
+                        ) : (
+                          /* Modo edición inline */
+                          <div style={{ padding:"12px", background:COLORS.accentDim,
+                            borderRadius:8, marginBottom:5, border:`1px solid ${COLORS.accent}44` }}>
+                            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 10px" }}>
+                              <LabelInput label="Descripción"
+                                value={editSl.descripcion}
+                                onChange={e=>setEditSl(p=>({...p,descripcion:e.target.value}))} />
+                              <LabelInput label="Código"
+                                value={editSl.codigo}
+                                onChange={e=>setEditSl(p=>({...p,codigo:e.target.value}))} />
+                              <LabelInput label="Cantidad" type="number"
+                                value={editSl.cantidad}
+                                onChange={e=>setEditSl(p=>({...p,cantidad:e.target.value}))} />
+                              <LabelInput label="Precio neto unitario" type="number"
+                                value={editSl.precio_unitario}
+                                onChange={e=>setEditSl(p=>({...p,precio_unitario:e.target.value}))} />
+                            </div>
+                            {/* Preview */}
+                            {Number(editSl.precio_unitario) > 0 && (
+                              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+                                marginBottom:10 }}>
+                                Neto: {fmtClp(Number(editSl.cantidad||1)*Number(editSl.precio_unitario))} ·
+                                IVA: {fmtClp(Math.round(Number(editSl.cantidad||1)*Number(editSl.precio_unitario)*0.19))} ·
+                                Total: {fmtClp(Math.round(Number(editSl.cantidad||1)*Number(editSl.precio_unitario)*1.19))}
+                              </div>
+                            )}
+                            <div style={{ display:"flex", gap:8 }}>
+                              <BtnSec onClick={()=>setEditSl(null)}>Cancelar</BtnSec>
+                              <BtnPrimary disabled={savingEdit} onClick={async ()=>{
+                                setSavingEdit(true);
+                                await supabase.from("cot_service_lines").update({
+                                  descripcion:     editSl.descripcion,
+                                  codigo:          editSl.codigo||"",
+                                  cantidad:        Number(editSl.cantidad)||1,
+                                  precio_unitario: Math.round(Number(editSl.precio_unitario)||0),
+                                  aplica_iva:      editSl.aplica_iva,
+                                }).eq("id", editSl.id);
+                                // Recargar detalle
+                                setDetail(null);
+                                const { data: sls } = await supabase
+                                  .from("cot_service_lines")
+                                  .select("id, descripcion, codigo, cantidad, precio_unitario, subtotal_neto, monto_iva, subtotal_total, aplica_iva, estado_pago, suppliers(nombre)")
+                                  .eq("cotizacion_id", cot.cotizacion_id);
+                                setDetail(p=>({...p, sls: sls||[]}));
+                                setEditSl(null);
+                                setSavingEdit(false);
+                                onRefresh();
+                              }}>
+                                {savingEdit?"Guardando…":"Guardar cambios"}
+                              </BtnPrimary>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))
                   }
