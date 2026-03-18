@@ -228,18 +228,38 @@ function Dashboard({ contacts, deals, tasks, isMobile }) {
   const maxVal = Math.max(...stageData.map(s=>s.value),1);
   const recentTasks = tasks.filter(t=>!t.done).sort((a,b)=>(a.dueDate||"").localeCompare(b.dueDate||"")).slice(0,4);
 
+  const [recentInc, setRecentInc] = useState([]);
+  const [recentOCs, setRecentOCs] = useState([]);
+
+  useEffect(() => {
+    supabase.from("incidencias").select("id,titulo,cliente,estado,categoria,prioridad,created_at")
+      .order("created_at", { ascending:false }).limit(5)
+      .then(({ data }) => setRecentInc(data||[]));
+    supabase.from("purchase_orders").select("id,numero_oc,estado,created_at,suppliers(nombre)")
+      .order("created_at", { ascending:false }).limit(5)
+      .then(({ data }) => setRecentOCs(data||[]));
+  }, []);
+
+  const INC_ESTADOS = { reportada:{label:"Reportada",color:"#FFB800"}, en_curso:{label:"En curso",color:"#00C2FF"}, solucionada:{label:"Solucionada",color:"#00E5A0"} };
+  const OC_EST     = { PENDIENTE:{color:"#FFB800",icon:"⏳"}, CONFIRMADA:{color:"#00C2FF",icon:"✅"}, ENVIADA:{color:"#A855F7",icon:"🚚"}, RECIBIDA:{color:"#00E5A0",icon:"📦"}, PAGADA:{color:"#10b981",icon:"💰"} };
+  const PRIO_COLOR = { alta:"#FF4D6A", media:"#FFB800", baja:"#00E5A0" };
+
   return (
     <div>
       <div style={{ marginBottom:24 }}>
         <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Vista general</div>
         <div style={{ fontFamily:FONT_DISPLAY, fontSize:24, fontWeight:700, color:COLORS.text }}>Dashboard B2B</div>
       </div>
+
+      {/* KPIs */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20 }}>
         <Stat label="Ingresos cerrados" value={fmt(totalRevenue)} sub="acumulado" color={COLORS.green} />
         <Stat label="Pipeline esperado" value={fmt(pipeline)} sub="ponderado" color={COLORS.accent} />
         <Stat label="Clientes activos" value={contacts.filter(c=>c.status==="cliente").length} color={COLORS.text} />
         <Stat label="Tareas pendientes" value={pendingTasks} sub={overdueTasks>0?`${overdueTasks} vencida(s)`:"al día"} color={overdueTasks>0?COLORS.red:COLORS.text} />
       </div>
+
+      {/* Embudo + Tareas */}
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:16, marginBottom:16 }}>
         <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20 }}>
           <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Embudo de ventas</div>
@@ -257,7 +277,7 @@ function Dashboard({ contacts, deals, tasks, isMobile }) {
         </div>
         <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20 }}>
           <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Próximas tareas</div>
-          {recentTasks.length===0 && <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.textMuted }}>Sin tareas pendientes 🎉</div>}
+          {recentTasks.length===0 && <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.textMuted }}>Sin tareas pendientes</div>}
           {recentTasks.map(t=>(
             <div key={t.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 0", borderBottom:`1px solid ${COLORS.border}` }}>
               <span style={{ fontSize:15 }}>{TYPE_ICONS[t.type]||"✅"}</span>
@@ -270,7 +290,9 @@ function Dashboard({ contacts, deals, tasks, isMobile }) {
           ))}
         </div>
       </div>
-      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20 }}>
+
+      {/* Deals activos */}
+      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20, marginBottom:16 }}>
         <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Deals activos — mayor valor</div>
         {deals.filter(d=>d.stage!=="cerrado").length===0 && <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.textMuted }}>Sin deals activos.</div>}
         {deals.filter(d=>d.stage!=="cerrado").sort((a,b)=>Number(b.value)-Number(a.value)).slice(0,5).map(d=>{
@@ -286,6 +308,79 @@ function Dashboard({ contacts, deals, tasks, isMobile }) {
             </div>
           );
         })}
+      </div>
+
+      {/* Incidencias recientes + OCs recientes */}
+      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:16 }}>
+
+        {/* Incidencias */}
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, overflow:"hidden" }}>
+          <div style={{ padding:"14px 18px", borderBottom:`1px solid ${COLORS.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, fontSize:14 }}>Incidencias recientes</div>
+            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
+              {recentInc.filter(i=>i.estado==="en_curso").length > 0 &&
+                <span style={{ color:"#00C2FF", fontWeight:700 }}>{recentInc.filter(i=>i.estado==="en_curso").length} en curso</span>}
+              {recentInc.filter(i=>i.estado==="reportada").length > 0 &&
+                <span style={{ color:"#FFB800", marginLeft:8 }}>{recentInc.filter(i=>i.estado==="reportada").length} reportadas</span>}
+            </div>
+          </div>
+          {recentInc.length===0 && <div style={{ padding:"24px 18px", fontFamily:FONT, fontSize:13, color:COLORS.textMuted }}>Sin incidencias registradas</div>}
+          {recentInc.map(inc=>{
+            const est = INC_ESTADOS[inc.estado] || INC_ESTADOS.reportada;
+            const prioColor = PRIO_COLOR[inc.prioridad||"media"];
+            return (
+              <div key={inc.id} style={{ borderBottom:`1px solid ${COLORS.border}`, display:"flex", alignItems:"stretch" }}>
+                {/* Stripe prioridad */}
+                <div style={{ width:3, background:prioColor, flexShrink:0 }} />
+                <div style={{ padding:"10px 14px", flex:1, minWidth:0 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3 }}>
+                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{inc.titulo}</span>
+                    <span style={{ flexShrink:0, fontFamily:FONT, fontSize:9, background:`${est.color}22`, color:est.color, border:`1px solid ${est.color}44`, borderRadius:10, padding:"1px 7px", fontWeight:700 }}>{est.label}</span>
+                  </div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
+                    {inc.cliente && <span>{inc.cliente} · </span>}
+                    <span>{inc.categoria}</span>
+                  </div>
+                </div>
+                <div style={{ padding:"10px 14px", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, flexShrink:0, display:"flex", alignItems:"center" }}>
+                  {fmtFecha(inc.created_at?.slice(0,10))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* OCs recientes */}
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, overflow:"hidden" }}>
+          <div style={{ padding:"14px 18px", borderBottom:`1px solid ${COLORS.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, fontSize:14 }}>Órdenes de compra recientes</div>
+            <div style={{ fontFamily:FONT, fontSize:10 }}>
+              {recentOCs.filter(o=>o.estado==="PENDIENTE").length > 0 &&
+                <span style={{ color:"#FFB800" }}>{recentOCs.filter(o=>o.estado==="PENDIENTE").length} pendientes</span>}
+            </div>
+          </div>
+          {recentOCs.length===0 && <div style={{ padding:"24px 18px", fontFamily:FONT, fontSize:13, color:COLORS.textMuted }}>Sin órdenes de compra</div>}
+          {recentOCs.map(oc=>{
+            const est = OC_EST[oc.estado] || OC_EST.PENDIENTE;
+            return (
+              <div key={oc.id} style={{ padding:"10px 18px", borderBottom:`1px solid ${COLORS.border}`, display:"flex", alignItems:"center", gap:10 }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3 }}>
+                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.accent }}>OC-{String(oc.numero_oc||"").padStart(3,"0")}</span>
+                    <span style={{ fontFamily:FONT, fontSize:9, background:`${est.color}22`, color:est.color, border:`1px solid ${est.color}44`, borderRadius:10, padding:"1px 7px", fontWeight:700 }}>{est.icon} {oc.estado}</span>
+                  </div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    {oc.suppliers?.nombre || "Sin proveedor"}
+                  </div>
+                </div>
+                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, flexShrink:0 }}>
+                  {fmtFecha(oc.created_at?.slice(0,10))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
       </div>
     </div>
   );
