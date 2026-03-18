@@ -781,6 +781,8 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
 
   const [viewMode, setViewMode]   = useState("lista"); // lista | dia | semana
   const [calDate, setCalDate]     = useState(new Date().toISOString().slice(0,10));
+  const [dragTaskId, setDragTaskId] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null); // hora o fecha resaltada
   const [filter, setFilter]       = useState("todas");
   const [filterCat, setFilterCat] = useState("todas");
   const [showModal, setShowModal] = useState(false);
@@ -823,6 +825,21 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
   const updateStatus = async (id, newStatus) => {
     await supabase.from("task").update({ estado: newStatus, completada: newStatus==="completada" }).eq("id", id);
     setTasks(tasks.map(t=>t.id===id ? {...t, status:newStatus, done:newStatus==="completada"} : t));
+  };
+
+  // DnD calendario: reprograma fecha y/o hora
+  const rescheduleTask = async (id, newDate, newTime) => {
+    const upd = {};
+    if (newDate) { upd.fecha_inicio = newDate; upd.fecha_limite = newDate; }
+    if (newTime) upd.hora_inicio = newTime;
+    await supabase.from("task").update(upd).eq("id", id);
+    setTasks(prev => prev.map(t => t.id===id ? {
+      ...t,
+      ...(newDate ? { startDate:newDate, dueDate:newDate } : {}),
+      ...(newTime ? { startTime:newTime } : {}),
+    } : t));
+    setDragTaskId(null);
+    setDropTarget(null);
   };
 
   const openEdit = (t) => {
@@ -933,19 +950,32 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
               const hStr = `${String(h).padStart(2,"0")}:00`;
               const hTasks = tasksDay.filter(t=>t.startTime && t.startTime.slice(0,2)===String(h).padStart(2,"0"));
               const noTimeTasks = h===7 ? tasksDay.filter(t=>!t.startTime) : [];
+              const isDropHour = dropTarget===hStr;
               return (
-                <div key={h} style={{ display:"flex", borderBottom:`1px solid ${COLORS.border}`, minHeight:48 }}>
-                  <div style={{ width:52, padding:"6px 8px", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, flexShrink:0, borderRight:`1px solid ${COLORS.border}`, paddingTop:8 }}>{hStr}</div>
+                <div key={h}
+                  onDragOver={e=>{ e.preventDefault(); setDropTarget(hStr); }}
+                  onDragLeave={()=>setDropTarget(null)}
+                  onDrop={e=>{ e.preventDefault(); const id=e.dataTransfer.getData("taskId"); if(id) rescheduleTask(id, calDate, hStr); }}
+                  style={{ display:"flex", borderBottom:`1px solid ${COLORS.border}`, minHeight:48, background:isDropHour?`${COLORS.accent}11`:"transparent", transition:"background 0.1s" }}>
+                  <div style={{ width:52, padding:"6px 8px", fontFamily:FONT, fontSize:11, color:isDropHour?COLORS.accent:COLORS.textMuted, flexShrink:0, borderRight:`1px solid ${isDropHour?COLORS.accent:COLORS.border}`, paddingTop:8, fontWeight:isDropHour?700:400 }}>{hStr}</div>
                   <div style={{ flex:1, padding:"4px 8px", display:"flex", flexDirection:"column", gap:4 }}>
                     {[...hTasks,...noTimeTasks].map(t=>{
                       const sc=stCfg(t.status);
                       const catColor=CAT_COLORS[t.category]||COLORS.textMuted;
+                      const isDragging = dragTaskId===t.id;
                       return (
-                        <div key={t.id} onClick={()=>openEdit(t)}
-                          style={{ background:`${catColor}18`, border:`1px solid ${catColor}44`, borderLeft:`3px solid ${catColor}`, borderRadius:5, padding:"4px 10px", cursor:"pointer", display:"flex", alignItems:"center", gap:8 }}>
+                        <div key={t.id}
+                          draggable
+                          onDragStart={e=>{ e.dataTransfer.setData("taskId", t.id); setDragTaskId(t.id); }}
+                          onDragEnd={()=>{ setDragTaskId(null); setDropTarget(null); }}
+                          onClick={()=>openEdit(t)}
+                          style={{ background:`${catColor}18`, border:`1px solid ${catColor}44`, borderLeft:`3px solid ${catColor}`, borderRadius:5, padding:"4px 10px", cursor:"grab", display:"flex", alignItems:"center", gap:8, opacity:isDragging?0.4:1, transition:"opacity 0.15s" }}>
                           <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text, flex:1 }}>{t.title}</span>
                           <span style={{ fontFamily:FONT, fontSize:10, color:sc.color, fontWeight:700 }}>{sc.label}</span>
                           {t.startTime && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{t.startTime}{t.endTime?`-${t.endTime}`:""}</span>}
+                          <button onClick={e=>{ e.stopPropagation(); del(t.id); }}
+                            style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:13, lineHeight:1, padding:"0 2px", opacity:0.6 }}
+                            title="Eliminar">×</button>
                         </div>
                       );
                     })}
@@ -971,8 +1001,13 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
           <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:8 }}>
             {tasksWeek.map(({date,tasks:dayTasks})=>{
               const isToday = date===new Date().toISOString().slice(0,10);
+              const isDropDay = dropTarget===date;
               return (
-                <div key={date} style={{ background:COLORS.card, border:`1px solid ${isToday?COLORS.accent:COLORS.border}`, borderRadius:8, minHeight:120, overflow:"hidden" }}>
+                <div key={date}
+                  onDragOver={e=>{ e.preventDefault(); setDropTarget(date); }}
+                  onDragLeave={()=>setDropTarget(null)}
+                  onDrop={e=>{ e.preventDefault(); const id=e.dataTransfer.getData("taskId"); if(id) rescheduleTask(id, date, null); }}
+                  style={{ background:isDropDay?`${COLORS.accent}11`:COLORS.card, border:`1px solid ${isDropDay?COLORS.accent:isToday?COLORS.accent:COLORS.border}`, borderRadius:8, minHeight:120, overflow:"hidden", transition:"background 0.1s" }}>
                   <div style={{ padding:"6px 8px", background:isToday?COLORS.accentDim:COLORS.surface, borderBottom:`1px solid ${COLORS.border}`, textAlign:"center" }}>
                     <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase" }}>
                       {new Date(date+"T12:00").toLocaleDateString("es-CL",{weekday:"short"})}
@@ -985,11 +1020,21 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
                     {dayTasks.map(t=>{
                       const catColor=CAT_COLORS[t.category]||COLORS.textMuted;
                       const sc=stCfg(t.status);
+                      const isDragging = dragTaskId===t.id;
                       return (
-                        <div key={t.id} onClick={()=>openEdit(t)}
-                          style={{ background:`${catColor}18`, borderLeft:`2px solid ${catColor}`, borderRadius:3, padding:"2px 6px", cursor:"pointer", fontSize:11 }}>
-                          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.title}</div>
-                          <div style={{ fontFamily:FONT, fontSize:9, color:sc.color }}>{sc.label}</div>
+                        <div key={t.id}
+                          draggable
+                          onDragStart={e=>{ e.dataTransfer.setData("taskId", t.id); setDragTaskId(t.id); }}
+                          onDragEnd={()=>{ setDragTaskId(null); setDropTarget(null); }}
+                          onClick={()=>openEdit(t)}
+                          style={{ background:`${catColor}18`, borderLeft:`2px solid ${catColor}`, borderRadius:3, padding:"2px 6px", cursor:"grab", fontSize:11, opacity:isDragging?0.4:1, display:"flex", alignItems:"flex-start", gap:4 }}>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.title}</div>
+                            <div style={{ fontFamily:FONT, fontSize:9, color:sc.color }}>{sc.label}</div>
+                          </div>
+                          <button onClick={e=>{ e.stopPropagation(); del(t.id); }}
+                            style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:12, lineHeight:1, padding:0, flexShrink:0, opacity:0.6 }}
+                            title="Eliminar">×</button>
                         </div>
                       );
                     })}
