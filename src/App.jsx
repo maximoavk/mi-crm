@@ -15682,6 +15682,8 @@ function ColaboradorView({ session }) {
   const [allComprobantes, setAllComprobantes] = useState([]);
   const [loading, setLoading]       = useState(true);
   const [expanded, setExpanded]     = useState({});
+  const [cotExpanded, setCotExpanded] = useState({});
+  const [cotLines, setCotLines]     = useState({});
   const [editFact, setEditFact] = useState(null); // { pfId, pf obj }
   const [factNum, setFactNum]   = useState("");
   const [saving, setSaving]     = useState(false);
@@ -15875,6 +15877,22 @@ function ColaboradorView({ session }) {
 
   const fmt = n => `$${Math.round(n).toLocaleString("es-CL")}`;
 
+  // Carga líneas de una COT bajo demanda
+  const loadCotLines = async (cotId) => {
+    if(cotLines[cotId]) return;
+    setCotLines(p=>({...p,[cotId]:"loading"}));
+    const { data } = await supabase.from("quote_lines")
+      .select("codigo, descripcion, cantidad, precio_unitario, descuento, subtotal, tipo_linea")
+      .eq("quote_id", cotId.toString()).order("orden");
+    setCotLines(p=>({...p,[cotId]: data||[]}));
+  };
+
+  const toggleCot = (cotId) => {
+    const next = !cotExpanded[cotId];
+    setCotExpanded(p=>({...p,[cotId]:next}));
+    if(next) loadCotLines(cotId);
+  };
+
   // Genera el mismo PDF detallado que usa la vista principal (printResumenPedido)
   const printDetallado = (pf) => {
     const pfDocs = allComprobantes.filter(cp =>
@@ -15965,17 +15983,67 @@ function ColaboradorView({ session }) {
                 {isOpen && (
                   <div style={{ borderTop:`1px solid ${COLORS.border}`, padding:"10px 18px 14px" }}>
                     <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>Cotizaciones incluidas</div>
-                    <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-                      {pf.cots.map(cot => (
-                          <div key={cot.id} style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 14px", display:"flex", alignItems:"center", gap:12 }}>
-                            <div style={{ fontFamily:"monospace", fontSize:12, fontWeight:700, color:COLORS.accent, flexShrink:0 }}>COT-{cot.numero||"—"}</div>
-                            <div style={{ flex:1 }}>
-                              <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text }}>{cot.razon_social||cot.nombre_cliente||"—"}</div>
-                              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{cot.aplica_iva?"Con IVA":"Sin IVA"}</div>
+                    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                      {pf.cots.map(cot => {
+                        const isExpCot = !!cotExpanded[cot.id];
+                        const lines    = cotLines[cot.id];
+                        const fmtN = n => "$"+Math.round(n||0).toLocaleString("es-CL");
+                        return (
+                          <div key={cot.id} style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, overflow:"hidden" }}>
+                            {/* Fila resumen COT */}
+                            <div style={{ padding:"10px 14px", display:"flex", alignItems:"center", gap:12, cursor:"pointer" }}
+                              onClick={()=>toggleCot(cot.id)}>
+                              <span style={{ color:COLORS.accent, fontSize:11, flexShrink:0 }}>{isExpCot?"▼":"▶"}</span>
+                              <div style={{ fontFamily:"monospace", fontSize:12, fontWeight:700, color:COLORS.accent, flexShrink:0 }}>COT-{cot.numero||"—"}</div>
+                              <div style={{ flex:1 }}>
+                                <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text }}>{cot.razon_social||cot.nombre_cliente||"—"}</div>
+                                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{cot.aplica_iva?"Con IVA":"Sin IVA"} · Toca para ver ítems</div>
+                              </div>
+                              <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.accent, flexShrink:0 }}>{fmt(cot.total||0)}</div>
                             </div>
-                            <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.accent }}>{fmt(cot.total||0)}</div>
+                            {/* Tabla de líneas */}
+                            {isExpCot && (
+                              <div style={{ borderTop:`1px solid ${COLORS.border}`, padding:"10px 14px" }}>
+                                {lines==="loading" ? (
+                                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textAlign:"center", padding:"12px 0" }}>Cargando ítems…</div>
+                                ) : lines && lines.length > 0 ? (
+                                  <table style={{ width:"100%", borderCollapse:"collapse", fontFamily:FONT, fontSize:11 }}>
+                                    <thead>
+                                      <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                                        {["Código","Descripción","Cant.","P.Unit.","Desc.%","Subtotal"].map(h=>(
+                                          <th key={h} style={{ padding:"4px 8px", textAlign:"left", fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.06em", fontWeight:600 }}>{h}</th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {lines.filter(l=>l.tipo_linea!=="hito").map((l,i)=>{
+                                        const neto = Math.round(Number(l.precio_unitario||0)*(1-Number(l.descuento||0)/100)*Number(l.cantidad||1));
+                                        const sub  = cot.aplica_iva ? Math.round(neto*1.19) : neto;
+                                        return (
+                                          <tr key={i} style={{ borderBottom:`1px solid ${COLORS.border}22` }}>
+                                            <td style={{ padding:"5px 8px", color:COLORS.accent, fontFamily:"monospace", fontSize:10 }}>{l.codigo||"—"}</td>
+                                            <td style={{ padding:"5px 8px", color:COLORS.text }}>{l.descripcion}</td>
+                                            <td style={{ padding:"5px 8px", color:COLORS.textMuted, textAlign:"center" }}>{l.cantidad}</td>
+                                            <td style={{ padding:"5px 8px", color:COLORS.textMuted, textAlign:"right" }}>{fmtN(l.precio_unitario)}</td>
+                                            <td style={{ padding:"5px 8px", color:COLORS.textMuted, textAlign:"center" }}>{l.descuento||0}%</td>
+                                            <td style={{ padding:"5px 8px", color:COLORS.text, fontWeight:700, textAlign:"right" }}>{fmtN(sub)}</td>
+                                          </tr>
+                                        );
+                                      })}
+                                      <tr>
+                                        <td colSpan={5} style={{ padding:"6px 8px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.06em" }}>Total{cot.aplica_iva?" (con IVA)":""}</td>
+                                        <td style={{ padding:"6px 8px", textAlign:"right", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.accent }}>{fmt(cot.total||0)}</td>
+                                      </tr>
+                                    </tbody>
+                                  </table>
+                                ) : (
+                                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textAlign:"center", padding:"8px 0" }}>Sin ítems registrados</div>
+                                )}
+                              </div>
+                            )}
                           </div>
-                        ))}
+                        );
+                      })}
                     </div>
                     {pf.descripcion && (
                       <div style={{ marginTop:10, fontFamily:FONT, fontSize:11, color:COLORS.textMuted, background:COLORS.bg, borderRadius:6, padding:"8px 12px" }}>
