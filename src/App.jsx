@@ -7214,6 +7214,7 @@ function PurchaseView({ isMobile }) {
 
   // Formulario OC
   const [ocForm, setOcForm]   = useState({ cotizacion_id:"", supplier_id:"", estado:"PENDIENTE", notas:"" });
+  const [sinSearch, setSinSearch] = useState("");
   const [lines, setLines]     = useState([]);
   const [savingOC, setSavingOC] = useState(false);
 
@@ -7268,7 +7269,7 @@ function PurchaseView({ isMobile }) {
     setLoading(true);
     const [ocsR, quotesR, suppR, prodsR, ppR] = await Promise.all([
       supabase.from("purchase_orders").select("*, suppliers(id,nombre,rut,email,telefono), cotizaciones(id,numero,nombre_cliente)").order("created_at", { ascending:false }),
-      supabase.from("cotizaciones").select("id,numero,nombre_cliente,razon_social,total").order("numero", { ascending:false }),
+      supabase.from("cotizaciones").select("id,numero,serie,nombre_cliente,razon_social,total").order("numero", { ascending:false }),
       supabase.from("suppliers").select("*").order("nombre"),
       supabase.from("products").select("id,codigo,nombre,descripcion,unidad,categoria").order("codigo"),
       supabase.from("product_prices").select("*, suppliers(id,nombre)").order("es_preferido", { ascending:false }),
@@ -7960,20 +7961,57 @@ function PurchaseView({ isMobile }) {
                   {suppliers.map(s=><option key={s.id} value={s.id}>{s.nombre}{s.rut?` · ${s.rut}`:""}</option>)}
                 </select>
               </div>
-              <div>
-                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Cotización referencia</div>
-                <select value={ocForm.cotizacion_id}
-                  onChange={e => {
-                    const newCotId = e.target.value;
-                    setOcForm(p=>({...p, cotizacion_id: newCotId}));
-                    if (newCotId && !editingOC) loadCotLines(newCotId);
-                  }}
-                  style={{ width:"100%", background:COLORS.bg, border:`1px solid ${ocForm.cotizacion_id?COLORS.green+"55":COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:ocForm.cotizacion_id?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box" }}>
-                  <option value="">— Sin cotización —</option>
-                  {quotes.map(q=><option key={q.id} value={q.id}>#{q.numero} · {q.nombre_cliente||q.razon_social||"Sin nombre"}</option>)}
-                </select>
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {/* COT dropdown */}
+                <div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Cotización COT referencia</div>
+                  <select value={quotes.filter(q=>q.serie==="COT"||!q.serie).some(q=>q.id===ocForm.cotizacion_id) ? ocForm.cotizacion_id : ""}
+                    onChange={e => {
+                      const newCotId = e.target.value;
+                      setSinSearch("");
+                      setOcForm(p=>({...p, cotizacion_id: newCotId}));
+                      if (newCotId && !editingOC) loadCotLines(newCotId);
+                    }}
+                    style={{ width:"100%", background:COLORS.bg, border:`1px solid ${(quotes.filter(q=>q.serie==="COT"||!q.serie).some(q=>q.id===ocForm.cotizacion_id))?COLORS.green+"55":COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }}>
+                    <option value="">— Sin cotización —</option>
+                    {quotes.filter(q=>q.serie==="COT"||!q.serie).map(q=><option key={q.id} value={q.id}>COT-{q.numero} · {q.nombre_cliente||q.razon_social||"Sin nombre"}</option>)}
+                  </select>
+                </div>
+                {/* SIN search */}
+                <div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Buscar cotización SIN</div>
+                  <input value={sinSearch} onChange={e=>setSinSearch(e.target.value)}
+                    placeholder="Número o nombre de cliente..."
+                    style={{ width:"100%", background:COLORS.bg, border:`1px solid ${quotes.filter(q=>q.serie==="SIN").some(q=>q.id===ocForm.cotizacion_id)?COLORS.green+"55":COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+                  {sinSearch.trim().length > 0 && (() => {
+                    const term = sinSearch.trim().toLowerCase();
+                    const hits = quotes.filter(q=>q.serie==="SIN" && (
+                      String(q.numero).includes(term) ||
+                      (q.nombre_cliente||"").toLowerCase().includes(term) ||
+                      (q.razon_social||"").toLowerCase().includes(term)
+                    ));
+                    return (
+                      <div style={{ border:`1px solid ${COLORS.border}`, borderRadius:6, marginTop:4, overflow:"hidden", maxHeight:180, overflowY:"auto" }}>
+                        {hits.length===0 && <div style={{ padding:"10px 12px", fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin resultados</div>}
+                        {hits.map(q=>(
+                          <div key={q.id} onClick={()=>{
+                            setOcForm(p=>({...p, cotizacion_id:q.id}));
+                            setSinSearch(`SIN-${q.numero} · ${q.nombre_cliente||q.razon_social||"Sin nombre"}`);
+                            if (!editingOC) loadCotLines(q.id);
+                          }}
+                          style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.text, background:ocForm.cotizacion_id===q.id?`${COLORS.green}22`:COLORS.card, cursor:"pointer", borderBottom:`1px solid ${COLORS.border}` }}>
+                            <span style={{ color:COLORS.accent, fontWeight:700 }}>SIN-{q.numero}</span> · {q.nombre_cliente||q.razon_social||"Sin nombre"}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                  {quotes.filter(q=>q.serie==="SIN").some(q=>q.id===ocForm.cotizacion_id) && (
+                    <div style={{ marginTop:4, fontFamily:FONT, fontSize:10, color:COLORS.green }}>✓ SIN enlazada</div>
+                  )}
+                </div>
                 {ocForm.cotizacion_id && !editingOC && (
-                  <div style={{ marginTop:4, fontFamily:FONT, fontSize:10, color:COLORS.green }}>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.green }}>
                     ✓ Líneas de producto pre-cargadas desde la COT
                   </div>
                 )}
