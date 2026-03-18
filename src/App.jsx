@@ -10,7 +10,7 @@ const supabase = createClient(
 
 // ── LOGO ────────────────────────────────────────────────────────────────────
 const LOGO_B64 = "https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69b784045e7a002f4a490938_Recurso%2013.png"; // Logo blanco para fondo oscuro
-const LOGO_PRINT = "https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png"; // Logo oscuro para documentos impresos
+const LOGO_PRINT = "https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20-p-500.png"; // Logo oscuro para documentos impresos
 
 // ── MAPPERS: Supabase ↔ App ─────────────────────────────────────────────────
 const mapContact = (r) => ({
@@ -573,6 +573,8 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
   const [collapsed, setCollapsed] = useState({});
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ title:"", company:"", contactId:"", rut:"", value:"", stage:"propuesta", probability:"40", closeDate:"", quoteNumber:"" });
+  const [dragDealId, setDragDealId] = useState(null);
+  const [dragOverStage, setDragOverStage] = useState(null);
   const [quoteBusqueda, setQuoteBusqueda] = useState("");
   const [quoteFound, setQuoteFound] = useState(null);
   const [quoteSearching, setQuoteSearching] = useState(false);
@@ -648,8 +650,14 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
         {STAGES.map(stage=>{
           const stageDeals=grouped[stage.key]||[];
           const total=stageDeals.reduce((s,d)=>s+Number(d.value),0);
+          const isDropTarget = dragDealId && dragOverStage===stage.key;
           return (
-            <div key={stage.key}>
+            <div key={stage.key}
+              onDragOver={e=>{ e.preventDefault(); setDragOverStage(stage.key); }}
+              onDragLeave={e=>{ if(!e.currentTarget.contains(e.relatedTarget)) setDragOverStage(null); }}
+              onDrop={e=>{ e.preventDefault(); if(dragDealId) moveDeal(dragDealId, stage.key); setDragDealId(null); setDragOverStage(null); }}
+              style={{ outline: isDropTarget ? `2px dashed ${stage.color}` : "2px dashed transparent", borderRadius:8, transition:"outline 0.15s" }}
+            >
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12, padding:"10px 14px", background:COLORS.card, borderRadius:8, border:`1px solid ${stage.color}33` }}>
                 <div>
                   <div style={{ fontFamily:FONT, fontSize:11, color:stage.color, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600 }}>{stage.label}</div>
@@ -661,7 +669,11 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
                 {stageDeals.map(d=>{
   const isCollapsed = collapsed[d.id] !== false; // colapsado por defecto
                   return (
-                    <div key={d.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, borderLeft:`3px solid ${stage.color}`, overflow:"hidden" }}>
+                    <div key={d.id}
+                      draggable
+                      onDragStart={()=>setDragDealId(d.id)}
+                      onDragEnd={()=>{ setDragDealId(null); setDragOverStage(null); }}
+                      style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, borderLeft:`3px solid ${stage.color}`, overflow:"hidden", cursor:"grab", opacity: dragDealId===d.id ? 0.5 : 1 }}>
                       <div style={{ display:"flex", alignItems:"center", gap:8, padding:isCollapsed?"10px 12px":"12px 14px 8px" }}>
                         <button onClick={()=>toggleCollapse(d.id)} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:11, padding:0, flexShrink:0 }}>{isCollapsed?"▶":"▼"}</button>
                         <div style={{ flex:1, minWidth:0 }}>
@@ -5727,12 +5739,7 @@ function QuotePDF({ quote, onBack }) {
         {/* HEADER */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:24, borderBottom:"2px solid #e0e0e0", paddingBottom:16 }}>
           <div>
-            {/* Logo solo si es Con IVA (empresa) */}
-            {quote.ivaMode==="empresa" ? (
-              <img src={LOGO_B64} alt="Polygonos" style={{ height:60, marginBottom:8, display:"block" }} />
-            ) : (
-              <div style={{ fontSize:22, fontWeight:700, color:"#1a2a4a", marginBottom:8 }}>Polygonos</div>
-            )}
+            <img src={LOGO_PRINT} alt="Polygonos" style={{ height:60, marginBottom:8, display:"block" }} />
             <div style={{ fontSize:11, color:"#555" }}>Sucursales: Marco Gallo Vergara 536 B, Dpto 411 Torre D</div>
             <div style={{ fontSize:11, color:"#555" }}>Casa Matriz: Huérfanos, 1055 Oficina 603</div>
             <div style={{ fontSize:11, color:"#555" }}>Giro: Servicios de Seguridad y Cerrajería</div>
@@ -5934,10 +5941,12 @@ function QuotePDF({ quote, onBack }) {
           #print-area, #print-area * { visibility: visible; }
           #print-area {
             position: absolute; left: 0; top: 0;
-            width: 190mm; padding: 7mm 10mm;
+            width: 210mm; padding: 7mm 10mm;
             box-sizing: border-box;
-            font-size: 9.5px !important;
-            line-height: 1.25 !important;
+            font-size: 9px !important;
+            line-height: 1.2 !important;
+            max-height: 277mm;
+            overflow: hidden;
           }
           #print-area img { height: 36px !important; }
           #print-area .quote-number { font-size: 20px !important; }
