@@ -15889,7 +15889,7 @@ function ColaboradorView({ session }) {
       ) : (
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
           {pfs.map(pf => {
-            const total = pf.items.reduce((s,i)=>s+Number(i.cotizaciones?.total||0),0);
+            const total = (pf.cots||[]).reduce((s,c)=>s+Number(c.total||0),0);
             const isOpen = expanded[pf.id];
             const facturado = !!pf.numero_factura;
             return (
