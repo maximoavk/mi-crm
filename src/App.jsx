@@ -15678,9 +15678,10 @@ function IncidenciasView({ contacts, isMobile }) {
 
 // ── VISTA COLABORADOR — Por Facturar ─────────────────────────────────────────
 function ColaboradorView({ session }) {
-  const [pfs, setPfs]           = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [expanded, setExpanded] = useState({});
+  const [pfs, setPfs]               = useState([]);
+  const [allComprobantes, setAllComprobantes] = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [expanded, setExpanded]     = useState({});
   const [editFact, setEditFact] = useState(null); // { pfId, pf obj }
   const [factNum, setFactNum]   = useState("");
   const [saving, setSaving]     = useState(false);
@@ -15706,11 +15707,13 @@ function ColaboradorView({ session }) {
         (cots||[]).forEach(c => { quotesMap[c.id] = c; });
       }
 
-      // Traer comprobantes_pago para calcular monto pagado por pedido
+      // Traer comprobantes_pago con todos los campos necesarios para el PDF detallado
       const { data: comprobantes } = await supabase
         .from("comprobantes_pago")
-        .select("quote_ids, monto_pagado")
+        .select("id, numero, fecha_pago, responsable, monto_pagado, transacciones, quote_ids, estado")
         .in("estado", ["pf", "emitido", "pagado"]);
+
+      setAllComprobantes(comprobantes||[]);
 
       const results = grupos.map(g => {
         const cots = (g.quote_ids||[]).map(qid => quotesMap[qid]).filter(Boolean);
@@ -15872,6 +15875,39 @@ function ColaboradorView({ session }) {
 
   const fmt = n => `$${Math.round(n).toLocaleString("es-CL")}`;
 
+  // Genera el mismo PDF detallado que usa la vista principal (printResumenPedido)
+  const printDetallado = (pf) => {
+    const pfDocs = allComprobantes.filter(cp =>
+      (cp.quote_ids||[]).some(qid => (pf.quote_ids||[]).includes(qid))
+    );
+    const cotData = (pf.cots||[]).map(cot => {
+      const qTotal  = Number(cot.total||0);
+      const qDocs   = pfDocs.filter(d => (d.quote_ids||[]).includes(cot.id));
+      const qPagado = qDocs.reduce((s,d) =>
+        s + (d.transacciones||[]).reduce((a,t)=>a+Number(t.monto||0),0), 0);
+      return {
+        quote: { number: cot.numero, clientCompany: cot.razon_social, clientName: cot.nombre_cliente, clientRut: cot.rut_cliente },
+        docs: qDocs,
+        qTotal,
+        qPagado,
+      };
+    });
+    const pedidoTotal  = cotData.reduce((s,c)=>s+c.qTotal, 0);
+    const pedidoPagado = cotData.reduce((s,c)=>s+c.qPagado, 0);
+    let pool = pedidoPagado;
+    const cotCompensated = cotData.map(c => {
+      const efectivo = Math.min(pool, c.qTotal);
+      pool = Math.max(0, pool - c.qTotal);
+      const saldo = Math.max(0, c.qTotal - efectivo);
+      const pct   = c.qTotal > 0 ? Math.min((efectivo/c.qTotal)*100, 100) : 0;
+      return { ...c, efectivo, saldo, pct };
+    });
+    const pedidoSaldo = Math.max(0, pedidoTotal - pedidoPagado);
+    const pedidoPct   = pedidoTotal > 0 ? Math.min((pedidoPagado/pedidoTotal)*100, 100) : 0;
+    const isPaid      = pedidoSaldo <= 0 && pedidoTotal > 0;
+    printResumenPedido({ ped:pf, cotCompensated, pedidoTotal, pedidoPagado, pedidoSaldo, pedidoPct, isPaid }, pfDocs, true);
+  };
+
   return (
     <div>
       <div style={{ marginBottom:20 }}>
@@ -15912,7 +15948,7 @@ function ColaboradorView({ session }) {
                     </div>
                   </div>
                   <div style={{ display:"flex", gap:8, flexShrink:0 }}>
-                    <button onClick={()=>printPF(pf)} style={{ padding:"6px 14px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:6, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>🖨 PDF</button>
+                    <button onClick={()=>printDetallado(pf)} style={{ padding:"6px 14px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:6, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>🖨 PDF Detallado</button>
                     {!facturado && (
                       <button onClick={()=>{ setEditFact({pfId:pf.id, pf}); setFactNum(pf.numero_factura||""); setSyncMonto("total_cot"); setMontoManual(""); setSincronizar(true); setFechaEmision(new Date().toISOString().slice(0,10)); }}
                         style={{ padding:"6px 14px", background:COLORS.accentDim, border:`1px solid ${COLORS.accent}44`, borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
