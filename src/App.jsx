@@ -14429,6 +14429,347 @@ function buildChecklist(template) {
   }));
 }
 
+// ─── TÉCNICOS ─────────────────────────────────────────────────────────────────
+const TECNICOS_DEFAULT = ["Maximo Hudson","Carlos Vargas","Pedro Rojas","Ana Méndez","Luis Torres"];
+
+// ─── OT MODAL ────────────────────────────────────────────────────────────────
+function OTModal({ ot, quotes, onClose, onSaved }) {
+  const isNew = !ot;
+  const [tab, setTab]     = useState("info");
+  const [saving, setSaving] = useState(false);
+  const [form, setForm]   = useState({
+    tecnico:          ot?.tecnico||"",
+    actividad:        ot?.actividad||"",
+    tipo_servicio:    ot?.tipo_servicio||"mantencion",
+    equipo_tipo:      ot?.equipo_tipo||"Motor de portón",
+    valor_servicio:   ot?.valor_servicio||"",
+    fecha_programada: ot?.fecha_programada||new Date().toISOString().slice(0,10),
+    cliente_nombre:   ot?.cliente_nombre||"",
+    cliente_rut:      ot?.cliente_rut||"",
+    lugar:            ot?.lugar||"",
+    cotizacion_id:    ot?.cotizacion_id||"",
+    observaciones:    ot?.observaciones||"",
+    estado:           ot?.estado||"pendiente",
+  });
+  const [checklist, setChecklist] = useState(ot?.checklist||null);
+  const [firma, setFirma]         = useState({ img: ot?.firma_imagen||null, nombre: ot?.firma_nombre||"" });
+  const [firmaMode, setFirmaMode] = useState(false);
+  const canvasRef = React.useRef(null);
+  const drawing   = React.useRef(false);
+  const ff = (k,v) => setForm(p=>({...p,[k]:v}));
+
+  // Auto-fill cliente desde COT
+  React.useEffect(()=>{
+    if(form.cotizacion_id){
+      const q = quotes.find(q=>q.id===form.cotizacion_id);
+      if(q){ ff("cliente_nombre", q.razon_social||q.nombre_cliente||""); }
+    }
+  },[form.cotizacion_id]);
+
+  // Init checklist cuando cambia equipo_tipo
+  React.useEffect(()=>{
+    if(!ot?.checklist){
+      const tmpl = form.tipo_servicio==="comisionamiento"
+        ? CHECKLIST_COMISIONAMIENTO[form.equipo_tipo]
+        : CHECKLIST_TEMPLATES[form.equipo_tipo];
+      setChecklist(buildChecklist(tmpl||[]));
+    }
+  },[form.equipo_tipo, form.tipo_servicio]);
+
+  const setItem = (sIdx,iIdx,field,val) =>
+    setChecklist(prev=>prev.map((s,si)=>si!==sIdx?s:{...s,items:s.items.map((it,ii)=>ii!==iIdx?it:{...it,[field]:val})}));
+
+  const totalItems = (checklist||[]).reduce((s,sec)=>s+(sec.items||[]).length,0);
+  const doneItems  = (checklist||[]).reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado==="ok"||it.estado==="obs").length,0);
+  const pct = totalItems>0?Math.round(doneItems/totalItems*100):0;
+
+  // Canvas firma
+  const startDraw = (e)=>{ drawing.current=true; const c=canvasRef.current; const r=c.getBoundingClientRect(); const cx=c.getContext("2d"); cx.beginPath(); const x=e.touches?.[0]?.clientX??e.clientX; const y=e.touches?.[0]?.clientY??e.clientY; cx.moveTo(x-r.left,y-r.top); };
+  const draw = (e)=>{ if(!drawing.current)return; e.preventDefault(); const c=canvasRef.current; const r=c.getBoundingClientRect(); const cx=c.getContext("2d"); cx.lineWidth=2;cx.lineCap="round";cx.strokeStyle="#1a1a1a"; const x=e.touches?.[0]?.clientX??e.clientX; const y=e.touches?.[0]?.clientY??e.clientY; cx.lineTo(x-r.left,y-r.top); cx.stroke(); };
+  const endDraw = ()=>{ drawing.current=false; };
+  const clearFirma = ()=>{ canvasRef.current?.getContext("2d").clearRect(0,0,400,120); };
+  const saveFirma  = ()=>{ setFirma(p=>({...p,img:canvasRef.current.toDataURL()})); setFirmaMode(false); };
+
+  const save = async (nuevoEstado) => {
+    if(!form.tecnico||!form.actividad) return;
+    setSaving(true);
+    try {
+      const payload = {
+        ...form,
+        valor_servicio: form.valor_servicio !== "" ? Number(form.valor_servicio) : null,
+        cotizacion_id:  form.cotizacion_id || null,
+        checklist:      checklist||[],
+        firma_imagen:   firma.img||null,
+        firma_nombre:   firma.nombre||null,
+        estado:         nuevoEstado||form.estado,
+      };
+      let data, error;
+      if(isNew){
+        const { data:existing } = await supabase.from("ordenes_trabajo").select("numero_ot").order("created_at",{ascending:false}).limit(1);
+        const lastNum = existing?.[0]?.numero_ot ? parseInt(existing[0].numero_ot.replace("OT-",""))||0 : 0;
+        payload.numero_ot = `OT-${String(lastNum+1).padStart(3,"0")}`;
+        ({ data, error } = await supabase.from("ordenes_trabajo").insert(payload).select().single());
+      } else {
+        ({ data, error } = await supabase.from("ordenes_trabajo").update(payload).eq("id",ot.id).select().single());
+      }
+      if(error){ alert("Error: "+error.message); setSaving(false); return; }
+      onSaved(data, isNew);
+    } catch(e){ alert("Error: "+e.message); setSaving(false); }
+  };
+
+  const fmtClp = n => "$"+Math.round(n||0).toLocaleString("es-CL");
+  const inp = { width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", boxSizing:"border-box" };
+  const lbl = { fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4, fontWeight:600, display:"block" };
+  const TC = COLORS.accent;
+
+  const ESTADO_OT = { pendiente:{label:"Pendiente",color:"#FFB800"}, en_progreso:{label:"En progreso",color:COLORS.accent}, completada:{label:"Completada",color:COLORS.yellow}, firmada:{label:"Firmada",color:COLORS.green} };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"#000c", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:12 }}>
+      <div style={{ background:COLORS.surface, border:`1px solid ${TC}44`, borderRadius:16, width:"100%", maxWidth:740, maxHeight:"95vh", display:"flex", flexDirection:"column" }}>
+
+        {/* Header */}
+        <div style={{ padding:"16px 22px 0", borderBottom:`1px solid ${COLORS.border}`, flexShrink:0 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+            <div>
+              <div style={{ fontFamily:FONT, fontSize:9, color:TC, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:2 }}>
+                {isNew?"Nueva OT":ot.numero_ot} · Orden de Trabajo
+              </div>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text }}>
+                {form.actividad||"Sin título"}
+              </div>
+            </div>
+            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+              {!isNew && (
+                <select value={form.estado} onChange={e=>ff("estado",e.target.value)}
+                  style={{ ...inp, width:"auto", fontSize:11, padding:"4px 10px", color:ESTADO_OT[form.estado]?.color||COLORS.text }}>
+                  {Object.entries(ESTADO_OT).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                </select>
+              )}
+              <button onClick={onClose} style={{ background:"transparent", border:"none", color:COLORS.textMuted, fontSize:20, cursor:"pointer" }}>✕</button>
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:0 }}>
+            {[{k:"info",l:"📋 Info"},{k:"checklist",l:`✅ Checklist (${pct}%)`},{k:"conformidad",l:"🤝 Conformidad"}].map(t=>(
+              <button key={t.k} onClick={()=>setTab(t.k)}
+                style={{ padding:"7px 16px", fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", border:"none", background:"transparent",
+                  color:tab===t.k?TC:COLORS.textMuted, borderBottom:`2px solid ${tab===t.k?TC:"transparent"}`, transition:"all 0.15s" }}>
+                {t.l}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex:1, overflowY:"auto", padding:"18px 22px" }}>
+
+          {/* TAB INFO */}
+          {tab==="info" && (
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+              {/* Técnico */}
+              <div style={{ gridColumn:"1/-1" }}>
+                <label style={lbl}>Técnico asignado *</label>
+                <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:6 }}>
+                  {TECNICOS_DEFAULT.map(t=>(
+                    <button key={t} onClick={()=>ff("tecnico",t)}
+                      style={{ padding:"5px 12px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer",
+                        background:form.tecnico===t?`${TC}22`:"transparent",
+                        border:`1px solid ${form.tecnico===t?TC:COLORS.border}`,
+                        color:form.tecnico===t?TC:COLORS.textMuted }}>
+                      {t}
+                    </button>
+                  ))}
+                  <input value={TECNICOS_DEFAULT.includes(form.tecnico)?"":form.tecnico}
+                    onChange={e=>ff("tecnico",e.target.value)} placeholder="Otro técnico…"
+                    style={{ ...inp, width:140, fontSize:11, padding:"5px 10px" }} />
+                </div>
+              </div>
+              {/* Tipo servicio */}
+              <div>
+                <label style={lbl}>Tipo de servicio</label>
+                <select value={form.tipo_servicio} onChange={e=>ff("tipo_servicio",e.target.value)} style={inp}>
+                  <option value="mantencion">Mantención</option>
+                  <option value="comisionamiento">Comisionamiento / Instalación</option>
+                  <option value="visita">Visita técnica</option>
+                  <option value="garantia">Garantía</option>
+                  <option value="emergencia">Emergencia</option>
+                </select>
+              </div>
+              {/* Equipo */}
+              <div>
+                <label style={lbl}>Tipo de equipo (checklist)</label>
+                <select value={form.equipo_tipo} onChange={e=>ff("equipo_tipo",e.target.value)} style={inp}>
+                  {Object.keys(CHECKLIST_TEMPLATES).map(k=><option key={k} value={k}>{k}</option>)}
+                </select>
+              </div>
+              {/* Actividad */}
+              <div style={{ gridColumn:"1/-1" }}>
+                <label style={lbl}>Actividad / Descripción *</label>
+                <textarea value={form.actividad} onChange={e=>ff("actividad",e.target.value)}
+                  rows={2} placeholder="Ej: Mantención preventiva motor portón doble hoja…"
+                  style={{ ...inp, resize:"vertical" }} />
+              </div>
+              {/* Fecha + Valor */}
+              <div>
+                <label style={lbl}>Fecha programada</label>
+                <input type="date" value={form.fecha_programada} onChange={e=>ff("fecha_programada",e.target.value)} style={inp} />
+              </div>
+              <div>
+                <label style={lbl}>Valor del servicio ($)</label>
+                <input type="number" value={form.valor_servicio} onChange={e=>ff("valor_servicio",e.target.value)} placeholder="0" style={inp} />
+              </div>
+              {/* COT vinculada */}
+              <div style={{ gridColumn:"1/-1" }}>
+                <label style={lbl}>Cotización vinculada (opcional)</label>
+                <select value={form.cotizacion_id} onChange={e=>ff("cotizacion_id",e.target.value)} style={inp}>
+                  <option value="">— Sin cotización —</option>
+                  {quotes.map(q=><option key={q.id} value={q.id}>{q.serie==="SIN"?"SIN":"COT"}-{String(q.numero||q.number||"?").padStart(3,"0")} · {q.razon_social||q.nombre_cliente}</option>)}
+                </select>
+              </div>
+              {/* Cliente */}
+              <div>
+                <label style={lbl}>Cliente</label>
+                <input value={form.cliente_nombre} onChange={e=>ff("cliente_nombre",e.target.value)} placeholder="Nombre cliente" style={inp} />
+              </div>
+              <div>
+                <label style={lbl}>RUT cliente</label>
+                <input value={form.cliente_rut} onChange={e=>ff("cliente_rut",e.target.value)} placeholder="12.345.678-9" style={inp} />
+              </div>
+              <div style={{ gridColumn:"1/-1" }}>
+                <label style={lbl}>Lugar / Dirección</label>
+                <input value={form.lugar} onChange={e=>ff("lugar",e.target.value)} placeholder="Ej: Condominio Los Álamos, Vitacura" style={inp} />
+              </div>
+            </div>
+          )}
+
+          {/* TAB CHECKLIST */}
+          {tab==="checklist" && (
+            <div>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+                <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>
+                  {doneItems}/{totalItems} ítems · {pct}% completado
+                </div>
+                <div style={{ height:8, width:200, background:COLORS.border, borderRadius:4, overflow:"hidden" }}>
+                  <div style={{ height:8, borderRadius:4, background:pct===100?COLORS.green:TC, width:`${pct}%`, transition:"width 0.3s" }} />
+                </div>
+              </div>
+              {(checklist||[]).map((sec,sIdx)=>(
+                <div key={sIdx} style={{ marginBottom:16 }}>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.text, marginBottom:8, padding:"6px 10px", background:COLORS.surface, borderRadius:6, borderLeft:`3px solid ${TC}` }}>
+                    {sec.seccion}
+                  </div>
+                  {(sec.items||[]).map((it,iIdx)=>(
+                    <div key={iIdx} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 10px", borderBottom:`1px solid ${COLORS.border}11` }}>
+                      <div style={{ flex:1, fontFamily:FONT, fontSize:11, color:COLORS.text }}>{it.label}</div>
+                      {[{k:"ok",l:"✓ OK",c:COLORS.green},{k:"obs",l:"⚠ OBS",c:COLORS.yellow},{k:"na",l:"N/A",c:COLORS.textMuted}].map(({k,l,c})=>(
+                        <button key={k} onClick={()=>setItem(sIdx,iIdx,"estado",it.estado===k?null:k)}
+                          style={{ padding:"2px 8px", borderRadius:5, fontFamily:FONT, fontSize:10, cursor:"pointer",
+                            background:it.estado===k?`${c}22`:"transparent", border:`1px solid ${it.estado===k?c:COLORS.border}`,
+                            color:it.estado===k?c:COLORS.textMuted }}>
+                          {l}
+                        </button>
+                      ))}
+                      {it.estado==="obs" && (
+                        <input value={it.obs||""} onChange={e=>setItem(sIdx,iIdx,"obs",e.target.value)}
+                          placeholder="Observación…"
+                          style={{ ...inp, width:160, padding:"2px 8px", fontSize:10 }} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* TAB CONFORMIDAD */}
+          {tab==="conformidad" && (
+            <div>
+              {/* Valor confirmado */}
+              <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16, marginBottom:16 }}>
+                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>Resumen del servicio</div>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                  <div><label style={lbl}>Técnico</label><div style={{ fontFamily:FONT_DISPLAY, fontSize:13, color:COLORS.text }}>{form.tecnico||"—"}</div></div>
+                  <div><label style={lbl}>Valor del servicio</label><div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.green }}>{form.valor_servicio ? fmtClp(form.valor_servicio) : "No definido"}</div></div>
+                  <div><label style={lbl}>Tipo</label><div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text }}>{form.tipo_servicio}</div></div>
+                  <div><label style={lbl}>Avance checklist</label><div style={{ fontFamily:FONT_DISPLAY, fontSize:13, color:pct===100?COLORS.green:COLORS.yellow }}>{pct}%</div></div>
+                </div>
+              </div>
+              {/* Observaciones cierre */}
+              <div style={{ marginBottom:16 }}>
+                <label style={lbl}>Observaciones de cierre</label>
+                <textarea value={form.observaciones} onChange={e=>ff("observaciones",e.target.value)}
+                  rows={3} placeholder="Trabajo realizado, materiales usados, recomendaciones…"
+                  style={{ ...inp, resize:"vertical" }} />
+              </div>
+              {/* Firma cliente */}
+              <div style={{ marginBottom:16 }}>
+                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>
+                  Firma de conformidad del cliente
+                </div>
+                {firma.img ? (
+                  <div style={{ textAlign:"center" }}>
+                    <img src={firma.img} style={{ maxWidth:"100%", height:100, border:`1px solid ${COLORS.green}44`, borderRadius:8, background:"#fff" }} alt="firma" />
+                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:6 }}>{firma.nombre}</div>
+                    <button onClick={()=>{ setFirma({img:null,nombre:""}); setFirmaMode(true); }}
+                      style={{ marginTop:8, padding:"4px 12px", borderRadius:6, fontFamily:FONT, fontSize:10, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red }}>
+                      Borrar firma
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    {!firmaMode ? (
+                      <button onClick={()=>setFirmaMode(true)}
+                        style={{ width:"100%", padding:"20px 0", background:`${TC}11`, border:`2px dashed ${TC}44`, borderRadius:10, fontFamily:FONT_DISPLAY, fontSize:13, color:TC, cursor:"pointer" }}>
+                        ✍️ Capturar firma del cliente
+                      </button>
+                    ) : (
+                      <div>
+                        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:6 }}>El cliente firma directamente en pantalla:</div>
+                        <canvas ref={canvasRef} width={680} height={120}
+                          style={{ width:"100%", height:120, background:"#f0f0f0", borderRadius:8, cursor:"crosshair", touchAction:"none", border:`1px solid ${COLORS.border}` }}
+                          onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw}
+                          onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw} />
+                        <input value={firma.nombre} onChange={e=>setFirma(p=>({...p,nombre:e.target.value}))}
+                          placeholder="Nombre del firmante"
+                          style={{ ...inp, marginTop:8 }} />
+                        <div style={{ display:"flex", gap:8, marginTop:8 }}>
+                          <button onClick={clearFirma} style={{ flex:1, padding:"8px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:7, fontFamily:FONT, fontSize:12, color:COLORS.textMuted, cursor:"pointer" }}>🗑 Limpiar</button>
+                          <button onClick={saveFirma} style={{ flex:2, padding:"8px 0", background:COLORS.green, border:"none", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:"#fff", cursor:"pointer" }}>✓ Aceptar firma</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer acciones */}
+        <div style={{ padding:"14px 22px", borderTop:`1px solid ${COLORS.border}`, display:"flex", gap:8, flexShrink:0, flexWrap:"wrap" }}>
+          <button onClick={onClose} style={{ flex:1, padding:"10px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer" }}>Cancelar</button>
+          <button onClick={()=>save("en_progreso")} disabled={saving}
+            style={{ flex:1, padding:"10px 0", background:`${TC}22`, border:`1px solid ${TC}44`, borderRadius:8, color:TC, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>
+            {saving?"Guardando…":"Guardar borrador"}
+          </button>
+          {firma.img && (
+            <button onClick={()=>save("firmada")} disabled={saving}
+              style={{ flex:2, padding:"10px 0", background:COLORS.green, border:"none", borderRadius:8, color:"#fff", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>
+              ✓ Confirmar con firma
+            </button>
+          )}
+          {!firma.img && (
+            <button onClick={()=>save("completada")} disabled={saving}
+              style={{ flex:2, padding:"10px 0", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>
+              Marcar completada
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 function OperacionesView({ isMobile }) {
   const [ops, setOps]             = useState([]);
@@ -14438,19 +14779,28 @@ function OperacionesView({ isMobile }) {
   const [showModal, setShowModal] = useState(false);
   const [editOp, setEditOp]       = useState(null);
   const [filterTipo, setFilterTipo] = useState("todos");
+  const [mainTab, setMainTab]     = useState("registros"); // "registros" | "ot"
+
+  // OT state
+  const [ots, setOts]             = useState([]);
+  const [showOTModal, setShowOTModal] = useState(false);
+  const [editOT, setEditOT]       = useState(null);
+  const [filterOTEstado, setFilterOTEstado] = useState("todos");
 
   useEffect(()=>{ load(); },[]);
 
   const load = async () => {
     setLoading(true);
-    const [{ data:opsData },{ data:qData },{ data:cData }] = await Promise.all([
+    const [{ data:opsData },{ data:qData },{ data:cData },{ data:otData }] = await Promise.all([
       supabase.from("operaciones_terreno").select("*").order("created_at",{ascending:false}),
-      supabase.from("cotizaciones").select("id,numero,nombre_cliente,razon_social,estado").order("numero",{ascending:false}),
+      supabase.from("cotizaciones").select("id,numero,serie,nombre_cliente,razon_social,estado").order("numero",{ascending:false}),
       supabase.from("contactos").select("id,nombre,empresa"),
+      supabase.from("ordenes_trabajo").select("*").order("created_at",{ascending:false}),
     ]);
     setOps(opsData||[]);
     setQuotes(qData||[]);
     setContacts(cData||[]);
+    setOts(otData||[]);
     setLoading(false);
   };
 
@@ -14470,27 +14820,141 @@ function OperacionesView({ isMobile }) {
   const ESTADO_COLOR = { borrador:COLORS.textMuted, completado:COLORS.yellow, firmado:COLORS.green };
   const ESTADO_LABEL = { borrador:"Borrador", completado:"Completado", firmado:"Firmado" };
 
+  const ESTADO_OT_CFG = { todos:{label:"Todos",color:COLORS.textMuted}, pendiente:{label:"Pendiente",color:"#FFB800"}, en_progreso:{label:"En progreso",color:COLORS.accent}, completada:{label:"Completada",color:COLORS.yellow}, firmada:{label:"Firmada",color:COLORS.green} };
+  const filteredOTs = ots.filter(o=>filterOTEstado==="todos"||o.estado===filterOTEstado);
+  const fmtClp = n => "$"+Math.round(n||0).toLocaleString("es-CL");
+
   return (
     <div>
       {/* Header */}
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:20, flexWrap:"wrap", gap:10 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:16, flexWrap:"wrap", gap:10 }}>
         <div>
           <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Terreno · Documentos técnicos</div>
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Operaciones</div>
         </div>
-        <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
-          {/* Filtro tipo */}
-          <div style={{ display:"flex", gap:4, background:COLORS.surface, padding:3, borderRadius:8, border:`1px solid ${COLORS.border}` }}>
-            {TIPOS.map(t=>(
-              <button key={t} onClick={()=>setFilterTipo(t)}
-                style={{ padding:"5px 14px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", border:"none",
-                  background:filterTipo===t?`${TIPO_COLOR[t]||COLORS.accent}22`:"transparent",
-                  color:filterTipo===t?(TIPO_COLOR[t]||COLORS.accent):COLORS.textMuted }}>
-                {t==="todos"?"Todos":TIPO_LABEL[t]}
+        <div style={{ display:"flex", gap:8 }}>
+          {mainTab==="registros" && <AddBtn onClick={()=>{ setEditOp(null); setShowModal(true); }} label="Nueva operación" />}
+          {mainTab==="ot" && <AddBtn onClick={()=>{ setEditOT(null); setShowOTModal(true); }} label="Nueva OT" />}
+        </div>
+      </div>
+
+      {/* Main tabs */}
+      <div style={{ display:"flex", gap:0, borderBottom:`1px solid ${COLORS.border}`, marginBottom:20 }}>
+        {[{k:"registros",l:"📋 Registros de terreno"},{k:"ot",l:"🔧 Órdenes de Trabajo"}].map(t=>(
+          <button key={t.k} onClick={()=>setMainTab(t.k)}
+            style={{ padding:"9px 22px", fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer", border:"none", background:"transparent",
+              color:mainTab===t.k?COLORS.accent:COLORS.textMuted,
+              borderBottom:`2px solid ${mainTab===t.k?COLORS.accent:"transparent"}`,
+              marginBottom:-1, transition:"all 0.15s" }}>
+            {t.l}
+            {t.k==="ot" && ots.filter(o=>o.estado==="pendiente").length>0 && (
+              <span style={{ marginLeft:6, background:COLORS.red, color:"#fff", borderRadius:8, padding:"1px 6px", fontSize:10 }}>
+                {ots.filter(o=>o.estado==="pendiente").length}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* ── VISTA ÓRDENES DE TRABAJO ── */}
+      {mainTab==="ot" && (
+        <div>
+          {/* KPIs OT */}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:10, marginBottom:18 }}>
+            {[
+              { label:"Total OTs",    val:ots.length,                                              color:COLORS.accent },
+              { label:"Pendientes",   val:ots.filter(o=>o.estado==="pendiente").length,            color:"#FFB800" },
+              { label:"En progreso",  val:ots.filter(o=>o.estado==="en_progreso").length,          color:COLORS.accent },
+              { label:"Firmadas",     val:ots.filter(o=>o.estado==="firmada").length,              color:COLORS.green },
+              { label:"Valor total",  val:fmtClp(ots.reduce((s,o)=>s+Number(o.valor_servicio||0),0)), color:COLORS.green, wide:true },
+            ].map(({label,val,color})=>(
+              <div key={label} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"12px 16px" }}>
+                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>{label}</div>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color }}>{val}</div>
+              </div>
+            ))}
+          </div>
+          {/* Filtro estado */}
+          <div style={{ display:"flex", gap:4, marginBottom:16, flexWrap:"wrap" }}>
+            {Object.entries(ESTADO_OT_CFG).map(([k,v])=>(
+              <button key={k} onClick={()=>setFilterOTEstado(k)}
+                style={{ padding:"4px 12px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer",
+                  background:filterOTEstado===k?`${v.color}22`:"transparent",
+                  border:`1px solid ${filterOTEstado===k?v.color:COLORS.border}`,
+                  color:filterOTEstado===k?v.color:COLORS.textMuted }}>
+                {v.label}
               </button>
             ))}
           </div>
-          <AddBtn onClick={()=>{ setEditOp(null); setShowModal(true); }} label="Nueva operación" />
+          {/* Lista OTs */}
+          {loading ? <div style={{ padding:32, textAlign:"center", fontFamily:FONT, color:COLORS.textMuted }}>Cargando…</div>
+          : filteredOTs.length===0 ? (
+            <div style={{ padding:40, textAlign:"center", background:COLORS.card, borderRadius:12, border:`1px solid ${COLORS.border}`, fontFamily:FONT, color:COLORS.textMuted }}>
+              Sin órdenes de trabajo. Crea la primera con "+ Nueva OT".
+            </div>
+          ) : (
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {filteredOTs.map(o=>{
+                const est = ESTADO_OT_CFG[o.estado]||ESTADO_OT_CFG.pendiente;
+                const pct = (o.checklist||[]).length>0 ? (() => {
+                  const total=(o.checklist||[]).reduce((s,sec)=>s+(sec.items||[]).length,0);
+                  const done=(o.checklist||[]).reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado==="ok"||it.estado==="obs").length,0);
+                  return total>0?Math.round(done/total*100):0;
+                })() : 0;
+                return (
+                  <div key={o.id} onClick={()=>{ setEditOT(o); setShowOTModal(true); }}
+                    style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderLeft:`4px solid ${est.color}`, borderRadius:10, padding:"14px 18px", cursor:"pointer", display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>
+                    <div style={{ minWidth:80 }}>
+                      <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase" }}>OT</div>
+                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.accent }}>{o.numero_ot||"—"}</div>
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, marginBottom:2 }}>{o.actividad||"Sin descripción"}</div>
+                      <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+                        {o.tecnico && <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>👤 {o.tecnico}</span>}
+                        {o.cliente_nombre && <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>🏢 {o.cliente_nombre}</span>}
+                        {o.fecha_programada && <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>📅 {new Date(o.fecha_programada+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short"})}</span>}
+                        <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>🔧 {o.equipo_tipo}</span>
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4, minWidth:100 }}>
+                      <span style={{ fontFamily:FONT, fontSize:10, background:`${est.color}22`, color:est.color, border:`1px solid ${est.color}44`, borderRadius:10, padding:"2px 8px", fontWeight:700 }}>{est.label}</span>
+                      {o.valor_servicio>0 && <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.green }}>{fmtClp(o.valor_servicio)}</span>}
+                      {pct>0 && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Checklist {pct}%</span>}
+                      {o.firma_imagen && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.green }}>✓ Firmado</span>}
+                    </div>
+                    <button onClick={e=>{ e.stopPropagation(); if(window.confirm("¿Eliminar esta OT?")){ supabase.from("ordenes_trabajo").delete().eq("id",o.id); setOts(prev=>prev.filter(x=>x.id!==o.id)); } }}
+                      style={{ background:"none", border:`1px solid ${COLORS.red}44`, borderRadius:6, color:COLORS.red, cursor:"pointer", padding:"4px 8px", fontSize:12, flexShrink:0 }}>✕</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {showOTModal && (
+            <OTModal
+              ot={editOT}
+              quotes={quotes}
+              onClose={()=>{ setShowOTModal(false); setEditOT(null); }}
+              onSaved={(data,isNew)=>{ setOts(prev=>isNew?[data,...prev]:prev.map(o=>o.id===data.id?data:o)); setShowOTModal(false); setEditOT(null); }}
+            />
+          )}
+        </div>
+      )}
+
+      {/* ── VISTA REGISTROS (existente) ── */}
+      {mainTab==="registros" && (<div>
+
+      {/* Filtro tipo + stats */}
+      <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:16, flexWrap:"wrap" }}>
+        <div style={{ display:"flex", gap:4, background:COLORS.surface, padding:3, borderRadius:8, border:`1px solid ${COLORS.border}` }}>
+          {TIPOS.map(t=>(
+            <button key={t} onClick={()=>setFilterTipo(t)}
+              style={{ padding:"5px 14px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", border:"none",
+                background:filterTipo===t?`${TIPO_COLOR[t]||COLORS.accent}22`:"transparent",
+                color:filterTipo===t?(TIPO_COLOR[t]||COLORS.accent):COLORS.textMuted }}>
+              {t==="todos"?"Todos":TIPO_LABEL[t]}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -14597,6 +15061,7 @@ function OperacionesView({ isMobile }) {
           onPrint={(op)=>{ const q=quotes.find(q=>q.id===op.quote_id); printOp(op,q); }}
         />
       )}
+    </div>)} {/* cierre registros tab */}
     </div>
   );
 }
@@ -14806,6 +15271,8 @@ function OpModal({ op, quotes, contacts, onClose, onSaved, onPrint }) {
       const cotN = q?.numero||"00";
       const payload = {
         tipo, ...form,
+        garantia_meses: form.garantia_meses !== "" ? Number(form.garantia_meses) : null,
+        revision:       Number(form.revision||0),
         checklist: checklist||[],
         firma_imagen: firma.img||null,
         firma_nombre: firma.nombre||null,
