@@ -14463,9 +14463,9 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
     return "";
   });
   const [showCotResults, setShowCotResults] = useState(false);
-  const [servicioSearch, setServicioSearch] = useState(ot?.nombre_servicio||"");
-  const [showServResults, setShowServResults] = useState(false);
-  const [matSearch, setMatSearch] = useState("");
+  const [showServPanel, setShowServPanel]   = useState(false);
+  const [busquedaServ, setBusquedaServ]     = useState("");
+  const [matSearch, setMatSearch]           = useState("");
   const [showMatResults, setShowMatResults] = useState(false);
 
   const [form, setForm] = useState({
@@ -14555,17 +14555,17 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
     }).slice(0,8);
   },[cotSearch, quotes, form.cotizacion_id]);
 
-  // Resultados búsqueda servicio del maestro — busca en todos los productos
+  // Resultados búsqueda servicio del maestro — patrón igual al cotizador
   const servicioResults = React.useMemo(()=>{
-    if(!servicioSearch.trim()||form.codigo_servicio) return [];
-    const q = servicioSearch.toLowerCase().replace(/[.\-\/]/g,"");
+    if(busquedaServ.length < 2) return [];
+    const q = busquedaServ.toLowerCase();
     return (productos||[]).filter(p=>{
-      const cod  = (p.codigo||"").toLowerCase().replace(/[.\-\/]/g,"");
+      const cod  = (p.codigo||"").toLowerCase();
       const nom  = (p.nombre||"").toLowerCase();
-      const desc = (p.descripcion||p.modelo||"").toLowerCase();
-      return cod.includes(q) || nom.includes(q) || desc.includes(q) || (p.codigo||"").toLowerCase().includes(servicioSearch.toLowerCase());
+      const mod  = (p.modelo||"").toLowerCase();
+      return cod.includes(q) || nom.includes(q) || mod.includes(q);
     }).slice(0,10);
-  },[servicioSearch, productos, form.codigo_servicio]);
+  },[busquedaServ, productos]);
 
   // Resultados búsqueda materiales
   const matResults = React.useMemo(()=>{
@@ -14593,17 +14593,14 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
   const selectServicio = (prod) => {
     ff("codigo_servicio", prod.codigo||"");
     ff("nombre_servicio", prod.nombre);
-    // Auto-rellena actividad si está vacío
     if(!form.actividad){
-      ff("actividad", prod.descripcion||prod.modelo||prod.nombre);
+      ff("actividad", prod.modelo||prod.nombre);
     }
-    // Auto-sugiere precio si el campo está vacío o es 0
     if((!form.valor_servicio || Number(form.valor_servicio)===0) && prod.precio){
       ff("valor_servicio", String(prod.precio));
     }
-    const display = prod.codigo ? `${prod.codigo} — ${prod.nombre}` : prod.nombre;
-    setServicioSearch(display);
-    setShowServResults(false);
+    setBusquedaServ("");
+    setShowServPanel(false);
   };
 
   // Canvas firma
@@ -14773,41 +14770,64 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
                   {Object.keys(CHECKLIST_TEMPLATES).map(k=><option key={k} value={k}>{k}</option>)}
                 </select>
               </div>
-              {/* Código de servicio del Maestro */}
+              {/* Código de servicio — mismo patrón que cotizador */}
               <div style={{ gridColumn:"1/-1" }}>
                 <label style={lbl}>Línea de servicio (Maestro de productos)</label>
                 <div style={{ position:"relative" }}>
-                  <input value={servicioSearch}
-                    onChange={e=>{ setServicioSearch(e.target.value); setShowServResults(true); if(!e.target.value){ ff("codigo_servicio",""); ff("nombre_servicio",""); } }}
-                    onFocus={()=>setShowServResults(true)} onBlur={()=>setTimeout(()=>setShowServResults(false),200)}
-                    placeholder="Buscar por código (SINS-004) o nombre del servicio…"
-                    style={{ ...inp, background: form.codigo_servicio ? `${TC}11` : COLORS.bg, borderColor: form.codigo_servicio ? TC : COLORS.border }} />
-                  {form.codigo_servicio && (
-                    <button onMouseDown={()=>{ ff("codigo_servicio",""); ff("nombre_servicio",""); setServicioSearch(""); }}
-                      style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14, lineHeight:1 }}>✕</button>
-                  )}
-                  {showServResults && servicioResults.length>0 && (
-                    <div style={{ position:"absolute", top:"100%", left:0, right:0, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, zIndex:60, maxHeight:220, overflowY:"auto", boxShadow:"0 8px 30px #0009" }}>
+                  {/* Selección actual o botón */}
+                  <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                    {form.codigo_servicio ? (
+                      <div style={{ flex:1, display:"flex", alignItems:"center", gap:8, background:COLORS.card, border:`1px solid ${TC}44`, borderRadius:6, padding:"8px 12px" }}>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontFamily:FONT, fontSize:10, color:TC, fontWeight:700 }}>{form.codigo_servicio}</div>
+                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, color:COLORS.text, fontWeight:600 }}>{form.nombre_servicio}</div>
+                        </div>
+                        <button onClick={()=>{ ff("codigo_servicio",""); ff("nombre_servicio",""); }}
+                          style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:16, lineHeight:1, padding:0 }}>✕</button>
+                      </div>
+                    ) : (
+                      <div style={{ flex:1, fontFamily:FONT, fontSize:11, color:COLORS.textMuted, background:COLORS.card, border:`1px dashed ${COLORS.border}`, borderRadius:6, padding:"8px 12px" }}>
+                        Sin servicio seleccionado
+                      </div>
+                    )}
+                    <button onClick={()=>{ setShowServPanel(p=>!p); setBusquedaServ(""); }}
+                      style={{ padding:"8px 14px", background:showServPanel?TC:`${TC}22`, border:`1px solid ${TC}44`, borderRadius:6,
+                        fontFamily:FONT_DISPLAY, fontSize:11, color:showServPanel?COLORS.bg:TC, cursor:"pointer", whiteSpace:"nowrap", fontWeight:600 }}>
+                      🔍 {form.codigo_servicio?"Cambiar":"Buscar"}
+                    </button>
+                  </div>
+                  {/* Panel de búsqueda — igual al cotizador */}
+                  {showServPanel && (
+                    <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:200, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, boxShadow:"0 6px 24px #0009", marginTop:4 }}>
+                      <div style={{ padding:"8px 10px", borderBottom:`1px solid ${COLORS.border}22` }}>
+                        <input autoFocus value={busquedaServ} onChange={e=>setBusquedaServ(e.target.value)}
+                          placeholder="Buscar por código (SINS-004, SMTO-004) o nombre…"
+                          style={{ ...inp, fontSize:12, padding:"6px 10px" }} />
+                      </div>
+                      {busquedaServ.length < 2 && (
+                        <div style={{ padding:"10px 14px", fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Escribe al menos 2 caracteres… ({productos.length} productos cargados)</div>
+                      )}
+                      {busquedaServ.length >= 2 && servicioResults.length === 0 && (
+                        <div style={{ padding:"10px 14px", fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Sin resultados para "{busquedaServ}"</div>
+                      )}
                       {servicioResults.map(p=>(
-                        <div key={p.id} onMouseDown={()=>selectServicio(p)}
-                          style={{ padding:"10px 14px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}22`, display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                        <div key={p.id} onClick={()=>selectServicio(p)}
+                          style={{ padding:"9px 14px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}11`, display:"flex", justifyContent:"space-between", alignItems:"center" }}
+                          onMouseEnter={e=>e.currentTarget.style.background=COLORS.card}
+                          onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                           <div>
-                            <div style={{ fontFamily:FONT, fontSize:11, color:TC, fontWeight:700, marginBottom:2 }}>{p.codigo||"SIN CÓDIGO"}</div>
-                            <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, color:COLORS.text, fontWeight:600 }}>{p.nombre}</div>
-                            {(p.descripcion||p.modelo) && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:1 }}>{p.descripcion||p.modelo}</div>}
+                            <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text }}>{p.nombre}</div>
+                            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{p.codigo||"—"} · {p.modelo||p.categoria||""}</div>
                           </div>
-                          {p.precio>0 && <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, color:COLORS.green, fontWeight:700, flexShrink:0, marginLeft:12 }}>${Number(p.precio).toLocaleString("es-CL")}</div>}
+                          <div style={{ textAlign:"right", flexShrink:0, marginLeft:12 }}>
+                            {p.precio>0 && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.green, fontWeight:700 }}>${Number(p.precio).toLocaleString("es-CL")}</div>}
+                            <div style={{ fontFamily:FONT, fontSize:10, color:TC, fontWeight:700 }}>{p.codigo}</div>
+                          </div>
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
-                {form.codigo_servicio && (
-                  <div style={{ fontFamily:FONT, fontSize:10, color:TC, marginTop:4, display:"flex", alignItems:"center", gap:6 }}>
-                    <span style={{ background:`${TC}22`, padding:"2px 8px", borderRadius:4, fontWeight:700 }}>{form.codigo_servicio}</span>
-                    <span>{form.nombre_servicio}</span>
-                  </div>
-                )}
               </div>
               {/* Actividad */}
               <div style={{ gridColumn:"1/-1" }}>
