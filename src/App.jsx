@@ -14451,11 +14451,8 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
   const isNew = !ot;
   const [tab, setTab]           = useState("info");
   const [saving, setSaving]     = useState(false);
-  const [tecnicos, setTecnicos] = useState([]);
   const [productos, setProductosOT] = useState([]); // cargado internamente
   const [proveedores, setProveedores] = useState([]);
-  const [addTecMode, setAddTecMode] = useState(false);
-  const [newTec, setNewTec]     = useState({ nombre:"", rut:"", especialidad:"" });
   const [cotSearch, setCotSearch] = useState(()=>{
     if(ot?.cotizacion_id){
       const q = (quotes||[]).find(q=>q.id===ot.cotizacion_id);
@@ -14470,8 +14467,6 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
   const [showMatResults, setShowMatResults] = useState(false);
 
   const [form, setForm] = useState({
-    tecnico:          ot?.tecnico||"",
-    tecnico_rut:      ot?.tecnico_rut||"",
     actividad:        ot?.actividad||"",
     tipo_servicio:    ot?.tipo_servicio||"mantencion",
     equipo_tipo:      ot?.equipo_tipo||Object.keys(CHECKLIST_TEMPLATES)[0],
@@ -14495,10 +14490,8 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
   const drawing   = React.useRef(false);
   const ff = (k,v) => setForm(p=>({...p,[k]:v}));
 
-  // Cargar técnicos y productos desde DB
+  // Cargar productos y proveedores desde DB
   React.useEffect(()=>{
-    supabase.from("tecnicos").select("*").eq("activo",true).order("nombre")
-      .then(({data})=>setTecnicos(data||[]));
     supabase.from("products").select("id,nombre,codigo,tipo,precio,descripcion,unidad,categoria").order("codigo")
       .then(({data,error})=>{
         if(!error && data) setProductosOT(data);
@@ -14531,21 +14524,6 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
   const totalItems = (checklist||[]).reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado!=="na").length,0);
   const doneItems  = (checklist||[]).reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado==="ok"||it.estado==="ok_c").length,0);
   const pct = totalItems>0?Math.round(doneItems/totalItems*100):0;
-
-  // Agregar técnico a DB
-  const addTecnico = async () => {
-    if(!newTec.nombre.trim()) return;
-    const { data, error } = await supabase.from("tecnicos")
-      .insert({ nombre:newTec.nombre.trim(), rut:newTec.rut||null, especialidad:newTec.especialidad||null })
-      .select().single();
-    if(!error && data){
-      setTecnicos(prev=>[...prev, data].sort((a,b)=>a.nombre.localeCompare(b.nombre)));
-      ff("tecnico", data.nombre);
-      ff("tecnico_rut", data.rut||"");
-    }
-    setNewTec({nombre:"",rut:"",especialidad:""});
-    setAddTecMode(false);
-  };
 
   // Resultados búsqueda COT
   const cotResults = React.useMemo(()=>{
@@ -14616,8 +14594,8 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
 
   const save = async (nuevoEstado) => {
     const isBorrador = nuevoEstado === "borrador";
-    if(!isBorrador && (!form.tecnico || !form.actividad)) {
-      alert("Para generar la OT se requiere técnico y actividad.");
+    if(!isBorrador && !form.actividad) {
+      alert("Para generar la OT se requiere la actividad/descripción.");
       return;
     }
     setSaving(true);
@@ -14659,8 +14637,8 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
           ot_id:       data.id,
           numero_ot:   data.numero_ot,
           concepto:    `OT ${data.numero_ot} — ${form.actividad}`,
-          beneficiario: form.tecnico||"",
-          beneficiario_rut: form.tecnico_rut||null,
+          beneficiario: form.proveedor_nombre||"",
+          beneficiario_rut: null,
           monto:       Number(payload.valor_servicio),
           estado:      "pendiente",
         };
@@ -14732,43 +14710,6 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
           {/* TAB INFO */}
           {tab==="info" && (
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-              {/* Técnico */}
-              <div style={{ gridColumn:"1/-1" }}>
-                <label style={lbl}>Técnico asignado *</label>
-                <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:6 }}>
-                  {tecnicos.map(t=>(
-                    <button key={t.id} onClick={()=>{ ff("tecnico",t.nombre); ff("tecnico_rut",t.rut||""); }}
-                      title={t.rut||t.especialidad||""}
-                      style={{ padding:"5px 12px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer",
-                        background:form.tecnico===t.nombre?`${TC}22`:"transparent",
-                        border:`1px solid ${form.tecnico===t.nombre?TC:COLORS.border}`,
-                        color:form.tecnico===t.nombre?TC:COLORS.textMuted }}>
-                      {t.nombre}{t.rut && <span style={{ fontSize:9, opacity:0.6 }}> · {t.rut}</span>}
-                    </button>
-                  ))}
-                  {!addTecMode && (
-                    <button onClick={()=>setAddTecMode(true)}
-                      style={{ padding:"5px 10px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer",
-                        background:"transparent", border:`1px dashed ${COLORS.border}`, color:COLORS.textMuted }}>
-                      + Nuevo técnico
-                    </button>
-                  )}
-                </div>
-                {addTecMode && (
-                  <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:12, marginBottom:8 }}>
-                    <div style={{ fontFamily:FONT, fontSize:10, color:TC, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>Agregar técnico al sistema</div>
-                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
-                      <div><label style={lbl}>Nombre completo *</label><input value={newTec.nombre} onChange={e=>setNewTec(p=>({...p,nombre:e.target.value}))} placeholder="Ej: Juan Pérez" style={inp} /></div>
-                      <div><label style={lbl}>RUT</label><input value={newTec.rut} onChange={e=>setNewTec(p=>({...p,rut:e.target.value}))} placeholder="12.345.678-9" style={inp} /></div>
-                      <div><label style={lbl}>Especialidad</label><input value={newTec.especialidad} onChange={e=>setNewTec(p=>({...p,especialidad:e.target.value}))} placeholder="Ej: Automatización" style={inp} /></div>
-                    </div>
-                    <div style={{ display:"flex", gap:8, marginTop:8 }}>
-                      <button onClick={()=>setAddTecMode(false)} style={{ flex:1, padding:"7px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, fontFamily:FONT, fontSize:11, color:COLORS.textMuted, cursor:"pointer" }}>Cancelar</button>
-                      <button onClick={addTecnico} style={{ flex:2, padding:"7px 0", background:`${TC}22`, border:`1px solid ${TC}`, borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:TC, cursor:"pointer" }}>Guardar técnico</button>
-                    </div>
-                  </div>
-                )}
-              </div>
               {/* Proveedor / Subcontratista */}
               <div style={{ gridColumn:"1/-1" }}>
                 <label style={lbl}>Proveedor / Subcontratista</label>
@@ -15028,7 +14969,7 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
               <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16, marginBottom:16 }}>
                 <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>Resumen del servicio</div>
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-                  <div><label style={lbl}>Técnico</label><div style={{ fontFamily:FONT_DISPLAY, fontSize:13, color:COLORS.text }}>{form.tecnico||"—"}{form.tecnico_rut&&<span style={{ fontSize:10, color:COLORS.textMuted }}> · {form.tecnico_rut}</span>}</div></div>
+                  <div><label style={lbl}>Proveedor</label><div style={{ fontFamily:FONT_DISPLAY, fontSize:13, color:COLORS.text }}>{form.proveedor_nombre||"—"}</div></div>
                   <div><label style={lbl}>Valor del servicio</label><div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.green }}>{form.valor_servicio ? fmtClp(form.valor_servicio) : "No definido"}</div></div>
                   <div><label style={lbl}>Tipo</label><div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text }}>{form.tipo_servicio}{form.codigo_servicio&&<span style={{ color:TC, fontSize:10 }}> · {form.codigo_servicio}</span>}</div></div>
                   <div><label style={lbl}>Avance checklist</label><div style={{ fontFamily:FONT_DISPLAY, fontSize:13, color:pct===100?COLORS.green:COLORS.yellow }}>{pct}%</div></div>
@@ -15107,9 +15048,9 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
             </button>
           )}
           {isNew && (
-            <button onClick={()=>save("pendiente")} disabled={saving||(!form.tecnico||!form.actividad)}
+            <button onClick={()=>save("pendiente")} disabled={saving||!form.actividad}
               style={{ padding:"10px 24px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer",
-                opacity:(!form.tecnico||!form.actividad)?0.45:1 }}>
+                opacity:!form.actividad?0.45:1 }}>
               {saving?"Generando…":"Generar OT"}
             </button>
           )}
@@ -15270,7 +15211,7 @@ function OperacionesView({ isMobile }) {
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, marginBottom:2 }}>{o.actividad||"Sin descripción"}</div>
                       <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
-                        {o.tecnico && <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>👤 {o.tecnico}</span>}
+                        {o.proveedor_nombre && <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>👤 {o.proveedor_nombre}</span>}
                         {o.cliente_nombre && <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>🏢 {o.cliente_nombre}</span>}
                         {o.fecha_programada && <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>📅 {new Date(o.fecha_programada+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short"})}</span>}
                         <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>🔧 {o.equipo_tipo}</span>
