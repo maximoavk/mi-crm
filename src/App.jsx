@@ -14447,11 +14447,12 @@ function buildChecklist(template) {
 }
 
 // ─── OT MODAL ────────────────────────────────────────────────────────────────
-function OTModal({ ot, quotes, productos, onClose, onSaved }) {
+function OTModal({ ot, quotes, onClose, onSaved }) {
   const isNew = !ot;
   const [tab, setTab]           = useState("info");
   const [saving, setSaving]     = useState(false);
   const [tecnicos, setTecnicos] = useState([]);
+  const [productos, setProductosOT] = useState([]); // cargado internamente
   const [addTecMode, setAddTecMode] = useState(false);
   const [newTec, setNewTec]     = useState({ nombre:"", rut:"", especialidad:"" });
   const [cotSearch, setCotSearch] = useState(()=>{
@@ -14492,10 +14493,14 @@ function OTModal({ ot, quotes, productos, onClose, onSaved }) {
   const drawing   = React.useRef(false);
   const ff = (k,v) => setForm(p=>({...p,[k]:v}));
 
-  // Cargar técnicos desde DB
+  // Cargar técnicos y productos desde DB
   React.useEffect(()=>{
     supabase.from("tecnicos").select("*").eq("activo",true).order("nombre")
       .then(({data})=>setTecnicos(data||[]));
+    supabase.from("productos").select("id,nombre,codigo,tipo,precio,modelo,categoria").order("nombre")
+      .then(({data,error})=>{
+        if(!error && data) setProductosOT(data);
+      });
   },[]);
 
   // Auto-fill cliente desde COT
@@ -15059,7 +15064,6 @@ function OperacionesView({ isMobile }) {
   const [editOp, setEditOp]       = useState(null);
   const [filterTipo, setFilterTipo] = useState("todos");
   const [mainTab, setMainTab]     = useState("registros"); // "registros" | "ot"
-  const [productos, setProductos] = useState([]);
 
   // OT state
   const [ots, setOts]             = useState([]);
@@ -15071,18 +15075,16 @@ function OperacionesView({ isMobile }) {
 
   const load = async () => {
     setLoading(true);
-    const [{ data:opsData },{ data:qData },{ data:cData },{ data:otData },{ data:prodData }] = await Promise.all([
+    const [{ data:opsData },{ data:qData },{ data:cData },{ data:otData }] = await Promise.all([
       supabase.from("operaciones_terreno").select("*").order("created_at",{ascending:false}),
       supabase.from("cotizaciones").select("id,numero,serie,nombre_cliente,razon_social,estado").order("numero",{ascending:false}),
       supabase.from("contactos").select("id,nombre,empresa"),
       supabase.from("ordenes_trabajo").select("*").order("created_at",{ascending:false}),
-      supabase.from("productos").select("id,nombre,codigo,tipo,precio,descripcion,modelo").order("nombre"),
     ]);
     setOps(opsData||[]);
     setQuotes(qData||[]);
     setContacts(cData||[]);
     setOts(otData||[]);
-    setProductos(prodData||[]);
     setLoading(false);
   };
 
@@ -15216,7 +15218,6 @@ function OperacionesView({ isMobile }) {
             <OTModal
               ot={editOT}
               quotes={quotes}
-              productos={productos}
               onClose={()=>{ setShowOTModal(false); setEditOT(null); }}
               onSaved={(data,isNew)=>{ setOts(prev=>isNew?[data,...prev]:prev.map(o=>o.id===data.id?data:o)); setShowOTModal(false); setEditOT(null); }}
             />
