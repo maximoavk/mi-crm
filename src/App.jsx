@@ -1866,6 +1866,44 @@ function GanttView({ isMobile }) {
 
   const updateTask = (id, field, val) => setTasks(t=>t.map(r=>r.id===id?{...r,[field]:val}:r));
   const deleteTask = (id) => setTasks(t=>t.filter(r=>r.id!==id));
+
+  // ── Numeración automática y totales HH por fase ──────────────────────────
+  const ganttMeta = useMemo(() => {
+    const numbers = {};
+    const phaseChildrenMap = {}; // faseId → [taskIds]
+    let faseCount = 0;
+    let currentFaseId = null;
+    let subCount = 0;
+    let noFaseCount = 0;
+    tasks.forEach(t => {
+      if (t.tipo === "F") {
+        faseCount++;
+        subCount = 0;
+        currentFaseId = t.id;
+        phaseChildrenMap[t.id] = [];
+        numbers[t.id] = `${faseCount}.0`;
+      } else {
+        if (currentFaseId) {
+          subCount++;
+          numbers[t.id] = `${faseCount}.${subCount}`;
+          phaseChildrenMap[currentFaseId].push(t.id);
+          if (t.tipo === "H") { currentFaseId = null; subCount = 0; }
+        } else {
+          noFaseCount++;
+          numbers[t.id] = String(noFaseCount);
+        }
+      }
+    });
+    const taskMap = Object.fromEntries(tasks.map(t => [t.id, t]));
+    const phaseHH = {};
+    Object.entries(phaseChildrenMap).forEach(([faseId, childIds]) => {
+      phaseHH[faseId] = {
+        real:     childIds.reduce((s, id) => s + (Number(taskMap[id]?.hhReal)||0), 0),
+        terceros: childIds.reduce((s, id) => s + (Number(taskMap[id]?.hhTerceros)||0), 0),
+      };
+    });
+    return { numbers, phaseHH };
+  }, [tasks]);
   const duplicateTask = (id) => {
     setTasks(prev => {
       const idx = prev.findIndex(t=>t.id===id);
@@ -2109,7 +2147,7 @@ function GanttView({ isMobile }) {
                       <td style={{ padding:"4px 4px", textAlign:"center", color:COLORS.textMuted, fontSize:10, borderRight:`1px solid ${COLORS.border}` }}>
                         <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
                           <button onClick={()=>moveTask(t.id,-1)} style={{ background:"none",border:"none",color:COLORS.textMuted,cursor:"pointer",fontSize:8,padding:0,lineHeight:1 }}>▲</button>
-                          <span>{idx+1}</span>
+                          <span style={{ fontWeight:isFase?700:400, color:isFase?GANTT_COLORS.fase:COLORS.textMuted }}>{ganttMeta.numbers[t.id]||idx+1}</span>
                           <button onClick={()=>moveTask(t.id,1)} style={{ background:"none",border:"none",color:COLORS.textMuted,cursor:"pointer",fontSize:8,padding:0,lineHeight:1 }}>▼</button>
                         </div>
                       </td>
@@ -2190,23 +2228,54 @@ function GanttView({ isMobile }) {
                           </div>
                         )}
                       </td>
-                      {/* HH Pres. */}
+                      {/* HH Pres. — en Fase: presupuesto editable; en otros: HH propias */}
                       <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
-                        {editing ? (
-                          <input type="number" value={t.hhPresup} onChange={e=>updateTask(t.id,"hhPresup",e.target.value)} style={{...s,width:54}} />
-                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.textMuted }}>{t.hhPresup>0?t.hhPresup:"-"}</span>}
+                        {isFase ? (
+                          editing ? (
+                            <input type="number" value={t.hhPresup} onChange={e=>updateTask(t.id,"hhPresup",e.target.value)} style={{...s,width:54}} placeholder="Presup." />
+                          ) : (
+                            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+                              <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.textMuted }}>{t.hhPresup>0?`${t.hhPresup}HH`:"-"}</span>
+                              {t.hhPresup>0 && (() => {
+                                const used = ganttMeta.phaseHH[t.id]?.real||0;
+                                const pctHH = Math.min(100, Math.round((used/t.hhPresup)*100));
+                                const over = used > t.hhPresup;
+                                return (<>
+                                  <div style={{ width:44, height:3, background:COLORS.border, borderRadius:2 }}>
+                                    <div style={{ width:`${pctHH}%`, height:"100%", borderRadius:2, background:over?GANTT_COLORS.late:GANTT_COLORS.done }} />
+                                  </div>
+                                  <span style={{ fontSize:8, color:over?GANTT_COLORS.late:COLORS.textMuted }}>{used}/{t.hhPresup}</span>
+                                </>);
+                              })()}
+                            </div>
+                          )
+                        ) : (
+                          editing ? (
+                            <input type="number" value={t.hhPresup} onChange={e=>updateTask(t.id,"hhPresup",e.target.value)} style={{...s,width:54}} />
+                          ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.textMuted }}>{t.hhPresup>0?t.hhPresup:"-"}</span>
+                        )}
                       </td>
-                      {/* HH Real */}
+                      {/* HH Real — en Fase: auto-suma de tareas hijas; en otros: HH propias */}
                       <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
-                        {editing ? (
-                          <input type="number" value={t.hhReal} onChange={e=>updateTask(t.id,"hhReal",e.target.value)} style={{...s,width:54,color:"#39ff14"}} />
-                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color: t.hhReal>t.hhPresup&&t.hhPresup>0?GANTT_COLORS.late:"#39ff14" }}>{t.hhReal>0?t.hhReal:"-"}</span>}
+                        {isFase ? (() => {
+                          const phaseReal = ganttMeta.phaseHH[t.id]?.real||0;
+                          const over = t.hhPresup>0 && phaseReal>t.hhPresup;
+                          return <span style={{ fontFamily:"monospace", fontSize:10, color:over?GANTT_COLORS.late:"#39ff14", fontWeight:700 }}>{phaseReal>0?phaseReal:"-"}</span>;
+                        })() : (
+                          editing ? (
+                            <input type="number" value={t.hhReal} onChange={e=>updateTask(t.id,"hhReal",e.target.value)} style={{...s,width:54,color:"#39ff14"}} />
+                          ) : <span style={{ fontFamily:"monospace", fontSize:10, color: t.hhReal>t.hhPresup&&t.hhPresup>0?GANTT_COLORS.late:"#39ff14" }}>{t.hhReal>0?t.hhReal:"-"}</span>
+                        )}
                       </td>
-                      {/* HH 3ros */}
+                      {/* HH 3ros — en Fase: auto-suma; en otros: editable */}
                       <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
-                        {editing ? (
-                          <input type="number" value={t.hhTerceros} onChange={e=>updateTask(t.id,"hhTerceros",e.target.value)} style={{...s,width:54,color:COLORS.purple}} />
-                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.purple }}>{t.hhTerceros>0?t.hhTerceros:"-"}</span>}
+                        {isFase ? (
+                          <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.purple }}>{(ganttMeta.phaseHH[t.id]?.terceros||0)>0?(ganttMeta.phaseHH[t.id]?.terceros):"-"}</span>
+                        ) : (
+                          editing ? (
+                            <input type="number" value={t.hhTerceros} onChange={e=>updateTask(t.id,"hhTerceros",e.target.value)} style={{...s,width:54,color:COLORS.purple}} />
+                          ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.purple }}>{t.hhTerceros>0?t.hhTerceros:"-"}</span>
+                        )}
                       </td>
                       {/* Dependencia */}
                       <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
