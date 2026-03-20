@@ -14634,6 +14634,7 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
       // Auto-crear / actualizar entrada en facturas_recibidas (Cuentas por Pagar)
       if(data && !isBorrador){
         const hoy = new Date().toISOString().slice(0,10);
+        const montoNeto = Number(payload.valor_servicio)||0;
         const fpp = {
           numero_documento:      data.numero_ot,
           tipo_documento:        "Orden de Trabajo",
@@ -14641,8 +14642,11 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
           razon_social_proveedor: form.proveedor_nombre||"",
           rut_proveedor:         null,
           tipo_proveedor:        "Subcontratista",
-          monto_neto:            Number(payload.valor_servicio)||0,
+          monto_neto:            montoNeto,
           aplica_iva:            false,
+          monto_iva:             0,
+          monto_total:           montoNeto,
+          vencimiento:           form.fecha_programada||null,
           referencia_oc:         data.numero_ot,
           referencia_proyecto:   form.actividad||"",
           notas:                 `OT generada automáticamente · ${form.tipo_servicio||""}`,
@@ -14650,7 +14654,7 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
         };
         const { data:fppRows } = await supabase.from("facturas_recibidas").select("id").eq("numero_documento",data.numero_ot).limit(1);
         if(fppRows && fppRows.length > 0){
-          await supabase.from("facturas_recibidas").update({ monto_neto:fpp.monto_neto, razon_social_proveedor:fpp.razon_social_proveedor, referencia_proyecto:fpp.referencia_proyecto }).eq("numero_documento",data.numero_ot);
+          await supabase.from("facturas_recibidas").update({ monto_neto:fpp.monto_neto, monto_total:fpp.monto_total, razon_social_proveedor:fpp.razon_social_proveedor, referencia_proyecto:fpp.referencia_proyecto, vencimiento:fpp.vencimiento }).eq("numero_documento",data.numero_ot);
         } else {
           const { error:insErr } = await supabase.from("facturas_recibidas").insert(fpp);
           if(insErr) alert("Error al crear entrada en Cuentas por Pagar: "+insErr.message);
