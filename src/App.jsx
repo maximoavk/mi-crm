@@ -9934,14 +9934,26 @@ function GastosGenerales({ isMobile }) {
     monto_neto:0, aplica_iva:true, monto_iva:0, monto_total:0, notas:"", linea_negocio:"",
   };
   const [form, setForm] = useState(emptyForm);
+  const [inputMode, setInputMode] = useState("neto"); // "neto" | "total"
+
   const setF = (k,v) => setForm(p => {
     const next = {...p, [k]:v};
-    // Recalcular montos al cambiar neto o IVA toggle
     if (k==="monto_neto" || k==="aplica_iva") {
+      // Modo neto: ingresé el neto, calculo IVA y total
       const neto = Number(k==="monto_neto" ? v : next.monto_neto)||0;
       const iva  = (k==="aplica_iva" ? v : next.aplica_iva) ? Math.round(neto*0.19) : 0;
       next.monto_iva   = iva;
       next.monto_total = neto + iva;
+    }
+    if (k==="monto_total_ingresado" || (k==="aplica_iva" && inputMode==="total")) {
+      // Modo total: ingresé el total con IVA, back-calculo el neto
+      const total = Number(k==="monto_total_ingresado" ? v : next.monto_total)||0;
+      const apIva = k==="aplica_iva" ? v : next.aplica_iva;
+      const neto  = apIva ? Math.round(total / 1.19) : total;
+      const iva   = apIva ? total - neto : 0;
+      next.monto_total = total;
+      next.monto_neto  = neto;
+      next.monto_iva   = iva;
     }
     return next;
   });
@@ -10004,12 +10016,13 @@ function GastosGenerales({ isMobile }) {
         <SecTitle sub="Gastos operacionales · Alimentan crédito fiscal F29">
           Gastos Generales
         </SecTitle>
-        <button onClick={()=>{ setForm(emptyForm); setShowModal(true); }}
+        <button onClick={()=>{ setForm(emptyForm); setInputMode("neto"); setShowModal(true); }}
           style={{ padding:"9px 18px", background:COLORS.accent, border:"none",
             borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY,
             fontSize:13, fontWeight:700, cursor:"pointer" }}>
           + Registrar gasto
         </button>
+
       </div>
 
       {/* KPIs */}
@@ -10142,15 +10155,28 @@ function GastosGenerales({ isMobile }) {
                   borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13,
                   color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
             </div>
-            {/* Monto neto */}
-            <div style={{ marginBottom:14 }}>
+            {/* Toggle modo ingreso + campo monto */}
+            <div style={{ gridColumn:"1/-1", marginBottom:14 }}>
               <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
                 textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>
-                Monto neto *
+                ¿Cómo ingresas el monto?
               </div>
-              <input type="number" value={form.monto_neto||""}
-                onChange={e=>setF("monto_neto", Number(e.target.value)||0)}
-                placeholder="0"
+              <div style={{ display:"flex", gap:6, marginBottom:10 }}>
+                {[{k:"neto",label:"Ingreso neto (sin IVA)"},{k:"total",label:"Ingreso total (con IVA incluido)"}].map(({k,label})=>(
+                  <button key={k} onClick={()=>{ setInputMode(k); setForm(p=>({...p,monto_neto:0,monto_iva:0,monto_total:0})); }}
+                    style={{ flex:1, padding:"8px 0", borderRadius:6, cursor:"pointer",
+                      background:inputMode===k?COLORS.accentDim:"transparent",
+                      border:`1px solid ${inputMode===k?COLORS.accent:COLORS.border}`,
+                      color:inputMode===k?COLORS.accent:COLORS.textMuted,
+                      fontFamily:FONT, fontSize:11, fontWeight:inputMode===k?700:400 }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <input type="number"
+                value={inputMode==="neto" ? (form.monto_neto||"") : (form.monto_total||"")}
+                onChange={e=>{ const val=Number(e.target.value)||0; inputMode==="neto" ? setF("monto_neto",val) : setF("monto_total_ingresado",val); }}
+                placeholder={inputMode==="neto" ? "Ej: 10.000 (neto sin IVA)" : "Ej: 11.900 (total del documento)"}
                 style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`,
                   borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13,
                   color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
