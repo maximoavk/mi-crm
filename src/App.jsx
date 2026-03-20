@@ -14550,13 +14550,16 @@ function OTModal({ ot, quotes, productos, onClose, onSaved }) {
     }).slice(0,8);
   },[cotSearch, quotes, form.cotizacion_id]);
 
-  // Resultados búsqueda servicio del maestro
+  // Resultados búsqueda servicio del maestro — busca en todos los productos
   const servicioResults = React.useMemo(()=>{
     if(!servicioSearch.trim()||form.codigo_servicio) return [];
-    const q = servicioSearch.toLowerCase();
-    return (productos||[]).filter(p=>
-      (p.nombre||"").toLowerCase().includes(q) || (p.codigo||"").toLowerCase().includes(q)
-    ).slice(0,8);
+    const q = servicioSearch.toLowerCase().replace(/[.\-\/]/g,"");
+    return (productos||[]).filter(p=>{
+      const cod  = (p.codigo||"").toLowerCase().replace(/[.\-\/]/g,"");
+      const nom  = (p.nombre||"").toLowerCase();
+      const desc = (p.descripcion||p.modelo||"").toLowerCase();
+      return cod.includes(q) || nom.includes(q) || desc.includes(q) || (p.codigo||"").toLowerCase().includes(servicioSearch.toLowerCase());
+    }).slice(0,10);
   },[servicioSearch, productos, form.codigo_servicio]);
 
   // Resultados búsqueda materiales
@@ -14574,11 +14577,28 @@ function OTModal({ ot, quotes, productos, onClose, onSaved }) {
       producto_id: prod.id,
       nombre: prod.nombre,
       codigo: prod.codigo||"",
-      unidad: prod.unidad||"un",
+      unidad: "un",
       cantidad: 1,
     }]);
     setMatSearch("");
     setShowMatResults(false);
+  };
+
+  // Seleccionar servicio: rellena como el cotizador
+  const selectServicio = (prod) => {
+    ff("codigo_servicio", prod.codigo||"");
+    ff("nombre_servicio", prod.nombre);
+    // Auto-rellena actividad si está vacío
+    if(!form.actividad){
+      ff("actividad", prod.descripcion||prod.modelo||prod.nombre);
+    }
+    // Auto-sugiere precio si el campo está vacío o es 0
+    if((!form.valor_servicio || Number(form.valor_servicio)===0) && prod.precio){
+      ff("valor_servicio", String(prod.precio));
+    }
+    const display = prod.codigo ? `${prod.codigo} — ${prod.nombre}` : prod.nombre;
+    setServicioSearch(display);
+    setShowServResults(false);
   };
 
   // Canvas firma
@@ -14749,25 +14769,40 @@ function OTModal({ ot, quotes, productos, onClose, onSaved }) {
                 </select>
               </div>
               {/* Código de servicio del Maestro */}
-              <div>
-                <label style={lbl}>Código de servicio (Maestro)</label>
+              <div style={{ gridColumn:"1/-1" }}>
+                <label style={lbl}>Línea de servicio (Maestro de productos)</label>
                 <div style={{ position:"relative" }}>
-                  <input value={servicioSearch} onChange={e=>{ setServicioSearch(e.target.value); setShowServResults(true); if(!e.target.value){ ff("codigo_servicio",""); ff("nombre_servicio",""); } }}
-                    onFocus={()=>setShowServResults(true)} onBlur={()=>setTimeout(()=>setShowServResults(false),180)}
-                    placeholder="Buscar por nombre o código…" style={inp} />
+                  <input value={servicioSearch}
+                    onChange={e=>{ setServicioSearch(e.target.value); setShowServResults(true); if(!e.target.value){ ff("codigo_servicio",""); ff("nombre_servicio",""); } }}
+                    onFocus={()=>setShowServResults(true)} onBlur={()=>setTimeout(()=>setShowServResults(false),200)}
+                    placeholder="Buscar por código (SINS-004) o nombre del servicio…"
+                    style={{ ...inp, background: form.codigo_servicio ? `${TC}11` : COLORS.bg, borderColor: form.codigo_servicio ? TC : COLORS.border }} />
+                  {form.codigo_servicio && (
+                    <button onMouseDown={()=>{ ff("codigo_servicio",""); ff("nombre_servicio",""); setServicioSearch(""); }}
+                      style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14, lineHeight:1 }}>✕</button>
+                  )}
                   {showServResults && servicioResults.length>0 && (
-                    <div style={{ position:"absolute", top:"100%", left:0, right:0, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, zIndex:60, maxHeight:180, overflowY:"auto", boxShadow:"0 4px 20px #0008" }}>
+                    <div style={{ position:"absolute", top:"100%", left:0, right:0, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, zIndex:60, maxHeight:220, overflowY:"auto", boxShadow:"0 8px 30px #0009" }}>
                       {servicioResults.map(p=>(
-                        <div key={p.id} onMouseDown={()=>{ ff("codigo_servicio",p.codigo||""); ff("nombre_servicio",p.nombre); setServicioSearch(p.codigo? `${p.codigo} — ${p.nombre}` : p.nombre); setShowServResults(false); }}
-                          style={{ padding:"8px 12px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}22`, fontFamily:FONT, fontSize:12, color:COLORS.text, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                          <span><span style={{ color:TC, fontWeight:700, fontSize:10 }}>{p.codigo||"—"}</span> · {p.nombre}</span>
-                          {p.precio && <span style={{ color:COLORS.textMuted, fontSize:10 }}>${Number(p.precio).toLocaleString("es-CL")}</span>}
+                        <div key={p.id} onMouseDown={()=>selectServicio(p)}
+                          style={{ padding:"10px 14px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}22`, display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                          <div>
+                            <div style={{ fontFamily:FONT, fontSize:11, color:TC, fontWeight:700, marginBottom:2 }}>{p.codigo||"SIN CÓDIGO"}</div>
+                            <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, color:COLORS.text, fontWeight:600 }}>{p.nombre}</div>
+                            {(p.descripcion||p.modelo) && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:1 }}>{p.descripcion||p.modelo}</div>}
+                          </div>
+                          {p.precio>0 && <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, color:COLORS.green, fontWeight:700, flexShrink:0, marginLeft:12 }}>${Number(p.precio).toLocaleString("es-CL")}</div>}
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
-                {form.codigo_servicio && <div style={{ fontFamily:FONT, fontSize:10, color:TC, marginTop:3 }}>✓ {form.codigo_servicio} — {form.nombre_servicio} <button onMouseDown={()=>{ ff("codigo_servicio",""); ff("nombre_servicio",""); setServicioSearch(""); }} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:10, marginLeft:6 }}>✕ quitar</button></div>}
+                {form.codigo_servicio && (
+                  <div style={{ fontFamily:FONT, fontSize:10, color:TC, marginTop:4, display:"flex", alignItems:"center", gap:6 }}>
+                    <span style={{ background:`${TC}22`, padding:"2px 8px", borderRadius:4, fontWeight:700 }}>{form.codigo_servicio}</span>
+                    <span>{form.nombre_servicio}</span>
+                  </div>
+                )}
               </div>
               {/* Actividad */}
               <div style={{ gridColumn:"1/-1" }}>
@@ -15041,7 +15076,7 @@ function OperacionesView({ isMobile }) {
       supabase.from("cotizaciones").select("id,numero,serie,nombre_cliente,razon_social,estado").order("numero",{ascending:false}),
       supabase.from("contactos").select("id,nombre,empresa"),
       supabase.from("ordenes_trabajo").select("*").order("created_at",{ascending:false}),
-      supabase.from("productos").select("id,nombre,codigo,tipo,precio,unidad").order("nombre"),
+      supabase.from("productos").select("id,nombre,codigo,tipo,precio,descripcion,modelo").order("nombre"),
     ]);
     setOps(opsData||[]);
     setQuotes(qData||[]);
