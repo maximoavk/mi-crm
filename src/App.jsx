@@ -1769,6 +1769,7 @@ function GanttView({ isMobile }) {
   const [draggedId, setDraggedId] = useState(null);
   const [dragOverId, setDragOverId] = useState(null);
   const [collapsedPhases, setCollapsedPhases] = useState(new Set());
+  const dragFromHandle = React.useRef(false);
   const toggleCollapse = (faseId) => setCollapsedPhases(prev => {
     const next = new Set(prev);
     if(next.has(faseId)) next.delete(faseId); else next.add(faseId);
@@ -2169,24 +2170,29 @@ function GanttView({ isMobile }) {
                   return (
                     <tr key={t.id}
                       draggable={!editing}
-                      onDragStart={e=>{if(e.target.closest("button,input,select")){e.preventDefault();return;}setDraggedId(t.id);}}
+                      onDragStart={e=>{if(!dragFromHandle.current){e.preventDefault();return;}dragFromHandle.current=false;setDraggedId(t.id);}}
                       onDragOver={e=>{e.preventDefault();setDragOverId(t.id);}}
                       onDrop={e=>{e.preventDefault();reorderTask(draggedId,t.id);setDraggedId(null);setDragOverId(null);}}
                       onDragEnd={()=>{setDraggedId(null);setDragOverId(null);}}
                       style={{ borderBottom:`1px solid ${COLORS.border}22`, background:rowBg,
                         opacity: draggedId===t.id?0.4:1,
                         borderTop: isDragOver?`2px solid ${COLORS.accent}`:"",
-                        cursor: editing?"default":"grab" }}
+                        cursor: "default" }}
                       onDoubleClick={()=>setEditRow(editing?null:t.id)}>
                       {/* Nro */}
                       <td style={{ padding:"4px 4px", textAlign:"center", color:COLORS.textMuted, fontSize:10, borderRight:`1px solid ${COLORS.border}` }}>
                         <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:1 }}>
                           <button onClick={()=>moveTask(t.id,-1)} style={{ background:"none",border:"none",color:COLORS.textMuted,cursor:"pointer",fontSize:8,padding:0,lineHeight:1 }}>▲</button>
                           <div style={{ display:"flex", alignItems:"center", gap:3 }}>
+                            {/* Handle de drag — única zona que activa el drag */}
+                            <span
+                              title="Arrastrar para mover"
+                              onMouseDown={()=>{ dragFromHandle.current=true; }}
+                              onMouseUp={()=>{ dragFromHandle.current=false; }}
+                              style={{ cursor:"grab", color:COLORS.border, fontSize:11, lineHeight:1, userSelect:"none", flexShrink:0 }}>⠿</span>
                             {isFase && (
                               <button
                                 onClick={e=>{e.stopPropagation();toggleCollapse(t.id);}}
-                                onDragStart={e=>e.stopPropagation()}
                                 title={isCollapsed?"Expandir fase":"Colapsar fase"}
                                 style={{ background:"none", border:"none", color:GANTT_COLORS.fase, cursor:"pointer", fontSize:9, padding:0, lineHeight:1, flexShrink:0 }}>
                                 {isCollapsed?"▶":"▼"}
