@@ -14389,11 +14389,19 @@ const CHECKLIST_TEMPLATES = {
     { seccion:"3.0 Funcionalidad",     items:["Lectura de tarjetas","Lectura biométrica","Apertura remota","Registro de eventos","Integración con central"] },
     { seccion:"4.0 Pruebas Finales",   items:["Acceso autorizado","Acceso no autorizado","Prueba de alarma","Backup de configuración"] },
   ],
-  "CCTV / Cámaras": [
-    { seccion:"1.0 Hardware",          items:["Estado físico cámaras","Limpieza de lentes","Ajuste de ángulo","Fijación y soporte","Cableado"] },
-    { seccion:"2.0 Grabación/NVR",     items:["Estado NVR/DVR","Espacio en disco","Retención de grabación","Estado de alarmas"] },
-    { seccion:"3.0 Video",             items:["Calidad de imagen diurna","Calidad de imagen nocturna","Cobertura correcta","Detección de movimiento"] },
-    { seccion:"4.0 Pruebas Finales",   items:["Acceso remoto","Calidad streaming","Respaldo de configuración"] },
+  "CCTV Análogo": [
+    { seccion:"1.0 Inspección de Cámaras Analógicas", items:["Estado físico carcasa","Limpieza de lente","Revisión IR nocturno (LEDs)","Ajuste de ángulo y orientación","Fijación y soporte","Protección exterior IP66+"] },
+    { seccion:"2.0 DVR",                              items:["Estado físico DVR","Espacio disponible en disco","Canales activos y sin falla","Grabación continua activa","Resolución configurada","Retención según política","Estado de alarmas y alertas"] },
+    { seccion:"3.0 Cableado Coaxial y Fuentes",       items:["Voltaje de alimentación cámaras","Calibre de cable coaxial adecuado","Estado de conectores BNC","Estado de baluns (si aplica)","Ductería y protección de cables"] },
+    { seccion:"4.0 Acceso Remoto y Visión",           items:["Calidad imagen diurna","Calidad imagen nocturna","Cobertura correcta de zonas","Acceso remoto funcionando","Sincronización de hora"] },
+    { seccion:"5.0 Pruebas Finales",                  items:["Grabación verificada en todos los canales","Detección de movimiento activa","Acceso remoto confirmado con cliente","Instrucción básica al cliente"] },
+  ],
+  "CCTV IP": [
+    { seccion:"1.0 Cámaras IP",                items:["Estado físico carcasa","Limpieza de lente","PoE activo y voltaje correcto","IP asignada y accesible","Firmware actualizado","Ajuste de ángulo y orientación","Protección exterior IP66+"] },
+    { seccion:"2.0 NVR / VMS",                 items:["Estado físico NVR/servidor","Espacio disponible en disco","Canales activos sin falla","Retención configurada","Firmware NVR actualizado","Backup de configuración"] },
+    { seccion:"3.0 Red y Conectividad",         items:["Switch PoE funcionando","VLAN de videovigilancia activa","Ancho de banda suficiente","Latencia adecuada (<50ms LAN)","Puertos abiertos para acceso remoto"] },
+    { seccion:"4.0 Monitoreo y Alertas",        items:["Detección de movimiento activa","Alertas de tampering configuradas","Acceso VPN o DDNS funcionando","Usuarios y permisos correctos"] },
+    { seccion:"5.0 Pruebas Finales",            items:["Calidad imagen diurna 2MP+","Visión nocturna verificada","Acceso remoto confirmado con cliente","Grabación en curso verificada","Instrucción básica al cliente"] },
   ],
 };
 
@@ -14414,10 +14422,19 @@ const CHECKLIST_COMISIONAMIENTO = {
     { seccion:"2.0 Configuración SW", items:["IP estática asignada","Usuarios cargados","Horarios configurados","Integración con cerradura"] },
     { seccion:"3.0 Verificación",    items:["Acceso con tarjeta","Acceso biométrico","Reporte de eventos","Acceso remoto","Instrucción al cliente"] },
   ],
-  "CCTV / Cámaras": [
-    { seccion:"1.0 Instalación",     items:["Montaje y orientación","Cableado coaxial/Cat6","Alimentación","Protección exterior"] },
-    { seccion:"2.0 Configuración",   items:["IP asignada","Calidad de grabación","Retención configurada","Acceso remoto activo"] },
-    { seccion:"3.0 Verificación",    items:["Cobertura correcta","Calidad nocturna","Grabación en curso","Acceso remoto verificado","Instrucción al cliente"] },
+  "CCTV Análogo": [
+    { seccion:"1.0 Instalación Mecánica",     items:["Montaje cámaras en posición","Soporte y fijación firmé","Orientación y ángulo definido","Protección exterior IP66+ instalada","Ductería y canalización"] },
+    { seccion:"2.0 Cableado",                 items:["Tendido de cable coaxial","Calibre adecuado (RG59/RG6)","Conectores BNC terminados","Baluns instalados (si aplica)","Alimentación 12V a cada cámara"] },
+    { seccion:"3.0 DVR y Fuentes",            items:["Instalación y montaje DVR","Discos duros instalados y formateados","Fuente de alimentación centralizada","UPS conectado","Conexión a red LAN"] },
+    { seccion:"4.0 Configuración",            items:["Resolución y FPS configurados","Retención según requerimiento","Detección de movimiento activa","Acceso remoto configurado","Usuarios y contraseñas creados"] },
+    { seccion:"5.0 Verificación Final",       items:["Cobertura correcta de todas las zonas","Calidad nocturna confirmada","24h de grabación verificada","Acceso remoto probado","Instrucción al cliente entregada","Entrega de manual y credenciales"] },
+  ],
+  "CCTV IP": [
+    { seccion:"1.0 Instalación de Cámaras IP", items:["Montaje en posición definitiva","Soporte y fijación firmé","Cable Cat6 tendido","Protección exterior IP66+","Ductería y canalización","Conexión al switch PoE"] },
+    { seccion:"2.0 Red",                       items:["Switch PoE instalado y energizado","VLAN de videovigilancia creada","IPs fijas asignadas","Acceso HTTPS/SSL habilitado","Ancho de banda verificado","Puertos NAT configurados"] },
+    { seccion:"3.0 NVR / VMS",                 items:["Instalación servidor/NVR","Disco instalado y formateado","RAID configurado (si aplica)","Licencias de canales activadas","UPS conectado"] },
+    { seccion:"4.0 Configuración de Plataforma",items:["Resolución y FPS configurados","Retención según requerimiento","Detección inteligente activa (AI)","Alertas push configuradas","Usuarios y roles creados","Acceso VPN/DDNS activo"] },
+    { seccion:"5.0 Verificación Final",        items:["Cobertura correcta de todas las zonas","Calidad nocturna confirmada","Acceso remoto probado","Redundancia verificada (si aplica)","Instrucción al cliente entregada","Entrega de manual y credenciales"] },
   ],
 };
 
@@ -14429,19 +14446,33 @@ function buildChecklist(template) {
   }));
 }
 
-// ─── TÉCNICOS ─────────────────────────────────────────────────────────────────
-const TECNICOS_DEFAULT = ["Maximo Hudson","Carlos Vargas","Pedro Rojas","Ana Méndez","Luis Torres"];
-
 // ─── OT MODAL ────────────────────────────────────────────────────────────────
-function OTModal({ ot, quotes, onClose, onSaved }) {
+function OTModal({ ot, quotes, productos, onClose, onSaved }) {
   const isNew = !ot;
-  const [tab, setTab]     = useState("info");
-  const [saving, setSaving] = useState(false);
-  const [form, setForm]   = useState({
+  const [tab, setTab]           = useState("info");
+  const [saving, setSaving]     = useState(false);
+  const [tecnicos, setTecnicos] = useState([]);
+  const [addTecMode, setAddTecMode] = useState(false);
+  const [newTec, setNewTec]     = useState({ nombre:"", rut:"", especialidad:"" });
+  const [cotSearch, setCotSearch] = useState(()=>{
+    if(ot?.cotizacion_id){
+      const q = (quotes||[]).find(q=>q.id===ot.cotizacion_id);
+      return q ? `${q.serie||"COT"}-${String(q.numero||q.number||"?").padStart(3,"0")}` : "";
+    }
+    return "";
+  });
+  const [showCotResults, setShowCotResults] = useState(false);
+  const [servicioSearch, setServicioSearch] = useState(ot?.nombre_servicio||"");
+  const [showServResults, setShowServResults] = useState(false);
+  const [matSearch, setMatSearch] = useState("");
+  const [showMatResults, setShowMatResults] = useState(false);
+
+  const [form, setForm] = useState({
     tecnico:          ot?.tecnico||"",
+    tecnico_rut:      ot?.tecnico_rut||"",
     actividad:        ot?.actividad||"",
     tipo_servicio:    ot?.tipo_servicio||"mantencion",
-    equipo_tipo:      ot?.equipo_tipo||"Motor de portón",
+    equipo_tipo:      ot?.equipo_tipo||Object.keys(CHECKLIST_TEMPLATES)[0],
     valor_servicio:   ot?.valor_servicio||"",
     fecha_programada: ot?.fecha_programada||new Date().toISOString().slice(0,10),
     cliente_nombre:   ot?.cliente_nombre||"",
@@ -14450,18 +14481,27 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
     cotizacion_id:    ot?.cotizacion_id||"",
     observaciones:    ot?.observaciones||"",
     estado:           ot?.estado||"pendiente",
+    codigo_servicio:  ot?.codigo_servicio||"",
+    nombre_servicio:  ot?.nombre_servicio||"",
   });
   const [checklist, setChecklist] = useState(ot?.checklist||null);
+  const [materiales, setMateriales] = useState(ot?.materiales||[]);
   const [firma, setFirma]         = useState({ img: ot?.firma_imagen||null, nombre: ot?.firma_nombre||"" });
   const [firmaMode, setFirmaMode] = useState(false);
   const canvasRef = React.useRef(null);
   const drawing   = React.useRef(false);
   const ff = (k,v) => setForm(p=>({...p,[k]:v}));
 
+  // Cargar técnicos desde DB
+  React.useEffect(()=>{
+    supabase.from("tecnicos").select("*").eq("activo",true).order("nombre")
+      .then(({data})=>setTecnicos(data||[]));
+  },[]);
+
   // Auto-fill cliente desde COT
   React.useEffect(()=>{
     if(form.cotizacion_id){
-      const q = quotes.find(q=>q.id===form.cotizacion_id);
+      const q = (quotes||[]).find(q=>q.id===form.cotizacion_id);
       if(q){ ff("cliente_nombre", q.razon_social||q.nombre_cliente||""); }
     }
   },[form.cotizacion_id]);
@@ -14483,6 +14523,64 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
   const doneItems  = (checklist||[]).reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado==="ok"||it.estado==="obs").length,0);
   const pct = totalItems>0?Math.round(doneItems/totalItems*100):0;
 
+  // Agregar técnico a DB
+  const addTecnico = async () => {
+    if(!newTec.nombre.trim()) return;
+    const { data, error } = await supabase.from("tecnicos")
+      .insert({ nombre:newTec.nombre.trim(), rut:newTec.rut||null, especialidad:newTec.especialidad||null })
+      .select().single();
+    if(!error && data){
+      setTecnicos(prev=>[...prev, data].sort((a,b)=>a.nombre.localeCompare(b.nombre)));
+      ff("tecnico", data.nombre);
+      ff("tecnico_rut", data.rut||"");
+    }
+    setNewTec({nombre:"",rut:"",especialidad:""});
+    setAddTecMode(false);
+  };
+
+  // Resultados búsqueda COT
+  const cotResults = React.useMemo(()=>{
+    if(!cotSearch.trim()||form.cotizacion_id) return [];
+    const q = cotSearch.toLowerCase();
+    return (quotes||[]).filter(qt=>{
+      const num  = String(qt.numero||qt.number||"").padStart(3,"0");
+      const serie = qt.serie||"COT";
+      const cod  = `${serie}-${num}`.toLowerCase();
+      return cod.includes(q.replace(/[^a-z0-9]/g,"")) || (qt.razon_social||qt.nombre_cliente||"").toLowerCase().includes(q);
+    }).slice(0,8);
+  },[cotSearch, quotes, form.cotizacion_id]);
+
+  // Resultados búsqueda servicio del maestro
+  const servicioResults = React.useMemo(()=>{
+    if(!servicioSearch.trim()||form.codigo_servicio) return [];
+    const q = servicioSearch.toLowerCase();
+    return (productos||[]).filter(p=>
+      (p.nombre||"").toLowerCase().includes(q) || (p.codigo||"").toLowerCase().includes(q)
+    ).slice(0,8);
+  },[servicioSearch, productos, form.codigo_servicio]);
+
+  // Resultados búsqueda materiales
+  const matResults = React.useMemo(()=>{
+    if(!matSearch.trim()) return [];
+    const q = matSearch.toLowerCase();
+    return (productos||[]).filter(p=>
+      (p.nombre||"").toLowerCase().includes(q) || (p.codigo||"").toLowerCase().includes(q)
+    ).slice(0,10);
+  },[matSearch, productos]);
+
+  const addMaterial = (prod) => {
+    setMateriales(prev=>[...prev, {
+      id: Date.now().toString(),
+      producto_id: prod.id,
+      nombre: prod.nombre,
+      codigo: prod.codigo||"",
+      unidad: prod.unidad||"un",
+      cantidad: 1,
+    }]);
+    setMatSearch("");
+    setShowMatResults(false);
+  };
+
   // Canvas firma
   const startDraw = (e)=>{ drawing.current=true; const c=canvasRef.current; const r=c.getBoundingClientRect(); const cx=c.getContext("2d"); cx.beginPath(); const x=e.touches?.[0]?.clientX??e.clientX; const y=e.touches?.[0]?.clientY??e.clientY; cx.moveTo(x-r.left,y-r.top); };
   const draw = (e)=>{ if(!drawing.current)return; e.preventDefault(); const c=canvasRef.current; const r=c.getBoundingClientRect(); const cx=c.getContext("2d"); cx.lineWidth=2;cx.lineCap="round";cx.strokeStyle="#1a1a1a"; const x=e.touches?.[0]?.clientX??e.clientX; const y=e.touches?.[0]?.clientY??e.clientY; cx.lineTo(x-r.left,y-r.top); cx.stroke(); };
@@ -14499,6 +14597,7 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
         valor_servicio: form.valor_servicio !== "" ? Number(form.valor_servicio) : null,
         cotizacion_id:  form.cotizacion_id || null,
         checklist:      checklist||[],
+        materiales:     materiales||[],
         firma_imagen:   firma.img||null,
         firma_nombre:   firma.nombre||null,
         estado:         nuevoEstado||form.estado,
@@ -14550,7 +14649,7 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
             </div>
           </div>
           <div style={{ display:"flex", gap:0 }}>
-            {[{k:"info",l:"📋 Info"},{k:"checklist",l:`✅ Checklist (${pct}%)`},{k:"conformidad",l:"🤝 Conformidad"}].map(t=>(
+            {[{k:"info",l:"📋 Info"},{k:"checklist",l:`✅ Checklist (${pct}%)`},{k:"materiales",l:`📦 Materiales (${materiales.length})`},{k:"conformidad",l:"🤝 Conformidad"}].map(t=>(
               <button key={t.k} onClick={()=>setTab(t.k)}
                 style={{ padding:"7px 16px", fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", border:"none", background:"transparent",
                   color:tab===t.k?TC:COLORS.textMuted, borderBottom:`2px solid ${tab===t.k?TC:"transparent"}`, transition:"all 0.15s" }}>
@@ -14570,19 +14669,38 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
               <div style={{ gridColumn:"1/-1" }}>
                 <label style={lbl}>Técnico asignado *</label>
                 <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:6 }}>
-                  {TECNICOS_DEFAULT.map(t=>(
-                    <button key={t} onClick={()=>ff("tecnico",t)}
+                  {tecnicos.map(t=>(
+                    <button key={t.id} onClick={()=>{ ff("tecnico",t.nombre); ff("tecnico_rut",t.rut||""); }}
+                      title={t.rut||t.especialidad||""}
                       style={{ padding:"5px 12px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer",
-                        background:form.tecnico===t?`${TC}22`:"transparent",
-                        border:`1px solid ${form.tecnico===t?TC:COLORS.border}`,
-                        color:form.tecnico===t?TC:COLORS.textMuted }}>
-                      {t}
+                        background:form.tecnico===t.nombre?`${TC}22`:"transparent",
+                        border:`1px solid ${form.tecnico===t.nombre?TC:COLORS.border}`,
+                        color:form.tecnico===t.nombre?TC:COLORS.textMuted }}>
+                      {t.nombre}{t.rut && <span style={{ fontSize:9, opacity:0.6 }}> · {t.rut}</span>}
                     </button>
                   ))}
-                  <input value={TECNICOS_DEFAULT.includes(form.tecnico)?"":form.tecnico}
-                    onChange={e=>ff("tecnico",e.target.value)} placeholder="Otro técnico…"
-                    style={{ ...inp, width:140, fontSize:11, padding:"5px 10px" }} />
+                  {!addTecMode && (
+                    <button onClick={()=>setAddTecMode(true)}
+                      style={{ padding:"5px 10px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer",
+                        background:"transparent", border:`1px dashed ${COLORS.border}`, color:COLORS.textMuted }}>
+                      + Nuevo técnico
+                    </button>
+                  )}
                 </div>
+                {addTecMode && (
+                  <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:12, marginBottom:8 }}>
+                    <div style={{ fontFamily:FONT, fontSize:10, color:TC, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>Agregar técnico al sistema</div>
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
+                      <div><label style={lbl}>Nombre completo *</label><input value={newTec.nombre} onChange={e=>setNewTec(p=>({...p,nombre:e.target.value}))} placeholder="Ej: Juan Pérez" style={inp} /></div>
+                      <div><label style={lbl}>RUT</label><input value={newTec.rut} onChange={e=>setNewTec(p=>({...p,rut:e.target.value}))} placeholder="12.345.678-9" style={inp} /></div>
+                      <div><label style={lbl}>Especialidad</label><input value={newTec.especialidad} onChange={e=>setNewTec(p=>({...p,especialidad:e.target.value}))} placeholder="Ej: Automatización" style={inp} /></div>
+                    </div>
+                    <div style={{ display:"flex", gap:8, marginTop:8 }}>
+                      <button onClick={()=>setAddTecMode(false)} style={{ flex:1, padding:"7px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, fontFamily:FONT, fontSize:11, color:COLORS.textMuted, cursor:"pointer" }}>Cancelar</button>
+                      <button onClick={addTecnico} style={{ flex:2, padding:"7px 0", background:`${TC}22`, border:`1px solid ${TC}`, borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:TC, cursor:"pointer" }}>Guardar técnico</button>
+                    </div>
+                  </div>
+                )}
               </div>
               {/* Tipo servicio */}
               <div>
@@ -14602,6 +14720,27 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
                   {Object.keys(CHECKLIST_TEMPLATES).map(k=><option key={k} value={k}>{k}</option>)}
                 </select>
               </div>
+              {/* Código de servicio del Maestro */}
+              <div>
+                <label style={lbl}>Código de servicio (Maestro)</label>
+                <div style={{ position:"relative" }}>
+                  <input value={servicioSearch} onChange={e=>{ setServicioSearch(e.target.value); setShowServResults(true); if(!e.target.value){ ff("codigo_servicio",""); ff("nombre_servicio",""); } }}
+                    onFocus={()=>setShowServResults(true)} onBlur={()=>setTimeout(()=>setShowServResults(false),180)}
+                    placeholder="Buscar por nombre o código…" style={inp} />
+                  {showServResults && servicioResults.length>0 && (
+                    <div style={{ position:"absolute", top:"100%", left:0, right:0, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, zIndex:60, maxHeight:180, overflowY:"auto", boxShadow:"0 4px 20px #0008" }}>
+                      {servicioResults.map(p=>(
+                        <div key={p.id} onMouseDown={()=>{ ff("codigo_servicio",p.codigo||""); ff("nombre_servicio",p.nombre); setServicioSearch(p.codigo? `${p.codigo} — ${p.nombre}` : p.nombre); setShowServResults(false); }}
+                          style={{ padding:"8px 12px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}22`, fontFamily:FONT, fontSize:12, color:COLORS.text, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                          <span><span style={{ color:TC, fontWeight:700, fontSize:10 }}>{p.codigo||"—"}</span> · {p.nombre}</span>
+                          {p.precio_unitario && <span style={{ color:COLORS.textMuted, fontSize:10 }}>${Number(p.precio_unitario).toLocaleString("es-CL")}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {form.codigo_servicio && <div style={{ fontFamily:FONT, fontSize:10, color:TC, marginTop:3 }}>✓ {form.codigo_servicio} — {form.nombre_servicio} <button onMouseDown={()=>{ ff("codigo_servicio",""); ff("nombre_servicio",""); setServicioSearch(""); }} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:10, marginLeft:6 }}>✕ quitar</button></div>}
+              </div>
               {/* Actividad */}
               <div style={{ gridColumn:"1/-1" }}>
                 <label style={lbl}>Actividad / Descripción *</label>
@@ -14618,13 +14757,34 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
                 <label style={lbl}>Valor del servicio ($)</label>
                 <input type="number" value={form.valor_servicio} onChange={e=>ff("valor_servicio",e.target.value)} placeholder="0" style={inp} />
               </div>
-              {/* COT vinculada */}
+              {/* COT vinculada — buscador */}
               <div style={{ gridColumn:"1/-1" }}>
                 <label style={lbl}>Cotización vinculada (opcional)</label>
-                <select value={form.cotizacion_id} onChange={e=>ff("cotizacion_id",e.target.value)} style={inp}>
-                  <option value="">— Sin cotización —</option>
-                  {quotes.map(q=><option key={q.id} value={q.id}>{q.serie==="SIN"?"SIN":"COT"}-{String(q.numero||q.number||"?").padStart(3,"0")} · {q.razon_social||q.nombre_cliente}</option>)}
-                </select>
+                <div style={{ position:"relative" }}>
+                  <input value={cotSearch}
+                    onChange={e=>{ setCotSearch(e.target.value); setShowCotResults(true); if(!e.target.value){ ff("cotizacion_id",""); } }}
+                    onFocus={()=>setShowCotResults(true)} onBlur={()=>setTimeout(()=>setShowCotResults(false),180)}
+                    placeholder="Buscar por número COT-001, SIN-003 o nombre cliente…" style={inp} />
+                  {form.cotizacion_id && (
+                    <button onMouseDown={()=>{ ff("cotizacion_id",""); setCotSearch(""); }}
+                      style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>✕</button>
+                  )}
+                  {showCotResults && cotResults.length>0 && !form.cotizacion_id && (
+                    <div style={{ position:"absolute", top:"100%", left:0, right:0, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, zIndex:60, maxHeight:200, overflowY:"auto", boxShadow:"0 4px 20px #0008" }}>
+                      {cotResults.map(q=>{
+                        const num   = String(q.numero||q.number||"?").padStart(3,"0");
+                        const serie = q.serie||"COT";
+                        return (
+                          <div key={q.id} onMouseDown={()=>{ ff("cotizacion_id",q.id); setCotSearch(`${serie}-${num}`); setShowCotResults(false); }}
+                            style={{ padding:"8px 12px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}22`, fontFamily:FONT, fontSize:12, color:COLORS.text, display:"flex", justifyContent:"space-between" }}>
+                            <span><span style={{ color:TC, fontWeight:700 }}>{serie}-{num}</span> · {q.razon_social||q.nombre_cliente}</span>
+                            <span style={{ fontSize:10, color:COLORS.textMuted }}>{q.estado}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
               {/* Cliente */}
               <div>
@@ -14681,6 +14841,61 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
             </div>
           )}
 
+          {/* TAB MATERIALES */}
+          {tab==="materiales" && (
+            <div>
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:14 }}>
+                Listado de productos y materiales entregados al técnico o subcontratista. Sirve como constancia de entrega.
+              </div>
+              {/* Buscador */}
+              <div style={{ position:"relative", marginBottom:16 }}>
+                <input value={matSearch} onChange={e=>{ setMatSearch(e.target.value); setShowMatResults(true); }}
+                  onFocus={()=>setShowMatResults(true)} onBlur={()=>setTimeout(()=>setShowMatResults(false),180)}
+                  placeholder="Buscar producto del maestro por nombre o código…" style={inp} />
+                {showMatResults && matResults.length>0 && (
+                  <div style={{ position:"absolute", top:"100%", left:0, right:0, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, zIndex:60, maxHeight:220, overflowY:"auto", boxShadow:"0 4px 20px #0008" }}>
+                    {matResults.map(p=>(
+                      <div key={p.id} onMouseDown={()=>addMaterial(p)}
+                        style={{ padding:"8px 12px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}22`, fontFamily:FONT, fontSize:12, color:COLORS.text, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                        <span><span style={{ color:TC, fontWeight:700, fontSize:10 }}>{p.codigo||""}</span>{p.codigo?" · ":""}{p.nombre}</span>
+                        {p.precio_unitario && <span style={{ color:COLORS.textMuted, fontSize:10 }}>${Number(p.precio_unitario).toLocaleString("es-CL")}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* Lista */}
+              {materiales.length===0 ? (
+                <div style={{ textAlign:"center", padding:40, fontFamily:FONT, color:COLORS.textMuted, background:COLORS.card, borderRadius:10, border:`1px dashed ${COLORS.border}` }}>
+                  Sin materiales agregados. Busca y selecciona productos del maestro.
+                </div>
+              ) : (
+                <div>
+                  <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr auto", gap:8, padding:"5px 10px", fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>
+                    <div>Producto</div><div>Código</div><div>Cantidad</div><div></div>
+                  </div>
+                  {materiales.map((m,idx)=>(
+                    <div key={m.id} style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr auto", gap:8, padding:"8px 10px", borderBottom:`1px solid ${COLORS.border}22`, alignItems:"center" }}>
+                      <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text }}>{m.nombre}</div>
+                      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{m.codigo||"—"}</div>
+                      <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                        <input type="number" min="1" value={m.cantidad}
+                          onChange={e=>setMateriales(prev=>prev.map((x,i)=>i===idx?{...x,cantidad:Number(e.target.value)||1}:x))}
+                          style={{ ...inp, width:60, padding:"4px 8px", fontSize:12 }} />
+                        <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{m.unidad}</span>
+                      </div>
+                      <button onClick={()=>setMateriales(prev=>prev.filter((_,i)=>i!==idx))}
+                        style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:18, lineHeight:1 }}>×</button>
+                    </div>
+                  ))}
+                  <div style={{ marginTop:10, padding:"8px 12px", background:COLORS.card, borderRadius:8, fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                    {materiales.length} ítem{materiales.length!==1?"s":""} · {materiales.reduce((s,m)=>s+Number(m.cantidad||0),0)} unidades totales
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* TAB CONFORMIDAD */}
           {tab==="conformidad" && (
             <div>
@@ -14688,10 +14903,11 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
               <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16, marginBottom:16 }}>
                 <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>Resumen del servicio</div>
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-                  <div><label style={lbl}>Técnico</label><div style={{ fontFamily:FONT_DISPLAY, fontSize:13, color:COLORS.text }}>{form.tecnico||"—"}</div></div>
+                  <div><label style={lbl}>Técnico</label><div style={{ fontFamily:FONT_DISPLAY, fontSize:13, color:COLORS.text }}>{form.tecnico||"—"}{form.tecnico_rut&&<span style={{ fontSize:10, color:COLORS.textMuted }}> · {form.tecnico_rut}</span>}</div></div>
                   <div><label style={lbl}>Valor del servicio</label><div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.green }}>{form.valor_servicio ? fmtClp(form.valor_servicio) : "No definido"}</div></div>
-                  <div><label style={lbl}>Tipo</label><div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text }}>{form.tipo_servicio}</div></div>
+                  <div><label style={lbl}>Tipo</label><div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text }}>{form.tipo_servicio}{form.codigo_servicio&&<span style={{ color:TC, fontSize:10 }}> · {form.codigo_servicio}</span>}</div></div>
                   <div><label style={lbl}>Avance checklist</label><div style={{ fontFamily:FONT_DISPLAY, fontSize:13, color:pct===100?COLORS.green:COLORS.yellow }}>{pct}%</div></div>
+                  {materiales.length>0 && <div style={{ gridColumn:"1/-1" }}><label style={lbl}>Materiales entregados ({materiales.length})</label><div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{materiales.map(m=>`${m.nombre} ×${m.cantidad}`).join(" · ")}</div></div>}
                 </div>
               </div>
               {/* Observaciones cierre */}
@@ -14780,6 +14996,7 @@ function OperacionesView({ isMobile }) {
   const [editOp, setEditOp]       = useState(null);
   const [filterTipo, setFilterTipo] = useState("todos");
   const [mainTab, setMainTab]     = useState("registros"); // "registros" | "ot"
+  const [productos, setProductos] = useState([]);
 
   // OT state
   const [ots, setOts]             = useState([]);
@@ -14791,16 +15008,18 @@ function OperacionesView({ isMobile }) {
 
   const load = async () => {
     setLoading(true);
-    const [{ data:opsData },{ data:qData },{ data:cData },{ data:otData }] = await Promise.all([
+    const [{ data:opsData },{ data:qData },{ data:cData },{ data:otData },{ data:prodData }] = await Promise.all([
       supabase.from("operaciones_terreno").select("*").order("created_at",{ascending:false}),
       supabase.from("cotizaciones").select("id,numero,serie,nombre_cliente,razon_social,estado").order("numero",{ascending:false}),
       supabase.from("contactos").select("id,nombre,empresa"),
       supabase.from("ordenes_trabajo").select("*").order("created_at",{ascending:false}),
+      supabase.from("productos").select("id,nombre,codigo,tipo,precio_unitario,unidad").order("nombre"),
     ]);
     setOps(opsData||[]);
     setQuotes(qData||[]);
     setContacts(cData||[]);
     setOts(otData||[]);
+    setProductos(prodData||[]);
     setLoading(false);
   };
 
@@ -14934,6 +15153,7 @@ function OperacionesView({ isMobile }) {
             <OTModal
               ot={editOT}
               quotes={quotes}
+              productos={productos}
               onClose={()=>{ setShowOTModal(false); setEditOT(null); }}
               onSaved={(data,isNew)=>{ setOts(prev=>isNew?[data,...prev]:prev.map(o=>o.id===data.id?data:o)); setShowOTModal(false); setEditOT(null); }}
             />
