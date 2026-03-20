@@ -2169,7 +2169,7 @@ function GanttView({ isMobile }) {
                   return (
                     <tr key={t.id}
                       draggable={!editing}
-                      onDragStart={()=>setDraggedId(t.id)}
+                      onDragStart={e=>{if(e.target.closest("button,input,select")){e.preventDefault();return;}setDraggedId(t.id);}}
                       onDragOver={e=>{e.preventDefault();setDragOverId(t.id);}}
                       onDrop={e=>{e.preventDefault();reorderTask(draggedId,t.id);setDraggedId(null);setDragOverId(null);}}
                       onDragEnd={()=>{setDraggedId(null);setDragOverId(null);}}
