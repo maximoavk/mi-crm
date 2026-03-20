@@ -1768,6 +1768,12 @@ function GanttView({ isMobile }) {
   const [editRow, setEditRow]     = useState(null); // id de fila en edición inline
   const [draggedId, setDraggedId] = useState(null);
   const [dragOverId, setDragOverId] = useState(null);
+  const [collapsedPhases, setCollapsedPhases] = useState(new Set());
+  const toggleCollapse = (faseId) => setCollapsedPhases(prev => {
+    const next = new Set(prev);
+    if(next.has(faseId)) next.delete(faseId); else next.add(faseId);
+    return next;
+  });
   const [allGantts, setAllGantts] = useState([]);
   const [headerData, setHeaderData] = useState({ elaboradoPor:"Maximo Hudson", cliente:"", fechaEmision: new Date().toISOString().slice(0,10) });
   const [headerEdit, setHeaderEdit] = useState(false);
@@ -1909,13 +1915,15 @@ function GanttView({ isMobile }) {
     });
     const taskMap = Object.fromEntries(tasks.map(t => [t.id, t]));
     const phaseHH = {};
+    const childPhaseId = {}; // taskId → faseId
     Object.entries(phaseChildrenMap).forEach(([faseId, childIds]) => {
       phaseHH[faseId] = {
         real:     childIds.reduce((s, id) => s + (Number(taskMap[id]?.hhReal)||0), 0),
         terceros: childIds.reduce((s, id) => s + (Number(taskMap[id]?.hhTerceros)||0), 0),
       };
+      childIds.forEach(id => { childPhaseId[id] = faseId; });
     });
-    return { numbers, phaseHH };
+    return { numbers, phaseHH, childPhaseId };
   }, [tasks]);
   const duplicateTask = (id) => {
     setTasks(prev => {
@@ -2152,6 +2160,10 @@ function GanttView({ isMobile }) {
                   const isLate = t.fin < today && pct < 100;
                   const rowBg  = isFase ? `${GANTT_COLORS.fase}11` : "transparent";
                   const editing = editRow===t.id;
+                  // Ocultar si pertenece a una fase colapsada
+                  const parentFaseId = ganttMeta.childPhaseId[t.id];
+                  if(parentFaseId && collapsedPhases.has(parentFaseId)) return null;
+                  const isCollapsed = isFase && collapsedPhases.has(t.id);
 
                   const isDragOver = dragOverId===t.id && draggedId!==t.id;
                   return (
@@ -2168,9 +2180,20 @@ function GanttView({ isMobile }) {
                       onDoubleClick={()=>setEditRow(editing?null:t.id)}>
                       {/* Nro */}
                       <td style={{ padding:"4px 4px", textAlign:"center", color:COLORS.textMuted, fontSize:10, borderRight:`1px solid ${COLORS.border}` }}>
-                        <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
+                        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:1 }}>
                           <button onClick={()=>moveTask(t.id,-1)} style={{ background:"none",border:"none",color:COLORS.textMuted,cursor:"pointer",fontSize:8,padding:0,lineHeight:1 }}>▲</button>
-                          <span style={{ fontWeight:isFase?700:400, color:isFase?GANTT_COLORS.fase:COLORS.textMuted }}>{ganttMeta.numbers[t.id]||idx+1}</span>
+                          <div style={{ display:"flex", alignItems:"center", gap:3 }}>
+                            {isFase && (
+                              <button
+                                onClick={e=>{e.stopPropagation();toggleCollapse(t.id);}}
+                                onDragStart={e=>e.stopPropagation()}
+                                title={isCollapsed?"Expandir fase":"Colapsar fase"}
+                                style={{ background:"none", border:"none", color:GANTT_COLORS.fase, cursor:"pointer", fontSize:9, padding:0, lineHeight:1, flexShrink:0 }}>
+                                {isCollapsed?"▶":"▼"}
+                              </button>
+                            )}
+                            <span style={{ fontWeight:isFase?700:400, color:isFase?GANTT_COLORS.fase:COLORS.textMuted }}>{ganttMeta.numbers[t.id]||idx+1}</span>
+                          </div>
                           <button onClick={()=>moveTask(t.id,1)} style={{ background:"none",border:"none",color:COLORS.textMuted,cursor:"pointer",fontSize:8,padding:0,lineHeight:1 }}>▼</button>
                         </div>
                       </td>
