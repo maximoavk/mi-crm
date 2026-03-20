@@ -1766,6 +1766,8 @@ function GanttView({ isMobile }) {
   const [calStart, setCalStart]   = useState(new Date().toISOString().slice(0,10));
   const [calDays, setCalDays]     = useState(15);
   const [editRow, setEditRow]     = useState(null); // id de fila en edición inline
+  const [draggedId, setDraggedId] = useState(null);
+  const [dragOverId, setDragOverId] = useState(null);
   const [allGantts, setAllGantts] = useState([]);
   const [headerData, setHeaderData] = useState({ elaboradoPor:"Maximo Hudson", cliente:"", fechaEmision: new Date().toISOString().slice(0,10) });
   const [headerEdit, setHeaderEdit] = useState(false);
@@ -1866,6 +1868,17 @@ function GanttView({ isMobile }) {
 
   const updateTask = (id, field, val) => setTasks(t=>t.map(r=>r.id===id?{...r,[field]:val}:r));
   const deleteTask = (id) => setTasks(t=>t.filter(r=>r.id!==id));
+  const reorderTask = (fromId, toId) => {
+    if(fromId===toId) return;
+    setTasks(prev => {
+      const arr = [...prev];
+      const fromIdx = arr.findIndex(t=>t.id===fromId);
+      const toIdx   = arr.findIndex(t=>t.id===toId);
+      const [item] = arr.splice(fromIdx, 1);
+      arr.splice(toIdx, 0, item);
+      return arr;
+    });
+  };
 
   // ── Numeración automática y totales HH por fase ──────────────────────────
   const ganttMeta = useMemo(() => {
@@ -2140,8 +2153,18 @@ function GanttView({ isMobile }) {
                   const rowBg  = isFase ? `${GANTT_COLORS.fase}11` : "transparent";
                   const editing = editRow===t.id;
 
+                  const isDragOver = dragOverId===t.id && draggedId!==t.id;
                   return (
-                    <tr key={t.id} style={{ borderBottom:`1px solid ${COLORS.border}22`, background:rowBg }}
+                    <tr key={t.id}
+                      draggable={!editing}
+                      onDragStart={()=>setDraggedId(t.id)}
+                      onDragOver={e=>{e.preventDefault();setDragOverId(t.id);}}
+                      onDrop={e=>{e.preventDefault();reorderTask(draggedId,t.id);setDraggedId(null);setDragOverId(null);}}
+                      onDragEnd={()=>{setDraggedId(null);setDragOverId(null);}}
+                      style={{ borderBottom:`1px solid ${COLORS.border}22`, background:rowBg,
+                        opacity: draggedId===t.id?0.4:1,
+                        borderTop: isDragOver?`2px solid ${COLORS.accent}`:"",
+                        cursor: editing?"default":"grab" }}
                       onDoubleClick={()=>setEditRow(editing?null:t.id)}>
                       {/* Nro */}
                       <td style={{ padding:"4px 4px", textAlign:"center", color:COLORS.textMuted, fontSize:10, borderRight:`1px solid ${COLORS.border}` }}>
