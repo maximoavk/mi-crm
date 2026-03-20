@@ -2860,11 +2860,12 @@ function QuotesView({ contacts, isMobile }) {
   const updateStatus = async (id, status) => {
     await supabase.from("cotizaciones").update({ estado: status }).eq("id", id);
     setQuotes(quotes.map(q=>q.id===id?{...q,status}:q));
-    // Auto-push to pipeline SOLO cotizaciones COT (con factura)
+    // Auto-push a pipeline cuando estado = "enviada" (tanto COT como SIN)
     if(status==="enviada"){
       const q = quotes.find(x=>x.id===id);
-      if(q && (q.serie||"COT")==="COT"){
-        const codigo = `COT-${String(q.number).padStart(3,"0")}`;
+      if(q){
+        const serie  = q.serie||"COT";
+        const codigo = `${serie}-${String(q.number).padStart(3,"0")}`;
         const { data:existing } = await supabase.from("deals").select("id").eq("quote_id",id).limit(1);
         if(!existing||existing.length===0){
           await supabase.from("deals").insert({
@@ -2876,14 +2877,14 @@ function QuotesView({ contacts, isMobile }) {
             etapa: "propuesta",
             probabilidad: 40,
             quote_id: id,
-            serie: "COT",
+            serie,
           });
         } else {
           await supabase.from("deals").update({
             etapa:"propuesta",
             titulo:`${codigo} – ${q.clientCompany||q.clientName||"Cliente"}`,
             valor: q.total||0,
-            serie: "COT",
+            serie,
           }).eq("id", existing[0].id);
         }
       }
