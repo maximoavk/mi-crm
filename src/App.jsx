@@ -32,6 +32,7 @@ const mapDeal = (r) => ({
   value: r.valor || 0, stage: r.etapa, probability: r.probabilidad || 0,
   closeDate: r.fecha_cierre, contactId: r.contact_id,
   quoteNumber: r.numero_cotizacion ? String(r.numero_cotizacion) : "",
+  serie: r.serie || "COT",
 });
 const mapDealToDb = (f) => ({
   titulo: f.title, empresa: f.company, rut_empresa: f.rut,
@@ -39,6 +40,7 @@ const mapDealToDb = (f) => ({
   probabilidad: Number(f.probability) || 0,
   fecha_cierre: f.closeDate || null,
   contact_id: f.contactId || null,
+  serie: f.serie || "COT",
 });
 
 const mapTask = (r) => ({
@@ -607,17 +609,21 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
   const [editingId, setEditingId] = useState(null);
   const [collapsed, setCollapsed] = useState({});
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title:"", company:"", contactId:"", rut:"", value:"", stage:"propuesta", probability:"40", closeDate:"", quoteNumber:"" });
+  const [form, setForm] = useState({ title:"", company:"", contactId:"", rut:"", value:"", stage:"propuesta", probability:"40", closeDate:"", quoteNumber:"", serie:"COT" });
   const [dragDealId, setDragDealId] = useState(null);
-  const [dragOverStage, setDragOverStage] = useState(null);
+  const [dragOverKey, setDragOverKey] = useState(null); // "COT:propuesta" | "SIN:cerrado"
   const [quoteBusqueda, setQuoteBusqueda] = useState("");
   const [quoteFound, setQuoteFound] = useState(null);
   const [quoteSearching, setQuoteSearching] = useState(false);
-  const grouped = useMemo(()=>{ const g={}; STAGES.forEach(s=>{g[s.key]=deals.filter(d=>d.stage===s.key);}); return g; },[deals]);
+
+  const dealsCOT = useMemo(()=>deals.filter(d=>(d.serie||"COT")==="COT"),[deals]);
+  const dealsSIN = useMemo(()=>deals.filter(d=>d.serie==="SIN"),[deals]);
+  const groupedCOT = useMemo(()=>{ const g={}; STAGES.forEach(s=>{g[s.key]=dealsCOT.filter(d=>d.stage===s.key);}); return g; },[dealsCOT]);
+  const groupedSIN = useMemo(()=>{ const g={}; STAGES.forEach(s=>{g[s.key]=dealsSIN.filter(d=>d.stage===s.key);}); return g; },[dealsSIN]);
   const f = (k,v) => setForm(p=>({...p,[k]:v}));
 
-  const openNew = () => { setEditingId(null); setForm({ title:"", company:"", contactId:"", rut:"", value:"", stage:"propuesta", probability:"40", closeDate:"", quoteNumber:"" }); setQuoteFound(null); setQuoteBusqueda(""); setShowModal(true); };
-  const openEdit = (d) => { setEditingId(d.id); setForm({ title:d.title, company:d.company, contactId:d.contactId||"", rut:d.rut||"", value:String(d.value), stage:d.stage, probability:String(d.probability), closeDate:d.closeDate||"", quoteNumber:d.quoteNumber||"" }); setQuoteFound(null); setQuoteBusqueda(""); setShowModal(true); };
+  const openNew = (serie="COT") => { setEditingId(null); setForm({ title:"", company:"", contactId:"", rut:"", value:"", stage:"propuesta", probability:"40", closeDate:"", quoteNumber:"", serie }); setQuoteFound(null); setQuoteBusqueda(""); setShowModal(true); };
+  const openEdit = (d) => { setEditingId(d.id); setForm({ title:d.title, company:d.company, contactId:d.contactId||"", rut:d.rut||"", value:String(d.value), stage:d.stage, probability:String(d.probability), closeDate:d.closeDate||"", quoteNumber:d.quoteNumber||"", serie:d.serie||"COT" }); setQuoteFound(null); setQuoteBusqueda(""); setShowModal(true); };
   const toggleCollapse = (id) => setCollapsed(p=>({...p,[id]:!p[id]}));
   const allCollapsed = Object.values(collapsed).filter(Boolean).length >= deals.length/2;
   const toggleAll = () => { const n={}; deals.forEach(d=>{n[d.id]=!allCollapsed;}); setCollapsed(n); };
@@ -669,6 +675,76 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
     setDeals(deals.filter(d=>d.id!==id));
   };
 
+  // Render de una columna de etapa para un lane específico
+  const renderStageCol = (stage, grouped, laneKey, accentColor) => {
+    const stageDeals = grouped[stage.key]||[];
+    const total = stageDeals.reduce((s,d)=>s+Number(d.value),0);
+    const dropKey = `${laneKey}:${stage.key}`;
+    const isDropTarget = dragDealId && dragOverKey===dropKey;
+    return (
+      <div key={`${laneKey}-${stage.key}`}
+        onDragOver={e=>{ e.preventDefault(); setDragOverKey(dropKey); }}
+        onDragLeave={e=>{ if(!e.currentTarget.contains(e.relatedTarget)) setDragOverKey(null); }}
+        onDrop={e=>{ e.preventDefault(); if(dragDealId) moveDeal(dragDealId, stage.key); setDragDealId(null); setDragOverKey(null); }}
+        style={{ outline: isDropTarget ? `2px dashed ${accentColor}` : "2px dashed transparent", borderRadius:8, transition:"outline 0.15s" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10, padding:"8px 12px", background:COLORS.card, borderRadius:8, border:`1px solid ${accentColor}33` }}>
+          <div>
+            <div style={{ fontFamily:FONT, fontSize:10, color:accentColor, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600 }}>{stage.label}</div>
+            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:1 }}>{fmt(total)}</div>
+          </div>
+          <div style={{ width:20, height:20, borderRadius:"50%", background:accentColor+"22", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT, fontSize:10, color:accentColor, fontWeight:700 }}>{stageDeals.length}</div>
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+          {stageDeals.map(d=>{
+            const isCollapsed = collapsed[d.id] !== false;
+            return (
+              <div key={d.id} draggable
+                onDragStart={()=>setDragDealId(d.id)}
+                onDragEnd={()=>{ setDragDealId(null); setDragOverKey(null); }}
+                style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, borderLeft:`3px solid ${accentColor}`, overflow:"hidden", cursor:"grab", opacity:dragDealId===d.id?0.5:1 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:7, padding:isCollapsed?"9px 11px":"11px 13px 7px" }}>
+                  <button onClick={()=>toggleCollapse(d.id)} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:10, padding:0, flexShrink:0 }}>{isCollapsed?"▶":"▼"}</button>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:600, color:COLORS.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{d.title}</div>
+                    {isCollapsed && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{d.company}</div>}
+                  </div>
+                  {isCollapsed && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.green, fontWeight:700, flexShrink:0 }}>{fmt(d.value)}</div>}
+                  <button onClick={()=>openEdit(d)} style={{ background:"none", border:`1px solid ${accentColor}44`, borderRadius:4, color:accentColor, cursor:"pointer", fontSize:11, padding:"2px 5px", flexShrink:0 }}>✏️</button>
+                  <button onClick={()=>del(d.id)} style={{ background:"none", border:`1px solid ${COLORS.red}44`, borderRadius:4, color:COLORS.red, cursor:"pointer", fontSize:12, padding:"2px 5px", flexShrink:0 }}>×</button>
+                </div>
+                {!isCollapsed && (
+                  <div style={{ padding:"0 13px 11px" }}>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:d.rut?2:7 }}>{d.company}</div>
+                    {d.rut && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, marginBottom:7 }}>RUT: {d.rut}</div>}
+                    {d.quoteNumber && <div style={{ fontFamily:FONT, fontSize:10, color:accentColor, background:`${accentColor}11`, border:`1px solid ${accentColor}33`, borderRadius:4, padding:"2px 7px", display:"inline-block", marginBottom:7 }}>📄 {laneKey}-{d.quoteNumber}</div>}
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:7 }}>
+                      <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.green, fontWeight:700 }}>{fmt(d.value)}</div>
+                      <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{fmtDate(d.closeDate)}</div>
+                    </div>
+                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                      <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Prob.</span>
+                      <span style={{ fontFamily:FONT, fontSize:10, color:accentColor }}>{d.probability}%</span>
+                    </div>
+                    <div style={{ height:3, background:COLORS.border, borderRadius:2, marginBottom:9 }}>
+                      <div style={{ height:3, borderRadius:2, background:accentColor, width:`${d.probability}%` }} />
+                    </div>
+                    <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+                      {STAGES.filter(s=>s.key!==stage.key).map(s=>(
+                        <button key={s.key} onClick={()=>moveDeal(d.id,s.key)} style={{ padding:"2px 6px", borderRadius:4, fontFamily:FONT, fontSize:10, cursor:"pointer", background:"transparent", border:`1px solid ${accentColor}44`, color:accentColor }}>→ {s.label}</button>
+                      ))}
+                      <button onClick={()=>del(d.id)} style={{ padding:"2px 6px", borderRadius:4, fontFamily:FONT, fontSize:10, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red, marginLeft:"auto" }}>✕</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {stageDeals.length===0 && <div style={{ border:`1px dashed ${COLORS.border}`, borderRadius:8, padding:"16px 0", textAlign:"center", fontFamily:FONT, fontSize:11, color:COLORS.textDim }}>—</div>}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:20, flexWrap:"wrap", gap:10 }}>
@@ -678,79 +754,33 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
         </div>
         <div style={{ display:"flex", gap:8 }}>
           <button onClick={toggleAll} style={{ padding:"8px 14px", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:7, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer" }}>{allCollapsed?"⊞ Expandir":"⊟ Comprimir"}</button>
-          <AddBtn onClick={openNew} label="Nuevo deal" />
+          <button onClick={()=>openNew("SIN")} style={{ padding:"8px 14px", background:"#a855f722", border:`1px solid #a855f744`, borderRadius:7, color:"#a855f7", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>+ Deal SIN</button>
+          <AddBtn onClick={()=>openNew("COT")} label="+ Deal COT" />
         </div>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(4,1fr)", gap:14 }}>
-        {STAGES.map(stage=>{
-          const stageDeals=grouped[stage.key]||[];
-          const total=stageDeals.reduce((s,d)=>s+Number(d.value),0);
-          const isDropTarget = dragDealId && dragOverStage===stage.key;
-          return (
-            <div key={stage.key}
-              onDragOver={e=>{ e.preventDefault(); setDragOverStage(stage.key); }}
-              onDragLeave={e=>{ if(!e.currentTarget.contains(e.relatedTarget)) setDragOverStage(null); }}
-              onDrop={e=>{ e.preventDefault(); if(dragDealId) moveDeal(dragDealId, stage.key); setDragDealId(null); setDragOverStage(null); }}
-              style={{ outline: isDropTarget ? `2px dashed ${stage.color}` : "2px dashed transparent", borderRadius:8, transition:"outline 0.15s" }}
-            >
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12, padding:"10px 14px", background:COLORS.card, borderRadius:8, border:`1px solid ${stage.color}33` }}>
-                <div>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:stage.color, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600 }}>{stage.label}</div>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:2 }}>{fmt(total)}</div>
-                </div>
-                <div style={{ width:24, height:24, borderRadius:"50%", background:stage.color+"22", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT, fontSize:11, color:stage.color, fontWeight:700 }}>{stageDeals.length}</div>
-              </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                {stageDeals.map(d=>{
-  const isCollapsed = collapsed[d.id] !== false; // colapsado por defecto
-                  return (
-                    <div key={d.id}
-                      draggable
-                      onDragStart={()=>setDragDealId(d.id)}
-                      onDragEnd={()=>{ setDragDealId(null); setDragOverStage(null); }}
-                      style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, borderLeft:`3px solid ${stage.color}`, overflow:"hidden", cursor:"grab", opacity: dragDealId===d.id ? 0.5 : 1 }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:8, padding:isCollapsed?"10px 12px":"12px 14px 8px" }}>
-                        <button onClick={()=>toggleCollapse(d.id)} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:11, padding:0, flexShrink:0 }}>{isCollapsed?"▶":"▼"}</button>
-                        <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{d.title}</div>
-                          {isCollapsed && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{d.company}</div>}
-                        </div>
-                        {isCollapsed && <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.green, fontWeight:700, flexShrink:0 }}>{fmt(d.value)}</div>}
-                        <button onClick={()=>openEdit(d)} style={{ background:"none", border:`1px solid ${COLORS.accent}44`, borderRadius:4, color:COLORS.accent, cursor:"pointer", fontSize:11, padding:"2px 6px", flexShrink:0 }}>✏️</button>
-                        <button onClick={()=>del(d.id)} style={{ background:"none", border:`1px solid ${COLORS.red}44`, borderRadius:4, color:COLORS.red, cursor:"pointer", fontSize:13, padding:"2px 6px", flexShrink:0 }}>×</button>
-                      </div>
-                      {!isCollapsed && (
-                        <div style={{ padding:"0 14px 12px" }}>
-                          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:d.rut?2:8 }}>{d.company}</div>
-                          {d.rut && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, marginBottom:8 }}>RUT: {d.rut}</div>}
-                          {d.quoteNumber && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, background:`${COLORS.accent}11`, border:`1px solid ${COLORS.accent}33`, borderRadius:4, padding:"2px 8px", display:"inline-block", marginBottom:8 }}>📄 Cot. #{d.quoteNumber}</div>}
-                          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-                            <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.green, fontWeight:700 }}>{fmt(d.value)}</div>
-                            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{fmtDate(d.closeDate)}</div>
-                          </div>
-                          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
-                            <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Prob.</span>
-                            <span style={{ fontFamily:FONT, fontSize:10, color:stage.color }}>{d.probability}%</span>
-                          </div>
-                          <div style={{ height:4, background:COLORS.border, borderRadius:2, marginBottom:10 }}>
-                            <div style={{ height:4, borderRadius:2, background:stage.color, width:`${d.probability}%` }} />
-                          </div>
-                          <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-                            {STAGES.filter(s=>s.key!==stage.key).map(s=>(
-                              <button key={s.key} onClick={()=>moveDeal(d.id,s.key)} style={{ padding:"3px 7px", borderRadius:4, fontFamily:FONT, fontSize:10, cursor:"pointer", background:"transparent", border:`1px solid ${s.color}44`, color:s.color }}>→ {s.label}</button>
-                            ))}
-                            <button onClick={()=>del(d.id)} style={{ padding:"3px 7px", borderRadius:4, fontFamily:FONT, fontSize:10, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red, marginLeft:"auto" }}>✕</button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-                {stageDeals.length===0 && <div style={{ border:`1px dashed ${COLORS.border}`, borderRadius:8, padding:"20px 0", textAlign:"center", fontFamily:FONT, fontSize:11, color:COLORS.textDim }}>Sin deals</div>}
-              </div>
-            </div>
-          );
-        })}
+
+      {/* ── LANE COT — Con factura / IVA ── */}
+      <div style={{ marginBottom:6 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
+          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.12em", fontWeight:700 }}>COT · Con IVA · Facturas empresa</div>
+          <div style={{ flex:1, height:1, background:COLORS.accent+"33" }} />
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{fmt(dealsCOT.reduce((s,d)=>s+Number(d.value),0))}</div>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(4,1fr)", gap:12 }}>
+          {STAGES.map(stage => renderStageCol(stage, groupedCOT, "COT", COLORS.accent))}
+        </div>
+      </div>
+
+      {/* ── LANE SIN — Sin IVA / Boletas / Personal ── */}
+      <div style={{ marginTop:28 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
+          <div style={{ fontFamily:FONT, fontSize:10, color:"#a855f7", textTransform:"uppercase", letterSpacing:"0.12em", fontWeight:700 }}>SIN · Sin IVA · Boletas / Personal</div>
+          <div style={{ flex:1, height:1, background:"#a855f733" }} />
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{fmt(dealsSIN.reduce((s,d)=>s+Number(d.value),0))}</div>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(4,1fr)", gap:12 }}>
+          {STAGES.map(stage => renderStageCol(stage, groupedSIN, "SIN", "#a855f7"))}
+        </div>
       </div>
       {showModal && (
         <Modal title={editingId?"Editar Deal":"Nuevo Deal"} onClose={()=>setShowModal(false)} onSubmit={save}>
@@ -774,6 +804,14 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
                 <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Datos autocargados ↓</div>
               </div>
             )}
+          </div>
+          <div style={{ display:"flex", gap:8, marginBottom:12 }}>
+            {[{k:"COT",label:"COT · Con IVA",color:COLORS.accent},{k:"SIN",label:"SIN · Sin IVA",color:"#a855f7"}].map(({k,label,color})=>(
+              <button key={k} onClick={()=>f("serie",k)}
+                style={{ flex:1, padding:"9px 0", borderRadius:7, cursor:"pointer", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, border:`1px solid ${form.serie===k?color:COLORS.border}`, background:form.serie===k?color+"22":"transparent", color:form.serie===k?color:COLORS.textMuted }}>
+                {label}
+              </button>
+            ))}
           </div>
           <Input label="Título *" value={form.title} onChange={e=>f("title",e.target.value)} placeholder="Ej: CCTV Etapa I" />
           <Input label="Empresa *" value={form.company} onChange={e=>f("company",e.target.value)} placeholder="Ej: AdministARS" />
@@ -2838,12 +2876,14 @@ function QuotesView({ contacts, isMobile }) {
             etapa: "propuesta",
             probabilidad: 40,
             quote_id: id,
+            serie: "COT",
           });
         } else {
           await supabase.from("deals").update({
             etapa:"propuesta",
             titulo:`${codigo} – ${q.clientCompany||q.clientName||"Cliente"}`,
             valor: q.total||0,
+            serie: "COT",
           }).eq("id", existing[0].id);
         }
       }
@@ -2876,12 +2916,14 @@ function QuotesView({ contacts, isMobile }) {
         etapa: "por_facturar",
         probabilidad: 100,
         quote_id: q.id,
+        serie: "SIN",
       });
     } else {
       await supabase.from("deals").update({
         etapa:"por_facturar",
         titulo:`${codigo} – ${q.clientCompany||q.clientName||"Cliente"}`,
         probabilidad:100,
+        serie: "SIN",
       }).eq("id", existing[0].id);
     }
     alert(`✅ Convertido a ${codigo} → Pipeline: Por Facturar`);
