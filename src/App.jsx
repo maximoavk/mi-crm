@@ -7061,7 +7061,7 @@ function CosteoView({ contacts }) {
           <td style="padding:5px 8px;text-align:center">${cantLabel}</td>
           <td style="padding:5px 8px;text-align:right">${fmt(it.ventaNeta)}</td>
           <td style="padding:5px 8px;text-align:right;color:#64748b">${tieneIVA?fmt(it.ivaVenta):"-"}</td>
-          <td style="padding:5px 8px;text-align:right;font-weight:700;color:#cc0000">${fmt(it.ventaBruta)}</td>
+          <td style="padding:5px 8px;text-align:right;font-weight:700;color:#1e40af">${fmt(it.ventaBruta)}</td>
         </tr>`;}).join("");
       return `<div style="margin-bottom:18px">
         <div style="background:#1e293b;color:white;padding:7px 10px;font-weight:700;font-size:12px;border-radius:5px 5px 0 0">${f.nombre}</div>
@@ -7073,7 +7073,7 @@ function CosteoView({ contacts }) {
             <th style="padding:5px 8px">CANT.</th>
             <th style="padding:5px 8px;text-align:right">NETO</th>
             <th style="padding:5px 8px;text-align:right;color:#64748b">IVA</th>
-            <th style="padding:5px 8px;text-align:right;color:#cc0000">TOTAL c/IVA</th>
+            <th style="padding:5px 8px;text-align:right;color:#1e40af">TOTAL c/IVA</th>
           </tr></thead>
           <tbody>${rows}</tbody>
           <tfoot>
@@ -7081,7 +7081,7 @@ function CosteoView({ contacts }) {
               <td colspan="4" style="padding:6px 8px">Subtotal ${f.nombre}</td>
               <td style="padding:6px 8px;text-align:right">${fmt(f.ventaNeta)}</td>
               <td style="padding:6px 8px;text-align:right;color:#64748b">${fmt(f.ventaBruta-f.ventaNeta)}</td>
-              <td style="padding:6px 8px;text-align:right;color:#cc0000">${fmt(f.ventaBruta)}</td>
+              <td style="padding:6px 8px;text-align:right;color:#1e40af">${fmt(f.ventaBruta)}</td>
             </tr>
             ${(f.descPct||0)>0 ? `
             <tr style="background:#fefce8">
@@ -7090,7 +7090,7 @@ function CosteoView({ contacts }) {
             </tr>
             <tr style="background:#fef3c7;font-weight:800;font-size:12px">
               <td colspan="5" style="padding:6px 8px;color:#78350f">TOTAL FASE CON DESCUENTO</td>
-              <td colspan="2" style="padding:6px 8px;text-align:right;color:#cc0000">${fmt(f.ventaConDesc)}</td>
+              <td colspan="2" style="padding:6px 8px;text-align:right;color:#1e40af">${fmt(f.ventaConDesc)}</td>
             </tr>` : ''}
           </tfoot>
         </table>
@@ -7134,8 +7134,8 @@ function CosteoView({ contacts }) {
           <div style="font-size:10px;color:#64748b">RUT: 77.180.437-3</div>
           <div style="font-size:10px;color:#64748b">Fono: 9-81334980 · ventas@polygonos.cl</div>
         </div>
-        <div style="border:2px solid #cc0000;padding:10px 20px;text-align:center">
-          <div style="font-size:11px;font-weight:700;color:#cc0000">PRESUPUESTO</div>
+        <div style="border:2px solid #1e40af;padding:10px 20px;text-align:center">
+          <div style="font-size:11px;font-weight:700;color:#1e40af">PRESUPUESTO</div>
           <div style="font-size:10px;color:#64748b">${proyecto.fecha||""}</div>
         </div>
       </div>
@@ -7155,18 +7155,18 @@ function CosteoView({ contacts }) {
           <div style="font-size:9px;color:#64748b;margin-bottom:3px">IVA (19%)</div>
           <div style="font-size:18px;font-weight:700;color:#64748b">${fmt(tVentaBruta-tVentaNeta)}</div>
         </div>
-        <div style="flex:1;border:2px solid #cc0000;border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:9px;color:#cc0000;margin-bottom:3px">TOTAL c/IVA</div>
-          <div style="font-size:22px;font-weight:700;color:#cc0000">${fmt(tVentaBruta)}</div>
+        <div style="flex:1;border:2px solid #1e40af;border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:9px;color:#1e40af;margin-bottom:3px">TOTAL c/IVA</div>
+          <div style="font-size:22px;font-weight:700;color:#1e40af">${fmt(tVentaBruta)}</div>
         </div>
         ${tDescuentoCli>0 ? `
         <div style="flex:1;border:1px solid #f59e0b;border-radius:8px;padding:10px;text-align:center;background:#fefce8">
           <div style="font-size:9px;color:#92400e;margin-bottom:3px">DESCUENTO</div>
           <div style="font-size:18px;font-weight:700;color:#b45309">− ${fmt(tDescuentoCli)}</div>
         </div>
-        <div style="flex:2;border:3px solid #cc0000;border-radius:8px;padding:10px;text-align:center;background:#fff5f5">
-          <div style="font-size:10px;color:#cc0000;margin-bottom:3px;font-weight:700">TOTAL FINAL c/IVA</div>
-          <div style="font-size:26px;font-weight:900;color:#cc0000">${fmt(tVentaFinalCli)}</div>
+        <div style="flex:2;border:3px solid #1e40af;border-radius:8px;padding:10px;text-align:center;background:#eff6ff">
+          <div style="font-size:10px;color:#1e40af;margin-bottom:3px;font-weight:700">TOTAL FINAL c/IVA</div>
+          <div style="font-size:26px;font-weight:900;color:#1e40af">${fmt(tVentaFinalCli)}</div>
         </div>` : ''}
       </div>
       ${partidasHTML}
