@@ -14642,11 +14642,15 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
           monto:            Number(payload.valor_servicio),
           estado:           "pendiente",
         };
-        const { data:cppExist } = await supabase.from("cuentas_por_pagar").select("id").eq("ot_id",data.id).maybeSingle();
+        const { data:cppRows, error:cppSelErr } = await supabase.from("cuentas_por_pagar").select("id").eq("ot_id",data.id).limit(1);
+        if(cppSelErr){ console.error("CPP select error:",cppSelErr); }
+        const cppExist = cppRows && cppRows.length > 0;
         if(cppExist){
-          await supabase.from("cuentas_por_pagar").update({ concepto:cpp.concepto, beneficiario:cpp.beneficiario, monto:cpp.monto }).eq("ot_id",data.id);
+          const { error:updErr } = await supabase.from("cuentas_por_pagar").update({ concepto:cpp.concepto, beneficiario:cpp.beneficiario, monto:cpp.monto }).eq("ot_id",data.id);
+          if(updErr) console.error("CPP update error:",updErr);
         } else {
-          await supabase.from("cuentas_por_pagar").insert(cpp);
+          const { error:insErr } = await supabase.from("cuentas_por_pagar").insert(cpp);
+          if(insErr) console.error("CPP insert error:",insErr);
         }
       }
       onSaved(data, isNew);
@@ -15224,7 +15228,9 @@ function OperacionesView({ isMobile }) {
                       {pct>0 && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Checklist {pct}%</span>}
                       {o.firma_imagen && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.green }}>✓ Firmado</span>}
                     </div>
-                    <button onClick={e=>{ e.stopPropagation(); if(window.confirm("¿Eliminar esta OT?")){ supabase.from("ordenes_trabajo").delete().eq("id",o.id); setOts(prev=>prev.filter(x=>x.id!==o.id)); } }}
+                    <button onClick={e=>{ e.stopPropagation(); printOT(o); }}
+                      style={{ background:"none", border:`1px solid ${COLORS.accent}44`, borderRadius:6, color:COLORS.accent, cursor:"pointer", padding:"4px 10px", fontSize:11, flexShrink:0 }}>🖨 PDF</button>
+                    <button onClick={async e=>{ e.stopPropagation(); if(!window.confirm("¿Eliminar esta OT?")) return; const {error}=await supabase.from("ordenes_trabajo").delete().eq("id",o.id); if(error){ alert("Error al eliminar: "+error.message); return; } setOts(prev=>prev.filter(x=>x.id!==o.id)); }}
                       style={{ background:"none", border:`1px solid ${COLORS.red}44`, borderRadius:6, color:COLORS.red, cursor:"pointer", padding:"4px 8px", fontSize:12, flexShrink:0 }}>✕</button>
                   </div>
                 );
@@ -15476,6 +15482,126 @@ function printOp(op, quote) {
   const clienteOp = (op.cliente_nombre||"Cliente").replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ ]/g,"").trim();
   const w = window.open("","_blank");
   w.document.title = `${isCom?"COM":"MNT"}-${op.numero||op.id.slice(0,8)}-${clienteOp}`;
+  w.document.write(html); w.document.close();
+}
+
+// ─── PDF OT ───────────────────────────────────────────────────────────────────
+function printOT(ot) {
+  const fecha = ot.fecha_programada
+    ? new Date(ot.fecha_programada+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"})
+    : "—";
+  const fmtClp = n => "$"+Math.round(n||0).toLocaleString("es-CL");
+
+  const estadoLabel = { borrador:"Borrador", pendiente:"Pendiente", confirmado:"Confirmado", en_progreso:"En progreso", prorrogado:"Prorrogado", completado:"Completado", cancelado:"Cancelado", firmada:"Firmado" };
+
+  const checklistHtml = (ot.checklist||[]).map(sec=>`
+    <div class="sec">
+      <div class="sec-title">${sec.seccion}</div>
+      ${(sec.items||[]).map(it=>{
+        const isOk   = it.estado==="ok"||it.estado==="ok_c";
+        const isDesv = it.estado==="desv";
+        const isNA   = it.estado==="na";
+        const badge  = isOk?"ok":isDesv?"desv":isNA?"na":"pend";
+        const icon   = isOk?"☑":isNA?"⊘":isDesv?"⚠":"☐";
+        const label  = isOk?(it.estado==="ok_c"?"OK + Nota":"OK"):isDesv?"Desviación":isNA?"N/A":"Pendiente";
+        return `<div class="item ${badge}">
+          <span class="chk">${icon}</span>
+          <div class="item-body">
+            <span>${it.label}</span>
+            ${it.obs?`<div class="item-obs">${isDesv?"Desviación":"Nota"}: ${it.obs}</div>`:""}
+          </div>
+          <span class="badge-obs">${label}</span>
+        </div>`;
+      }).join("")}
+    </div>
+  `).join("");
+
+  const materialesHtml = (ot.materiales||[]).length>0 ? `
+    <div class="sec">
+      <div class="sec-title">Materiales entregados</div>
+      <table style="width:100%;border-collapse:collapse;font-size:10px;margin-top:4px">
+        <tr style="background:#f1f5f9"><th style="padding:4px 8px;text-align:left;border:1px solid #e2e8f0">Código</th><th style="padding:4px 8px;text-align:left;border:1px solid #e2e8f0">Descripción</th><th style="padding:4px 8px;text-align:center;border:1px solid #e2e8f0">Cant.</th><th style="padding:4px 8px;text-align:center;border:1px solid #e2e8f0">Unidad</th></tr>
+        ${(ot.materiales||[]).map(m=>`<tr><td style="padding:4px 8px;border:1px solid #e2e8f0">${m.codigo||"—"}</td><td style="padding:4px 8px;border:1px solid #e2e8f0">${m.nombre}</td><td style="padding:4px 8px;border:1px solid #e2e8f0;text-align:center">${m.cantidad}</td><td style="padding:4px 8px;border:1px solid #e2e8f0;text-align:center">${m.unidad||"un"}</td></tr>`).join("")}
+      </table>
+    </div>` : "";
+
+  const firmaHtml = ot.firma_imagen
+    ? `<div class="firma-box"><div class="firma-label">Firma de conformidad del cliente</div><img src="${ot.firma_imagen}" style="max-width:200px;max-height:70px;display:block;margin:4px 0"/><div style="font-size:9px;color:#666">${ot.firma_nombre||""} · ${fecha}</div></div>`
+    : `<div class="firma-box"><div class="firma-label">Firma de conformidad del cliente</div><div style="border-bottom:1px solid #aaa;height:50px;margin:10px 0"></div><div style="font-size:9px;color:#888">Nombre: ____________________________</div></div>`;
+
+  const totalItems = (ot.checklist||[]).reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado!=="na").length,0);
+  const doneItems  = (ot.checklist||[]).reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado==="ok"||it.estado==="ok_c").length,0);
+  const pct = totalItems>0?Math.round(doneItems/totalItems*100):0;
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    @page{size:A4 portrait;margin:12mm 14mm;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:11px;color:#1a202c;background:#fff;}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:8px;border-bottom:2px solid #1a1a2e;margin-bottom:8px;}
+    .brand{font-size:18px;font-weight:800;color:#1a1a2e;letter-spacing:-0.5px;}
+    .brand span{color:#3b82f6;}
+    .ot-num{font-size:22px;font-weight:800;color:#3b82f6;text-align:right;}
+    .ot-tipo{font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;text-align:right;}
+    .meta{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;}
+    .meta-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;padding:6px 10px;}
+    .meta-label{font-size:8px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:2px;}
+    .meta-val{font-size:11px;font-weight:700;color:#1a202c;}
+    .meta-sub{font-size:9px;color:#64748b;}
+    .serv-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:4px;padding:8px 12px;margin-bottom:10px;display:flex;gap:20px;align-items:center;}
+    .serv-code{font-size:10px;font-weight:800;color:#2563eb;}
+    .serv-nom{font-size:11px;color:#1a202c;flex:1;}
+    .serv-val{font-size:14px;font-weight:800;color:#16a34a;}
+    .sec{margin-bottom:8px;}
+    .sec-title{font-size:10px;font-weight:800;color:#fff;background:#1a1a2e;padding:4px 10px;border-radius:3px;margin-bottom:3px;letter-spacing:0.04em;}
+    .item{display:flex;align-items:flex-start;gap:6px;padding:3px 8px;border-bottom:1px solid #f1f5f9;font-size:10px;}
+    .item.ok{background:#f0fdf4;}
+    .item.desv{background:#fffbeb;}
+    .item.na{background:#f8fafc;opacity:0.65;}
+    .item.pend{background:#fff;}
+    .chk{font-size:12px;flex-shrink:0;margin-top:1px;}
+    .item-body{flex:1;}
+    .item-obs{font-size:9px;color:#92400e;margin-top:2px;font-style:italic;}
+    .item.desv .item-obs{color:#92400e;}
+    .badge-obs{font-size:8px;font-weight:700;padding:1px 5px;border-radius:8px;flex-shrink:0;margin-top:2px;}
+    .item.ok .badge-obs{background:#dcfce7;color:#15803d;}
+    .item.desv .badge-obs{background:#fef9c3;color:#92400e;}
+    .item.na .badge-obs{background:#f1f5f9;color:#94a3b8;}
+    .item.pend .badge-obs{background:#fef2f2;color:#dc2626;}
+    .pct-bar{height:6px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin-bottom:10px;}
+    .pct-fill{height:100%;border-radius:99px;background:#3b82f6;}
+    .footer-row{display:flex;justify-content:space-between;align-items:flex-end;margin-top:10px;gap:10px;}
+    .firma-box{border:1px solid #e2e8f0;border-radius:4px;padding:8px 12px;min-width:200px;}
+    .firma-label{font-size:8px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px;}
+    .obs-box{background:#fffbeb;border:1px solid #fde68a;border-radius:4px;padding:8px 12px;margin-bottom:10px;font-size:10px;}
+    .foot{text-align:center;font-size:8px;color:#94a3b8;margin-top:10px;padding-top:6px;border-top:1px solid #e2e8f0;}
+  </style></head><body>
+  <div class="header">
+    <div><div class="brand">Poly<span>gonos</span></div><div style="font-size:9px;color:#64748b">Orden de Trabajo</div></div>
+    <div><div class="ot-num">${ot.numero_ot||"OT"}</div><div class="ot-tipo">${ot.tipo_servicio||"Servicio"} · ${estadoLabel[ot.estado]||ot.estado||""}</div></div>
+  </div>
+  <div class="meta">
+    <div class="meta-box"><div class="meta-label">Cliente</div><div class="meta-val">${ot.cliente_nombre||"—"}</div>${ot.cliente_rut?`<div class="meta-sub">RUT: ${ot.cliente_rut}</div>`:""}</div>
+    <div class="meta-box"><div class="meta-label">Proveedor / Subcontratista</div><div class="meta-val">${ot.proveedor_nombre||"—"}</div></div>
+    <div class="meta-box"><div class="meta-label">Lugar</div><div class="meta-val">${ot.lugar||"—"}</div></div>
+    <div class="meta-box"><div class="meta-label">Fecha programada</div><div class="meta-val">${fecha}</div></div>
+    <div class="meta-box"><div class="meta-label">Equipo / Sistema</div><div class="meta-val">${ot.equipo_tipo||"—"}</div></div>
+    <div class="meta-box"><div class="meta-label">Avance checklist</div><div class="meta-val" style="color:${pct===100?"#16a34a":"#d97706"}">${pct}% (${doneItems}/${totalItems})</div></div>
+  </div>
+  ${ot.codigo_servicio?`<div class="serv-box"><div><div class="serv-code">${ot.codigo_servicio}</div><div class="serv-nom">${ot.nombre_servicio||""}</div></div>${ot.valor_servicio?`<div class="serv-val">${fmtClp(ot.valor_servicio)}</div>`:""}</div>`:""}
+  <div class="pct-bar"><div class="pct-fill" style="width:${pct}%"></div></div>
+  ${checklistHtml}
+  ${materialesHtml}
+  ${ot.observaciones?`<div class="obs-box"><b>Observaciones de cierre:</b> ${ot.observaciones}</div>`:""}
+  <div class="footer-row">
+    <div class="firma-box"><div class="firma-label">Elaborado por</div><div style="font-size:11px;font-weight:700;margin:4px 0">${ot.proveedor_nombre||"—"}</div><div style="font-size:9px;color:#64748b">${fecha}</div><div style="border-bottom:1px solid #aaa;height:36px;margin-top:6px"></div></div>
+    ${firmaHtml}
+  </div>
+  <div class="foot">Innovación | Tecnología | Seguridad · ventas@polygonos.cl · +56 9 6426 6356 · Polygonos SpA · RUT 77.180.437-3</div>
+  <script>window.onload=()=>window.print();</script>
+  </body></html>`;
+
+  const w = window.open("","_blank");
+  w.document.title = `${ot.numero_ot||"OT"} — ${ot.actividad||"Orden de Trabajo"}`;
   w.document.write(html); w.document.close();
 }
 
