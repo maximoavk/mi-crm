@@ -15148,8 +15148,7 @@ function OperacionesView({ isMobile }) {
   const [loading, setLoading]     = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editOp, setEditOp]       = useState(null);
-  const [filterTipo, setFilterTipo] = useState("todos");
-  const [mainTab, setMainTab]     = useState("registros"); // "registros" | "ot"
+  const [mainTab, setMainTab]     = useState("ot"); // "comisionamiento" | "ot"
 
   // OT state
   const [ots, setOts]             = useState([]);
@@ -15180,8 +15179,7 @@ function OperacionesView({ isMobile }) {
     setOps(prev=>prev.filter(o=>o.id!==id));
   };
 
-  const TIPOS = ["todos","mantencion","comisionamiento"];
-  const filtered = ops.filter(o=> filterTipo==="todos" || o.tipo===filterTipo);
+  const filtered = ops.filter(o=> o.tipo==="comisionamiento");
 
   const TIPO_COLOR = { mantencion: COLORS.secondary, comisionamiento: COLORS.green };
   const TIPO_LABEL = { mantencion:"Mantención", comisionamiento:"Comisionamiento" };
@@ -15213,14 +15211,14 @@ function OperacionesView({ isMobile }) {
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Operaciones</div>
         </div>
         <div style={{ display:"flex", gap:8 }}>
-          {mainTab==="registros" && <AddBtn onClick={()=>{ setEditOp(null); setShowModal(true); }} label="Nueva operación" />}
+          {mainTab==="comisionamiento" && <AddBtn onClick={()=>{ setEditOp(null); setShowModal(true); }} label="Nueva instalación" />}
           {mainTab==="ot" && <AddBtn onClick={()=>{ setEditOT(null); setShowOTModal(true); }} label="Nueva OT" />}
         </div>
       </div>
 
       {/* Main tabs */}
       <div style={{ display:"flex", gap:0, borderBottom:`1px solid ${COLORS.border}`, marginBottom:20 }}>
-        {[{k:"registros",l:"📋 Registros de terreno"},{k:"ot",l:"🔧 Órdenes de Trabajo"}].map(t=>(
+        {[{k:"ot",l:"🔧 Órdenes de Trabajo"},{k:"comisionamiento",l:"🏗️ Comisionamiento"}].map(t=>(
           <button key={t.k} onClick={()=>setMainTab(t.k)}
             style={{ padding:"9px 22px", fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer", border:"none", background:"transparent",
               color:mainTab===t.k?COLORS.accent:COLORS.textMuted,
@@ -15303,8 +15301,12 @@ function OperacionesView({ isMobile }) {
                       {pct>0 && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Checklist {pct}%</span>}
                       {o.firma_imagen && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.green }}>✓ Firmado</span>}
                     </div>
-                    <button onClick={e=>{ e.stopPropagation(); printOT(o); }}
-                      style={{ background:"none", border:`1px solid ${COLORS.accent}44`, borderRadius:6, color:COLORS.accent, cursor:"pointer", padding:"4px 10px", fontSize:11, flexShrink:0 }}>🖨 PDF</button>
+                    <button onClick={e=>{ e.stopPropagation(); printOT(o,false); }}
+                      title="PDF Técnico (con valor)"
+                      style={{ background:"none", border:`1px solid ${COLORS.accent}44`, borderRadius:6, color:COLORS.accent, cursor:"pointer", padding:"4px 10px", fontSize:11, flexShrink:0 }}>🖨 Técnico</button>
+                    <button onClick={e=>{ e.stopPropagation(); printOT(o,true); }}
+                      title="PDF Cliente (sin valor)"
+                      style={{ background:"none", border:`1px solid ${COLORS.green}44`, borderRadius:6, color:COLORS.green, cursor:"pointer", padding:"4px 10px", fontSize:11, flexShrink:0 }}>🖨 Cliente</button>
                     <button onClick={async e=>{ e.stopPropagation(); if(!window.confirm("¿Eliminar esta OT?")) return; const {error}=await supabase.from("ordenes_trabajo").delete().eq("id",o.id); if(error){ alert("Error al eliminar: "+error.message); return; } setOts(prev=>prev.filter(x=>x.id!==o.id)); }}
                       style={{ background:"none", border:`1px solid ${COLORS.red}44`, borderRadius:6, color:COLORS.red, cursor:"pointer", padding:"4px 8px", fontSize:12, flexShrink:0 }}>✕</button>
                   </div>
@@ -15323,30 +15325,16 @@ function OperacionesView({ isMobile }) {
         </div>
       )}
 
-      {/* ── VISTA REGISTROS (existente) ── */}
-      {mainTab==="registros" && (<div>
-
-      {/* Filtro tipo + stats */}
-      <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:16, flexWrap:"wrap" }}>
-        <div style={{ display:"flex", gap:4, background:COLORS.surface, padding:3, borderRadius:8, border:`1px solid ${COLORS.border}` }}>
-          {TIPOS.map(t=>(
-            <button key={t} onClick={()=>setFilterTipo(t)}
-              style={{ padding:"5px 14px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", border:"none",
-                background:filterTipo===t?`${TIPO_COLOR[t]||COLORS.accent}22`:"transparent",
-                color:filterTipo===t?(TIPO_COLOR[t]||COLORS.accent):COLORS.textMuted }}>
-              {t==="todos"?"Todos":TIPO_LABEL[t]}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* ── VISTA COMISIONAMIENTO ── */}
+      {mainTab==="comisionamiento" && (<div>
 
       {/* Stats rápidas */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:10, marginBottom:20 }}>
         {[
-          { label:"Total", val:ops.length, color:COLORS.accent },
-          { label:"Mantenciones", val:ops.filter(o=>o.tipo==="mantencion").length, color:COLORS.secondary },
-          { label:"Comisionamientos", val:ops.filter(o=>o.tipo==="comisionamiento").length, color:COLORS.green },
-          { label:"Firmados", val:ops.filter(o=>o.estado==="firmado").length, color:COLORS.yellow },
+          { label:"Total", val:filtered.length, color:COLORS.accent },
+          { label:"Completados", val:filtered.filter(o=>o.estado==="completado"||o.estado==="firmado").length, color:COLORS.green },
+          { label:"En proceso", val:filtered.filter(o=>o.estado==="borrador"||o.estado==="pendiente").length, color:COLORS.secondary },
+          { label:"Con garantía", val:filtered.filter(o=>o.garantia_meses>0).length, color:COLORS.yellow },
         ].map(({label,val,color})=>(
           <div key={label} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"12px 16px" }}>
             <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>{label}</div>
@@ -15432,6 +15420,7 @@ function OperacionesView({ isMobile }) {
       {showModal && (
         <OpModal
           op={editOp}
+          defaultTipo="comisionamiento"
           quotes={quotes}
           contacts={contacts}
           onClose={()=>{ setShowModal(false); setEditOp(null); }}
@@ -15443,7 +15432,7 @@ function OperacionesView({ isMobile }) {
           onPrint={(op)=>{ const q=quotes.find(q=>q.id===op.quote_id); printOp(op,q); }}
         />
       )}
-    </div>)} {/* cierre registros tab */}
+    </div>)} {/* cierre comisionamiento tab */}
     </div>
   );
 }
@@ -15561,7 +15550,7 @@ function printOp(op, quote) {
 }
 
 // ─── PDF OT ───────────────────────────────────────────────────────────────────
-function printOT(ot) {
+function printOT(ot, clienteMode=false) {
   const fecha = ot.fecha_programada
     ? new Date(ot.fecha_programada+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"})
     : "—";
@@ -15672,7 +15661,7 @@ function printOT(ot) {
     <div class="meta-box"><div class="meta-label">Proveedor / Subcontratista</div><div class="meta-val">${ot.proveedor_nombre||"—"}</div></div>
     <div class="meta-box"><div class="meta-label">Equipo / Sistema</div><div class="meta-val">${ot.equipo_tipo||"—"}</div></div>
   </div>
-  ${servBlock}
+  ${clienteMode?"":servBlock}
   ${checklistHtml}
   ${materialesHtml}
   ${ot.observaciones?`<div class="obs-cierre"><b>Observaciones de cierre:</b> ${ot.observaciones}</div>`:""}
@@ -15761,8 +15750,7 @@ function printComprobanteCPP(f) {
 
   <div class="header">
     <div>
-      <div class="logo">Polygonos <span>SpA</span></div>
-      <div style="font-size:8.5px;color:#888;margin-top:2px;">RUT 77.180.437-3 · ventas@polygonos.cl</div>
+      <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos" style="height:38px;"/>
     </div>
     <div class="doc-title">
       <div class="tipo">Comprobante de Prestación de Servicio</div>
@@ -15848,10 +15836,9 @@ function printComprobanteCPP(f) {
 }
 
 // ─── Modal Operación ──────────────────────────────────────────────────────────
-function OpModal({ op, quotes, contacts, onClose, onSaved, onPrint }) {
+function OpModal({ op, defaultTipo, quotes, contacts, onClose, onSaved, onPrint }) {
   const isNew = !op;
-  const isCom = op?.tipo==="comisionamiento";
-  const [tipo,   setTipo]   = useState(op?.tipo||"mantencion");
+  const [tipo,   setTipo]   = useState(op?.tipo||defaultTipo||"comisionamiento");
   const [form,   setForm]   = useState({
     quote_id:             op?.quote_id||"",
     tecnico:              op?.tecnico||"Maximo Hudson",
