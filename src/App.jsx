@@ -14453,6 +14453,7 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
   const [saving, setSaving]     = useState(false);
   const [tecnicos, setTecnicos] = useState([]);
   const [productos, setProductosOT] = useState([]); // cargado internamente
+  const [proveedores, setProveedores] = useState([]);
   const [addTecMode, setAddTecMode] = useState(false);
   const [newTec, setNewTec]     = useState({ nombre:"", rut:"", especialidad:"" });
   const [cotSearch, setCotSearch] = useState(()=>{
@@ -14484,6 +14485,7 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
     estado:           ot?.estado||"pendiente",
     codigo_servicio:  ot?.codigo_servicio||"",
     nombre_servicio:  ot?.nombre_servicio||"",
+    proveedor_nombre: ot?.proveedor_nombre||"",
   });
   const [checklist, setChecklist] = useState(ot?.checklist||null);
   const [materiales, setMateriales] = useState(ot?.materiales||[]);
@@ -14501,6 +14503,8 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
       .then(({data,error})=>{
         if(!error && data) setProductosOT(data);
       });
+    supabase.from("proveedores").select("id,nombre,rut,contacto").order("nombre")
+      .then(({data})=>setProveedores(data||[]));
   },[]);
 
   // Auto-fill cliente desde COT
@@ -14524,8 +14528,8 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
   const setItem = (sIdx,iIdx,field,val) =>
     setChecklist(prev=>prev.map((s,si)=>si!==sIdx?s:{...s,items:s.items.map((it,ii)=>ii!==iIdx?it:{...it,[field]:val})}));
 
-  const totalItems = (checklist||[]).reduce((s,sec)=>s+(sec.items||[]).length,0);
-  const doneItems  = (checklist||[]).reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado==="ok"||it.estado==="obs").length,0);
+  const totalItems = (checklist||[]).reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado!=="na").length,0);
+  const doneItems  = (checklist||[]).reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado==="ok"||it.estado==="ok_c").length,0);
   const pct = totalItems>0?Math.round(doneItems/totalItems*100):0;
 
   // Agregar técnico a DB
@@ -14611,7 +14615,11 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
   const saveFirma  = ()=>{ setFirma(p=>({...p,img:canvasRef.current.toDataURL()})); setFirmaMode(false); };
 
   const save = async (nuevoEstado) => {
-    if(!form.tecnico||!form.actividad) return;
+    const isBorrador = nuevoEstado === "borrador";
+    if(!isBorrador && (!form.tecnico || !form.actividad)) {
+      alert("Para generar la OT se requiere técnico y actividad.");
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -14671,7 +14679,16 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
   const lbl = { fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4, fontWeight:600, display:"block" };
   const TC = COLORS.accent;
 
-  const ESTADO_OT = { pendiente:{label:"Pendiente",color:"#FFB800"}, en_progreso:{label:"En progreso",color:COLORS.accent}, completada:{label:"Completada",color:COLORS.yellow}, firmada:{label:"Firmada",color:COLORS.green} };
+  const ESTADO_OT = {
+    borrador:    { label:"Borrador",    color:COLORS.textMuted },
+    pendiente:   { label:"Pendiente",   color:"#FFB800" },
+    confirmado:  { label:"Confirmado",  color:COLORS.accent },
+    en_progreso: { label:"En progreso", color:COLORS.accent },
+    prorrogado:  { label:"Prorrogado",  color:"#FF8C00" },
+    completado:  { label:"Completado",  color:COLORS.green },
+    cancelado:   { label:"Cancelado",   color:COLORS.red },
+    firmada:     { label:"Firmada",     color:COLORS.green },
+  };
 
   return (
     <div style={{ position:"fixed", inset:0, background:"#000c", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:12 }}>
@@ -14749,6 +14766,21 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
                       <button onClick={()=>setAddTecMode(false)} style={{ flex:1, padding:"7px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, fontFamily:FONT, fontSize:11, color:COLORS.textMuted, cursor:"pointer" }}>Cancelar</button>
                       <button onClick={addTecnico} style={{ flex:2, padding:"7px 0", background:`${TC}22`, border:`1px solid ${TC}`, borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:TC, cursor:"pointer" }}>Guardar técnico</button>
                     </div>
+                  </div>
+                )}
+              </div>
+              {/* Proveedor / Subcontratista */}
+              <div style={{ gridColumn:"1/-1" }}>
+                <label style={lbl}>Proveedor / Subcontratista</label>
+                <select value={form.proveedor_nombre} onChange={e=>ff("proveedor_nombre",e.target.value)} style={inp}>
+                  <option value="">— Sin asignar —</option>
+                  {proveedores.map(p=>(
+                    <option key={p.id} value={p.nombre}>{p.nombre}{p.rut?` · ${p.rut}`:""}</option>
+                  ))}
+                </select>
+                {proveedores.length===0 && (
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:4 }}>
+                    No hay proveedores cargados. Agrégalos directamente en Supabase en la tabla <code>proveedores</code>.
                   </div>
                 )}
               </div>
@@ -14909,7 +14941,12 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
                   {(sec.items||[]).map((it,iIdx)=>(
                     <div key={iIdx} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 10px", borderBottom:`1px solid ${COLORS.border}11` }}>
                       <div style={{ flex:1, fontFamily:FONT, fontSize:11, color:COLORS.text }}>{it.label}</div>
-                      {[{k:"ok",l:"✓ OK",c:COLORS.green},{k:"obs",l:"⚠ OBS",c:COLORS.yellow},{k:"na",l:"N/A",c:COLORS.textMuted}].map(({k,l,c})=>(
+                      {[
+                        {k:"ok",   l:"✓ OK",   c:COLORS.green},
+                        {k:"ok_c", l:"✓ Nota",  c:"#4CAF50"},
+                        {k:"desv", l:"⚠ Desv",  c:COLORS.yellow},
+                        {k:"na",   l:"N/A",     c:COLORS.textMuted},
+                      ].map(({k,l,c})=>(
                         <button key={k} onClick={()=>setItem(sIdx,iIdx,"estado",it.estado===k?null:k)}
                           style={{ padding:"2px 8px", borderRadius:5, fontFamily:FONT, fontSize:10, cursor:"pointer",
                             background:it.estado===k?`${c}22`:"transparent", border:`1px solid ${it.estado===k?c:COLORS.border}`,
@@ -14917,9 +14954,9 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
                           {l}
                         </button>
                       ))}
-                      {it.estado==="obs" && (
+                      {(it.estado==="ok_c"||it.estado==="desv") && (
                         <input value={it.obs||""} onChange={e=>setItem(sIdx,iIdx,"obs",e.target.value)}
-                          placeholder="Observación…"
+                          placeholder={it.estado==="ok_c"?"Nota…":"Desviación…"}
                           style={{ ...inp, width:160, padding:"2px 8px", fontSize:10 }} />
                       )}
                     </div>
@@ -15051,21 +15088,29 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
 
         {/* Footer acciones */}
         <div style={{ padding:"14px 22px", borderTop:`1px solid ${COLORS.border}`, display:"flex", gap:8, flexShrink:0, flexWrap:"wrap" }}>
-          <button onClick={onClose} style={{ flex:1, padding:"10px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer" }}>Cancelar</button>
-          <button onClick={()=>save("en_progreso")} disabled={saving}
-            style={{ flex:1, padding:"10px 0", background:`${TC}22`, border:`1px solid ${TC}44`, borderRadius:8, color:TC, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>
+          <button onClick={onClose} style={{ padding:"10px 16px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer" }}>Cancelar</button>
+          <button onClick={()=>save("borrador")} disabled={saving}
+            style={{ padding:"10px 16px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer" }}>
             {saving?"Guardando…":"Guardar borrador"}
           </button>
-          {firma.img && (
+          <div style={{ flex:1 }} />
+          {!isNew && firma.img && (
             <button onClick={()=>save("firmada")} disabled={saving}
-              style={{ flex:2, padding:"10px 0", background:COLORS.green, border:"none", borderRadius:8, color:"#fff", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>
+              style={{ padding:"10px 20px", background:COLORS.green, border:"none", borderRadius:8, color:"#fff", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>
               ✓ Confirmar con firma
             </button>
           )}
-          {!firma.img && (
-            <button onClick={()=>save("completada")} disabled={saving}
-              style={{ flex:2, padding:"10px 0", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>
-              Marcar completada
+          {!isNew && !firma.img && (
+            <button onClick={()=>save(form.estado)} disabled={saving}
+              style={{ padding:"10px 20px", background:`${TC}22`, border:`1px solid ${TC}`, borderRadius:8, color:TC, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>
+              {saving?"Guardando…":"Guardar cambios"}
+            </button>
+          )}
+          {isNew && (
+            <button onClick={()=>save("pendiente")} disabled={saving||(!form.tecnico||!form.actividad)}
+              style={{ padding:"10px 24px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer",
+                opacity:(!form.tecnico||!form.actividad)?0.45:1 }}>
+              {saving?"Generando…":"Generar OT"}
             </button>
           )}
         </div>
@@ -15124,7 +15169,17 @@ function OperacionesView({ isMobile }) {
   const ESTADO_COLOR = { borrador:COLORS.textMuted, completado:COLORS.yellow, firmado:COLORS.green };
   const ESTADO_LABEL = { borrador:"Borrador", completado:"Completado", firmado:"Firmado" };
 
-  const ESTADO_OT_CFG = { todos:{label:"Todos",color:COLORS.textMuted}, pendiente:{label:"Pendiente",color:"#FFB800"}, en_progreso:{label:"En progreso",color:COLORS.accent}, completada:{label:"Completada",color:COLORS.yellow}, firmada:{label:"Firmada",color:COLORS.green} };
+  const ESTADO_OT_CFG = {
+    todos:       { label:"Todos",        color:COLORS.textMuted },
+    borrador:    { label:"Borrador",     color:COLORS.textMuted },
+    pendiente:   { label:"Pendiente",    color:"#FFB800" },
+    confirmado:  { label:"Confirmado",   color:COLORS.accent },
+    en_progreso: { label:"En progreso",  color:COLORS.accent },
+    prorrogado:  { label:"Prorrogado",   color:"#FF8C00" },
+    completado:  { label:"Completado",   color:COLORS.green },
+    cancelado:   { label:"Cancelado",    color:COLORS.red },
+    firmada:     { label:"Firmada",      color:COLORS.green },
+  };
   const filteredOTs = ots.filter(o=>filterOTEstado==="todos"||o.estado===filterOTEstado);
   const fmtClp = n => "$"+Math.round(n||0).toLocaleString("es-CL");
 
@@ -15151,9 +15206,9 @@ function OperacionesView({ isMobile }) {
               borderBottom:`2px solid ${mainTab===t.k?COLORS.accent:"transparent"}`,
               marginBottom:-1, transition:"all 0.15s" }}>
             {t.l}
-            {t.k==="ot" && ots.filter(o=>o.estado==="pendiente").length>0 && (
+            {t.k==="ot" && ots.filter(o=>o.estado==="pendiente"||o.estado==="confirmado").length>0 && (
               <span style={{ marginLeft:6, background:COLORS.red, color:"#fff", borderRadius:8, padding:"1px 6px", fontSize:10 }}>
-                {ots.filter(o=>o.estado==="pendiente").length}
+                {ots.filter(o=>o.estado==="pendiente"||o.estado==="confirmado").length}
               </span>
             )}
           </button>
@@ -15166,11 +15221,11 @@ function OperacionesView({ isMobile }) {
           {/* KPIs OT */}
           <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:10, marginBottom:18 }}>
             {[
-              { label:"Total OTs",    val:ots.length,                                              color:COLORS.accent },
-              { label:"Pendientes",   val:ots.filter(o=>o.estado==="pendiente").length,            color:"#FFB800" },
-              { label:"En progreso",  val:ots.filter(o=>o.estado==="en_progreso").length,          color:COLORS.accent },
-              { label:"Firmadas",     val:ots.filter(o=>o.estado==="firmada").length,              color:COLORS.green },
-              { label:"Valor total",  val:fmtClp(ots.reduce((s,o)=>s+Number(o.valor_servicio||0),0)), color:COLORS.green, wide:true },
+              { label:"Total OTs",    val:ots.length,                                                               color:COLORS.accent },
+              { label:"Borradores",   val:ots.filter(o=>o.estado==="borrador").length,                             color:COLORS.textMuted },
+              { label:"Pendientes",   val:ots.filter(o=>o.estado==="pendiente"||o.estado==="confirmado").length,   color:"#FFB800" },
+              { label:"Completadas",  val:ots.filter(o=>o.estado==="completado"||o.estado==="firmada").length,     color:COLORS.green },
+              { label:"Valor total",  val:fmtClp(ots.reduce((s,o)=>s+Number(o.valor_servicio||0),0)),             color:COLORS.green },
             ].map(({label,val,color})=>(
               <div key={label} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"12px 16px" }}>
                 <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>{label}</div>
@@ -15201,8 +15256,8 @@ function OperacionesView({ isMobile }) {
               {filteredOTs.map(o=>{
                 const est = ESTADO_OT_CFG[o.estado]||ESTADO_OT_CFG.pendiente;
                 const pct = (o.checklist||[]).length>0 ? (() => {
-                  const total=(o.checklist||[]).reduce((s,sec)=>s+(sec.items||[]).length,0);
-                  const done=(o.checklist||[]).reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado==="ok"||it.estado==="obs").length,0);
+                  const total=(o.checklist||[]).reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado!=="na").length,0);
+                  const done=(o.checklist||[]).reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado==="ok"||it.estado==="ok_c").length,0);
                   return total>0?Math.round(done/total*100):0;
                 })() : 0;
                 return (
