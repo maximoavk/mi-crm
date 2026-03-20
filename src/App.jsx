@@ -1770,6 +1770,12 @@ function GanttView({ isMobile }) {
   const [dragOverId, setDragOverId] = useState(null);
   const [collapsedPhases, setCollapsedPhases] = useState(new Set());
   const dragFromHandle = React.useRef(false);
+  // Limpiar estado drag si termina fuera de la tabla
+  useEffect(() => {
+    const clear = () => { setDraggedId(null); setDragOverId(null); dragFromHandle.current = false; };
+    window.addEventListener("dragend", clear);
+    return () => window.removeEventListener("dragend", clear);
+  }, []);
   const toggleCollapse = (faseId) => setCollapsedPhases(prev => {
     const next = new Set(prev);
     if(next.has(faseId)) next.delete(faseId); else next.add(faseId);
@@ -2189,7 +2195,7 @@ function GanttView({ isMobile }) {
                               title="Arrastrar para mover"
                               onMouseDown={()=>{ dragFromHandle.current=true; }}
                               onMouseUp={()=>{ dragFromHandle.current=false; }}
-                              style={{ cursor:"grab", color:COLORS.border, fontSize:11, lineHeight:1, userSelect:"none", flexShrink:0 }}>⠿</span>
+                              style={{ cursor:"grab", color:"#6b7280", fontSize:14, lineHeight:1, userSelect:"none", flexShrink:0, padding:"0 2px" }}>⠿</span>
                             {isFase && (
                               <button
                                 onClick={e=>{e.stopPropagation();toggleCollapse(t.id);}}
