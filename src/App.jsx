@@ -9844,8 +9844,9 @@ const badgePago = (estado) => {
 };
 
 // Calcula estado de pago
-const calcEstado = (total, pagado, vencimiento) => {
-  if (pagado >= total) return "pagado";
+const calcEstado = (total, pagado, vencimiento, estado_manual) => {
+  if (estado_manual) return estado_manual;
+  if (total > 0 && pagado >= total) return "pagado";
   const hoy = new Date();
   const venc = vencimiento ? new Date(vencimiento + "T00:00") : null;
   if (venc && venc < hoy) return "vencido";
@@ -11055,7 +11056,7 @@ function CuentasPorCobrar({ isMobile }) {
   const totalPendiente = totalEmitido - totalCobrado;
   const vencidas = facturas.filter(f => {
     const pag = (f.pagos_recibidos||[]).reduce((a,p)=>a+p.monto,0);
-    return calcEstado(f.monto_total, pag, f.vencimiento) === "vencido";
+    return calcEstado(f.monto_total, pag, f.vencimiento, f.estado_manual) === "vencido";
   }).length;
 
   return (
@@ -11103,7 +11104,7 @@ function CuentasPorCobrar({ isMobile }) {
                   {facturas.map(f => {
                     const cobrado = (f.pagos_recibidos||[]).reduce((a,p)=>a+p.monto,0);
                     const saldo   = f.monto_total - cobrado;
-                    const estado  = calcEstado(f.monto_total, cobrado, f.vencimiento);
+                    const estado  = calcEstado(f.monto_total, cobrado, f.vencimiento, f.estado_manual);
                     return (
                       <tr key={f.id} style={{ borderBottom:`1px solid ${COLORS.border}` }}>
                         <td style={{ padding:"9px 12px", color:COLORS.accent, fontWeight:700, fontFamily:FONT }}>
@@ -11374,6 +11375,19 @@ function CuentasPorPagar({ isMobile }) {
   const [pagoModal, setPagoModal]   = useState(null);
   const [saving, setSaving]         = useState(false);
   const [filtroTipo, setFiltroTipo] = useState("todos");
+  const [editingRow, setEditingRow] = useState(null);
+  const [editForm, setEditForm]     = useState({ vencimiento:"", estado_manual:"" });
+
+  const openEdit = (f) => {
+    setEditingRow(f.id);
+    setEditForm({ vencimiento: f.vencimiento||"", estado_manual: f.estado_manual||"" });
+  };
+  const saveEdit = async (facturaId) => {
+    const patch = { vencimiento: editForm.vencimiento||null, estado_manual: editForm.estado_manual||null };
+    await supabase.from("facturas_recibidas").update(patch).eq("id", facturaId);
+    setFacturas(prev=>prev.map(f=>f.id===facturaId?{...f,...patch}:f));
+    setEditingRow(null);
+  };
 
   // Buscador proveedor
   const [busqueda, setBusqueda]         = useState("");
@@ -11560,9 +11574,10 @@ function CuentasPorPagar({ isMobile }) {
                   {filtradas.map(f => {
                     const pagado = (f.pagos_realizados||[]).reduce((a,p)=>a+p.monto,0);
                     const saldo  = f.monto_total - pagado;
-                    const estado = calcEstado(f.monto_total, pagado, f.vencimiento);
+                    const estado = calcEstado(f.monto_total, pagado, f.vencimiento, f.estado_manual);
                     return (
-                      <tr key={f.id} style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                      <React.Fragment key={f.id}>
+                      <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
                         <td style={{ padding:"9px 12px", color:COLORS.accent, fontWeight:700, fontFamily:FONT }}>
                           {f.numero_documento}
                         </td>
@@ -11590,21 +11605,63 @@ function CuentasPorPagar({ isMobile }) {
                         <td style={{ padding:"9px 12px", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700,
                           color:saldo>0?COLORS.red:COLORS.green }}>{fmtClp(saldo)}</td>
                         <td style={{ padding:"9px 12px" }}>{badgePago(estado)}</td>
-                        <td style={{ padding:"9px 12px", display:"flex", gap:6, alignItems:"center" }}>
-                          {saldo > 0 && (
-                            <button onClick={()=>{ setPagoModal({facturaId:f.id, facturaN:f.numero_documento}); setFormPago(emptyPago); }}
-                              style={{ padding:"5px 10px", background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`,
-                                borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
-                              + Pago
+                        <td style={{ padding:"9px 12px" }}>
+                          <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                            {saldo > 0 && (
+                              <button onClick={()=>{ setPagoModal({facturaId:f.id, facturaN:f.numero_documento}); setFormPago(emptyPago); }}
+                                style={{ padding:"5px 10px", background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`,
+                                  borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+                                + Pago
+                              </button>
+                            )}
+                            <button onClick={()=>editingRow===f.id?setEditingRow(null):openEdit(f)}
+                              style={{ padding:"5px 8px", background:editingRow===f.id?`${COLORS.accent}22`:"transparent",
+                                border:`1px solid ${editingRow===f.id?COLORS.accent:COLORS.border}`,
+                                borderRadius:6, color:editingRow===f.id?COLORS.accent:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+                              ✏️
                             </button>
-                          )}
-                          <button onClick={async()=>{ if(!window.confirm(`¿Eliminar la entrada "${f.numero_documento}"?`)) return; await supabase.from("facturas_recibidas").delete().eq("id",f.id); setFacturas(prev=>prev.filter(x=>x.id!==f.id)); }}
-                            style={{ padding:"5px 8px", background:"transparent", border:`1px solid ${COLORS.red}44`,
-                              borderRadius:6, color:COLORS.red, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
-                            ✕
-                          </button>
+                            <button onClick={async()=>{ if(!window.confirm(`¿Eliminar la entrada "${f.numero_documento}"?`)) return; await supabase.from("facturas_recibidas").delete().eq("id",f.id); setFacturas(prev=>prev.filter(x=>x.id!==f.id)); }}
+                              style={{ padding:"5px 8px", background:"transparent", border:`1px solid ${COLORS.red}44`,
+                                borderRadius:6, color:COLORS.red, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+                              ✕
+                            </button>
+                          </div>
                         </td>
                       </tr>
+                      {editingRow===f.id && (
+                        <tr style={{ background:`${COLORS.accent}08`, borderBottom:`1px solid ${COLORS.border}` }}>
+                          <td colSpan={12} style={{ padding:"12px 18px" }}>
+                            <div style={{ display:"flex", gap:12, alignItems:"flex-end", flexWrap:"wrap" }}>
+                              <div>
+                                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4 }}>Fecha vencimiento</div>
+                                <input type="date" value={editForm.vencimiento}
+                                  onChange={e=>setEditForm(p=>({...p,vencimiento:e.target.value}))}
+                                  style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"6px 10px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none" }} />
+                              </div>
+                              <div>
+                                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4 }}>Estado</div>
+                                <select value={editForm.estado_manual}
+                                  onChange={e=>setEditForm(p=>({...p,estado_manual:e.target.value}))}
+                                  style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"6px 10px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none" }}>
+                                  <option value="">— Auto —</option>
+                                  <option value="pendiente">Pendiente</option>
+                                  <option value="pagado">Pagado</option>
+                                  <option value="vencido">Vencido</option>
+                                </select>
+                              </div>
+                              <button onClick={()=>saveEdit(f.id)}
+                                style={{ padding:"7px 18px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT, fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                                Guardar
+                              </button>
+                              <button onClick={()=>setEditingRow(null)}
+                                style={{ padding:"7px 14px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
+                                Cancelar
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </React.Fragment>
                     );
                   })}
                 </tbody>
