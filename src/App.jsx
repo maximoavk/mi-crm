@@ -2326,8 +2326,19 @@ function GanttView({ isMobile }) {
                       {/* Dependencia */}
                       <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
                         {editing ? (
-                          <input value={t.depende} onChange={e=>updateTask(t.id,"depende",e.target.value)} style={{...s,width:40}} placeholder="#" />
-                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.textMuted }}>{t.depende||"-"}</span>}
+                          <select value={t.depende||""} onChange={e=>updateTask(t.id,"depende",e.target.value)} style={{...s,width:72,padding:"2px 3px"}}>
+                            <option value="">N/A</option>
+                            {tasks.filter(r=>r.id!==t.id).map(r=>{
+                              const num = ganttMeta.numbers[r.id]||"";
+                              const label = `${num} ${r.nombre}`.slice(0,22);
+                              return <option key={r.id} value={num}>{label}</option>;
+                            })}
+                          </select>
+                        ) : (
+                          <span style={{ fontFamily:"monospace", fontSize:10, color:t.depende?COLORS.accent:COLORS.textMuted }}>
+                            {t.depende||"N/A"}
+                          </span>
+                        )}
                       </td>
                       {/* Acciones */}
                       <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
