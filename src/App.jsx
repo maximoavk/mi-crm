@@ -14604,14 +14604,42 @@ function OTModal({ ot, quotes, productos, onClose, onSaved }) {
       };
       let data, error;
       if(isNew){
-        const { data:existing } = await supabase.from("ordenes_trabajo").select("numero_ot").order("created_at",{ascending:false}).limit(1);
-        const lastNum = existing?.[0]?.numero_ot ? parseInt(existing[0].numero_ot.replace("OT-",""))||0 : 0;
-        payload.numero_ot = `OT-${String(lastNum+1).padStart(3,"0")}`;
+        if(form.cotizacion_id){
+          // Correlativo por cotización: COT-045/OT-1, COT-045/OT-2...
+          const q = (quotes||[]).find(qt=>qt.id===form.cotizacion_id);
+          const serie = q?.serie||"COT";
+          const num   = String(q?.numero||q?.number||"?").padStart(3,"0");
+          const { data:cotOTs } = await supabase.from("ordenes_trabajo").select("id").eq("cotizacion_id",form.cotizacion_id);
+          const otIdx = (cotOTs?.length||0)+1;
+          payload.numero_ot = `${serie}-${num}/OT-${otIdx}`;
+        } else {
+          // Correlativo global OT-001
+          const { data:existing } = await supabase.from("ordenes_trabajo").select("numero_ot").not("numero_ot","like","%-OT-%").order("created_at",{ascending:false}).limit(1);
+          const lastNum = existing?.[0]?.numero_ot ? parseInt(existing[0].numero_ot.replace("OT-",""))||0 : 0;
+          payload.numero_ot = `OT-${String(lastNum+1).padStart(3,"0")}`;
+        }
         ({ data, error } = await supabase.from("ordenes_trabajo").insert(payload).select().single());
       } else {
         ({ data, error } = await supabase.from("ordenes_trabajo").update(payload).eq("id",ot.id).select().single());
       }
       if(error){ alert("Error: "+error.message); setSaving(false); return; }
+      // Auto-crear / actualizar entrada en cuentas_por_pagar
+      if(data && Number(payload.valor_servicio)>0){
+        const cpp = {
+          ot_id:       data.id,
+          numero_ot:   data.numero_ot,
+          concepto:    `OT ${data.numero_ot} — ${form.actividad}`,
+          beneficiario: form.tecnico||"",
+          beneficiario_rut: form.tecnico_rut||null,
+          monto:       Number(payload.valor_servicio),
+          estado:      "pendiente",
+        };
+        if(isNew){
+          await supabase.from("cuentas_por_pagar").insert(cpp);
+        } else {
+          await supabase.from("cuentas_por_pagar").update({ concepto:cpp.concepto, beneficiario:cpp.beneficiario, beneficiario_rut:cpp.beneficiario_rut, monto:cpp.monto }).eq("ot_id",data.id);
+        }
+      }
       onSaved(data, isNew);
     } catch(e){ alert("Error: "+e.message); setSaving(false); }
   };
@@ -14733,7 +14761,7 @@ function OTModal({ ot, quotes, productos, onClose, onSaved }) {
                         <div key={p.id} onMouseDown={()=>{ ff("codigo_servicio",p.codigo||""); ff("nombre_servicio",p.nombre); setServicioSearch(p.codigo? `${p.codigo} — ${p.nombre}` : p.nombre); setShowServResults(false); }}
                           style={{ padding:"8px 12px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}22`, fontFamily:FONT, fontSize:12, color:COLORS.text, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                           <span><span style={{ color:TC, fontWeight:700, fontSize:10 }}>{p.codigo||"—"}</span> · {p.nombre}</span>
-                          {p.precio_unitario && <span style={{ color:COLORS.textMuted, fontSize:10 }}>${Number(p.precio_unitario).toLocaleString("es-CL")}</span>}
+                          {p.precio && <span style={{ color:COLORS.textMuted, fontSize:10 }}>${Number(p.precio).toLocaleString("es-CL")}</span>}
                         </div>
                       ))}
                     </div>
@@ -15013,7 +15041,7 @@ function OperacionesView({ isMobile }) {
       supabase.from("cotizaciones").select("id,numero,serie,nombre_cliente,razon_social,estado").order("numero",{ascending:false}),
       supabase.from("contactos").select("id,nombre,empresa"),
       supabase.from("ordenes_trabajo").select("*").order("created_at",{ascending:false}),
-      supabase.from("productos").select("id,nombre,codigo,tipo,precio_unitario,unidad").order("nombre"),
+      supabase.from("productos").select("id,nombre,codigo,tipo,precio,unidad").order("nombre"),
     ]);
     setOps(opsData||[]);
     setQuotes(qData||[]);
