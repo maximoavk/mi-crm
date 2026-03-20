@@ -14634,18 +14634,19 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
       // Auto-crear / actualizar entrada en cuentas_por_pagar
       if(data && Number(payload.valor_servicio)>0){
         const cpp = {
-          ot_id:       data.id,
-          numero_ot:   data.numero_ot,
-          concepto:    `OT ${data.numero_ot} — ${form.actividad}`,
-          beneficiario: form.proveedor_nombre||"",
+          ot_id:            data.id,
+          numero_ot:        data.numero_ot,
+          concepto:         `OT ${data.numero_ot} — ${form.actividad}`,
+          beneficiario:     form.proveedor_nombre||"",
           beneficiario_rut: null,
-          monto:       Number(payload.valor_servicio),
-          estado:      "pendiente",
+          monto:            Number(payload.valor_servicio),
+          estado:           "pendiente",
         };
-        if(isNew){
-          await supabase.from("cuentas_por_pagar").insert(cpp);
+        const { data:cppExist } = await supabase.from("cuentas_por_pagar").select("id").eq("ot_id",data.id).maybeSingle();
+        if(cppExist){
+          await supabase.from("cuentas_por_pagar").update({ concepto:cpp.concepto, beneficiario:cpp.beneficiario, monto:cpp.monto }).eq("ot_id",data.id);
         } else {
-          await supabase.from("cuentas_por_pagar").update({ concepto:cpp.concepto, beneficiario:cpp.beneficiario, beneficiario_rut:cpp.beneficiario_rut, monto:cpp.monto }).eq("ot_id",data.id);
+          await supabase.from("cuentas_por_pagar").insert(cpp);
         }
       }
       onSaved(data, isNew);
