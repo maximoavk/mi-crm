@@ -11590,7 +11590,7 @@ function CuentasPorPagar({ isMobile }) {
                         <td style={{ padding:"9px 12px", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700,
                           color:saldo>0?COLORS.red:COLORS.green }}>{fmtClp(saldo)}</td>
                         <td style={{ padding:"9px 12px" }}>{badgePago(estado)}</td>
-                        <td style={{ padding:"9px 12px" }}>
+                        <td style={{ padding:"9px 12px", display:"flex", gap:6, alignItems:"center" }}>
                           {saldo > 0 && (
                             <button onClick={()=>{ setPagoModal({facturaId:f.id, facturaN:f.numero_documento}); setFormPago(emptyPago); }}
                               style={{ padding:"5px 10px", background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`,
@@ -11598,6 +11598,11 @@ function CuentasPorPagar({ isMobile }) {
                               + Pago
                             </button>
                           )}
+                          <button onClick={async()=>{ if(!window.confirm(`¿Eliminar la entrada "${f.numero_documento}"?`)) return; await supabase.from("facturas_recibidas").delete().eq("id",f.id); setFacturas(prev=>prev.filter(x=>x.id!==f.id)); }}
+                            style={{ padding:"5px 8px", background:"transparent", border:`1px solid ${COLORS.red}44`,
+                              borderRadius:6, color:COLORS.red, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+                            ✕
+                          </button>
                         </td>
                       </tr>
                     );
