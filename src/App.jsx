@@ -14497,7 +14497,7 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
   React.useEffect(()=>{
     supabase.from("tecnicos").select("*").eq("activo",true).order("nombre")
       .then(({data})=>setTecnicos(data||[]));
-    supabase.from("productos").select("id,nombre,codigo,tipo,precio,modelo,categoria").order("nombre")
+    supabase.from("products").select("id,nombre,codigo,tipo,precio,descripcion,unidad,categoria").order("codigo")
       .then(({data,error})=>{
         if(!error && data) setProductosOT(data);
       });
