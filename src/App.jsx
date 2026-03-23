@@ -14692,9 +14692,13 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
     estado:           ot?.estado||"pendiente",
     codigo_servicio:  ot?.codigo_servicio||"",
     nombre_servicio:  ot?.nombre_servicio||"",
-    proveedor_nombre: ot?.proveedor_nombre||"",
+    proveedor_nombre:          ot?.proveedor_nombre||"",
+    fecha_ultima_mantencion:   ot?.fecha_ultima_mantencion||"",
+    fecha_proxima_mantencion:  ot?.fecha_proxima_mantencion||"",
   });
   const [checklist, setChecklist] = useState(ot?.checklist||null);
+  const [historial, setHistorial] = useState([]);
+  const [historialLoaded, setHistorialLoaded] = useState(false);
   const [materiales, setMateriales] = useState(ot?.materiales||[]);
   const [firma, setFirma]         = useState({ img: ot?.firma_imagen||null, nombre: ot?.firma_nombre||"" });
   const [firmaMode, setFirmaMode] = useState(false);
@@ -14719,6 +14723,26 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
       if(q){ ff("cliente_nombre", q.razon_social||q.nombre_cliente||""); }
     }
   },[form.cotizacion_id]);
+
+  // Cargar historial de mantenciones del mismo cliente + equipo
+  React.useEffect(()=>{
+    if(!form.cliente_nombre || !form.equipo_tipo) return;
+    supabase.from("ordenes_trabajo")
+      .select("id,numero_ot,fecha_programada,fecha_ultima_mantencion,estado,checklist,observaciones,proveedor_nombre,valor_servicio")
+      .eq("cliente_nombre", form.cliente_nombre)
+      .eq("equipo_tipo", form.equipo_tipo)
+      .order("fecha_programada", { ascending: false })
+      .limit(20)
+      .then(({ data })=>{
+        const prev = (data||[]).filter(r=>r.id !== ot?.id);
+        setHistorial(prev);
+        setHistorialLoaded(true);
+        // Auto-fill última mantención si no tiene y hay historial
+        if(!form.fecha_ultima_mantencion && prev.length > 0 && prev[0].fecha_programada){
+          ff("fecha_ultima_mantencion", prev[0].fecha_programada);
+        }
+      });
+  },[form.cliente_nombre, form.equipo_tipo]);
 
   // Init checklist cuando cambia equipo_tipo
   React.useEffect(()=>{
@@ -14918,7 +14942,7 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
             </div>
           </div>
           <div style={{ display:"flex", gap:0 }}>
-            {[{k:"info",l:"📋 Info"},{k:"checklist",l:`✅ Checklist (${pct}%)`},{k:"materiales",l:`📦 Materiales (${materiales.length})`},{k:"conformidad",l:"🤝 Conformidad"}].map(t=>(
+            {[{k:"info",l:"📋 Info"},{k:"checklist",l:`✅ Checklist (${pct}%)`},{k:"materiales",l:`📦 Materiales (${materiales.length})`},{k:"conformidad",l:"🤝 Conformidad"},{k:"historial",l:`📅 Historial${historial.length>0?" ("+historial.length+")":""}`}].map(t=>(
               <button key={t.k} onClick={()=>setTab(t.k)}
                 style={{ padding:"7px 16px", fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", border:"none", background:"transparent",
                   color:tab===t.k?TC:COLORS.textMuted, borderBottom:`2px solid ${tab===t.k?TC:"transparent"}`, transition:"all 0.15s" }}>
@@ -15041,6 +15065,15 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
               <div>
                 <label style={lbl}>Valor del servicio ($)</label>
                 <input type="number" value={form.valor_servicio} onChange={e=>ff("valor_servicio",e.target.value)} placeholder="0" style={inp} />
+              </div>
+              {/* Fechas mantención */}
+              <div>
+                <label style={lbl}>Última mantención</label>
+                <input type="date" value={form.fecha_ultima_mantencion} onChange={e=>ff("fecha_ultima_mantencion",e.target.value)} style={inp} />
+              </div>
+              <div>
+                <label style={lbl}>Próxima mantención</label>
+                <input type="date" value={form.fecha_proxima_mantencion} onChange={e=>ff("fecha_proxima_mantencion",e.target.value)} style={inp} />
               </div>
               {/* COT vinculada — buscador */}
               <div style={{ gridColumn:"1/-1" }}>
@@ -15247,6 +15280,67 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* TAB HISTORIAL */}
+          {tab==="historial" && (
+            <div>
+              {!historialLoaded ? (
+                <div style={{ color:COLORS.textMuted, fontFamily:FONT, fontSize:13, textAlign:"center", padding:32 }}>Cargando historial…</div>
+              ) : historial.length === 0 ? (
+                <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:24, textAlign:"center" }}>
+                  <div style={{ fontSize:28, marginBottom:8 }}>📋</div>
+                  <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.textMuted }}>
+                    {form.cliente_nombre ? `Sin mantenciones previas registradas para ${form.cliente_nombre} · ${form.equipo_tipo}` : "Completa cliente y equipo para ver el historial"}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>
+                    {historial.length} mantención{historial.length!==1?"es":""} registrada{historial.length!==1?"s":""} · {form.equipo_tipo} · {form.cliente_nombre}
+                  </div>
+                  {historial.map((h,i)=>{
+                    const eConf = ESTADO_OT[h.estado]||{ label:h.estado, color:COLORS.textMuted };
+                    const hPct = h.checklist ? (() => {
+                      const items = h.checklist.flatMap(s=>s.items||[]).filter(it=>it.estado!=="na");
+                      const done  = items.filter(it=>it.estado==="ok"||it.estado==="ok_c");
+                      return items.length ? Math.round(done.length/items.length*100) : 0;
+                    })() : null;
+                    return (
+                      <div key={h.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"12px 16px" }}>
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                            <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.accent }}>{h.numero_ot||`#${i+1}`}</span>
+                            <span style={{ padding:"2px 8px", borderRadius:12, fontSize:10, fontWeight:700, background:`${eConf.color}22`, color:eConf.color }}>{eConf.label}</span>
+                          </div>
+                          <span style={{ fontFamily:"monospace", fontSize:11, color:COLORS.textMuted }}>
+                            {h.fecha_programada ? new Date(h.fecha_programada+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"}) : "Sin fecha"}
+                          </span>
+                        </div>
+                        <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
+                          {h.proveedor_nombre && <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>👤 {h.proveedor_nombre}</span>}
+                          {hPct !== null && (
+                            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                              <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Checklist</span>
+                              <div style={{ width:60, height:4, background:COLORS.border, borderRadius:2 }}>
+                                <div style={{ width:`${hPct}%`, height:"100%", borderRadius:2, background:hPct===100?COLORS.green:COLORS.accent }} />
+                              </div>
+                              <span style={{ fontFamily:"monospace", fontSize:10, color:hPct===100?COLORS.green:COLORS.accent, fontWeight:700 }}>{hPct}%</span>
+                            </div>
+                          )}
+                          {h.valor_servicio > 0 && <span style={{ fontFamily:"monospace", fontSize:11, color:COLORS.text }}>${Number(h.valor_servicio).toLocaleString("es-CL")}</span>}
+                        </div>
+                        {h.observaciones && (
+                          <div style={{ marginTop:8, fontFamily:FONT, fontSize:11, color:COLORS.textMuted, background:COLORS.surface, borderRadius:6, padding:"6px 10px", borderLeft:`3px solid ${COLORS.border}` }}>
+                            {h.observaciones}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>
