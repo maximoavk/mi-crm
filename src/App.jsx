@@ -15539,10 +15539,10 @@ function OperacionesView({ isMobile }) {
                       {pct>0 && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Checklist {pct}%</span>}
                       {o.firma_imagen && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.green }}>✓ Firmado</span>}
                     </div>
-                    <button onClick={e=>{ e.stopPropagation(); printOT(o,false); }}
+                    <button onClick={async e=>{ e.stopPropagation(); const {data:hist}=await supabase.from("ordenes_trabajo").select("id,numero_ot,fecha_programada,estado,checklist,observaciones,proveedor_nombre,valor_servicio").eq("cliente_nombre",o.cliente_nombre).eq("equipo_tipo",o.equipo_tipo).neq("id",o.id).order("fecha_programada",{ascending:false}).limit(10); printOT(o,false,hist||[]); }}
                       title="PDF Técnico (con valor)"
                       style={{ background:"none", border:`1px solid ${COLORS.accent}44`, borderRadius:6, color:COLORS.accent, cursor:"pointer", padding:"4px 10px", fontSize:11, flexShrink:0 }}>🖨 Técnico</button>
-                    <button onClick={e=>{ e.stopPropagation(); printOT(o,true); }}
+                    <button onClick={async e=>{ e.stopPropagation(); const {data:hist}=await supabase.from("ordenes_trabajo").select("id,numero_ot,fecha_programada,estado,checklist,observaciones,proveedor_nombre,valor_servicio").eq("cliente_nombre",o.cliente_nombre).eq("equipo_tipo",o.equipo_tipo).neq("id",o.id).order("fecha_programada",{ascending:false}).limit(10); printOT(o,true,hist||[]); }}
                       title="PDF Cliente (sin valor)"
                       style={{ background:"none", border:`1px solid ${COLORS.green}44`, borderRadius:6, color:COLORS.green, cursor:"pointer", padding:"4px 10px", fontSize:11, flexShrink:0 }}>🖨 Cliente</button>
                     <button onClick={async e=>{ e.stopPropagation(); if(!window.confirm("¿Eliminar esta OT?")) return; const {error}=await supabase.from("ordenes_trabajo").delete().eq("id",o.id); if(error){ alert("Error al eliminar: "+error.message); return; } setOts(prev=>prev.filter(x=>x.id!==o.id)); }}
@@ -15788,7 +15788,7 @@ function printOp(op, quote) {
 }
 
 // ─── PDF OT ───────────────────────────────────────────────────────────────────
-function printOT(ot, clienteMode=false) {
+function printOT(ot, clienteMode=false, historial=[]) {
   const fecha = ot.fecha_programada
     ? new Date(ot.fecha_programada+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"})
     : "—";
@@ -15884,6 +15884,15 @@ function printOT(ot, clienteMode=false) {
     .tecnico-box{border:1px solid #e2e8f0;border-radius:3px;padding:6px 10px;}
     .obs-cierre{margin:4mm 0;padding:5px 8px;border:1px solid #e2e8f0;border-radius:3px;font-size:10px;}
     .foot{margin-top:6mm;border-top:1px solid #ccc;padding-top:3mm;font-size:8px;color:#999;text-align:center;}
+    .hist-block{margin:5mm 0;border:1.5px solid #e2e8f0;border-radius:4px;overflow:hidden;}
+    .hist-title{background:#1e293b;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:5px 10px;}
+    .hist-row{display:grid;grid-template-columns:90px 1fr 70px 80px;gap:4px;padding:4px 10px;border-bottom:1px solid #f1f5f9;font-size:9.5px;align-items:center;}
+    .hist-row:last-child{border-bottom:none;}
+    .hist-head{background:#f8fafc;font-weight:700;font-size:8.5px;color:#64748b;text-transform:uppercase;}
+    .hist-num{color:#3b82f6;font-weight:700;}
+    .hist-obs{font-size:8.5px;color:#64748b;font-style:italic;padding:2px 10px 4px;background:#fafafa;}
+    .mant-dates{display:flex;gap:6mm;margin:4mm 0;}
+    .mant-date-box{flex:1;border:1px solid #e2e8f0;border-radius:3px;padding:5px 8px;}
   </style></head><body>
   <div class="hdr">
     <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos"/>
@@ -15903,6 +15912,37 @@ function printOT(ot, clienteMode=false) {
   ${checklistHtml}
   ${materialesHtml}
   ${ot.observaciones?`<div class="obs-cierre"><b>Observaciones de cierre:</b> ${ot.observaciones}</div>`:""}
+  ${(ot.fecha_ultima_mantencion||ot.fecha_proxima_mantencion)?`
+  <div class="mant-dates">
+    <div class="mant-date-box">
+      <div class="meta-label">Última mantención</div>
+      <div class="meta-val">${ot.fecha_ultima_mantencion?new Date(ot.fecha_ultima_mantencion+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"}):"—"}</div>
+    </div>
+    <div class="mant-date-box">
+      <div class="meta-label">Próxima mantención programada</div>
+      <div class="meta-val">${ot.fecha_proxima_mantencion?new Date(ot.fecha_proxima_mantencion+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"}):"—"}</div>
+    </div>
+  </div>`:""}
+  ${historial.length>0?`
+  <div class="hist-block">
+    <div class="hist-title">📋 Log de mantenciones anteriores — ${ot.equipo_tipo} · ${ot.cliente_nombre}</div>
+    <div class="hist-row hist-head"><span>N° OT</span><span>Proveedor</span><span>Checklist</span><span>Fecha</span></div>
+    ${historial.map(h=>{
+      const hItems = (h.checklist||[]).flatMap(s=>s.items||[]).filter(it=>it.estado!=="na");
+      const hDone  = hItems.filter(it=>it.estado==="ok"||it.estado==="ok_c");
+      const hPct   = hItems.length?Math.round(hDone.length/hItems.length*100):null;
+      const ESTADO_LABELS = {borrador:"Borrador",pendiente:"Pendiente",confirmado:"Confirmado",en_progreso:"En progreso",prorrogado:"Prorrogado",completado:"Completado",cancelado:"Cancelado",firmada:"Firmada"};
+      return `<div>
+        <div class="hist-row">
+          <span class="hist-num">${h.numero_ot||"—"}</span>
+          <span>${h.proveedor_nombre||"—"}</span>
+          <span>${hPct!==null?hPct+"%":"—"}</span>
+          <span>${h.fecha_programada?new Date(h.fecha_programada+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"}):"—"}</span>
+        </div>
+        ${h.observaciones?`<div class="hist-obs">↳ ${h.observaciones}</div>`:""}
+      </div>`;
+    }).join("")}
+  </div>`:""}
   <div class="footer-row">
     <div class="tecnico-box">
       <div class="firma-label">Elaborado por</div>
