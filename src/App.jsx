@@ -14720,7 +14720,16 @@ function OTModal({ ot, quotes, onClose, onSaved }) {
   React.useEffect(()=>{
     if(form.cotizacion_id){
       const q = (quotes||[]).find(q=>q.id===form.cotizacion_id);
-      if(q){ ff("cliente_nombre", q.razon_social||q.nombre_cliente||""); }
+      if(q){
+        ff("cliente_nombre", q.razon_social||q.nombre_cliente||"");
+        if(q.rut_cliente)  ff("cliente_rut", q.rut_cliente);
+        if(q.direccion){
+          const dir = typeof q.direccion==="object"
+            ? [q.direccion.calle, q.direccion.comuna, q.direccion.region].filter(Boolean).join(", ")
+            : q.direccion;
+          if(dir) ff("lugar", dir);
+        }
+      }
     }
   },[form.cotizacion_id]);
 
@@ -15400,7 +15409,7 @@ function OperacionesView({ isMobile }) {
     setLoading(true);
     const [{ data:opsData },{ data:qData },{ data:cData },{ data:otData }] = await Promise.all([
       supabase.from("operaciones_terreno").select("*").order("created_at",{ascending:false}),
-      supabase.from("cotizaciones").select("id,numero,serie,nombre_cliente,razon_social,estado").order("numero",{ascending:false}),
+      supabase.from("cotizaciones").select("id,numero,serie,nombre_cliente,razon_social,rut_cliente,direccion,estado").order("numero",{ascending:false}),
       supabase.from("contactos").select("id,nombre,empresa"),
       supabase.from("ordenes_trabajo").select("*").order("created_at",{ascending:false}),
     ]);
@@ -15957,7 +15966,7 @@ function printOT(ot, clienteMode=false, historial=[]) {
   </body></html>`;
 
   const w = window.open("","_blank");
-  w.document.title = `${ot.numero_ot||"OT"} — ${ot.actividad||"Orden de Trabajo"}`;
+  w.document.title = `${ot.numero_ot||"OT"} ${ot.cliente_nombre||ot.actividad||"Orden de Trabajo"}`;
   w.document.write(html); w.document.close();
 }
 
