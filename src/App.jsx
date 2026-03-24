@@ -6352,6 +6352,7 @@ function TotBox({ label, value, color, sub }) {
 function ItemRow({ item, onChange, onDelete, onReorder, productos }) {
   const [busqueda, setBusqueda] = useState("");
   const [showCat, setShowCat] = useState(false);
+  const dragFromHandle = React.useRef(false);
   const calc = calcItem(item);
   const inp = (k,v) => onChange({ ...item, [k]:v });
   const esMO = item.tipo==="Mano de Obra / HH";
@@ -6386,14 +6387,20 @@ function ItemRow({ item, onChange, onDelete, onReorder, productos }) {
     <>
     <tr
       draggable
-      onDragStart={e=>{ e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain", String(item.id)); }}
+      onDragStart={e=>{ if(!dragFromHandle.current){ e.preventDefault(); return; } dragFromHandle.current=false; e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain", String(item.id)); }}
+      onDragEnd={()=>{ dragFromHandle.current=false; }}
       onDragOver={e=>{ e.preventDefault(); e.currentTarget.style.borderTop=`2px solid ${COLORS.accent}`; }}
       onDragLeave={e=>{ e.currentTarget.style.borderTop=""; }}
       onDrop={e=>{ e.preventDefault(); e.currentTarget.style.borderTop=""; const fromId=e.dataTransfer.getData("text/plain"); if(onReorder) onReorder(fromId, String(item.id)); }}
-      style={{ cursor:"grab" }}
+      style={{ cursor:"default" }}
     >
       {/* Drag handle */}
-      <td style={{ padding:"6px 2px", width:14, textAlign:"center", color:"#6b7280", fontSize:14, userSelect:"none", cursor:"grab", lineHeight:1 }} title="Arrastrar para reordenar">⠿</td>
+      <td
+        style={{ padding:"6px 2px", width:14, textAlign:"center", color:"#6b7280", fontSize:14, userSelect:"none", cursor:"grab", lineHeight:1 }}
+        title="Arrastrar para reordenar"
+        onMouseDown={()=>{ dragFromHandle.current=true; }}
+        onMouseUp={()=>{ dragFromHandle.current=false; }}
+      >⠿</td>
       {/* COD */}
       <td style={{ padding:"6px 4px", width:55 }}>
         <input style={{...style, textAlign:"center", color:COLORS.accent, fontWeight:600}} value={item.cod||""} onChange={e=>inp("cod",e.target.value)} placeholder={`F?-${SAP_PREFIX[item.tipo]||"X"}001`} title={`Código SAP: POL-XXXX-${item.cod||"F?-"+SAP_PREFIX[item.tipo]+"001"} (se completa al generar cotización)`} />
