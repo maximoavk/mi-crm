@@ -6993,7 +6993,12 @@ function CosteoView({ contacts }) {
         const tieneIVA = it.ivaVenta > 0;
         const precioUnitDisplay = it.tipo==="Mano de Obra / HH" ? fmt(it.valorHH) : it.tipo==="Costos Indirectos" ? fmt(it.costoUnit) : fmt(it.costoUnitNeto||(it.costoNeto/(Number(it.qty)||1)));
         const netoUnitDisplay = tieneIVA ? fmt(it.costoNeto/(Number(it.qty)||1)) : "-";
-        return `<tr style="border-bottom:1px solid #f1f5f9">
+        const datasheetRow = it.datasheet_url ? `<tr style="background:#f8faff;border-bottom:1px solid #e2e8f0">
+          <td colspan="11" style="padding:2px 6px 4px 20px;font-size:9px;color:#64748b">
+            🔗 Ficha técnica: <a href="${it.datasheet_url}" style="color:#1e40af;text-decoration:underline" target="_blank">${it.datasheet_url}</a>
+          </td>
+        </tr>` : "";
+        return `<tr style="border-bottom:${it.datasheet_url?"none":"1px solid #f1f5f9"}">
           <td style="padding:4px 6px;color:#3b82f6;font-weight:600">${it.cod||""}</td>
           <td style="padding:4px 6px">${it.descripcion||""}</td>
           <td style="padding:4px 6px;color:#94a3b8">${it.modelo||""}</td>
@@ -7005,7 +7010,7 @@ function CosteoView({ contacts }) {
           <td style="padding:4px 6px;text-align:right;color:#10b981">${fmt(it.margenTotal)}</td>
           <td style="padding:4px 6px;text-align:right">${fmt(it.ventaNeta)}</td>
           <td style="padding:4px 6px;text-align:right;font-weight:700;color:#096da3">${fmt(it.ventaBruta)}</td>
-        </tr>`;}).join("");
+        </tr>${datasheetRow}`;}).join("");
       return `<div style="margin-bottom:18px">
         <div style="background:#1e293b;color:white;padding:7px 10px;font-weight:700;font-size:12px;border-radius:5px 5px 0 0">${f.nombre}</div>
         <table style="width:100%;border-collapse:collapse;font-size:10px">
@@ -7114,7 +7119,12 @@ function CosteoView({ contacts }) {
       const rows = (f.items||[]).map(calcItem).map(it=>{
         const tieneIVA = it.ivaVenta > 0;
         const cantLabel = it.tipo==="Mano de Obra / HH" ? `${(it.hh||1)*(it.qty||1)} HH` : it.qty;
-        return `<tr style="border-bottom:1px solid #f1f5f9">
+        const datasheetRow = it.datasheet_url ? `<tr style="background:#f8faff;border-bottom:1px solid #e2e8f0">
+          <td colspan="7" style="padding:2px 8px 5px 22px;font-size:9px;color:#64748b">
+            🔗 Ficha técnica: <a href="${it.datasheet_url}" style="color:#1e40af;text-decoration:underline" target="_blank">${it.datasheet_url}</a>
+          </td>
+        </tr>` : "";
+        return `<tr style="border-bottom:${it.datasheet_url?"none":"1px solid #f1f5f9"}">
           <td style="padding:5px 8px;color:#3b82f6;font-weight:600">${it.cod||""}</td>
           <td style="padding:5px 8px">${it.descripcion||""}</td>
           <td style="padding:5px 8px;color:#94a3b8">${it.modelo||""}</td>
@@ -7122,7 +7132,7 @@ function CosteoView({ contacts }) {
           <td style="padding:5px 8px;text-align:right">${fmt(it.ventaNeta)}</td>
           <td style="padding:5px 8px;text-align:right;color:#64748b">${tieneIVA?fmt(it.ivaVenta):"-"}</td>
           <td style="padding:5px 8px;text-align:right;font-weight:700;color:#1e40af">${fmt(it.ventaBruta)}</td>
-        </tr>`;}).join("");
+        </tr>${datasheetRow}`;}).join("");
       return `<div style="margin-bottom:18px">
         <div style="background:#1e293b;color:white;padding:7px 10px;font-weight:700;font-size:12px;border-radius:5px 5px 0 0">${f.nombre}</div>
         <table style="width:100%;border-collapse:collapse;font-size:11px">
