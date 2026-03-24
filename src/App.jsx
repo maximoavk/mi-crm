@@ -5609,22 +5609,25 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
     if (savedQuote && lines.length > 0) {
       await supabase.from("quote_lines").insert(lines.map(l=>mapQuoteLineToDb(l, savedQuote.id)));
     }
-    // Auto-push a Pipeline si estado = "enviada"
-    if(quoteData.estado === "enviada" && savedQuote){
+    // Auto-push a Pipeline si estado = "enviada" (COT → Propuesta 40%, SIN → Por Facturar 100%)
+    if((quoteData.estado === "enviada" || quoteData.serie === "SIN") && savedQuote){
       const serie  = header.serie||savedQuote.serie||"COT";
+      const isSIN  = serie === "SIN";
       const num    = String(header.number||savedQuote.numero||"?").padStart(3,"0");
       const codigo = `${serie}-${num}`;
       const titulo = `${codigo} – ${header.clientCompany||header.clientName||"Cliente"}`;
+      const etapa  = isSIN ? "por_facturar" : "propuesta";
+      const prob   = isSIN ? 100 : 40;
       const { data:existing } = await supabase.from("deals").select("id").eq("quote_id",savedQuote.id).limit(1);
       if(!existing||existing.length===0){
         await supabase.from("deals").insert({
           titulo, empresa: header.clientCompany||header.clientName||"",
           rut_empresa: header.clientRut||"", contact_id: header.contactId||null,
-          valor: total||0, etapa:"propuesta", probabilidad:40,
+          valor: total||0, etapa, probabilidad: prob,
           quote_id: savedQuote.id, serie,
         });
       } else {
-        await supabase.from("deals").update({ etapa:"propuesta", titulo, valor:total||0, serie })
+        await supabase.from("deals").update({ etapa, titulo, valor:total||0, serie })
           .eq("id", existing[0].id);
       }
     }
