@@ -6381,17 +6381,19 @@ function ItemRow({ item, onChange, onDelete, onReorder, productos }) {
     setBusqueda(""); setShowCat(false);
   };
 
+  const colCount = 14; // total columns in the item table
   return (
+    <>
     <tr
       draggable
       onDragStart={e=>{ e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain", String(item.id)); }}
       onDragOver={e=>{ e.preventDefault(); e.currentTarget.style.borderTop=`2px solid ${COLORS.accent}`; }}
       onDragLeave={e=>{ e.currentTarget.style.borderTop=""; }}
       onDrop={e=>{ e.preventDefault(); e.currentTarget.style.borderTop=""; const fromId=e.dataTransfer.getData("text/plain"); if(onReorder) onReorder(fromId, String(item.id)); }}
-      style={{ borderBottom:`1px solid ${COLORS.border}22`, cursor:"grab" }}
+      style={{ cursor:"grab" }}
     >
       {/* Drag handle */}
-      <td style={{ padding:"6px 2px", width:14, textAlign:"center", color:COLORS.textMuted, fontSize:13, userSelect:"none", cursor:"grab" }} title="Arrastrar para reordenar">&#9895;</td>
+      <td style={{ padding:"6px 2px", width:14, textAlign:"center", color:"#6b7280", fontSize:14, userSelect:"none", cursor:"grab", lineHeight:1 }} title="Arrastrar para reordenar">⠿</td>
       {/* COD */}
       <td style={{ padding:"6px 4px", width:55 }}>
         <input style={{...style, textAlign:"center", color:COLORS.accent, fontWeight:600}} value={item.cod||""} onChange={e=>inp("cod",e.target.value)} placeholder={`F?-${SAP_PREFIX[item.tipo]||"X"}001`} title={`Código SAP: POL-XXXX-${item.cod||"F?-"+SAP_PREFIX[item.tipo]+"001"} (se completa al generar cotización)`} />
@@ -6508,6 +6510,29 @@ function ItemRow({ item, onChange, onDelete, onReorder, productos }) {
         <button onClick={onDelete} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>×</button>
       </td>
     </tr>
+    {/* Datasheet URL row */}
+    {item.tipo==="Equipos" && (
+      <tr style={{ borderBottom:`1px solid ${COLORS.border}22`, background:`${COLORS.accent}05` }}>
+        <td />
+        <td colSpan={colCount-2} style={{ padding:"2px 4px 5px 4px" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+            <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, whiteSpace:"nowrap" }}>🔗 Datasheet:</span>
+            <input
+              style={{ flex:1, background:"transparent", border:`1px solid ${COLORS.border}44`, borderRadius:4, color:COLORS.accent, fontFamily:FONT, fontSize:10, padding:"2px 6px" }}
+              value={item.datasheet_url||""}
+              onChange={e=>inp("datasheet_url",e.target.value)}
+              placeholder="https://..."
+            />
+            {item.datasheet_url && (
+              <a href={item.datasheet_url} target="_blank" rel="noopener noreferrer"
+                style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, whiteSpace:"nowrap" }}>Ver ↗</a>
+            )}
+          </div>
+        </td>
+        <td />
+      </tr>
+    )}
+    </>
   );
 }
 
@@ -6712,6 +6737,12 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
 
 function PartidaRow({ partida, fases, onChange, onDelete }) {
   const inp = (k,v) => onChange({...partida,[k]:v});
+  const handleFaseChange = (faseId) => {
+    const fase = fases.find(f=>String(f.id)===String(faseId));
+    const updates = { faseId };
+    if(fase) updates.monto = Math.round(calcFase(fase).ventaBruta);
+    onChange({...partida, ...updates});
+  };
   const style = { background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"5px 8px" };
   const styleSmall = { ...style, width:44, padding:"5px 4px", textAlign:"center" };
   const monto = Number(partida.monto)||0;
@@ -6726,7 +6757,7 @@ function PartidaRow({ partida, fases, onChange, onDelete }) {
         <input style={{...style, width:"100%"}} value={partida.concepto} onChange={e=>inp("concepto",e.target.value)} placeholder="Concepto del hito..." />
       </td>
       <td style={{ padding:"8px 6px", width:130 }}>
-        <select style={{...style, width:"100%"}} value={partida.faseId||""} onChange={e=>inp("faseId",e.target.value)}>
+        <select style={{...style, width:"100%"}} value={partida.faseId||""} onChange={e=>handleFaseChange(e.target.value)}>
           <option value="">— Fase —</option>
           {fases.map(f=><option key={f.id} value={f.id}>{f.nombre}</option>)}
         </select>
