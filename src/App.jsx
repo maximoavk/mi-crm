@@ -6272,14 +6272,15 @@ function QuotePDF({ quote, onBack }) {
 
 // ── MAIN APP ─────────────────────────────────────────────────────────────────
 // ── COSTEO DE PROYECTOS ──────────────────────────────────────────────────────
-const CON_IVA = ["Equipos","Materiales"];
+const CON_IVA = ["Equipos","Ferretería","Materiales"];
 const IVA = 1.19;
-const CAT_TIPOS = ["Equipos","Mano de Obra / HH","Materiales"];
-const CAT_COLOR = { "Equipos":"#3b82f6","Mano de Obra / HH":"#10b981","Materiales":"#f59e0b" };
+const CAT_TIPOS = ["Equipos","Ferretería","Mano de Obra / HH"];
+const CAT_COLOR = { "Equipos":"#3b82f6","Mano de Obra / HH":"#10b981","Ferretería":"#f59e0b","Materiales":"#f59e0b" };
 
 // Prefijo SAP por tipo de recurso
 const SAP_PREFIX = {
   "Equipos":           "E",
+  "Ferretería":        "M",
   "Materiales":        "M",
   "Mano de Obra / HH": "H",
   "Costos Indirectos": "I",
@@ -6357,14 +6358,14 @@ function TotBox({ label, value, color, sub }) {
   );
 }
 
-function ItemRow({ item, onChange, onDelete, onReorder, productos }) {
+function ItemRow({ item, onChange, onDelete, onDuplicate, onReorder, productos }) {
   const [busqueda, setBusqueda] = useState("");
   const [showCat, setShowCat] = useState(false);
   const dragFromHandle = React.useRef(false);
   const calc = calcItem(item);
   const inp = (k,v) => onChange({ ...item, [k]:v });
   const esMO = item.tipo==="Mano de Obra / HH";
-  const esEquipoMat = item.tipo==="Equipos" || item.tipo==="Materiales";
+  const esEquipoMat = item.tipo==="Equipos" || item.tipo==="Materiales" || item.tipo==="Ferretería";
   const style = { background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"4px 6px", width:"100%" };
   const fmt = v => v>0 ? "$"+Math.round(v).toLocaleString("es-CL") : "-";
 
@@ -6522,7 +6523,10 @@ function ItemRow({ item, onChange, onDelete, onReorder, productos }) {
       {/* Venta bruta */}
       <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.accent, whiteSpace:"nowrap" }}>{fmt(calc.ventaBruta)}</td>
       <td style={{ padding:"6px 4px", textAlign:"center" }}>
-        <button onClick={onDelete} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>×</button>
+        <div style={{ display:"flex", gap:3, justifyContent:"center", alignItems:"center" }}>
+          <button onClick={onDuplicate} title="Duplicar línea" style={{ background:"none", border:"none", color:COLORS.accent, cursor:"pointer", fontSize:12, opacity:0.6, lineHeight:1 }}>⧉</button>
+          <button onClick={onDelete} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14, lineHeight:1 }}>×</button>
+        </div>
       </td>
     </tr>
     {/* Datasheet URL row */}
@@ -6554,16 +6558,26 @@ function ItemRow({ item, onChange, onDelete, onReorder, productos }) {
 
 function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, partidas }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState({});
   const calc = calcFase(fase);
   const margenPct = calc.costoNeto > 0 ? (calc.margenTotal/calc.costoNeto*100).toFixed(1) : 0;
 
   const addItem = (tipo) => {
-    const itemsDelTipo = (fase.items||[]).filter(i=>i.tipo===tipo);
+    const itemsDelTipo = (fase.items||[]).filter(i=>i.tipo===tipo||( tipo==="Ferretería"&&i.tipo==="Materiales"));
     const cod = genSapCod(tipo, faseIdx, itemsDelTipo);
     onChange({ ...fase, items:[...(fase.items||[]), { ...newItem(tipo), cod }] });
   };
   const updateItem = (id, item) => onChange({ ...fase, items: fase.items.map(i=>i.id===id?item:i) });
   const deleteItem = (id) => onChange({ ...fase, items: fase.items.filter(i=>i.id!==id) });
+  const duplicateItem = (id) => {
+    const item = (fase.items||[]).find(i=>i.id===id);
+    if(!item) return;
+    const copy = { ...item, id: crypto.randomUUID() };
+    const idx = fase.items.findIndex(i=>i.id===id);
+    const newItems = [...fase.items];
+    newItems.splice(idx+1, 0, copy);
+    onChange({ ...fase, items: newItems });
+  };
   const reorderItem = (fromId, toId) => {
     if(fromId===toId) return;
     const items = [...(fase.items||[])];
@@ -6574,7 +6588,13 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
     items.splice(toIdx,0,moved);
     onChange({ ...fase, items });
   };
-  const grouped = CAT_TIPOS.reduce((acc,t)=>{ acc[t]=(fase.items||[]).filter(i=>i.tipo===t); return acc; },{});
+  // "Ferretería" agrupa también ítems legacy "Materiales"
+  const grouped = CAT_TIPOS.reduce((acc,t)=>{
+    acc[t] = t==="Ferretería"
+      ? (fase.items||[]).filter(i=>i.tipo==="Ferretería"||i.tipo==="Materiales")
+      : (fase.items||[]).filter(i=>i.tipo===t);
+    return acc;
+  },{});
   const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
 
   // Barra de progreso: partidas vinculadas a esta fase
@@ -6631,11 +6651,14 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
             const tieneIVA = CON_IVA.includes(tipo);
             const esMO = tipo==="Mano de Obra / HH";
             const calcItems = grouped[tipo].map(it => esMO ? calcItem({...it, moConIVA: fase.moConIVA}) : calcItem(it));
+            const secCollapsed = !!collapsedSections[tipo];
             return (
               <div key={tipo} style={{ marginBottom:16 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom: secCollapsed ? 0 : 8 }}>
+                  <button onClick={()=>setCollapsedSections(p=>({...p,[tipo]:!p[tipo]}))} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:12, padding:"0 2px", lineHeight:1 }}>{secCollapsed?"▶":"▼"}</button>
                   <div style={{ width:3, height:16, background:CAT_COLOR[tipo], borderRadius:2 }} />
                   <span style={{ fontFamily:FONT, fontSize:11, fontWeight:600, color:CAT_COLOR[tipo], letterSpacing:"0.08em", textTransform:"uppercase" }}>{tipo}</span>
+                  <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>({grouped[tipo].length})</span>
                   {tieneIVA && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.text, background:`${COLORS.border}`, padding:"1px 6px", borderRadius:4 }}>Ingresar neto</span>}
                   {esMO && (
                     <label style={{ display:"flex", alignItems:"center", gap:5, cursor:"pointer", fontFamily:FONT, fontSize:11, color: fase.moConIVA ? "#ef4444" : COLORS.textMuted }}>
@@ -6646,7 +6669,7 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
                   )}
                   <button onClick={()=>addItem(tipo)} style={{ background:`${CAT_COLOR[tipo]}22`, border:`1px solid ${CAT_COLOR[tipo]}44`, borderRadius:5, color:CAT_COLOR[tipo], cursor:"pointer", fontFamily:FONT, fontSize:10, padding:"2px 8px" }}>+ Agregar</button>
                 </div>
-                {grouped[tipo].length > 0 && (
+                {!secCollapsed && grouped[tipo].length > 0 && (
                   <div style={{ overflowX:"auto" }}>
                     <table style={{ width:"100%", borderCollapse:"collapse", minWidth:700 }}>
                       <thead>
@@ -6683,7 +6706,7 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
                       </thead>
                       <tbody>
                         {grouped[tipo].map(it=>(
-                          <ItemRow key={it.id} item={esMO ? {...it, moConIVA: fase.moConIVA} : it} onChange={item=>updateItem(it.id, esMO ? {...item, moConIVA: undefined} : item)} onDelete={()=>deleteItem(it.id)} onReorder={reorderItem} productos={productos} />
+                          <ItemRow key={it.id} item={esMO ? {...it, moConIVA: fase.moConIVA} : it} onChange={item=>updateItem(it.id, esMO ? {...item, moConIVA: undefined} : item)} onDelete={()=>deleteItem(it.id)} onDuplicate={()=>duplicateItem(it.id)} onReorder={reorderItem} productos={productos} />
                         ))}
                       </tbody>
                         <tfoot>
