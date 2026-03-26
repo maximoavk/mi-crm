@@ -2123,7 +2123,7 @@ function GanttView({ isMobile }) {
                   }).join("");
                   return `<tr style="border-bottom:1px solid #e2e8f0"><td style="padding:2px 4px;text-align:center;font-size:8px;color:#94a3b8;border:1px solid #e2e8f0">${pdfNums[t.id]||i+1}</td><td style="padding:2px 4px;border:1px solid #e2e8f0"><span style="background:${bgT};color:${colT};padding:1px 5px;border-radius:3px;font-size:7px;font-weight:700">${tipo}</span></td><td style="padding:2px 6px;font-size:8.5px;border:1px solid #e2e8f0;font-weight:${t.tipo==="F"?700:400}">${t.tipo!=="F"?"└ ":""}${t.nombre||""}</td><td style="padding:2px 4px;font-size:7.5px;text-align:center;border:1px solid #e2e8f0;color:#475569">${t.rol||""}</td><td style="padding:2px 5px;font-size:7.5px;border:1px solid #e2e8f0;color:#475569">${t.responsable||""}</td><td style="padding:2px 4px;font-size:8px;text-align:center;border:1px solid #e2e8f0">${t.inicio?new Date(t.inicio+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short"}):""}</td><td style="padding:2px 4px;font-size:8px;text-align:center;border:1px solid #e2e8f0">${t.fin?new Date(t.fin+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short"}):""}</td><td style="padding:2px 4px;font-size:8px;text-align:center;border:1px solid #e2e8f0">${t.pctPlan||0}%</td><td style="padding:2px 4px;font-size:8px;text-align:center;border:1px solid #e2e8f0;color:${pct===100?"#16a34a":isLate?"#dc2626":"#0369a1"};font-weight:700">${pct}%</td><td style="padding:2px 4px;font-size:8px;text-align:center;border:1px solid #e2e8f0;color:#64748b">${t.hhPresup||"-"}</td><td style="padding:2px 4px;font-size:8px;text-align:center;border:1px solid #e2e8f0;color:#64748b">${t.hhReal||"-"}</td>${barCells}</tr>`;
                 }).join("");
-                const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:9px;padding:6mm;background:#fff;color:#1e293b}.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid #0f172a}.hdr-left{display:flex;align-items:center;gap:12px}.hdr-logo{height:38px}.hdr-title{font-size:12px;font-weight:700;color:#0f172a;margin-bottom:2px}.hdr-sub{font-size:8.5px;color:#64748b}.hdr-right{text-align:right;font-size:8.5px;color:#64748b;line-height:1.8}.pb{width:90px;height:5px;background:#e2e8f0;border-radius:3px;margin-left:auto;margin-top:3px}.pf{height:5px;background:${prom2===100?"#22c55e":"#0ea5e9"};border-radius:3px}table{border-collapse:collapse;width:100%;margin-top:6px}.leg{display:flex;gap:10px;margin-bottom:5px;font-size:8px}@page{size:A4 landscape;margin:6mm}@media print{body{padding:0}}</style></head><body><div class="hdr"><div class="hdr-left"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" class="hdr-logo"/><div><div class="hdr-title">Carta Gantt · COT-${proyecto?.cotNum||""}</div><div class="hdr-sub">${proyecto?.nombre||""}</div><div class="hdr-sub">Polygonos SpA · RUT 77.180.437-3</div></div></div><div class="hdr-right">${headerData.cliente?`<div>Cliente: <b style="color:#1e293b">${headerData.cliente}</b></div>`:""}<div>Elaborado por: <b style="color:#1e293b">${headerData.elaboradoPor}</b></div><div>Emisión: <b style="color:#1e293b">${headerData.fechaEmision?new Date(headerData.fechaEmision+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"}):""}</b></div><div>Avance: <b style="color:${prom2===100?"#16a34a":"#0369a1"}">${prom2}%</b></div><div class="pb"><div class="pf" style="width:${prom2}%"></div></div><div style="margin-top:5px;padding-top:5px;border-top:1px solid #e2e8f0;display:flex;gap:14px;justify-content:flex-end"><div style="text-align:center"><div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em">HH Presup.</div><div style="font-size:11px;font-weight:700;color:#1e293b">${totalHHPresup}HH</div></div><div style="text-align:center"><div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em">HH Terceros</div><div style="font-size:11px;font-weight:700;color:#7c3aed">${totalHHTerceros}HH</div></div><div style="text-align:center"><div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em">Días hábiles</div><div style="font-size:11px;font-weight:700;color:#0369a1">${diasHabiles}d</div></div></div></div></div><div class="leg">${[["Fase","#3b82f6"],["Tarea","#6366f1"],["Hito","#f59e0b"],["Completado","#22c55e"],["Atrasado","#ef4444"]].map(([l,c])=>`<span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:${c};display:inline-block"></span>${l}</span>`).join("")}</div><table><thead><tr><th colspan="11" style="background:#0f172a;border:1px solid #334155;padding:2px"></th>${mthH}</tr><tr>${[["#",22],["Tipo",38],["Descripción",140],["Rol",32],["Responsable",70],["Inicio",46],["Fin",46],["Plan%",30],["Av.%",30],["HH P.",28],["HH R.",28]].map(([h,w])=>`<th style="background:#1e293b;color:#fff;padding:3px 4px;font-size:7.5px;border:1px solid #334155;width:${w}px;text-align:${["Descripción","Responsable"].includes(h)?"left":"center"}">${h}</th>`).join("")}${colH}</tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>window.print()<\/script></body></html>`;
+                const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:9px;padding:6mm;background:#fff;color:#1e293b}.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid #0f172a}.hdr-left{display:flex;align-items:center;gap:12px}.hdr-logo{height:38px}.hdr-title{font-size:12px;font-weight:700;color:#0f172a;margin-bottom:2px}.hdr-sub{font-size:8.5px;color:#64748b}.hdr-right{text-align:right;font-size:8.5px;color:#64748b;line-height:1.8}.pb{width:90px;height:5px;background:#e2e8f0;border-radius:3px;margin-left:auto;margin-top:3px}.pf{height:5px;background:${prom2===100?"#22c55e":"#0ea5e9"};border-radius:3px}table{border-collapse:collapse;width:100%;margin-top:6px}.leg{display:flex;gap:10px;margin-bottom:5px;font-size:8px}@page{size:A4 landscape;margin:6mm}@media print{body{padding:0}}</style></head><body><div class="hdr"><div class="hdr-left"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" class="hdr-logo"/><div><div class="hdr-title">Carta Gantt · COT-${proyecto?.cotNum||""}</div><div class="hdr-sub">${proyecto?.nombre||""}</div><div class="hdr-sub">Polygonos SpA · RUT 77.180.437-3</div></div></div><div class="hdr-right">${headerData.cliente?`<div>Cliente: <b style="color:#1e293b">${headerData.cliente}</b></div>`:""}<div>Elaborado por: <b style="color:#1e293b">${headerData.elaboradoPor}</b></div><div>Emisión: <b style="color:#1e293b">${headerData.fechaEmision?new Date(headerData.fechaEmision+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"}):""}</b></div><div>Avance: <b style="color:${prom2===100?"#16a34a":"#0369a1"}">${prom2}%</b></div><div class="pb"><div class="pf" style="width:${prom2}%"></div></div><div style="margin-top:5px;padding-top:5px;border-top:1px solid #e2e8f0;display:flex;gap:14px;justify-content:flex-end"><div style="text-align:center"><div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em">HH Presup.</div><div style="font-size:11px;font-weight:700;color:#1e293b">${totalHHPresup}HH</div></div><div style="text-align:center"><div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em">HH Terceros</div><div style="font-size:11px;font-weight:700;color:#7c3aed">${totalHHTerceros}HH</div></div><div style="text-align:center"><div style="font-size:7px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em">Días hábiles</div><div style="font-size:11px;font-weight:700;color:#0369a1">${diasHabiles}d</div></div></div></div></div><div class="leg">${[["Fase","#3b82f6"],["Tarea","#6366f1"],["Hito","#f59e0b"],["Completado","#22c55e"],["Atrasado","#ef4444"]].map(([l,c])=>`<span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:50%;background:${c};display:inline-block"></span>${l}</span>`).join("")}</div><table><thead><tr><th colspan="11" style="background:#0f172a;border:1px solid #334155;padding:2px"></th>${mthH}</tr><tr>${[["#",22],["Tipo",38],["Descripción",140],["Rol",32],["Responsable",70],["Inicio",46],["Fin",46],["Plan%",30],["Av.%",30],["HH P.",28],["HH R.",28]].map(([h,w])=>`<th style="background:#1e293b;color:#fff;padding:3px 4px;font-size:7.5px;border:1px solid #334155;width:${w}px;text-align:${["Descripción","Responsable"].includes(h)?"left":"center"}">${h}</th>`).join("")}${colH}</tr></thead><tbody>${rows}</tbody></table><div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;background:#fff;z-index:9999"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" style="height:16px;opacity:0.7"><span style="font-size:7px;color:#94a3b8;font-family:Arial,sans-serif;letter-spacing:0.06em;text-transform:uppercase">Sistema ERP Claude</span></div><script>window.onload=()=>window.print()<\/script></body></html>`;
                 const w=window.open("","_blank"); w.document.write(html); w.document.close();
               }} style={{ padding:"4px 14px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:5, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>🖨 PDF</button>
             </div>
@@ -3791,6 +3791,7 @@ function printResumenPedido({ ped, cotCompensated, pedidoTotal, pedidoPagado, pe
   ${ped.notas?`<div style="margin-bottom:5mm;padding:6px 10px;border-left:3px solid #ddd;font-size:9.5px;color:#555"><strong style="font-size:8px;text-transform:uppercase;letter-spacing:.07em;color:#888;display:block;margin-bottom:2px;">Notas</strong>${ped.notas}</div>`:""}
 
   <div class="foot">${isPF?"Polygonos SpA · RUT 77.180.437-3 · Documento interno de gestión":"Máximo Hudson · Especialista en Seguridad Electrónica · Polygonos 360"} · Generado el ${fechaHoy} · ${ped.nombre}</div>
+  <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;background:#fff;z-index:9999"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" style="height:16px;opacity:0.7"><span style="font-size:7px;color:#94a3b8;font-family:Arial,sans-serif;letter-spacing:0.06em;text-transform:uppercase">Sistema ERP Claude</span></div>
   <script>window.onload=()=>window.print();</script>
   </body></html>`;
 
@@ -5191,6 +5192,7 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
       <div class="br"><div class="bl"><span>Saldo pendiente / total COT</span><span>${pct2.toFixed(1)}%</span></div><div class="bt"><div style="height:100%;width:${pct2.toFixed(1)}%;background:#b85c00;border-radius:99px"></div></div></div>
     </div>
     <div class="foot">${isPF?`Polygonos SpA · RUT 77.180.437-3 · Sistema de Pre-Facturación Interna · No válido como documento legal · Emitido por ${form.responsable||"mhudson"} el ${new Date().toLocaleDateString("es-CL")} · ${numero}`:`Polygonos SpA · RUT 77.180.437-3 · Documento interno de gestión · Generado el ${new Date().toLocaleDateString("es-CL")} · ${numero}`}</div>
+    <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;background:#fff;z-index:9999"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" style="height:16px;opacity:0.7"><span style="font-size:7px;color:#94a3b8;font-family:Arial,sans-serif;letter-spacing:0.06em;text-transform:uppercase">Sistema ERP Claude</span></div>
     <script>window.onload=()=>window.print();</script></body></html>`;
     const clienteNombre = (selQuotes[0]?.clientCompany||selQuotes[0]?.clientName||"Cliente").replace(/[^a-zA-Z0-9\u00C0-\u017E ]/g,"").trim();
     const cotNumTitle = firstQ?.number||selQuotes[0]?.number||"00";
@@ -6222,6 +6224,10 @@ function QuotePDF({ quote, onBack }) {
               : "Polygonos SPA\nRUT: 77.180.437-3\nBanco Santander\nCta. Cte. 99128755\nCorreo: maximo.hudson.blanco@gmail.com"
             }</div>
           </div>
+          <div style={{ marginTop:12, paddingTop:8, borderTop:"1px solid #e0e0e0", display:"flex", alignItems:"center", gap:8 }}>
+            <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" style={{ height:16, opacity:0.7 }} alt="Polygonos 360" />
+            <span style={{ fontSize:9, color:"#94a3b8", fontFamily:"Arial,sans-serif", letterSpacing:"0.06em", textTransform:"uppercase" }}>Sistema ERP Claude</span>
+          </div>
       </div>
 
       <style>{`
@@ -7097,6 +7103,7 @@ function CosteoView({ contacts }) {
           <div style="font-size:20px;font-weight:900;color:#096da3">${fmt(tVentaFinal)}</div>
         </div>` : ''}
       </div>
+      <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;background:#fff;z-index:9999"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" style="height:16px;opacity:0.7"><span style="font-size:7px;color:#94a3b8;font-family:Arial,sans-serif;letter-spacing:0.06em;text-transform:uppercase">Sistema ERP Claude</span></div>
       <script>window.onload=()=>window.print()</script></body></html>`);
     w.document.close();
   };
@@ -7248,6 +7255,7 @@ function CosteoView({ contacts }) {
           <div>Polygonos SpA · RUT 77.180.437-3</div>
         </div>
       </div>
+      <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;background:#fff;z-index:9999"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" style="height:16px;opacity:0.7"><span style="font-size:7px;color:#94a3b8;font-family:Arial,sans-serif;letter-spacing:0.06em;text-transform:uppercase">Sistema ERP Claude</span></div>
       <script>window.onload=()=>window.print()</script></body></html>`);
     w.document.close();
   };
@@ -7947,6 +7955,7 @@ function PurchaseView({ isMobile }) {
       Polygonos SPA &nbsp;·&nbsp; RUT 77.180.437-3 &nbsp;·&nbsp; maximo.hudson.blanco@gmail.com<br>
       Documento generado el ${new Date().toLocaleString("es-CL")}
     </div>
+    <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;background:#fff;z-index:9999"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" style="height:16px;opacity:0.7"><span style="font-size:7px;color:#94a3b8;font-family:Arial,sans-serif;letter-spacing:0.06em;text-transform:uppercase">Sistema ERP Claude</span></div>
     </body></html>`;
 
     const win = window.open("","_blank");
@@ -8839,6 +8848,7 @@ function PurchaseView({ isMobile }) {
             </div>
           `).join("")}
           </div>
+          <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;background:#fff;z-index:9999"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" style="height:16px;opacity:0.7"><span style="font-size:7px;color:#94a3b8;font-family:Arial,sans-serif;letter-spacing:0.06em;text-transform:uppercase">Sistema ERP Claude</span></div>
           </body></html>`;
 
           const win = window.open("","_blank");
@@ -9579,6 +9589,7 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
     <h2>Garantías</h2><p>${form.garantias}</p>
     <h2>Forma de Pago</h2><p>${form.condiciones_pago}</p>
     <div class="footer">Polygonos SpA · RUT 77.180.437-3 · ventas@polygonos.cl · +56 9 6426 6356 · Innovación | Tecnología | Seguridad</div>
+    <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;background:#fff;z-index:9999"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" style="height:16px;opacity:0.7"><span style="font-size:7px;color:#94a3b8;font-family:Arial,sans-serif;letter-spacing:0.06em;text-transform:uppercase">Sistema ERP Claude</span></div>
     <script>window.onload=()=>window.print();</script>
     </body></html>`;
     const w = window.open("", "_blank");
@@ -14488,6 +14499,7 @@ function AnalisisComparativa({ analysis, onBack, onEdit }) {
     </table>
 
     <div class="foot">Polygonos SpA · RUT 77.180.437-3 · Documento interno de evaluación técnica · ventas@polygonos.cl · ${new Date().toLocaleDateString("es-CL")}</div>
+    <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;background:#fff;z-index:9999"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" style="height:16px;opacity:0.7"><span style="font-size:7px;color:#94a3b8;font-family:Arial,sans-serif;letter-spacing:0.06em;text-transform:uppercase">Sistema ERP Claude</span></div>
     <script>window.onload=()=>window.print();</script>
     </body></html>`;
 
@@ -15857,6 +15869,7 @@ function printOp(op, quote) {
     ${firmaHtml}
   </div>
   <div class="foot">Innovación | Tecnología | Seguridad · ventas@polygonos.cl · +56 9 6426 6356 · Polygonos SpA · RUT 77.180.437-3</div>
+  <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;background:#fff;z-index:9999"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" style="height:16px;opacity:0.7"><span style="font-size:7px;color:#94a3b8;font-family:Arial,sans-serif;letter-spacing:0.06em;text-transform:uppercase">Sistema ERP Claude</span></div>
   <script>window.onload=()=>window.print();</script>
   </body></html>`;
 
@@ -16032,6 +16045,7 @@ function printOT(ot, clienteMode=false, historial=[]) {
     ${firmaHtml}
   </div>
   <div class="foot">Innovación | Tecnología | Seguridad · ventas@polygonos.cl · +56 9 6426 6356 · Polygonos SpA · RUT 77.180.437-3</div>
+  <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;background:#fff;z-index:9999"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" style="height:16px;opacity:0.7"><span style="font-size:7px;color:#94a3b8;font-family:Arial,sans-serif;letter-spacing:0.06em;text-transform:uppercase">Sistema ERP Claude</span></div>
   <script>window.onload=()=>window.print();</script>
   </body></html>`;
 
@@ -16184,6 +16198,7 @@ function printComprobanteCPP(f) {
   </div>
 
   <div class="foot">Polygonos SpA · RUT 77.180.437-3 · ventas@polygonos.cl · +56 9 6426 6356 · Documento interno de gestión · ${fechaHoy}</div>
+  <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;background:#fff;z-index:9999"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" style="height:16px;opacity:0.7"><span style="font-size:7px;color:#94a3b8;font-family:Arial,sans-serif;letter-spacing:0.06em;text-transform:uppercase">Sistema ERP Claude</span></div>
   <script>window.onload=()=>window.print();</script>
   </body></html>`;
 
@@ -16819,6 +16834,7 @@ function printFicha(ficha) {
     </table>
     <div class="foot">Polygonos SpA · RUT 77.180.437-3 · Análisis de precios interno · No válido como cotización oficial · ${new Date().toLocaleDateString("es-CL")}</div>
   </div>
+  <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;background:#fff;z-index:9999"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" style="height:16px;opacity:0.7"><span style="font-size:7px;color:#94a3b8;font-family:Arial,sans-serif;letter-spacing:0.06em;text-transform:uppercase">Sistema ERP Claude</span></div>
 
   <script>window.onload=()=>window.print();</script>
   </body></html>`;
@@ -17283,6 +17299,7 @@ function IncidenciasView({ contacts, isMobile }) {
       <span>Documento generado el ${new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"})}</span>
       <span>Polygonos SpA · Soporte Técnico</span>
     </div>
+    <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;background:#fff;z-index:9999"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" style="height:16px;opacity:0.7"><span style="font-size:7px;color:#94a3b8;font-family:Arial,sans-serif;letter-spacing:0.06em;text-transform:uppercase">Sistema ERP Claude</span></div>
     <script>window.onload=()=>window.print()<\/script>
     </body></html>`;
     const w = window.open("","_blank"); w.document.write(html); w.document.close();
@@ -17887,6 +17904,7 @@ function ColaboradorView({ session }) {
         <div>Polygonos SpA · RUT 77.180.437-3</div>
       </div>
     </div>
+    <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;background:#fff;z-index:9999"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" style="height:16px;opacity:0.7"><span style="font-size:7px;color:#94a3b8;font-family:Arial,sans-serif;letter-spacing:0.06em;text-transform:uppercase">Sistema ERP Claude</span></div>
     <script>window.onload=()=>window.print()<\/script>
     </body></html>`;
     const w = window.open("","_blank"); w.document.write(html); w.document.close();
