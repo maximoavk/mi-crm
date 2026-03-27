@@ -7215,12 +7215,16 @@ function CosteoView({ contacts }) {
           </tr></thead>
           <tbody>${partidas.map(p=>{
             const m=Number(p.monto),a=m*(Number(p.pctAnticipo)||0)/100,pa=m*(Number(p.pctParcial)||0)/100,fi=m*(Number(p.pctFinalizar)||0)/100;
+            const dA=Number(p.diasAnticipo)||0, dP=Number(p.diasParcial)||0, dF=Number(p.diasFinalizar)||0;
+            const plazo = (monto,pct,dias,color) => monto>0
+              ? `<td style="padding:5px 8px;text-align:right;color:${color}">${fmt(monto)}<br><span style="font-size:9px;color:#94a3b8">${pct}%${dias>0?` · ${dias} días`:' · contado'}</span></td>`
+              : `<td style="padding:5px 8px;text-align:center;color:#cbd5e1">-</td>`;
             return `<tr style="border-bottom:1px solid #f1f5f9">
               <td style="padding:5px 8px">${p.concepto||""}</td>
               <td style="padding:5px 8px;text-align:right;font-weight:600">${fmt(m)}</td>
-              <td style="padding:5px 8px;text-align:right;color:#3b82f6">${a>0?fmt(a):"-"}</td>
-              <td style="padding:5px 8px;text-align:right;color:#10b981">${pa>0?fmt(pa):"-"}</td>
-              <td style="padding:5px 8px;text-align:right;color:#f59e0b">${fi>0?fmt(fi):"-"}</td>
+              ${plazo(a,Number(p.pctAnticipo)||0,dA,'#3b82f6')}
+              ${plazo(pa,Number(p.pctParcial)||0,dP,'#10b981')}
+              ${plazo(fi,Number(p.pctFinalizar)||0,dF,'#f59e0b')}
             </tr>`;}).join("")}
           </tbody>
           <tfoot><tr style="border-top:2px solid #e2e8f0;background:#f8fafc;font-weight:700">
