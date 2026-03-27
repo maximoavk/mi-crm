@@ -7019,8 +7019,10 @@ function CosteoView({ contacts }) {
     const tVentaFinal = fases.reduce((s,f)=>s+f.ventaConDesc,0);
     const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
     const pct = tCosto>0?(tMargen/tCosto*100).toFixed(1):0;
+    const PDF_TYPE_ORDER = {"Equipos":0,"Ferretería":1,"Materiales":1,"Mano de Obra / HH":2,"Costos Indirectos":3};
     const fasesHTML = fases.map(f=>{
-      const rows = (f.items||[]).map(calcItem).map(it=>{
+      const sortedItems = [...(f.items||[])].sort((a,b)=>(PDF_TYPE_ORDER[a.tipo]??9)-(PDF_TYPE_ORDER[b.tipo]??9));
+      const rows = sortedItems.map(calcItem).map(it=>{
         const tieneIVA = it.ivaVenta > 0;
         const precioUnitDisplay = it.tipo==="Mano de Obra / HH" ? fmt(it.valorHH) : it.tipo==="Costos Indirectos" ? fmt(it.costoUnit) : fmt(it.costoUnitNeto||(it.costoNeto/(Number(it.qty)||1)));
         const netoUnitDisplay = tieneIVA ? fmt(it.costoNeto/(Number(it.qty)||1)) : "-";
@@ -7147,8 +7149,10 @@ function CosteoView({ contacts }) {
     const tAnticipo = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctAnticipo)||0)/100),0);
     const tParcial = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctParcial)||0)/100),0);
     const tFinalizar = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctFinalizar)||0)/100),0);
+    const CLI_TYPE_ORDER = {"Equipos":0,"Ferretería":1,"Materiales":1,"Mano de Obra / HH":2,"Costos Indirectos":3};
     const fasesHTML = fases.map(f=>{
-      const rows = (f.items||[]).map(calcItem).map(it=>{
+      const sortedItems = [...(f.items||[])].sort((a,b)=>(CLI_TYPE_ORDER[a.tipo]??9)-(CLI_TYPE_ORDER[b.tipo]??9));
+      const rows = sortedItems.map(calcItem).map(it=>{
         const tieneIVA = it.ivaVenta > 0;
         const cantLabel = it.tipo==="Mano de Obra / HH" ? `${(it.hh||1)*(it.qty||1)} HH` : it.qty;
         const datasheetRow = it.datasheet_url ? `<tr style="background:#f8faff;border-bottom:1px solid #e2e8f0">
