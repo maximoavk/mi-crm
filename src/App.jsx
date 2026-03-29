@@ -54,6 +54,8 @@ const mapTask = (r) => ({
   endTime: r.hora_fin || "",
   notes: r.notas || "",
   cotizacion: r.cotizacion || "",
+  dealId: r.deal_id || null,
+  dealStageSnapshot: r.deal_stage_snapshot || "",
 });
 const mapTaskToDb = (f) => ({
   titulo: f.title, empresa: f.company, contact_id: f.contactId || null,
@@ -66,6 +68,8 @@ const mapTaskToDb = (f) => ({
   hora_fin: f.endTime || null,
   notas: f.notes || "",
   cotizacion: f.cotizacion || "",
+  deal_id: f.dealId || null,
+  deal_stage_snapshot: f.dealStageSnapshot || "",
 });
 
 // ── CONSTANTS ───────────────────────────────────────────────────────────────
@@ -121,10 +125,11 @@ function AddressSelector({ value, onChange }) {
 }
 
 const STAGES = [
+  { key: "prospecto",    label: "Prospecto",    color: COLORS.textMuted },
   { key: "propuesta",    label: "Propuesta",    color: COLORS.yellow },
   { key: "negociacion",  label: "Negociación",  color: COLORS.accent },
   { key: "cerrado",      label: "Cerrado",      color: COLORS.green },
-  { key: "por_facturar", label: "Por Facturar", color: COLORS.secondary },
+  { key: "por_facturar", label: "Por Facturar", color: COLORS.purple },
 ];
 const STATUS_CONFIG = {
   cliente:   { label: "Cliente",   color: COLORS.green },
@@ -529,7 +534,7 @@ function ContactsView({ contacts, setContacts, isMobile }) {
 }
 
 // ── PIPELINE ────────────────────────────────────────────────────────────────
-function PipelineView({ deals, setDeals, contacts, isMobile }) {
+function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [collapsed, setCollapsed] = useState({});
@@ -540,6 +545,8 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
   const [quoteBusqueda, setQuoteBusqueda] = useState("");
   const [quoteFound, setQuoteFound] = useState(null);
   const [quoteSearching, setQuoteSearching] = useState(false);
+  const [quickTask, setQuickTask] = useState(null); // { dealId, company, dealStageSnapshot, cotizacion, contactId, editingId? }
+  const [quickTaskForm, setQuickTaskForm] = useState({ title:"", type:"llamada", dueDate:"", priority:"media" });
 
   const dealsCOT = useMemo(()=>deals.filter(d=>(d.serie||"COT")==="COT"),[deals]);
   const dealsSIN = useMemo(()=>deals.filter(d=>d.serie==="SIN"),[deals]);
@@ -578,6 +585,14 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
 
   const save = async () => {
     if (!form.title||!form.company) return;
+    // Validación: prospecto duplicado por contacto (Escenario D)
+    if (!editingId && form.stage==="prospecto" && form.contactId) {
+      const existing = deals.find(d=>d.contactId===form.contactId && d.stage==="prospecto");
+      if (existing) {
+        const ok = window.confirm(`Ya existe un prospecto activo para ${form.company}. ¿Crear otro de todas formas?`);
+        if (!ok) return;
+      }
+    }
     setSaving(true);
     const dbData = { ...mapDealToDb(form), numero_cotizacion: form.quoteNumber ? Number(form.quoteNumber) : null };
     if (editingId) {
@@ -599,6 +614,51 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
     await supabase.from("deals").delete().eq("id", id);
     setDeals(deals.filter(d=>d.id!==id));
   };
+
+  // ── Quick task (actividad rápida desde Kanban) ───────────────────────────────
+  const openQuickTask = (deal) => {
+    setQuickTask({ dealId:deal.id, company:deal.company, dealStageSnapshot:deal.stage, cotizacion:deal.quoteNumber||"", contactId:deal.contactId||"" });
+    setQuickTaskForm({ title:"", type:"llamada", dueDate:"", priority:"media" });
+  };
+  const openEditQuickTask = (task) => {
+    setQuickTask({ editingId:task.id, dealId:task.dealId, company:task.company, dealStageSnapshot:task.dealStageSnapshot });
+    setQuickTaskForm({ title:task.title, type:task.type, dueDate:task.dueDate||"", priority:task.priority, status:task.status });
+  };
+  const saveQuickTask = async (form) => {
+    if (!form.title) return;
+    if (quickTask.editingId) {
+      // UPDATE — no insert
+      const { data } = await supabase.from("task")
+        .update(mapTaskToDb({ ...form, dealId:quickTask.dealId, company:quickTask.company }))
+        .eq("id", quickTask.editingId).select().single();
+      if (data) setTasks(prev=>prev.map(t=>t.id===quickTask.editingId?mapTask(data):t));
+    } else {
+      // INSERT — solo si no hay duplicado mismo tipo+fecha+deal
+      const exists = tasks.find(t=>t.dealId===quickTask.dealId && t.type===form.type && t.dueDate===form.dueDate && !t.done);
+      if (exists) { alert("Ya existe una tarea similar para este deal en esa fecha."); return; }
+      const { data } = await supabase.from("task")
+        .insert(mapTaskToDb({ ...form, dealId:quickTask.dealId, dealStageSnapshot:quickTask.dealStageSnapshot, company:quickTask.company, contactId:quickTask.contactId||"", cotizacion:quickTask.cotizacion||"", status:"pendiente", category:"Comercial / Venta", notes:"", startDate:"", startTime:"09:00", endTime:"10:00" }))
+        .select().single();
+      if (data) setTasks(prev=>[...prev, mapTask(data)]);
+    }
+    setQuickTask(null);
+  };
+  const completeQuickTask = async (taskId) => {
+    await supabase.from("task").update({ completada:true, estado:"completada" }).eq("id", taskId);
+    setTasks(prev=>prev.map(t=>t.id===taskId?{...t,done:true,status:"completada"}:t));
+  };
+
+  // ── Activity helpers (Pipeline ↔ Tasks) ────────────────────────────────────
+  const getDealActivityStatus = (dealId) => {
+    const dealTasks = tasks.filter(t=>t.dealId===dealId && !t.done);
+    if(dealTasks.length===0) return "none";
+    return dealTasks.some(t=>isOverdue(t.dueDate)) ? "overdue" : "active";
+  };
+  const getDealNextTask = (dealId) => {
+    return tasks.filter(t=>t.dealId===dealId && !t.done)
+      .sort((a,b)=>(a.dueDate||"").localeCompare(b.dueDate||""))[0] || null;
+  };
+  const ACTIVITY_BORDER = { active:COLORS.green, overdue:COLORS.red, none:COLORS.border };
 
   // Render de una columna de etapa para un lane específico
   const renderStageCol = (stage, grouped, laneKey, accentColor) => {
@@ -626,7 +686,7 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
               <div key={d.id} draggable
                 onDragStart={()=>setDragDealId(d.id)}
                 onDragEnd={()=>{ setDragDealId(null); setDragOverKey(null); }}
-                style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, borderLeft:`3px solid ${accentColor}`, overflow:"hidden", cursor:"grab", opacity:dragDealId===d.id?0.5:1 }}>
+                style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, borderLeft:`3px solid ${ACTIVITY_BORDER[getDealActivityStatus(d.id)]}`, overflow:"hidden", cursor:"grab", opacity:dragDealId===d.id?0.5:1 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:7, padding:isCollapsed?"9px 11px":"11px 13px 7px" }}>
                   <button onClick={()=>toggleCollapse(d.id)} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:10, padding:0, flexShrink:0 }}>{isCollapsed?"▶":"▼"}</button>
                   <div style={{ flex:1, minWidth:0 }}>
@@ -639,6 +699,20 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
                 </div>
                 {!isCollapsed && (
                   <div style={{ padding:"0 13px 11px" }}>
+                    {/* Próxima actividad */}
+                    {(()=>{ const actStatus=getDealActivityStatus(d.id); const nextTask=getDealNextTask(d.id); return (
+                      <div style={{ borderLeft:`3px solid ${ACTIVITY_BORDER[actStatus]}`, paddingLeft:8, marginBottom:10 }}>
+                        {nextTask ? (
+                          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
+                            <span style={{ marginRight:4 }}>{nextTask.type==="llamada"?"📞":nextTask.type==="reunion"?"🤝":nextTask.type==="email"?"✉️":"✅"}</span>
+                            {nextTask.title}
+                            <span style={{ marginLeft:6, color:isOverdue(nextTask.dueDate)?COLORS.red:COLORS.textDim, fontSize:9 }}>{fmtDate(nextTask.dueDate)}</span>
+                          </div>
+                        ) : (
+                          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, fontStyle:"italic" }}>Sin actividad programada</div>
+                        )}
+                      </div>
+                    );})()}
                     <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:d.rut?2:7 }}>{d.company}</div>
                     {d.rut && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, marginBottom:7 }}>RUT: {d.rut}</div>}
                     {d.quoteNumber && <div style={{ fontFamily:FONT, fontSize:10, color:accentColor, background:`${accentColor}11`, border:`1px solid ${accentColor}33`, borderRadius:4, padding:"2px 7px", display:"inline-block", marginBottom:7 }}>📄 {laneKey}-{d.quoteNumber}</div>}
@@ -659,6 +733,12 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
                       ))}
                       <button onClick={()=>del(d.id)} style={{ padding:"2px 6px", borderRadius:4, fontFamily:FONT, fontSize:10, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red, marginLeft:"auto" }}>✕</button>
                     </div>
+                    {/* Botón actividad */}
+                    {(()=>{ const nextTask=getDealNextTask(d.id); return nextTask ? (
+                      <button onClick={()=>openEditQuickTask(nextTask)} style={{ display:"flex", alignItems:"center", gap:4, background:"transparent", border:`1px solid ${COLORS.green}44`, borderRadius:5, padding:"3px 8px", fontFamily:FONT, fontSize:10, color:COLORS.green, cursor:"pointer", marginTop:6 }}>✏️ editar actividad</button>
+                    ) : (
+                      <button onClick={()=>openQuickTask(d)} style={{ display:"flex", alignItems:"center", gap:4, background:"transparent", border:`1px solid ${COLORS.accent}44`, borderRadius:5, padding:"3px 8px", fontFamily:FONT, fontSize:10, color:COLORS.accent, cursor:"pointer", marginTop:6 }}>+ actividad</button>
+                    );})()}
                   </div>
                 )}
               </div>
@@ -707,6 +787,31 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
           {STAGES.map(stage => renderStageCol(stage, groupedSIN, "SIN", "#a855f7"))}
         </div>
       </div>
+      {quickTask && (
+        <Modal title={`${quickTask.editingId?"Editar":"Nueva"} actividad — ${quickTask.company}`} onClose={()=>setQuickTask(null)} onSubmit={()=>saveQuickTask(quickTaskForm)}>
+          <Input label="Título *" value={quickTaskForm.title} onChange={e=>setQuickTaskForm(p=>({...p,title:e.target.value}))} placeholder="Ej: Llamada de seguimiento" />
+          <Select label="Tipo" value={quickTaskForm.type} onChange={e=>setQuickTaskForm(p=>({...p,type:e.target.value}))}>
+            <option value="llamada">📞 Llamada</option>
+            <option value="reunion">🤝 Reunión</option>
+            <option value="email">✉️ Email</option>
+            <option value="tarea">✅ Tarea</option>
+          </Select>
+          <Input label="Fecha límite" value={quickTaskForm.dueDate} onChange={e=>setQuickTaskForm(p=>({...p,dueDate:e.target.value}))} type="date" />
+          <Select label="Prioridad" value={quickTaskForm.priority} onChange={e=>setQuickTaskForm(p=>({...p,priority:e.target.value}))}>
+            <option value="alta">Alta</option>
+            <option value="media">Media</option>
+            <option value="baja">Baja</option>
+          </Select>
+          {quickTask.editingId && (
+            <div style={{ marginTop:8 }}>
+              <button onClick={()=>{ completeQuickTask(quickTask.editingId); setQuickTask(null); }}
+                style={{ width:"100%", padding:"8px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:6, color:COLORS.green, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
+                ✓ Marcar como completada
+              </button>
+            </div>
+          )}
+        </Modal>
+      )}
       {showModal && (
         <Modal title={editingId?"Editar Deal":"Nuevo Deal"} onClose={()=>setShowModal(false)} onSubmit={save}>
           {/* Buscador cotización */}
@@ -759,7 +864,7 @@ function PipelineView({ deals, setDeals, contacts, isMobile }) {
 }
 
 // ── TASKS ────────────────────────────────────────────────────────────────────
-function TasksView({ tasks, setTasks, contacts, isMobile }) {
+function TasksView({ tasks, setTasks, contacts, deals, isMobile }) {
   const TASK_STATUSES = [
     { key:"pendiente",    label:"Pendiente",    color:"#FFB800" },
     { key:"en_progreso",  label:"En progreso",  color:"#00C2FF" },
@@ -768,10 +873,12 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
     { key:"cancelada",    label:"Cancelada",    color:"#6B7A99" },
   ];
   const TASK_CATEGORIES = [
+    "Prospecto / Levantamiento",
     "Comercial / Venta","Operaciones / Terreno","Visita cliente",
     "Seguimiento","Cobranza / Pago","Soporte / Post-venta","Administrativa"
   ];
   const CAT_COLORS = {
+    "Prospecto / Levantamiento":"#9BAAC4",
     "Comercial / Venta":"#00C2FF","Operaciones / Terreno":"#00E5A0",
     "Visita cliente":"#FFB800","Seguimiento":"#A855F7",
     "Cobranza / Pago":"#FF4D6A","Soporte / Post-venta":"#F97316","Administrativa":"#6B7A99"
@@ -786,7 +893,7 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
   const [showModal, setShowModal] = useState(false);
   const [editTask, setEditTask]   = useState(null);
   const [saving, setSaving]       = useState(false);
-  const emptyForm = () => ({ title:"", contactId:"", company:"", dueDate:"", startDate:"", startTime:"09:00", endTime:"10:00", priority:"media", type:"tarea", status:"pendiente", category:"Comercial / Venta", notes:"", cotizacion:"" });
+  const emptyForm = () => ({ title:"", contactId:"", company:"", dueDate:"", startDate:"", startTime:"09:00", endTime:"10:00", priority:"media", type:"tarea", status:"pendiente", category:"Comercial / Venta", notes:"", cotizacion:"", dealId:"", dealStageSnapshot:"" });
   const [form, setForm] = useState(emptyForm());
   const ff = (k,v) => setForm(p=>({...p,[k]:v}));
 
@@ -842,7 +949,7 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
 
   const openEdit = (t) => {
     setEditTask(t);
-    setForm({ title:t.title, contactId:t.contactId||"", company:t.company||"", dueDate:t.dueDate||"", startDate:t.startDate||"", startTime:t.startTime||"09:00", endTime:t.endTime||"10:00", priority:t.priority||"media", type:t.type||"tarea", status:t.status||"pendiente", category:t.category||"Comercial / Venta", notes:t.notes||"", cotizacion:t.cotizacion||"" });
+    setForm({ title:t.title, contactId:t.contactId||"", company:t.company||"", dueDate:t.dueDate||"", startDate:t.startDate||"", startTime:t.startTime||"09:00", endTime:t.endTime||"10:00", priority:t.priority||"media", type:t.type||"tarea", status:t.status||"pendiente", category:t.category||"Comercial / Venta", notes:t.notes||"", cotizacion:t.cotizacion||"", dealId:t.dealId||"", dealStageSnapshot:t.dealStageSnapshot||"" });
     setShowModal(true);
   };
 
@@ -1073,6 +1180,13 @@ function TasksView({ tasks, setTasks, contacts, isMobile }) {
                 <div><label style={lbl}>Prioridad</label>
                   <select value={form.priority} onChange={e=>ff("priority",e.target.value)} style={inp}>
                     <option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={lbl}>Vincular a Deal</label>
+                  <select value={form.dealId} onChange={e=>{ const deal=deals.find(d=>d.id===e.target.value); ff("dealId",e.target.value); if(deal){ ff("company",deal.company||form.company); ff("dealStageSnapshot",deal.stage); if(deal.quoteNumber) ff("cotizacion",deal.quoteNumber); } }} style={inp}>
+                    <option value="">— Sin deal vinculado —</option>
+                    {(deals||[]).filter(d=>d.stage!=="cerrado").sort((a,b)=>a.company.localeCompare(b.company)).map(d=>{ const stage=STAGES.find(s=>s.key===d.stage); return <option key={d.id} value={d.id}>{d.company} — {d.title} [{stage?.label||d.stage}]</option>; })}
                   </select>
                 </div>
                 <div><label style={lbl}>N° Cotización</label><input value={form.cotizacion} onChange={e=>ff("cotizacion",e.target.value)} placeholder="Ej: 88" style={inp} /></div>
@@ -18423,7 +18537,7 @@ export default function CRM() {
         <div style={{ maxWidth:1400, margin:"0 auto", padding:isMobile?16:32 }}>
           {view==="dashboard" && <Dashboard contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} />}
           {view==="contacts"  && <ContactsView contacts={contacts} setContacts={setContacts} isMobile={isMobile} />}
-          {view==="pipeline"  && <PipelineView deals={deals} setDeals={setDeals} contacts={contacts} isMobile={isMobile} userRole={userRole} session={session} />}
+          {view==="pipeline"  && <PipelineView deals={deals} setDeals={setDeals} contacts={contacts} tasks={tasks} setTasks={setTasks} isMobile={isMobile} userRole={userRole} session={session} />}
           {view==="quotes"       && <QuotesView contacts={contacts} isMobile={isMobile} />}
           {view==="prestaciones" && <PrestacionesView isMobile={isMobile} />}
           {view==="products"  && <ProductsDB isMobile={isMobile} />}
@@ -18433,7 +18547,7 @@ export default function CRM() {
           {view==="gantt"     && <GanttView isMobile={isMobile} />}
           {view==="operaciones" && <OperacionesView isMobile={isMobile} />}
           {view==="analisis"    && <AnalisisPreciosView isMobile={isMobile} />}
-          {view==="tasks"     && <TasksView tasks={tasks} setTasks={setTasks} contacts={contacts} isMobile={isMobile} />}
+          {view==="tasks"     && <TasksView tasks={tasks} setTasks={setTasks} contacts={contacts} deals={deals} isMobile={isMobile} />}
           {view==="incidencias" && <IncidenciasView contacts={contacts} isMobile={isMobile} />}
           {view==="proposals" && <ProposalsView contacts={contacts} isMobile={isMobile} />}
           {view==="reports"   && <ReportsView contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} />}
