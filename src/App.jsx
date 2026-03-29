@@ -33,6 +33,9 @@ const mapDeal = (r) => ({
   closeDate: r.fecha_cierre, contactId: r.contact_id,
   quoteNumber: r.numero_cotizacion ? String(r.numero_cotizacion) : "",
   serie: r.serie || "COT",
+  facturado:     r.facturado      || false,
+  numeroFactura: r.numero_factura || "",
+  fechaFactura:  r.fecha_factura  || "",
 });
 const mapDealToDb = (f) => ({
   titulo: f.title, empresa: f.company, rut_empresa: f.rut,
@@ -41,6 +44,9 @@ const mapDealToDb = (f) => ({
   fecha_cierre: f.closeDate || null,
   contact_id: f.contactId || null,
   serie: f.serie || "COT",
+  facturado:      f.facturado      || false,
+  numero_factura: f.numeroFactura  || null,
+  fecha_factura:  f.fechaFactura   || null,
 });
 
 const mapTask = (r) => ({
@@ -129,7 +135,6 @@ const STAGES = [
   { key: "propuesta",    label: "Propuesta",    color: COLORS.yellow },
   { key: "negociacion",  label: "Negociación",  color: COLORS.accent },
   { key: "cerrado",      label: "Cerrado",      color: COLORS.green },
-  { key: "por_facturar", label: "Por Facturar", color: COLORS.purple },
 ];
 const STATUS_CONFIG = {
   cliente:   { label: "Cliente",   color: COLORS.green },
@@ -218,8 +223,9 @@ const Loader = () => (
 
 // ── DASHBOARD ───────────────────────────────────────────────────────────────
 function Dashboard({ contacts, deals, tasks, isMobile }) {
-  const totalRevenue = deals.filter(d=>d.stage==="cerrado").reduce((s,d)=>s+Number(d.value),0);
-  const pipeline     = deals.filter(d=>d.stage!=="cerrado").reduce((s,d)=>s+Number(d.value)*Number(d.probability)/100,0);
+  const totalRevenue       = deals.filter(d=>d.stage==="cerrado").reduce((s,d)=>s+Number(d.value),0);
+  const pipeline           = deals.filter(d=>d.stage!=="cerrado").reduce((s,d)=>s+Number(d.value)*Number(d.probability)/100,0);
+  const pendientesFacturar = deals.filter(d=>d.stage==="cerrado"&&!d.facturado).reduce((s,d)=>s+Number(d.value),0);
   const overdueTasks = tasks.filter(t=>!t.done&&isOverdue(t.dueDate)).length;
   const stageData    = STAGES.map(s=>({ ...s, count:deals.filter(d=>d.stage===s.key).length, value:deals.filter(d=>d.stage===s.key).reduce((a,d)=>a+Number(d.value),0) }));
   const recentTasks  = tasks.filter(t=>!t.done).sort((a,b)=>(a.dueDate||"").localeCompare(b.dueDate||"")).slice(0,4);
@@ -279,7 +285,7 @@ function Dashboard({ contacts, deals, tasks, isMobile }) {
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,minmax(0,1fr))", gap:10, marginBottom:14 }}>
         <KpiCard label="Ingresos cerrados" value={fmt(totalRevenue)} sub="acumulado" accentColor={COLORS.green} valueColor={COLORS.green} />
         <KpiCard label="Pipeline esperado" value={fmt(pipeline)} sub="ponderado" accentColor={COLORS.accent} valueColor={COLORS.accent} />
-        <KpiCard label="Clientes activos" value={contacts.filter(c=>c.status==="cliente").length} sub="contactos" accentColor={COLORS.accent} valueColor={COLORS.text} />
+        <KpiCard label="Pendientes de facturar" value={fmt(pendientesFacturar)} sub={`${deals.filter(d=>d.stage==="cerrado"&&!d.facturado).length} deal(s)`} accentColor={COLORS.yellow} valueColor={COLORS.yellow} />
         <KpiCard label="Tareas vencidas" value={overdueTasks} sub={overdueTasks>0?"requieren atención":"al día"} accentColor={overdueTasks>0?COLORS.red:COLORS.green} valueColor={overdueTasks>0?COLORS.red:COLORS.green} />
       </div>
 
@@ -547,12 +553,31 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
   const [quoteSearching, setQuoteSearching] = useState(false);
   const [quickTask, setQuickTask] = useState(null); // { dealId, company, dealStageSnapshot, cotizacion, contactId, editingId? }
   const [quickTaskForm, setQuickTaskForm] = useState({ title:"", type:"llamada", dueDate:"", priority:"media" });
+  const [facturandoId, setFacturandoId] = useState(null);
+  const [facturaVal, setFacturaVal]     = useState("");
+  const [facturaFecha, setFacturaFecha] = useState("");
 
   const dealsCOT = useMemo(()=>deals.filter(d=>(d.serie||"COT")==="COT"),[deals]);
   const dealsSIN = useMemo(()=>deals.filter(d=>d.serie==="SIN"),[deals]);
   const groupedCOT = useMemo(()=>{ const g={}; STAGES.forEach(s=>{g[s.key]=dealsCOT.filter(d=>d.stage===s.key);}); return g; },[dealsCOT]);
   const groupedSIN = useMemo(()=>{ const g={}; STAGES.forEach(s=>{g[s.key]=dealsSIN.filter(d=>d.stage===s.key);}); return g; },[dealsSIN]);
   const f = (k,v) => setForm(p=>({...p,[k]:v}));
+
+  const registrarFactura = async (dealId) => {
+    if (!facturaVal.trim()) return;
+    const updates = {
+      facturado:      true,
+      numero_factura: facturaVal.trim(),
+      fecha_factura:  facturaFecha || new Date().toISOString().slice(0,10),
+    };
+    await supabase.from("deals").update(updates).eq("id", dealId);
+    setDeals(prev => prev.map(d =>
+      d.id === dealId
+        ? { ...d, facturado: true, numeroFactura: facturaVal.trim(), fechaFactura: facturaFecha }
+        : d
+    ));
+    setFacturandoId(null); setFacturaVal(""); setFacturaFecha("");
+  };
 
   const openNew = (serie="COT") => { setEditingId(null); setForm({ title:"", company:"", contactId:"", rut:"", value:"", stage:"propuesta", probability:"40", closeDate:"", quoteNumber:"", serie }); setQuoteFound(null); setQuoteBusqueda(""); setShowModal(true); };
   const openEdit = (d) => { setEditingId(d.id); setForm({ title:d.title, company:d.company, contactId:d.contactId||"", rut:d.rut||"", value:String(d.value), stage:d.stage, probability:String(d.probability), closeDate:d.closeDate||"", quoteNumber:d.quoteNumber||"", serie:d.serie||"COT" }); setQuoteFound(null); setQuoteBusqueda(""); setShowModal(true); };
@@ -686,7 +711,7 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
               <div key={d.id} draggable
                 onDragStart={()=>setDragDealId(d.id)}
                 onDragEnd={()=>{ setDragDealId(null); setDragOverKey(null); }}
-                style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, borderLeft:`3px solid ${ACTIVITY_BORDER[getDealActivityStatus(d.id)]}`, overflow:"hidden", cursor:"grab", opacity:dragDealId===d.id?0.5:1 }}>
+                style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, borderLeft:`3px solid ${stage.key==="cerrado" && d.facturado ? COLORS.purple : ACTIVITY_BORDER[getDealActivityStatus(d.id)]}`, overflow:"hidden", cursor:"grab", opacity:dragDealId===d.id?0.5:d.facturado?0.55:1, transition:"opacity 0.2s" }}>
                 <div style={{ display:"flex", alignItems:"center", gap:7, padding:isCollapsed?"9px 11px":"11px 13px 7px" }}>
                   <button onClick={()=>toggleCollapse(d.id)} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:10, padding:0, flexShrink:0 }}>{isCollapsed?"▶":"▼"}</button>
                   <div style={{ flex:1, minWidth:0 }}>
@@ -739,6 +764,29 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
                     ) : (
                       <button onClick={()=>openQuickTask(d)} style={{ display:"flex", alignItems:"center", gap:4, background:"transparent", border:`1px solid ${COLORS.accent}44`, borderRadius:5, padding:"3px 8px", fontFamily:FONT, fontSize:10, color:COLORS.accent, cursor:"pointer", marginTop:6 }}>+ actividad</button>
                     );})()}
+                    {/* Bloque facturación — solo en stage cerrado */}
+                    {stage.key === "cerrado" && (
+                      <div style={{ marginTop:10, paddingTop:10, borderTop:`1px solid ${COLORS.border}` }}>
+                        {d.facturado ? (
+                          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                            <span style={{ fontSize:9, padding:"2px 8px", borderRadius:4, fontWeight:600, background:`${COLORS.purple}18`, color:COLORS.purple, border:`1px solid ${COLORS.purple}33` }}>✓ Facturado</span>
+                            <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim }}>N° {d.numeroFactura}{d.fechaFactura && ` · ${fmtDate(d.fechaFactura)}`}</span>
+                          </div>
+                        ) : facturandoId === d.id ? (
+                          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                            <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.yellow, textTransform:"uppercase", letterSpacing:"0.08em" }}>Registrar factura SII</div>
+                            <input value={facturaVal} onChange={e=>setFacturaVal(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")registrarFactura(d.id);if(e.key==="Escape")setFacturandoId(null);}} placeholder="N° factura SII..." autoFocus style={{ background:COLORS.bg, border:`1px solid ${COLORS.yellow}`, borderRadius:5, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none" }} />
+                            <input value={facturaFecha} onChange={e=>setFacturaFecha(e.target.value)} type="date" style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:5, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none" }} />
+                            <div style={{ display:"flex", gap:6 }}>
+                              <button onClick={()=>registrarFactura(d.id)} style={{ flex:2, padding:"5px 0", background:`${COLORS.purple}22`, border:`1px solid ${COLORS.purple}55`, borderRadius:5, color:COLORS.purple, fontFamily:FONT, fontSize:10, fontWeight:700, cursor:"pointer" }}>✓ Registrar</button>
+                              <button onClick={()=>setFacturandoId(null)} style={{ flex:1, padding:"5px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.textMuted, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>Cancelar</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button onClick={()=>{ setFacturandoId(d.id); setFacturaVal(""); setFacturaFecha(""); }} style={{ width:"100%", padding:"5px 0", background:`${COLORS.yellow}18`, border:`1px solid ${COLORS.yellow}44`, borderRadius:5, color:COLORS.yellow, fontFamily:FONT, fontSize:10, fontWeight:700, cursor:"pointer" }}>📋 Pendiente facturar</button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1213,11 +1261,13 @@ function TasksView({ tasks, setTasks, contacts, deals, isMobile }) {
 
 // ── REPORTS ──────────────────────────────────────────────────────────────────
 function ReportsView({ contacts, deals, tasks, isMobile }) {
-  const totalRevenue = deals.filter(d=>d.stage==="cerrado").reduce((s,d)=>s+Number(d.value),0);
-  const wonRate = deals.length>0?Math.round(deals.filter(d=>d.stage==="cerrado").length/deals.length*100):0;
-  const avgDeal = deals.length>0?Math.round(deals.reduce((s,d)=>s+Number(d.value),0)/deals.length):0;
-  const taskCompletion = tasks.length>0?Math.round(tasks.filter(t=>t.done).length/tasks.length*100):0;
-  const totalPipeline = deals.reduce((s,d)=>s+Number(d.value),0);
+  const totalRevenue    = deals.filter(d=>d.stage==="cerrado").reduce((s,d)=>s+Number(d.value),0);
+  const wonRate         = deals.length>0?Math.round(deals.filter(d=>d.stage==="cerrado").length/deals.length*100):0;
+  const avgDeal         = deals.length>0?Math.round(deals.reduce((s,d)=>s+Number(d.value),0)/deals.length):0;
+  const taskCompletion  = tasks.length>0?Math.round(tasks.filter(t=>t.done).length/tasks.length*100):0;
+  const totalPipeline   = deals.reduce((s,d)=>s+Number(d.value),0);
+  const totalFacturado   = deals.filter(d=>d.stage==="cerrado"&&d.facturado).reduce((s,d)=>s+Number(d.value),0);
+  const totalPorFacturar = deals.filter(d=>d.stage==="cerrado"&&!d.facturado).reduce((s,d)=>s+Number(d.value),0);
 
   return (
     <div>
@@ -1230,6 +1280,8 @@ function ReportsView({ contacts, deals, tasks, isMobile }) {
         <Stat label="Tasa de cierre" value={`${wonRate}%`} color={wonRate>50?COLORS.green:COLORS.yellow} />
         <Stat label="Valor promedio deal" value={fmt(avgDeal)} color={COLORS.accent} />
         <Stat label="Tareas completadas" value={`${taskCompletion}%`} color={COLORS.text} />
+        <Stat label="Total facturado" value={fmt(totalFacturado)} color={COLORS.purple} />
+        <Stat label="Pendiente de facturar" value={fmt(totalPorFacturar)} color={COLORS.yellow} />
       </div>
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:16, marginBottom:16 }}>
         <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20 }}>
@@ -3077,7 +3129,7 @@ function QuotesView({ contacts, isMobile }) {
   // Convierte COT → SIN y empuja directo a Pipeline → Por Facturar
   const convertirASIN = async (q) => {
     const codigoActual = `${q.serie||"COT"}-${String(q.number).padStart(3,"0")}`;
-    if(!window.confirm(`¿Convertir ${codigoActual} a serie SIN (sin factura) y mover al Pipeline → Por Facturar?`)) return;
+    if(!window.confirm(`¿Convertir ${codigoActual} a serie SIN (sin factura) y mover al Pipeline → Cerrado?`)) return;
     const newNum = nextSIN;
     await supabase.from("cotizaciones").update({
       serie: "SIN", numero: newNum,
@@ -3097,20 +3149,20 @@ function QuotesView({ contacts, isMobile }) {
         rut_empresa: q.clientRut||"",
         contact_id: q.contactId||null,
         valor: q.total||0,
-        etapa: "por_facturar",
+        etapa: "cerrado",
         probabilidad: 100,
         quote_id: q.id,
         serie: "SIN",
       });
     } else {
       await supabase.from("deals").update({
-        etapa:"por_facturar",
+        etapa:"cerrado",
         titulo:`${codigo} – ${q.clientCompany||q.clientName||"Cliente"}`,
         probabilidad:100,
         serie: "SIN",
       }).eq("id", existing[0].id);
     }
-    alert(`✅ Convertido a ${codigo} → Pipeline: Por Facturar`);
+    alert(`✅ Convertido a ${codigo} → Pipeline: Cerrado`);
   };
 
   const del = async (id) => {
@@ -5657,7 +5709,7 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
       const num    = String(header.number||savedQuote.numero||"?").padStart(3,"0");
       const codigo = `${serie}-${num}`;
       const titulo = `${codigo} – ${header.clientCompany||header.clientName||"Cliente"}`;
-      const etapa  = isSIN ? "por_facturar" : "propuesta";
+      const etapa  = isSIN ? "cerrado" : "propuesta";
       const prob   = isSIN ? 100 : 40;
       const { data:existing } = await supabase.from("deals").select("id").eq("quote_id",savedQuote.id).limit(1);
       if(!existing||existing.length===0){
