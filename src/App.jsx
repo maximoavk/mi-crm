@@ -14350,6 +14350,31 @@ function GuiasView({ isMobile }) {
 
   const [editingTracking, setEditingTracking] = useState(null);
   const [trackingVal, setTrackingVal]         = useState("");
+  const [printingId, setPrintingId]           = useState(null);
+
+  const printLabel = async (s) => {
+    setPrintingId(s.id);
+    const cInfo = COURIERS_LIST_GV.find(c=>c.key===s.courier)||{ color:"#6b7a99" };
+    const oc  = s.purchase_orders || {};
+    const sup = oc.suppliers || {};
+
+    // Fetch líneas de OC con producto y precio proveedor
+    const { data: lines } = await supabase
+      .from("purchase_order_lines")
+      .select("*, products(codigo, nombre), supplier_prices(sku_proveedor)")
+      .eq("purchase_order_id", oc.id || "");
+
+    setPrintingId(null);
+
+    const rows = (lines||[]).map(l => {
+      const prod = l.products || {};
+      const pp   = l.supplier_prices || {};
+      return `<tr><td class="code">${prod.codigo||"—"}</td><td>${prod.nombre||"—"}</td><td style="font-family:monospace;font-size:8px;color:#6b7a99">${pp.sku_proveedor||"—"}</td><td class="qty">${l.cantidad}</td></tr>`;
+    }).join("");
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>@page{size:A4 portrait;margin:8mm;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a2e;}.page{display:flex;flex-direction:column;gap:6mm;}.label{width:148mm;min-height:95mm;border:2px dashed #b0b8cc;border-radius:4mm;padding:5mm 6mm;position:relative;page-break-inside:avoid;}.label::before{content:'✂';position:absolute;top:-2mm;left:1mm;font-size:15px;color:#b0b8cc;}.hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #00C2FF;padding-bottom:3mm;margin-bottom:3.5mm;}.hdr img{height:34px;object-fit:contain;}.oc{font-size:20px;font-weight:900;color:#1a1a2e;letter-spacing:1.5px;}.dt{font-size:8px;color:#6b7a99;text-align:right;margin-top:1px;}.pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:800;color:#fff;background:${cInfo.color};}.mod{font-size:9px;color:#6b7a99;margin-left:5px;}.r2{display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:2.5mm;}.r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3mm;margin-bottom:2.5mm;}.bt{font-size:7px;color:#6b7a99;text-transform:uppercase;letter-spacing:0.1em;font-weight:700;margin-bottom:1mm;}.bv{font-size:10px;font-weight:700;color:#1a1a2e;line-height:1.4;}.bvsm{font-size:9px;font-weight:600;color:#1a1a2e;}.bvmt{font-size:9px;font-weight:600;color:#4a5568;}.sep{border:none;border-top:1px dashed #dde3ef;margin:2.5mm 0;}table{width:100%;border-collapse:collapse;margin-top:2mm;}thead tr{background:#0A0C10;}th{color:#fff;font-size:7.5px;text-transform:uppercase;padding:1.5mm 2mm;text-align:left;}td{font-size:9px;padding:1.5mm 2mm;border-bottom:1px solid #f0f4f8;}td.code{font-family:monospace;color:#00C2FF;font-weight:700;}td.qty{text-align:center;font-weight:800;}tr:nth-child(even) td{background:#f9fafc;}.ft{margin-top:3mm;padding-top:2mm;border-top:1px solid #e8ecf4;font-size:7.5px;color:#b0b8cc;text-align:center;}</style></head><body><div class="page">${[0,1].map(()=>`<div class="label"><div class="hdr"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos"/><div><div class="oc">${s.numero_guia}</div><div class="dt">Ref. OC: ${oc.numero_oc||"—"} · ${new Date(s.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}</div></div></div><div style="margin-bottom:3mm;"><span class="pill">${s.courier||"—"}</span><span class="mod">${s.tipo==="sucursal"?"📍 Sucursal":"🏠 Domicilio"}</span></div><div class="r2"><div><div class="bt">Destinatario</div><div class="bv">${s.destinatario_nombre||"—"}</div><div class="bvmt">${s.destinatario_rut||""}</div></div><div><div class="bt">Contacto</div><div class="bvsm">${s.destinatario_tel||"—"}</div><div class="bvmt" style="font-size:8px">${s.destinatario_correo||""}</div></div></div><hr class="sep"/><div style="margin-bottom:2.5mm;"><div class="bt">Dirección</div><div class="bvsm">${[s.sucursal,s.direccion].filter(Boolean).join(" · ")||"—"}, ${[s.comuna,s.ciudad].filter(Boolean).join(", ")||""}</div></div><hr class="sep"/><div class="r3"><div><div class="bt">Remitente</div><div class="bvsm">${sup.nombre||"—"}</div></div><div><div class="bt">Guía de Despacho</div><div class="bv">${s.numero_guia}</div><div class="bt" style="margin-top:2mm">Ref. OC</div><div class="bvsm">${oc.numero_oc||"—"}</div></div><div><div class="bt">Cot. Proveedor</div><div class="bvsm">${s.notas||"—"}</div></div></div><table><thead><tr><th>Código</th><th>Producto</th><th>SKU</th><th style="text-align:center">Cant.</th></tr></thead><tbody>${rows}</tbody></table><div class="ft">Polygonos SPA · RUT 77.180.437-3 · ${new Date().toLocaleString("es-CL")}</div></div>`).join("")}</div></body></html>`;
+    const w = window.open("","_blank"); w.document.write(html); w.document.close(); setTimeout(()=>w.print(),600);
+  };
 
   const saveTracking = async (id) => {
     await supabase.from("shipments").update({ tracking_code: trackingVal||null }).eq("id", id);
@@ -14507,6 +14532,14 @@ function GuiasView({ isMobile }) {
                     {s.aplica_iva_despacho && <span style={{ fontSize:9, color:COLORS.textDim }}> +IVA</span>}
                   </div>
                 )}
+
+                {/* Botón PDF etiqueta */}
+                <button
+                  onClick={()=>printLabel(s)}
+                  disabled={printingId===s.id}
+                  style={{ padding:"3px 10px", background:`${COLORS.purple}22`, border:`1px solid ${COLORS.purple}44`, borderRadius:5, color:COLORS.purple, fontFamily:FONT, fontSize:10, cursor:"pointer", fontWeight:600, flexShrink:0, opacity:printingId===s.id?0.5:1 }}>
+                  {printingId===s.id ? "…" : "📄 PDF"}
+                </button>
 
               </div>
 
