@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calculator, GanttChartSquare, CheckSquare, BarChart2, LogOut, Sun, Moon, Receipt, Wrench, Scale, AlertTriangle, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calculator, GanttChartSquare, CheckSquare, BarChart2, LogOut, Receipt, Wrench, Scale, AlertTriangle, TrendingUp } from "lucide-react";
 
 // ── SUPABASE ────────────────────────────────────────────────────────────────
 const supabase = createClient(
@@ -75,16 +75,7 @@ const COLORS_DARK = {
   green: "#00E5A0", yellow: "#FFB800", red: "#FF4D6A", purple: "#A855F7",
   text: "#E8ECF4", textMuted: "#9BAAC4", textDim: "#4A5778",
 };
-const COLORS_LIGHT = {
-  bg: "#F4F6FA", surface: "#FFFFFF", card: "#EEF1F7", border: "#D1D9E6",
-  accent: "#0096CC", accentDim: "#0096CC18", accentGlow: "#0096CC33",
-  green: "#00A97A", yellow: "#D4920A", red: "#E0304F", purple: "#8B3FD4",
-  text: "#0F1623", textMuted: "#4A5778", textDim: "#9AA3B8",
-};
-let COLORS = { ...COLORS_DARK };
-// darkMode global singleton — updated by CRM root
-let _setDarkModeGlobal = null;
-let _darkModeValue = true;
+const COLORS = { ...COLORS_DARK };
 const FONT = "'DM Mono', 'Courier New', monospace";
 const FONT_DISPLAY = "'Space Grotesk', sans-serif";
 
@@ -223,201 +214,135 @@ const Loader = () => (
 // ── DASHBOARD ───────────────────────────────────────────────────────────────
 function Dashboard({ contacts, deals, tasks, isMobile }) {
   const totalRevenue = deals.filter(d=>d.stage==="cerrado").reduce((s,d)=>s+Number(d.value),0);
-  const pipeline = deals.filter(d=>d.stage!=="cerrado").reduce((s,d)=>s+Number(d.value)*Number(d.probability)/100,0);
-  const pendingTasks = tasks.filter(t=>!t.done).length;
+  const pipeline     = deals.filter(d=>d.stage!=="cerrado").reduce((s,d)=>s+Number(d.value)*Number(d.probability)/100,0);
   const overdueTasks = tasks.filter(t=>!t.done&&isOverdue(t.dueDate)).length;
-  const stageData = STAGES.map(s=>({ ...s, count:deals.filter(d=>d.stage===s.key).length, value:deals.filter(d=>d.stage===s.key).reduce((a,d)=>a+Number(d.value),0) }));
-  const maxVal = Math.max(...stageData.map(s=>s.value),1);
-  const recentTasks = tasks.filter(t=>!t.done).sort((a,b)=>(a.dueDate||"").localeCompare(b.dueDate||"")).slice(0,4);
+  const stageData    = STAGES.map(s=>({ ...s, count:deals.filter(d=>d.stage===s.key).length, value:deals.filter(d=>d.stage===s.key).reduce((a,d)=>a+Number(d.value),0) }));
+  const recentTasks  = tasks.filter(t=>!t.done).sort((a,b)=>(a.dueDate||"").localeCompare(b.dueDate||"")).slice(0,4);
+  const maxVal       = Math.max(...stageData.map(x=>x.value), 1);
 
-  const [recentInc, setRecentInc] = useState([]);
-  const [recentOCs, setRecentOCs] = useState([]);
-  const [cuentasSaldo, setCuentasSaldo] = useState([]);
-
+  const [cuentas, setCuentas] = useState([]);
   useEffect(() => {
-    supabase.from("incidencias").select("id,titulo,cliente,estado,categoria,prioridad,created_at")
-      .order("created_at", { ascending:false }).limit(5)
-      .then(({ data }) => setRecentInc(data||[]));
-    supabase.from("purchase_orders").select("id,numero_oc,estado,created_at,suppliers(nombre)")
-      .order("created_at", { ascending:false }).limit(5)
-      .then(({ data }) => setRecentOCs(data||[]));
-    // Saldos de cuentas bancarias
     Promise.all([
       supabase.from("cuentas_bancarias").select("*").order("created_at"),
       supabase.from("movimientos_cuenta").select("cuenta_id,tipo,monto"),
     ]).then(([{ data: cu }, { data: mv }]) => {
-      const cuentas = cu||[];
-      const movs    = mv||[];
-      const conSaldo = cuentas.map(c=>{
+      const cuentasData = cu||[];
+      const movs = mv||[];
+      setCuentas(cuentasData.map(c=>{
         const saldo = movs.filter(m=>m.cuenta_id===c.id).reduce((s,m)=>{
           return m.tipo==="ingreso" ? s+Number(m.monto||0) : s-Number(m.monto||0);
         }, Number(c.saldo_inicial||0));
         return { ...c, saldo };
-      });
-      setCuentasSaldo(conSaldo);
+      }));
     });
   }, []);
 
-  const INC_ESTADOS = { reportada:{label:"Reportada",color:"#FFB800"}, en_curso:{label:"En curso",color:"#00C2FF"}, solucionada:{label:"Solucionada",color:"#00E5A0"} };
-  const OC_EST     = { PENDIENTE:{color:"#FFB800",icon:"⏳"}, CONFIRMADA:{color:"#00C2FF",icon:"✅"}, ENVIADA:{color:"#A855F7",icon:"🚚"}, RECIBIDA:{color:"#00E5A0",icon:"📦"}, PAGADA:{color:"#10b981",icon:"💰"} };
-  const PRIO_COLOR = { alta:"#FF4D6A", media:"#FFB800", baja:"#00E5A0" };
+  const KpiCard = ({ label, value, sub, accentColor, valueColor }) => (
+    <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderLeft:`3px solid ${accentColor}`, borderRadius:10, padding:"14px 16px" }}>
+      <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:6 }}>{label}</div>
+      <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:valueColor||COLORS.text }}>{value}</div>
+      {sub && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, marginTop:3 }}>{sub}</div>}
+    </div>
+  );
+
+  const BankCard = ({ nombre, monto, tipo }) => {
+    const isEmpresa = tipo==="empresa";
+    const color = isEmpresa ? COLORS.accent : COLORS.purple;
+    return (
+      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"14px 16px", display:"flex", alignItems:"center", gap:12 }}>
+        <div style={{ width:36, height:36, borderRadius:8, background:COLORS.border, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+          {isEmpresa ? <Receipt size={16} color={color} /> : <Users size={16} color={color} />}
+        </div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:3 }}>{nombre}</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color }}>{fmt(monto)}</div>
+        </div>
+        <span style={{ fontSize:9, padding:"2px 7px", borderRadius:4, fontWeight:600, background:`${color}18`, color, border:`1px solid ${color}33`, flexShrink:0, textTransform:"uppercase", letterSpacing:"0.06em" }}>{tipo}</span>
+      </div>
+    );
+  };
 
   return (
     <div>
+      {/* A — Page header */}
       <div style={{ marginBottom:24 }}>
-        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Vista general</div>
-        <div style={{ fontFamily:FONT_DISPLAY, fontSize:24, fontWeight:700, color:COLORS.text }}>Dashboard B2B</div>
+        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, letterSpacing:"0.14em", textTransform:"uppercase", marginBottom:4 }}>Vista general</div>
+        <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Dashboard B2B</div>
       </div>
 
-      {/* KPIs */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20 }}>
-        <Stat label="Ingresos cerrados" value={fmt(totalRevenue)} sub="acumulado" color={COLORS.green} />
-        <Stat label="Pipeline esperado" value={fmt(pipeline)} sub="ponderado" color={COLORS.accent} />
-        <Stat label="Clientes activos" value={contacts.filter(c=>c.status==="cliente").length} color={COLORS.text} />
-        <Stat label="Tareas pendientes" value={pendingTasks} sub={overdueTasks>0?`${overdueTasks} vencida(s)`:"al día"} color={overdueTasks>0?COLORS.red:COLORS.text} />
+      {/* B — KPIs */}
+      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,minmax(0,1fr))", gap:10, marginBottom:14 }}>
+        <KpiCard label="Ingresos cerrados" value={fmt(totalRevenue)} sub="acumulado" accentColor={COLORS.green} valueColor={COLORS.green} />
+        <KpiCard label="Pipeline esperado" value={fmt(pipeline)} sub="ponderado" accentColor={COLORS.accent} valueColor={COLORS.accent} />
+        <KpiCard label="Clientes activos" value={contacts.filter(c=>c.status==="cliente").length} sub="contactos" accentColor={COLORS.accent} valueColor={COLORS.text} />
+        <KpiCard label="Tareas vencidas" value={overdueTasks} sub={overdueTasks>0?"requieren atención":"al día"} accentColor={overdueTasks>0?COLORS.red:COLORS.green} valueColor={overdueTasks>0?COLORS.red:COLORS.green} />
       </div>
 
-      {/* Saldos de cuentas bancarias */}
-      {cuentasSaldo.length > 0 && (
-        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":`repeat(${cuentasSaldo.length},1fr)`, gap:12, marginBottom:20 }}>
-          {cuentasSaldo.map(c=>(
-            <div key={c.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"14px 18px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <div>
-                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>
-                  {c.nombre} · {c.banco}
-                </div>
-                <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:c.saldo>=0?COLORS.green:COLORS.red }}>
-                  {"$"+Math.round(c.saldo).toLocaleString("es-CL")}
-                </div>
-              </div>
-              <span style={{ fontSize:24 }}>{c.tipo==="personal"?"👤":"🏢"}</span>
-            </div>
+      {/* C — Cuentas bancarias */}
+      {cuentas.length > 0 && (
+        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(2,minmax(0,1fr))", gap:10, marginBottom:14 }}>
+          {cuentas.map(c=>(
+            <BankCard key={c.id} nombre={`${c.nombre} · ${c.banco||""}`} monto={c.saldo} tipo={c.tipo} />
           ))}
         </div>
       )}
 
-      {/* Embudo + Tareas */}
-      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:16, marginBottom:16 }}>
-        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20 }}>
-          <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Embudo de ventas</div>
+      {/* D — Embudo + Tareas */}
+      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1.2fr 1fr", gap:10, marginBottom:14 }}>
+        {/* Panel izquierdo: embudo + deals */}
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16 }}>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, marginBottom:14 }}>Embudo de ventas</div>
           {stageData.map(s=>(
-            <div key={s.key} style={{ marginBottom:12 }}>
-              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
+            <div key={s.key} style={{ marginBottom:10 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
                 <span style={{ fontFamily:FONT, fontSize:11, color:s.color }}>{s.label}</span>
-                <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{s.count} · {fmt(s.value)}</span>
+                <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textDim }}>{s.count} · {fmt(s.value)}</span>
               </div>
               <div style={{ height:5, background:COLORS.border, borderRadius:3 }}>
                 <div style={{ height:5, borderRadius:3, background:s.color, width:`${(s.value/maxVal)*100}%` }} />
               </div>
             </div>
           ))}
-        </div>
-        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20 }}>
-          <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Próximas tareas</div>
-          {recentTasks.length===0 && <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.textMuted }}>Sin tareas pendientes</div>}
-          {recentTasks.map(t=>(
-            <div key={t.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 0", borderBottom:`1px solid ${COLORS.border}` }}>
-              <span style={{ fontSize:15 }}>{TYPE_ICONS[t.type]||"✅"}</span>
-              <div style={{ flex:1 }}>
-                <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text }}>{t.title}</div>
-                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{t.company}</div>
-              </div>
-              <div style={{ fontFamily:FONT, fontSize:11, color:isOverdue(t.dueDate)?COLORS.red:COLORS.textMuted }}>{fmtDate(t.dueDate)}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Deals activos */}
-      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20, marginBottom:16 }}>
-        <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Deals activos — mayor valor</div>
-        {deals.filter(d=>d.stage!=="cerrado").length===0 && <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.textMuted }}>Sin deals activos.</div>}
-        {deals.filter(d=>d.stage!=="cerrado").sort((a,b)=>Number(b.value)-Number(a.value)).slice(0,5).map(d=>{
-          const stage=STAGES.find(s=>s.key===d.stage);
-          return (
-            <div key={d.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0", borderBottom:`1px solid ${COLORS.border}`, flexWrap:"wrap" }}>
-              <div style={{ flex:1, minWidth:120 }}>
-                <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text }}>{d.title}</div>
-                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{d.company}</div>
-              </div>
-              <Badge color={stage.color}>{stage.label}</Badge>
-              <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.accent, fontWeight:700 }}>{fmt(d.value)}</div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Incidencias recientes + OCs recientes */}
-      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:16 }}>
-
-        {/* Incidencias */}
-        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, overflow:"hidden" }}>
-          <div style={{ padding:"14px 18px", borderBottom:`1px solid ${COLORS.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-            <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, fontSize:14 }}>Incidencias recientes</div>
-            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
-              {recentInc.filter(i=>i.estado==="en_curso").length > 0 &&
-                <span style={{ color:"#00C2FF", fontWeight:700 }}>{recentInc.filter(i=>i.estado==="en_curso").length} en curso</span>}
-              {recentInc.filter(i=>i.estado==="reportada").length > 0 &&
-                <span style={{ color:"#FFB800", marginLeft:8 }}>{recentInc.filter(i=>i.estado==="reportada").length} reportadas</span>}
-            </div>
-          </div>
-          {recentInc.length===0 && <div style={{ padding:"24px 18px", fontFamily:FONT, fontSize:13, color:COLORS.textMuted }}>Sin incidencias registradas</div>}
-          {recentInc.map(inc=>{
-            const est = INC_ESTADOS[inc.estado] || INC_ESTADOS.reportada;
-            const prioColor = PRIO_COLOR[inc.prioridad||"media"];
+          <div style={{ borderTop:`1px solid ${COLORS.border}`, margin:"14px 0" }} />
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, marginBottom:10 }}>Deals activos — mayor valor</div>
+          {deals.filter(d=>d.stage!=="cerrado").sort((a,b)=>Number(b.value)-Number(a.value)).slice(0,3).map((d,i)=>{
+            const stage = STAGES.find(s=>s.key===d.stage);
             return (
-              <div key={inc.id} style={{ borderBottom:`1px solid ${COLORS.border}`, display:"flex", alignItems:"stretch" }}>
-                {/* Stripe prioridad */}
-                <div style={{ width:3, background:prioColor, flexShrink:0 }} />
-                <div style={{ padding:"10px 14px", flex:1, minWidth:0 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3 }}>
-                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{inc.titulo}</span>
-                    <span style={{ flexShrink:0, fontFamily:FONT, fontSize:9, background:`${est.color}22`, color:est.color, border:`1px solid ${est.color}44`, borderRadius:10, padding:"1px 7px", fontWeight:700 }}>{est.label}</span>
-                  </div>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
-                    {inc.cliente && <span>{inc.cliente} · </span>}
-                    <span>{inc.categoria}</span>
-                  </div>
-                </div>
-                <div style={{ padding:"10px 14px", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, flexShrink:0, display:"flex", alignItems:"center" }}>
-                  {fmtFecha(inc.created_at?.slice(0,10))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* OCs recientes */}
-        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, overflow:"hidden" }}>
-          <div style={{ padding:"14px 18px", borderBottom:`1px solid ${COLORS.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-            <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, fontSize:14 }}>Órdenes de compra recientes</div>
-            <div style={{ fontFamily:FONT, fontSize:10 }}>
-              {recentOCs.filter(o=>o.estado==="PENDIENTE").length > 0 &&
-                <span style={{ color:"#FFB800" }}>{recentOCs.filter(o=>o.estado==="PENDIENTE").length} pendientes</span>}
-            </div>
-          </div>
-          {recentOCs.length===0 && <div style={{ padding:"24px 18px", fontFamily:FONT, fontSize:13, color:COLORS.textMuted }}>Sin órdenes de compra</div>}
-          {recentOCs.map(oc=>{
-            const est = OC_EST[oc.estado] || OC_EST.PENDIENTE;
-            return (
-              <div key={oc.id} style={{ padding:"10px 18px", borderBottom:`1px solid ${COLORS.border}`, display:"flex", alignItems:"center", gap:10 }}>
+              <div key={d.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 0", borderBottom:`1px solid ${COLORS.border}` }}>
+                <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textDim, width:18 }}>#{i+1}</span>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3 }}>
-                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.accent }}>OC-{String(oc.numero_oc||"").padStart(3,"0")}</span>
-                    <span style={{ fontFamily:FONT, fontSize:9, background:`${est.color}22`, color:est.color, border:`1px solid ${est.color}44`, borderRadius:10, padding:"1px 7px", fontWeight:700 }}>{est.icon} {oc.estado}</span>
-                  </div>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                    {oc.suppliers?.nombre || "Sin proveedor"}
-                  </div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, color:COLORS.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{d.title}</div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim }}>{d.company}</div>
                 </div>
-                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, flexShrink:0 }}>
-                  {fmtFecha(oc.created_at?.slice(0,10))}
-                </div>
+                <Badge color={stage?.color||COLORS.textMuted}>{stage?.label}</Badge>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.green, flexShrink:0 }}>{fmt(d.value)}</div>
               </div>
             );
           })}
         </div>
 
+        {/* Panel derecho: tareas */}
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16 }}>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, marginBottom:14 }}>Próximas tareas</div>
+          {recentTasks.length===0 && <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.textDim }}>Sin tareas pendientes</div>}
+          {recentTasks.map(t=>{
+            const overdue = !t.done && isOverdue(t.dueDate);
+            return (
+              <div key={t.id} style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"9px 0", borderBottom:`1px solid ${COLORS.border}` }}>
+                <div style={{ width:15, height:15, borderRadius:4, flexShrink:0, marginTop:1, border:`1.5px solid ${t.done?COLORS.green:COLORS.border}`, background:t.done?COLORS.green:"transparent", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  {t.done && <span style={{ color:COLORS.bg, fontSize:9, fontWeight:700 }}>✓</span>}
+                </div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text, lineHeight:1.4, textDecoration:t.done?"line-through":"none" }}>{t.title}</div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, marginTop:2 }}>{t.company}</div>
+                </div>
+                <div style={{ fontFamily:FONT, fontSize:10, flexShrink:0, color:overdue?COLORS.red:COLORS.textDim }}>
+                  {overdue&&"⚠ "}{fmtDate(t.dueDate)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -18338,14 +18263,7 @@ export default function CRM() {
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [userRole, setUserRole] = useState(null); // "admin" | "colaborador" | "prueba"
-  const [darkMode, setDarkMode] = useState(true);
   const isMobile = useIsMobile();
-
-  // Keep global COLORS in sync so all child components re-render with correct colors
-  useEffect(() => {
-    Object.assign(COLORS, darkMode ? COLORS_DARK : COLORS_LIGHT);
-    _darkModeValue = darkMode;
-  }, [darkMode]);
 
   // Auth listener
   useEffect(()=>{
@@ -18405,7 +18323,7 @@ export default function CRM() {
   // Colaborador/prueba → vista restringida
   if(userRole === "colaborador" || userRole === "prueba") {
     return (
-      <div style={{ minHeight:"100vh", background:darkMode?"#0A0C10":"#f1f5f9", padding:24 }}>
+      <div style={{ minHeight:"100vh", background:COLORS.bg, padding:24 }}>
         <div style={{ maxWidth:800, margin:"0 auto" }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
             <div style={{ display:"flex", alignItems:"center", gap:12 }}>
@@ -18427,20 +18345,16 @@ export default function CRM() {
   );
 
   return (
-    <div style={{ display:"flex", flexDirection:isMobile?"column":"row", minHeight:"100vh", background:darkMode?COLORS_DARK.bg:COLORS_LIGHT.bg, fontFamily:FONT_DISPLAY, transition:"background 0.2s" }}>
+    <div style={{ display:"flex", flexDirection:isMobile?"column":"row", minHeight:"100vh", background:COLORS.bg, fontFamily:FONT_DISPLAY }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet" />
 
       {isMobile && (
-        <header style={{ background:darkMode?COLORS_DARK.surface:COLORS_LIGHT.surface, borderBottom:`1px solid ${darkMode?COLORS_DARK.border:COLORS_LIGHT.border}`, padding:"12px 18px", display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, zIndex:150 }}>
+        <header style={{ background:COLORS.surface, borderBottom:`1px solid ${COLORS.border}`, padding:"12px 18px", display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, zIndex:150 }}>
           <div>
             <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.accent, letterSpacing:"0.18em", textTransform:"uppercase" }}>ERP Empresarial</div>
             <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>Polygonos <span style={{color:COLORS.accent}}>360</span></div>
           </div>
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-            <button onClick={()=>setDarkMode(d=>!d)} title={darkMode?"Modo claro":"Modo oscuro"}
-              style={{ background:"none", border:`1px solid ${COLORS.border}`, borderRadius:7, color:COLORS.textMuted, cursor:"pointer", padding:"6px 10px", fontSize:15 }}>
-              {darkMode?"☀️":"🌙"}
-            </button>
             <button onClick={()=>setMenuOpen(p=>!p)} style={{ background:"none", border:`1px solid ${COLORS.border}`, borderRadius:7, color:COLORS.text, cursor:"pointer", padding:"7px 11px", fontSize:17 }}>{menuOpen?"✕":"☰"}</button>
           </div>
         </header>
@@ -18491,12 +18405,6 @@ export default function CRM() {
             })}
           </nav>
           <div style={{ padding:"14px 16px", borderTop:`1px solid ${COLORS.border}` }}>
-            {/* Toggle día/noche */}
-            <button onClick={()=>setDarkMode(d=>!d)}
-              style={{ width:"100%", marginBottom:8, padding:"8px 12px", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", display:"flex", alignItems:"center", gap:8, transition:"all 0.15s" }}>
-              {darkMode ? <Sun size={14} /> : <Moon size={14} />}
-              <span>{darkMode?"Modo Claro":"Modo Oscuro"}</span>
-            </button>
             <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:3 }}>
               <span style={{ color:"#00C896" }}>●</span> {contacts.length} contactos · {deals.length} deals
             </div>
@@ -18511,7 +18419,7 @@ export default function CRM() {
         </aside>
       )}
 
-      <main style={{ flex:1, overflowY:"auto", paddingBottom:isMobile?80:0, background:darkMode?COLORS_DARK.bg:COLORS_LIGHT.bg }}>
+      <main style={{ flex:1, overflowY:"auto", paddingBottom:isMobile?80:0, background:COLORS.bg }}>
         <div style={{ maxWidth:1400, margin:"0 auto", padding:isMobile?16:32 }}>
           {view==="dashboard" && <Dashboard contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} />}
           {view==="contacts"  && <ContactsView contacts={contacts} setContacts={setContacts} isMobile={isMobile} />}
