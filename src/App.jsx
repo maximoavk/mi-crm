@@ -232,11 +232,17 @@ function Dashboard({ contacts, deals, tasks, isMobile }) {
   const maxVal       = Math.max(...stageData.map(x=>x.value), 1);
 
   const [cuentas, setCuentas] = useState([]);
+  const [gastosCC, setGastosCC] = useState([]);
+
   useEffect(() => {
+    const mesActual = new Date().toISOString().slice(0, 7);
     Promise.all([
       supabase.from("cuentas_bancarias").select("*").order("created_at"),
       supabase.from("movimientos_cuenta").select("cuenta_id,tipo,monto"),
-    ]).then(([{ data: cu }, { data: mv }]) => {
+      supabase.from("facturas_recibidas").select("monto_total, centro_costo, estado_manual")
+        .gte("fecha_recepcion", `${mesActual}-01`)
+        .lte("fecha_recepcion", `${mesActual}-31`),
+    ]).then(([{ data: cu }, { data: mv }, { data: gc }]) => {
       const cuentasData = cu||[];
       const movs = mv||[];
       setCuentas(cuentasData.map(c=>{
@@ -245,8 +251,15 @@ function Dashboard({ contacts, deals, tasks, isMobile }) {
         }, Number(c.saldo_inicial||0));
         return { ...c, saldo };
       }));
+      setGastosCC(gc||[]);
     });
   }, []);
+
+  const mesMes       = new Date().toISOString().slice(0,7);
+  const ingresosMes  = deals.filter(d=>d.stage==="cerrado"&&d.fechaFactura?.startsWith(mesMes)).reduce((s,d)=>s+Number(d.value),0);
+  const gastosMes    = gastosCC.reduce((s,g)=>s+Number(g.monto_total||0),0);
+  const colchon      = Math.round(ingresosMes*0.20);
+  const disponible   = Math.max(0, ingresosMes - gastosMes - colchon);
 
   const KpiCard = ({ label, value, sub, accentColor, valueColor }) => (
     <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderLeft:`3px solid ${accentColor}`, borderRadius:10, padding:"14px 16px" }}>
@@ -287,6 +300,9 @@ function Dashboard({ contacts, deals, tasks, isMobile }) {
         <KpiCard label="Pipeline esperado" value={fmt(pipeline)} sub="ponderado" accentColor={COLORS.accent} valueColor={COLORS.accent} />
         <KpiCard label="Pendientes de facturar" value={fmt(pendientesFacturar)} sub={`${deals.filter(d=>d.stage==="cerrado"&&!d.facturado).length} deal(s)`} accentColor={COLORS.yellow} valueColor={COLORS.yellow} />
         <KpiCard label="Tareas vencidas" value={overdueTasks} sub={overdueTasks>0?"requieren atención":"al día"} accentColor={overdueTasks>0?COLORS.red:COLORS.green} valueColor={overdueTasks>0?COLORS.red:COLORS.green} />
+      </div>
+      <div style={{ marginBottom:14 }}>
+        <KpiCard label="Disponible retiro estimado" value={fmt(disponible)} sub={`Ingresos ${fmt(ingresosMes)} − Gastos ${fmt(gastosMes)} − Colchón 20%`} accentColor={disponible>0?COLORS.green:COLORS.red} valueColor={disponible>0?COLORS.green:COLORS.red} />
       </div>
 
       {/* C — Cuentas bancarias */}
@@ -11713,6 +11729,20 @@ function CuentasPorCobrar({ isMobile }) {
   );
 }
 
+const CENTROS_COSTO = [
+  { key: "CC-01", label: "CC-01 · Operaciones",     color: "#00C2FF", desc: "Materiales, equipos, subcontratistas" },
+  { key: "CC-02", label: "CC-02 · Administración",  color: "#00E5A0", desc: "Software, servicios, arriendo" },
+  { key: "CC-03", label: "CC-03 · Vehículo",        color: "#FFB800", desc: "Bencina, mantención, TAG" },
+  { key: "CC-04", label: "CC-04 · Retiro personal", color: "#A855F7", desc: "Sueldo / retiro mensual variable" },
+];
+
+const SUBCATEGORIAS_CC = {
+  "CC-01": ["Materiales de obra","Equipos CCTV / automatización","Subcontratista técnico","Fletes y despachos","Herramientas de trabajo"],
+  "CC-02": ["Software y licencias","Hosting / dominio","Arriendo oficina","Servicios básicos (luz, internet)","Contabilidad / asesoría","Marketing y publicidad"],
+  "CC-03": ["Bencina","Mantención vehículo","TAG / peajes","Seguro vehículo"],
+  "CC-04": ["Retiro mensual","Gasto personal ocasional"],
+};
+
 // ══════════════════════════════════════════════════════════════════════════════
 // 3. CUENTAS POR PAGAR — Facturas recibidas (proveedores + subcontratistas)
 // ══════════════════════════════════════════════════════════════════════════════
@@ -11748,6 +11778,7 @@ function CuentasPorPagar({ isMobile }) {
     razon_social_proveedor:"", rut_proveedor:"", tipo_proveedor:"Proveedor",
     monto_neto:"", aplica_iva:true, vencimiento:"",
     referencia_oc:"", referencia_proyecto:"", notas:"", linea_negocio:"",
+    centro_costo:"", subcategoria:"",
   };
   const [form, setForm] = useState(emptyForm);
   const setF = (k,v) => setForm(p=>({...p,[k]:v}));
@@ -11805,6 +11836,14 @@ function CuentasPorPagar({ isMobile }) {
   const saveFactura = async () => {
     if (!form.numero_documento || !form.monto_neto || !form.fecha_recepcion) return;
     setSaving(true);
+    const ccAuto = form.tipo_proveedor === "Proveedor" || form.tipo_proveedor === "Subcontratista"
+      ? "CC-01"
+      : form.centro_costo || null;
+    const subcatAuto = form.tipo_proveedor === "Proveedor"
+      ? "Materiales de obra"
+      : form.tipo_proveedor === "Subcontratista"
+      ? "Subcontratista técnico"
+      : form.subcategoria || null;
     await supabase.from("facturas_recibidas").insert({
       numero_documento: form.numero_documento.trim(),
       tipo_documento:   form.tipo_documento,
@@ -11820,7 +11859,9 @@ function CuentasPorPagar({ isMobile }) {
       referencia_oc:    form.referencia_oc.trim() || null,
       referencia_proyecto: form.referencia_proyecto.trim() || null,
       notas:            form.notas.trim() || null,
-      linea_negocio:    form.linea_negocio || null,
+      linea_negocio:    ccAuto || form.linea_negocio || null,
+      centro_costo:     ccAuto,
+      subcategoria:     subcatAuto,
     });
     await loadAll();
     setForm(emptyForm);
@@ -11941,6 +11982,12 @@ function CuentasPorPagar({ isMobile }) {
                             border:`1px solid ${COLORS.border}` }}>
                             {f.tipo_proveedor}
                           </span>
+                          {f.centro_costo && (()=>{ const cc=CENTROS_COSTO.find(c=>c.key===f.centro_costo); return (
+                            <div style={{ marginTop:4 }}>
+                              <span style={{ fontSize:9, padding:"2px 7px", borderRadius:3, fontWeight:700, background:`${cc?.color||COLORS.textMuted}18`, color:cc?.color||COLORS.textMuted, border:`1px solid ${cc?.color||COLORS.textMuted}33` }}>{f.centro_costo}</span>
+                              {f.subcategoria && <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim, marginTop:2 }}>{f.subcategoria}</div>}
+                            </div>
+                          );})()}
                         </td>
                         <td style={{ padding:"9px 12px", color:COLORS.textMuted, fontFamily:FONT, fontSize:12 }}>{fmtFecha(f.fecha_recepcion)}</td>
                         <td style={{ padding:"9px 12px", color:COLORS.textMuted, fontFamily:FONT, fontSize:12 }}>{fmtFecha(f.vencimiento)}</td>
@@ -12164,6 +12211,34 @@ function CuentasPorPagar({ isMobile }) {
               <option>Subcontratista</option>
               <option>Gasto General</option>
             </LabelSelect>
+            {/* Bloque Centro de Costo — solo para Gasto General */}
+            {form.tipo_proveedor === "Gasto General" && (
+              <div style={{ gridColumn:"1 / -1", background:COLORS.bg, border:`1px solid ${COLORS.accent}33`, borderRadius:8, padding:"12px 14px", marginBottom:8 }}>
+                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>Clasificación del gasto</div>
+                <div style={{ marginBottom:10 }}>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Centro de costo *</div>
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                    {CENTROS_COSTO.map(cc=>(
+                      <button key={cc.key} onClick={()=>{ setF("centro_costo",cc.key); setF("subcategoria",""); }}
+                        style={{ padding:"6px 12px", borderRadius:6, fontFamily:FONT, fontSize:10, fontWeight:700, cursor:"pointer", background:form.centro_costo===cc.key?`${cc.color}22`:"transparent", border:`1px solid ${form.centro_costo===cc.key?cc.color+"66":COLORS.border}`, color:form.centro_costo===cc.key?cc.color:COLORS.textMuted, transition:"all 0.15s" }}>
+                        {cc.key}
+                      </button>
+                    ))}
+                  </div>
+                  {form.centro_costo && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, marginTop:4 }}>{CENTROS_COSTO.find(c=>c.key===form.centro_costo)?.desc}</div>}
+                </div>
+                {form.centro_costo && SUBCATEGORIAS_CC[form.centro_costo] && (
+                  <div>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Subcategoría</div>
+                    <select value={form.subcategoria} onChange={e=>setF("subcategoria",e.target.value)}
+                      style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:form.subcategoria?COLORS.text:COLORS.textMuted, outline:"none" }}>
+                      <option value="">— Selecciona subcategoría —</option>
+                      {SUBCATEGORIAS_CC[form.centro_costo].map(s=><option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+            )}
             <LabelInput label="Fecha Recepción" type="date" value={form.fecha_recepcion}
               onChange={e=>setF("fecha_recepcion",e.target.value)} />
             <LabelInput label="Vencimiento" type="date" value={form.vencimiento}
@@ -13859,12 +13934,13 @@ function PresupuestoOperacional({ isMobile }) {
   const [editando, setEditando] = useState({}); // { categoria: string valor en edición }
 
   const mesStr = `${año}-${String(mes).padStart(2,"0")}`;
+  const [gastosPorCC, setGastosPorCC] = useState({});
 
   useEffect(() => { loadAll(); }, [año, mes]);
 
   const loadAll = async () => {
     setLoading(true);
-    const [{ data: pRows }, { data: gRows }] = await Promise.all([
+    const [{ data: pRows }, { data: gRows }, { data: ccRows }] = await Promise.all([
       supabase.from("presupuesto_operacional")
         .select("id, categoria, tipo, monto_presupuestado")
         .eq("año", año).eq("mes", mes),
@@ -13872,7 +13948,19 @@ function PresupuestoOperacional({ isMobile }) {
         .select("referencia_proyecto, monto_neto")
         .is("cotizacion_id", null)
         .like("fecha_recepcion", `${mesStr}%`),
+      supabase.from("facturas_recibidas")
+        .select("centro_costo, subcategoria, monto_total, razon_social_proveedor")
+        .like("fecha_recepcion", `${mesStr}%`),
     ]);
+    // Agrupar por centro de costo
+    const agrupado = {};
+    (ccRows||[]).forEach(f => {
+      const cc = f.centro_costo || "Sin clasificar";
+      if (!agrupado[cc]) agrupado[cc] = { total: 0, items: [] };
+      agrupado[cc].total += Number(f.monto_total || 0);
+      agrupado[cc].items.push(f);
+    });
+    setGastosPorCC(agrupado);
     // Presupuesto por categoría
     const p = {};
     (pRows||[]).forEach(r => { p[r.categoria] = { id: r.id, monto: r.monto_presupuestado }; });
@@ -14089,6 +14177,45 @@ function PresupuestoOperacional({ isMobile }) {
       <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:10 }}>
         💡 Click en el monto presupuestado para editar · Enter para guardar · El "Real" viene de Gastos Generales del mes
       </div>
+
+      {/* Sección Gastos por Centro de Costo */}
+      {Object.keys(gastosPorCC).length > 0 && (
+        <div style={{ marginTop:24 }}>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text, marginBottom:12 }}>
+            Gastos por Centro de Costo — {mesStr}
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {CENTROS_COSTO.concat([{ key:"Sin clasificar", label:"Sin clasificar", color:COLORS.textMuted, desc:"" }]).map(cc => {
+              const data = gastosPorCC[cc.key];
+              if (!data) return null;
+              const [colapsado, setColapsado] = [false, ()=>{}]; // simplificado
+              return (
+                <div key={cc.key} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderLeft:`3px solid ${cc.color}`, borderRadius:10, overflow:"hidden" }}>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 14px" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <span style={{ fontSize:10, padding:"2px 8px", borderRadius:4, fontWeight:700, background:`${cc.color}18`, color:cc.color, border:`1px solid ${cc.color}33` }}>{cc.key}</span>
+                      <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{cc.desc||cc.label}</span>
+                      <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim }}>{data.items.length} ítem(s)</span>
+                    </div>
+                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:cc.color }}>{fmtClp(data.total)}</span>
+                  </div>
+                  <div style={{ borderTop:`1px solid ${COLORS.border}`, padding:"8px 14px", display:"flex", flexDirection:"column", gap:4 }}>
+                    {data.items.map((it,i)=>(
+                      <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                        <div>
+                          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{it.razon_social_proveedor||"—"}</span>
+                          {it.subcategoria && <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim, marginLeft:8 }}>{it.subcategoria}</span>}
+                        </div>
+                        <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{fmtClp(it.monto_total)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
