@@ -2675,7 +2675,7 @@ function ProductsDB({ isMobile }) {
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:14, flexWrap:"wrap", gap:10 }}>
         <div>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Maestro de Productos</div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Catálogo · Maestros</div>
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Base de Productos y Servicios</div>
         </div>
         <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
@@ -8288,7 +8288,7 @@ function PurchaseView({ isMobile }) {
                                 <div style={{ display:"flex", gap:5, alignItems:"center" }}>
                                   <button onClick={()=>{
                                     const cInfo = COURIERS_LIST.find(c=>c.key===ship.courier)||COURIERS_LIST[0];
-                                    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>@page{size:A4 portrait;margin:8mm;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a2e;}.page{display:flex;flex-direction:column;gap:6mm;}.label{width:148mm;min-height:95mm;border:2px dashed #b0b8cc;border-radius:4mm;padding:5mm 6mm;position:relative;page-break-inside:avoid;}.label::before{content:'✂';position:absolute;top:-2mm;left:1mm;font-size:15px;color:#b0b8cc;}.hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #00C2FF;padding-bottom:3mm;margin-bottom:3.5mm;}.hdr img{height:34px;object-fit:contain;}.oc{font-size:20px;font-weight:900;color:#1a1a2e;letter-spacing:1.5px;}.dt{font-size:8px;color:#6b7a99;text-align:right;margin-top:1px;}.pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:800;color:#fff;background:${cInfo.color};}.mod{font-size:9px;color:#6b7a99;margin-left:5px;}.r2{display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:2.5mm;}.r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3mm;margin-bottom:2.5mm;}.bt{font-size:7px;color:#6b7a99;text-transform:uppercase;letter-spacing:0.1em;font-weight:700;margin-bottom:1mm;}.bv{font-size:10px;font-weight:700;color:#1a1a2e;line-height:1.4;}.bvsm{font-size:9px;font-weight:600;color:#1a1a2e;}.bvmt{font-size:9px;font-weight:600;color:#4a5568;}.sep{border:none;border-top:1px dashed #dde3ef;margin:2.5mm 0;}table{width:100%;border-collapse:collapse;margin-top:2mm;}thead tr{background:#0A0C10;}th{color:#fff;font-size:7.5px;text-transform:uppercase;padding:1.5mm 2mm;text-align:left;}td{font-size:9px;padding:1.5mm 2mm;border-bottom:1px solid #f0f4f8;}td.code{font-family:monospace;color:#00C2FF;font-weight:700;}td.qty{text-align:center;font-weight:800;}tr:nth-child(even) td{background:#f9fafc;}.ft{margin-top:3mm;padding-top:2mm;border-top:1px solid #e8ecf4;font-size:7.5px;color:#b0b8cc;text-align:center;}</style></head><body><div class="page">${[0,1].map(()=>`<div class="label"><div class="hdr"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos"/><div><div class="oc">${oc.numero_oc}</div><div class="dt">${ship.numero_guia} · ${new Date(ship.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}</div></div></div><div style="margin-bottom:3mm;"><span class="pill">${ship.courier}</span><span class="mod">${ship.tipo==="sucursal"?"📍 Sucursal":"🏠 Domicilio"}</span></div><div class="r2"><div><div class="bt">Destinatario</div><div class="bv">${ship.destinatario_nombre||"—"}</div><div class="bvmt">${ship.destinatario_rut||""}</div></div><div><div class="bt">Contacto</div><div class="bvsm">${ship.destinatario_tel||"—"}</div><div class="bvmt" style="font-size:8px">${ship.destinatario_correo||""}</div></div></div><hr class="sep"/><div style="margin-bottom:2.5mm;"><div class="bt">Dirección</div><div class="bvsm">${[ship.sucursal,ship.direccion].filter(Boolean).join(" · ")||"—"}, ${[ship.comuna,ship.ciudad].filter(Boolean).join(", ")||""}</div></div><hr class="sep"/><div class="r3"><div><div class="bt">Remitente</div><div class="bvsm">${sup.nombre||"—"}</div><div class="bvmt">${sup.rut||""}</div></div><div><div class="bt">OC</div><div class="bv">${oc.numero_oc}</div>${oc.cotizaciones?.numero?`<div class="bvmt">COT #${oc.cotizaciones.numero}</div>`:""}</div><div><div class="bt">Cot. Proveedor</div><div class="bvsm">${ship.notas||"—"}</div></div></div><table><thead><tr><th>Código</th><th>Producto</th><th>SKU</th><th style="text-align:center">Cant.</th></tr></thead><tbody>${(oc.lines||[]).map(l=>{const prod=products.find(p=>p.id===l.product_id)||{};const pp=productPrices.find(p=>p.id===l.supplier_price_id)||{};return`<tr><td class="code">${prod.codigo||"—"}</td><td>${prod.nombre||"—"}</td><td style="font-family:monospace;font-size:8px;color:#6b7a99">${pp.sku_proveedor||"—"}</td><td class="qty">${l.cantidad}</td></tr>`;}).join("")}</tbody></table><div class="ft">Polygonos SPA · RUT 77.180.437-3 · ${new Date().toLocaleString("es-CL")}</div></div>`).join("")}</div></body></html>`;
+                                    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>@page{size:A4 portrait;margin:8mm;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a2e;}.page{display:flex;flex-direction:column;gap:6mm;}.label{width:148mm;min-height:95mm;border:2px dashed #b0b8cc;border-radius:4mm;padding:5mm 6mm;position:relative;page-break-inside:avoid;}.label::before{content:'✂';position:absolute;top:-2mm;left:1mm;font-size:15px;color:#b0b8cc;}.hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #00C2FF;padding-bottom:3mm;margin-bottom:3.5mm;}.hdr img{height:34px;object-fit:contain;}.oc{font-size:20px;font-weight:900;color:#1a1a2e;letter-spacing:1.5px;}.dt{font-size:8px;color:#6b7a99;text-align:right;margin-top:1px;}.pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:800;color:#fff;background:${cInfo.color};}.mod{font-size:9px;color:#6b7a99;margin-left:5px;}.r2{display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:2.5mm;}.r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3mm;margin-bottom:2.5mm;}.bt{font-size:7px;color:#6b7a99;text-transform:uppercase;letter-spacing:0.1em;font-weight:700;margin-bottom:1mm;}.bv{font-size:10px;font-weight:700;color:#1a1a2e;line-height:1.4;}.bvsm{font-size:9px;font-weight:600;color:#1a1a2e;}.bvmt{font-size:9px;font-weight:600;color:#4a5568;}.sep{border:none;border-top:1px dashed #dde3ef;margin:2.5mm 0;}table{width:100%;border-collapse:collapse;margin-top:2mm;}thead tr{background:#0A0C10;}th{color:#fff;font-size:7.5px;text-transform:uppercase;padding:1.5mm 2mm;text-align:left;}td{font-size:9px;padding:1.5mm 2mm;border-bottom:1px solid #f0f4f8;}td.code{font-family:monospace;color:#00C2FF;font-weight:700;}td.qty{text-align:center;font-weight:800;}tr:nth-child(even) td{background:#f9fafc;}.ft{margin-top:3mm;padding-top:2mm;border-top:1px solid #e8ecf4;font-size:7.5px;color:#b0b8cc;text-align:center;}</style></head><body><div class="page">${[0,1].map(()=>`<div class="label"><div class="hdr"><img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos"/><div><div class="oc">${ship.numero_guia}</div><div class="dt">Ref. OC: ${oc.numero_oc} · ${new Date(ship.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}</div></div></div><div style="margin-bottom:3mm;"><span class="pill">${ship.courier}</span><span class="mod">${ship.tipo==="sucursal"?"📍 Sucursal":"🏠 Domicilio"}</span></div><div class="r2"><div><div class="bt">Destinatario</div><div class="bv">${ship.destinatario_nombre||"—"}</div><div class="bvmt">${ship.destinatario_rut||""}</div></div><div><div class="bt">Contacto</div><div class="bvsm">${ship.destinatario_tel||"—"}</div><div class="bvmt" style="font-size:8px">${ship.destinatario_correo||""}</div></div></div><hr class="sep"/><div style="margin-bottom:2.5mm;"><div class="bt">Dirección</div><div class="bvsm">${[ship.sucursal,ship.direccion].filter(Boolean).join(" · ")||"—"}, ${[ship.comuna,ship.ciudad].filter(Boolean).join(", ")||""}</div></div><hr class="sep"/><div class="r3"><div><div class="bt">Remitente</div><div class="bvsm">${sup.nombre||"—"}</div><div class="bvmt">${sup.rut||""}</div></div><div><div class="bt">Guía de Despacho</div><div class="bv">${ship.numero_guia}</div><div class="bt" style="margin-top:2mm">Ref. OC</div><div class="bvsm">${oc.numero_oc}</div>${oc.cotizaciones?.numero?`<div class="bvmt">COT #${oc.cotizaciones.numero}</div>`:""}</div><div><div class="bt">Cot. Proveedor</div><div class="bvsm">${ship.notas||"—"}</div></div></div><table><thead><tr><th>Código</th><th>Producto</th><th>SKU</th><th style="text-align:center">Cant.</th></tr></thead><tbody>${(oc.lines||[]).map(l=>{const prod=products.find(p=>p.id===l.product_id)||{};const pp=productPrices.find(p=>p.id===l.supplier_price_id)||{};return`<tr><td class="code">${prod.codigo||"—"}</td><td>${prod.nombre||"—"}</td><td style="font-family:monospace;font-size:8px;color:#6b7a99">${pp.sku_proveedor||"—"}</td><td class="qty">${l.cantidad}</td></tr>`;}).join("")}</tbody></table><div class="ft">Polygonos SPA · RUT 77.180.437-3 · ${new Date().toLocaleString("es-CL")}</div></div>`).join("")}</div></body></html>`;
                                     const w = window.open("","_blank"); w.document.write(html); w.document.close(); setTimeout(()=>w.print(),600);
                                   }}
                                     style={{ padding:"3px 10px", background:`${COLORS.purple}22`, border:`1px solid ${COLORS.purple}44`, borderRadius:5, color:COLORS.purple, fontFamily:FONT, fontSize:10, cursor:"pointer", fontWeight:600 }}>
@@ -14043,6 +14043,522 @@ function PresupuestoOperacional({ isMobile }) {
 
 // ══════════════════════════════════════════════════════════════════════════════
 
+function ProveedoresView({ isMobile }) {
+  const [suppliers, setSuppliers] = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [search, setSearch]       = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing]     = useState(null);
+  const [saving, setSaving]       = useState(false);
+
+  const emptyForm = () => ({
+    nombre:"", rut:"", email:"", telefono:"",
+    banco:"", tipo_cuenta:"corriente", numero_cuenta:"", email_pago:"",
+    direccion:"", ciudad:"", notas:"", rating:3, activo:true,
+  });
+  const [form, setForm] = useState(emptyForm());
+  const ff = (k,v) => setForm(p=>({...p,[k]:v}));
+
+  useEffect(()=>{
+    supabase.from("suppliers").select("*").order("nombre").then(({ data })=>{
+      setSuppliers(data||[]);
+      setLoading(false);
+    });
+  },[]);
+
+  const filtered = suppliers.filter(s => {
+    const q = search.toLowerCase();
+    return (s.nombre||"").toLowerCase().includes(q) ||
+           (s.rut||"").toLowerCase().includes(q) ||
+           (s.ciudad||"").toLowerCase().includes(q);
+  });
+
+  const openNew = () => { setEditing(null); setForm(emptyForm()); setShowModal(true); };
+  const openEdit = (s) => {
+    setEditing(s);
+    setForm({
+      nombre: s.nombre||"", rut: s.rut||"", email: s.email||"", telefono: s.telefono||"",
+      banco: s.banco||"", tipo_cuenta: s.tipo_cuenta||"corriente",
+      numero_cuenta: s.numero_cuenta||"", email_pago: s.email_pago||"",
+      direccion: s.direccion||"", ciudad: s.ciudad||"",
+      notas: s.notas||"", rating: s.rating||3, activo: s.activo!==false,
+    });
+    setShowModal(true);
+  };
+
+  const save = async () => {
+    if (!form.nombre) return;
+    setSaving(true);
+    const data = {
+      nombre: form.nombre, rut: form.rut, email: form.email, telefono: form.telefono,
+      banco: form.banco, tipo_cuenta: form.tipo_cuenta,
+      numero_cuenta: form.numero_cuenta, email_pago: form.email_pago,
+      direccion: form.direccion, ciudad: form.ciudad,
+      notas: form.notas, rating: Number(form.rating)||3, activo: form.activo,
+    };
+    if (editing) {
+      const { data: updated } = await supabase.from("suppliers").update(data).eq("id", editing.id).select().single();
+      if (updated) setSuppliers(prev => prev.map(s => s.id===editing.id ? updated : s));
+    } else {
+      const { data: created } = await supabase.from("suppliers").insert(data).select().single();
+      if (created) setSuppliers(prev => [...prev, created]);
+    }
+    setSaving(false); setShowModal(false);
+  };
+
+  const del = async (id) => {
+    if (!window.confirm("¿Eliminar proveedor?")) return;
+    await supabase.from("suppliers").delete().eq("id", id);
+    setSuppliers(prev => prev.filter(s => s.id!==id));
+  };
+
+  const Stars = ({ rating }) => (
+    <div style={{ display:"flex", gap:2 }}>
+      {[1,2,3,4,5].map(i=>(
+        <div key={i} style={{
+          width:10, height:10, borderRadius:"50%",
+          background: i<=rating ? COLORS.yellow : COLORS.border,
+        }} />
+      ))}
+    </div>
+  );
+
+  const ratingColor = (r) => {
+    if (r>=4) return COLORS.green;
+    if (r===3) return COLORS.yellow;
+    return COLORS.red;
+  };
+  const ratingLabel = (r) => {
+    if (r>=5) return "Excelente";
+    if (r===4) return "Bueno";
+    if (r===3) return "Regular";
+    if (r===2) return "Bajo";
+    return "Crítico";
+  };
+
+  if (loading) return <Loader />;
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:20, flexWrap:"wrap", gap:12 }}>
+        <div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Catálogo</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Proveedores</div>
+        </div>
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          <div style={{ position:"relative" }}>
+            <input
+              value={search} onChange={e=>setSearch(e.target.value)}
+              placeholder="Nombre, RUT o ciudad…"
+              style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 14px 8px 34px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", width:isMobile?160:220 }}
+            />
+            <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", fontSize:13, color:COLORS.textMuted }}>🔍</span>
+          </div>
+          <AddBtn onClick={openNew} label="Nuevo proveedor" />
+        </div>
+      </div>
+
+      {/* Stats rápidas */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3, minmax(0,1fr))", gap:10, marginBottom:20 }}>
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"14px 16px" }}>
+          <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Total proveedores</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>{suppliers.filter(s=>s.activo!==false).length}</div>
+        </div>
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"14px 16px" }}>
+          <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Rating promedio</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.yellow }}>
+            {suppliers.length>0 ? (suppliers.reduce((s,x)=>s+(x.rating||3),0)/suppliers.length).toFixed(1) : "—"}
+          </div>
+        </div>
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"14px 16px" }}>
+          <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Con datos bancarios</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.accent }}>
+            {suppliers.filter(s=>s.banco&&s.numero_cuenta).length}
+          </div>
+        </div>
+      </div>
+
+      {/* Grid de tarjetas */}
+      {filtered.length===0 && (
+        <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>
+          {search ? `Sin resultados para "${search}"` : "Sin proveedores. ¡Agrega el primero!"}
+        </div>
+      )}
+
+      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(auto-fill, minmax(320px,1fr))", gap:14 }}>
+        {filtered.map(s=>(
+          <div key={s.id} style={{
+            background:COLORS.card, border:`1px solid ${COLORS.border}`,
+            borderLeft:`3px solid ${ratingColor(s.rating||3)}`,
+            borderRadius:10, padding:18,
+          }}>
+            {/* Header tarjeta */}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text }}>{s.nombre}</div>
+                {s.rut && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, marginTop:2 }}>RUT: {s.rut}</div>}
+                {s.ciudad && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:2 }}>{s.ciudad}</div>}
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6 }}>
+                <div style={{ display:"flex", gap:6 }}>
+                  <button onClick={()=>openEdit(s)} style={{ background:"none", border:`1px solid ${COLORS.accent}44`, borderRadius:4, color:COLORS.accent, cursor:"pointer", fontSize:11, padding:"2px 8px" }}>✏️</button>
+                  <button onClick={()=>del(s.id)} style={{ background:"none", border:`1px solid ${COLORS.red}44`, borderRadius:4, color:COLORS.red, cursor:"pointer", fontSize:11, padding:"2px 8px" }}>✕</button>
+                </div>
+                <span style={{ fontSize:9, padding:"2px 8px", borderRadius:4, fontWeight:600, background:`${ratingColor(s.rating||3)}18`, color:ratingColor(s.rating||3), border:`1px solid ${ratingColor(s.rating||3)}33` }}>
+                  {ratingLabel(s.rating||3)}
+                </span>
+              </div>
+            </div>
+
+            {/* Stars */}
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+              <Stars rating={s.rating||3} />
+              <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim }}>{s.rating||3}/5</span>
+            </div>
+
+            {/* Datos contacto */}
+            <div style={{ borderTop:`1px solid ${COLORS.border}`, paddingTop:10, marginBottom:10 }}>
+              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Contacto</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                {s.email && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>✉ {s.email}</div>}
+                {s.telefono && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>☏ {s.telefono}</div>}
+                {s.direccion && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>📍 {s.direccion}</div>}
+              </div>
+            </div>
+
+            {/* Datos bancarios */}
+            {(s.banco || s.numero_cuenta) && (
+              <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 12px" }}>
+                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Datos bancarios</div>
+                {s.banco && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text, marginBottom:2 }}>{s.banco}</div>}
+                {s.tipo_cuenta && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:2 }}>{s.tipo_cuenta.charAt(0).toUpperCase()+s.tipo_cuenta.slice(1)}</div>}
+                {s.numero_cuenta && <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, fontWeight:600, marginBottom:2 }}>{s.numero_cuenta}</div>}
+                {s.email_pago && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{s.email_pago}</div>}
+              </div>
+            )}
+            {!s.banco && !s.numero_cuenta && (
+              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, fontStyle:"italic", marginTop:4 }}>Sin datos bancarios</div>
+            )}
+
+            {/* Notas */}
+            {s.notas && (
+              <div style={{ marginTop:10, fontFamily:FONT, fontSize:10, color:COLORS.textMuted, borderTop:`1px solid ${COLORS.border}`, paddingTop:8 }}>
+                {s.notas}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Modal nuevo/editar proveedor */}
+      {showModal && (
+        <Modal
+          title={editing ? `Editar — ${editing.nombre}` : "Nuevo Proveedor"}
+          onClose={()=>setShowModal(false)}
+          onSubmit={save}
+        >
+          <Input label="Nombre *" value={form.nombre} onChange={e=>ff("nombre",e.target.value)} placeholder="Ej: Dahua Technology Chile" />
+          <Input label="RUT" value={form.rut} onChange={e=>ff("rut",formatRut(e.target.value))} placeholder="12.345.678-9" maxLength={12} />
+          <Input label="Email" value={form.email} onChange={e=>ff("email",e.target.value)} placeholder="contacto@proveedor.com" type="email" />
+          <Input label="Teléfono" value={form.telefono} onChange={e=>ff("telefono",e.target.value)} placeholder="+56 9 ..." />
+          <Input label="Dirección" value={form.direccion} onChange={e=>ff("direccion",e.target.value)} placeholder="Av. Ejemplo 123" />
+          <Input label="Ciudad" value={form.ciudad} onChange={e=>ff("ciudad",e.target.value)} placeholder="La Serena" />
+
+          <div style={{ borderTop:`1px solid ${COLORS.border}`, marginTop:8, paddingTop:14, marginBottom:8 }}>
+            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>Datos bancarios</div>
+            <Input label="Banco" value={form.banco} onChange={e=>ff("banco",e.target.value)} placeholder="Ej: Banco Santander" />
+            <Select label="Tipo de cuenta" value={form.tipo_cuenta} onChange={e=>ff("tipo_cuenta",e.target.value)}>
+              <option value="corriente">Cuenta Corriente</option>
+              <option value="ahorro">Cuenta de Ahorro</option>
+              <option value="vista">Cuenta Vista / RUT</option>
+            </Select>
+            <Input label="Número de cuenta" value={form.numero_cuenta} onChange={e=>ff("numero_cuenta",e.target.value)} placeholder="0000000000" />
+            <Input label="Email para transferencias" value={form.email_pago} onChange={e=>ff("email_pago",e.target.value)} placeholder="pagos@proveedor.com" type="email" />
+          </div>
+
+          <div style={{ marginBottom:14 }}>
+            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Índice de satisfacción (1–5)</div>
+            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+              {[1,2,3,4,5].map(i=>(
+                <button key={i} onClick={()=>ff("rating",i)} style={{
+                  width:32, height:32, borderRadius:6, border:`1px solid ${i<=form.rating?COLORS.yellow:COLORS.border}`,
+                  background: i<=form.rating ? `${COLORS.yellow}22` : COLORS.card,
+                  color: i<=form.rating ? COLORS.yellow : COLORS.textDim,
+                  fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, cursor:"pointer",
+                }}>
+                  {i}
+                </button>
+              ))}
+              <span style={{ fontFamily:FONT, fontSize:11, color:ratingColor(form.rating) }}>
+                — {ratingLabel(form.rating)}
+              </span>
+            </div>
+          </div>
+
+          <Input label="Notas internas" value={form.notas} onChange={e=>ff("notas",e.target.value)} placeholder="Obs. de pago, tiempos de entrega, etc." />
+
+          {saving && <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.accent, textAlign:"center" }}>Guardando…</div>}
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+
+function GuiasView({ isMobile }) {
+  const [shipments, setShipments] = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [filterEstado, setFilterEstado] = useState("TODOS");
+  const [search, setSearch]       = useState("");
+
+  const SHIP_ESTADOS = [
+    { key:"GENERADA",    label:"Generada",    color:"#6b7a99", icon:"📋" },
+    { key:"EN_TRANSITO", label:"En tránsito", color:"#A855F7", icon:"🚚" },
+    { key:"ENTREGADA",   label:"Entregada",   color:"#00E5A0", icon:"✅" },
+    { key:"DEVUELTA",    label:"Devuelta",    color:"#FF4D6A", icon:"↩️" },
+  ];
+
+  const COURIERS_LIST_GV = [
+    { key:"Starken",       color:"#E63946" },
+    { key:"Blue Express",  color:"#1D6FA4" },
+    { key:"Chile Express", color:"#FF6B00" },
+  ];
+
+  const COURIER_URLS = {
+    "Starken":       "https://www.starken.cl/seguimiento?codigo=",
+    "Blue Express":  "https://www.blueexpress.com/seguimiento?guia=",
+    "Chile Express": "https://www.chilexpress.cl/seguimiento/",
+  };
+
+  useEffect(()=>{
+    (async()=>{
+      const { data: ships } = await supabase
+        .from("shipments")
+        .select("*, purchase_orders(id, numero_oc, estado, suppliers(nombre))")
+        .order("created_at", { ascending: false });
+      setShipments(ships||[]);
+      setLoading(false);
+    })();
+  },[]);
+
+  const updateEstado = async (id, estado) => {
+    await supabase.from("shipments").update({ estado }).eq("id", id);
+    setShipments(prev => prev.map(s => s.id===id ? {...s, estado} : s));
+  };
+
+  const [editingTracking, setEditingTracking] = useState(null);
+  const [trackingVal, setTrackingVal]         = useState("");
+
+  const saveTracking = async (id) => {
+    await supabase.from("shipments").update({ tracking_code: trackingVal||null }).eq("id", id);
+    setShipments(prev => prev.map(s => s.id===id ? {...s, tracking_code: trackingVal||null} : s));
+    setEditingTracking(null);
+  };
+
+  const filtered = shipments.filter(s => {
+    const matchEstado = filterEstado==="TODOS" || s.estado===filterEstado;
+    const q = search.toLowerCase();
+    const matchSearch = !q ||
+      (s.numero_guia||"").toLowerCase().includes(q) ||
+      (s.destinatario_nombre||"").toLowerCase().includes(q) ||
+      (s.purchase_orders?.numero_oc||"").toLowerCase().includes(q) ||
+      (s.purchase_orders?.suppliers?.nombre||"").toLowerCase().includes(q) ||
+      (s.tracking_code||"").toLowerCase().includes(q);
+    return matchEstado && matchSearch;
+  });
+
+  const statsEnTransito = shipments.filter(s=>s.estado==="EN_TRANSITO").length;
+  const statsEntregadas = shipments.filter(s=>s.estado==="ENTREGADA").length;
+  const statsGeneradas  = shipments.filter(s=>s.estado==="GENERADA").length;
+  const totalFlete      = shipments.reduce((acc,s)=>acc+Number(s.costo_despacho||0),0);
+
+  if (loading) return <Loader />;
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:20, flexWrap:"wrap", gap:12 }}>
+        <div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Compras</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Guías de Despacho</div>
+        </div>
+        <div style={{ position:"relative" }}>
+          <input
+            value={search} onChange={e=>setSearch(e.target.value)}
+            placeholder="GD, OC, destinatario, tracking…"
+            style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 14px 8px 34px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", width:isMobile?160:240 }}
+          />
+          <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", fontSize:13, color:COLORS.textMuted }}>🔍</span>
+          {search && (
+            <button onClick={()=>setSearch("")} style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:13 }}>✕</button>
+          )}
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4, minmax(0,1fr))", gap:10, marginBottom:16 }}>
+        {[
+          { label:"En tránsito",  value:statsEnTransito, color:COLORS.purple,   accent:COLORS.purple  },
+          { label:"Entregadas",   value:statsEntregadas, color:COLORS.green,    accent:COLORS.green   },
+          { label:"Generadas",    value:statsGeneradas,  color:COLORS.textMuted, accent:COLORS.border },
+          { label:"Total fletes", value:fmt(totalFlete), color:COLORS.yellow,   accent:COLORS.yellow  },
+        ].map(k=>(
+          <div key={k.label} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderLeft:`3px solid ${k.accent}`, borderRadius:10, padding:"14px 16px" }}>
+            <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>{k.label}</div>
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:k.color }}>{k.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filtros estado */}
+      <div style={{ display:"flex", gap:6, marginBottom:16, flexWrap:"wrap" }}>
+        {["TODOS", ...SHIP_ESTADOS.map(e=>e.key)].map(key=>{
+          const cfg = SHIP_ESTADOS.find(e=>e.key===key);
+          const count = key==="TODOS" ? shipments.length : shipments.filter(s=>s.estado===key).length;
+          return (
+            <button key={key} onClick={()=>setFilterEstado(key)} style={{
+              padding:"6px 12px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer",
+              background: filterEstado===key ? `${cfg?.color||COLORS.accent}22` : COLORS.card,
+              color: filterEstado===key ? (cfg?.color||COLORS.accent) : COLORS.textMuted,
+              border: `1px solid ${filterEstado===key ? (cfg?.color||COLORS.accent)+"44" : COLORS.border}`,
+            }}>
+              {cfg?.icon||""} {key==="TODOS"?"Todas":cfg?.label} ({count})
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Listado */}
+      {filtered.length===0 && (
+        <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>
+          {search ? `Sin resultados para "${search}"` : "Sin guías de despacho aún."}
+        </div>
+      )}
+
+      <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+        {filtered.map(s=>{
+          const estadoCfg  = SHIP_ESTADOS.find(e=>e.key===s.estado)||SHIP_ESTADOS[0];
+          const courierCfg = COURIERS_LIST_GV.find(c=>c.key===s.courier)||{ color:COLORS.textMuted };
+          const oc         = s.purchase_orders;
+          const trackingUrl = COURIER_URLS[s.courier];
+
+          return (
+            <div key={s.id} style={{
+              background: COLORS.card,
+              border: `1px solid ${COLORS.border}`,
+              borderLeft: `3px solid ${estadoCfg.color}`,
+              borderRadius: 10,
+              padding: "12px 16px",
+            }}>
+              <div style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
+
+                {/* Número GD */}
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.accent, minWidth:65 }}>
+                  {s.numero_guia}
+                </div>
+
+                {/* Courier badge */}
+                <span style={{
+                  fontSize:10, padding:"2px 8px", borderRadius:4, fontWeight:700,
+                  background:`${courierCfg.color}22`, color:courierCfg.color,
+                  border:`1px solid ${courierCfg.color}44`, flexShrink:0,
+                }}>
+                  {s.courier}
+                </span>
+
+                {/* OC referencia */}
+                {oc && (
+                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                    <span style={{ color:COLORS.textDim }}>OC: </span>
+                    <span style={{ color:COLORS.text }}>{oc.numero_oc}</span>
+                    {oc.suppliers?.nombre && (
+                      <span style={{ color:COLORS.textDim }}> · {oc.suppliers.nombre}</span>
+                    )}
+                  </div>
+                )}
+
+                {/* Destinatario */}
+                <div style={{ flex:1, fontFamily:FONT, fontSize:11, color:COLORS.textMuted, minWidth:120 }}>
+                  {s.destinatario_nombre||"—"}
+                  {s.ciudad && <span style={{ color:COLORS.textDim }}> · {s.ciudad}</span>}
+                </div>
+
+                {/* Estado selector */}
+                <select
+                  value={s.estado||"GENERADA"}
+                  onChange={e=>updateEstado(s.id, e.target.value)}
+                  style={{
+                    background:`${estadoCfg.color}18`, border:`1px solid ${estadoCfg.color}44`,
+                    borderRadius:6, padding:"4px 8px", fontFamily:FONT, fontSize:11,
+                    color:estadoCfg.color, outline:"none", cursor:"pointer", flexShrink:0,
+                  }}
+                >
+                  {SHIP_ESTADOS.map(e=>(
+                    <option key={e.key} value={e.key}>{e.icon} {e.label}</option>
+                  ))}
+                </select>
+
+                {/* Costo flete */}
+                {s.costo_despacho && (
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.yellow, flexShrink:0 }}>
+                    {fmt(s.costo_despacho)}
+                    {s.aplica_iva_despacho && <span style={{ fontSize:9, color:COLORS.textDim }}> +IVA</span>}
+                  </div>
+                )}
+
+              </div>
+
+              {/* Segunda fila — tracking */}
+              <div style={{ marginTop:10, paddingTop:10, borderTop:`1px solid ${COLORS.border}`, display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
+                <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim, textTransform:"uppercase", letterSpacing:"0.08em" }}>Tracking</span>
+
+                {editingTracking===s.id ? (
+                  <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                    <input
+                      value={trackingVal} onChange={e=>setTrackingVal(e.target.value)}
+                      onKeyDown={e=>{ if(e.key==="Enter") saveTracking(s.id); if(e.key==="Escape") setEditingTracking(null); }}
+                      placeholder="Código de tracking…"
+                      autoFocus
+                      style={{ background:COLORS.bg, border:`1px solid ${COLORS.accent}`, borderRadius:5, padding:"4px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none", width:200 }}
+                    />
+                    <button onClick={()=>saveTracking(s.id)} style={{ background:COLORS.accent, border:"none", borderRadius:5, padding:"4px 10px", color:COLORS.bg, fontFamily:FONT, fontSize:11, fontWeight:700, cursor:"pointer" }}>✓</button>
+                    <button onClick={()=>setEditingTracking(null)} style={{ background:"none", border:`1px solid ${COLORS.border}`, borderRadius:5, padding:"4px 8px", color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>✕</button>
+                  </div>
+                ) : s.tracking_code ? (
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <a
+                      href={`${trackingUrl||""}${s.tracking_code}`}
+                      target="_blank" rel="noopener noreferrer"
+                      style={{ fontFamily:FONT, fontSize:11, fontWeight:700, color:courierCfg.color, textDecoration:"none", padding:"2px 8px", background:`${courierCfg.color}11`, borderRadius:4, border:`1px solid ${courierCfg.color}33` }}
+                    >
+                      🔗 {s.tracking_code}
+                    </a>
+                    <button onClick={()=>{ setEditingTracking(s.id); setTrackingVal(s.tracking_code); }} style={{ background:"none", border:`1px solid ${COLORS.border}`, borderRadius:4, color:COLORS.textMuted, cursor:"pointer", fontSize:10, padding:"2px 6px" }}>✏️</button>
+                  </div>
+                ) : (
+                  <button onClick={()=>{ setEditingTracking(s.id); setTrackingVal(""); }} style={{ background:"none", border:`1px dashed ${COLORS.border}`, borderRadius:4, color:COLORS.textDim, cursor:"pointer", fontSize:10, padding:"2px 8px", fontFamily:FONT }}>
+                    + agregar tracking
+                  </button>
+                )}
+
+                <span style={{ marginLeft:"auto", fontFamily:FONT, fontSize:10, color:COLORS.textDim }}>
+                  {s.created_at ? new Date(s.created_at).toLocaleDateString("es-CL",{ day:"2-digit", month:"short", year:"numeric" }) : "—"}
+                </span>
+              </div>
+
+            </div>
+          );
+        })}
+      </div>
+
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+
 const NAV_GROUPS = [
   {
     key: "dashboard", label: "Dashboard", Icon: LayoutDashboard, single: true,
@@ -14063,8 +14579,14 @@ const NAV_GROUPS = [
   },
   {
     key: "catalogo", label: "Catálogo", Icon: Package, children: [
-      { key:"products",  label:"Maestro de Productos", Icon: Package      },
-      { key:"purchase",  label:"Compras",              Icon: ShoppingCart },
+      { key:"products",    label:"Maestros",    Icon: Package },
+      { key:"proveedores", label:"Proveedores", Icon: Users   },
+    ],
+  },
+  {
+    key: "compras_group", label: "Compras", Icon: ShoppingCart, children: [
+      { key:"purchase", label:"Órdenes de Compra", Icon: ShoppingCart },
+      { key:"guias",    label:"Guías de Despacho", Icon: Package      },
     ],
   },
   {
@@ -18540,8 +19062,10 @@ export default function CRM() {
           {view==="pipeline"  && <PipelineView deals={deals} setDeals={setDeals} contacts={contacts} tasks={tasks} setTasks={setTasks} isMobile={isMobile} userRole={userRole} session={session} />}
           {view==="quotes"       && <QuotesView contacts={contacts} isMobile={isMobile} />}
           {view==="prestaciones" && <PrestacionesView isMobile={isMobile} />}
-          {view==="products"  && <ProductsDB isMobile={isMobile} />}
-          {view==="purchase"  && <PurchaseView isMobile={isMobile} />}
+          {view==="products"     && <ProductsDB isMobile={isMobile} />}
+          {view==="proveedores"  && <ProveedoresView isMobile={isMobile} />}
+          {view==="purchase"     && <PurchaseView isMobile={isMobile} />}
+          {view==="guias"        && <GuiasView isMobile={isMobile} />}
           {view==="control_proyectos" && <ControlProyectosView contacts={contacts} />}
           {view==="costeo"    && <CosteoView contacts={contacts} isMobile={isMobile} />}
           {view==="gantt"     && <GanttView isMobile={isMobile} />}
