@@ -6708,7 +6708,7 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
   const partidasFase = (partidas||[]).filter(p=>String(p.faseId)===String(fase.id));
   const totalCubierto = partidasFase.reduce((s,p)=>s+Number(p.monto),0);
   const totalCobrado  = partidasFase.reduce((s,p)=>s+(Number(p.monto)*(Math.min(Number(p.pctAvance)||0,100)/100)),0);
-  const ventaRef = calc.ventaBruta;
+  const ventaRef = calc.descPct > 0 ? calc.ventaConDesc : calc.ventaBruta;
   const pctCubierto = ventaRef > 0 ? Math.min((totalCubierto/ventaRef)*100, 100) : 0;
   const pctCobrado  = ventaRef > 0 ? Math.min((totalCobrado/ventaRef)*100, 100) : 0;
   const anticipo = partidasFase.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctAnticipo)||0)/100),0);
