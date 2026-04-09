@@ -5692,15 +5692,15 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
       const price = Number(key==="unitPrice"?val:updated.unitPrice)||0;
       const qty = Number(key==="qty"?val:updated.qty)||1;
       const disc = Number(key==="discount"?val:updated.discount)||0;
-      updated.subtotal = price * qty * (1 - disc/100);
+      updated.subtotal = Math.round(price * qty * (1 - disc/100));
       return updated;
     }));
   };
 
   const removeLine = (idx) => setLines(l=>l.filter((_,i)=>i!==idx));
 
-  const neto = lines.filter(l=>l.lineType!=="hito").reduce((s,l)=>s+Number(l.subtotal),0);
-  const iva = header.hasIva ? neto * 0.19 : 0;
+  const neto  = Math.round(lines.filter(l=>l.lineType!=="hito").reduce((s,l)=>s+Number(l.subtotal),0));
+  const iva   = header.hasIva ? Math.round(neto * 0.19) : 0;
   const total = neto + iva;
 
   const save = async () => {
@@ -6092,7 +6092,7 @@ function QuotePDF({ quote, onBack }) {
     supabase.from("quote_lines").select("*").eq("quote_id", quote.id).order("orden").then(({data})=>setLines((data||[]).map(mapQuoteLine)));
   },[]);
 
-  const neto = lines.filter(l=>l.lineType!=="hito").reduce((s,l)=>s+Number(l.subtotal),0);
+  const neto = Math.round(lines.filter(l=>l.lineType!=="hito").reduce((s,l)=>s+Number(l.subtotal),0));
   // fromCosteo: aplica_iva=false pero ivaMode=empresa → valores ya incluyen IVA por línea
   const fromCosteo  = !quote.hasIva && quote.ivaMode === "empresa";
   // Con IVA normal: desglosar neto + IVA(19%) + total
@@ -7036,7 +7036,7 @@ function CosteoView({ contacts }) {
   const totalVentaBruta   = fasesCalc.reduce((s,f)=>s+f.ventaBruta,0);
   const totalIvaNetoSII   = totalIVA - totalIvaCompra; // débito - crédito fiscal
   const totalDescuento    = fasesCalc.reduce((s,f)=>s+(f.descMonto||0),0);
-  const totalVentaFinal   = fasesCalc.reduce((s,f)=>s+f.ventaConDesc,0); // con descuento aplicado
+  const totalVentaFinal   = Math.round(fasesCalc.reduce((s,f)=>s+f.ventaConDesc,0) / 100) * 100; // con descuento aplicado, redondeado al 100 más cercano
   const hayDescuento      = totalDescuento > 0;
   const margenPct = totalCosto > 0 ? (totalMargen/totalCosto*100).toFixed(1) : 0;
 
@@ -7123,7 +7123,7 @@ function CosteoView({ contacts }) {
     const tVentaNeta = fases.reduce((s,f)=>s+f.ventaNeta,0);
     const tVentaBruta = fases.reduce((s,f)=>s+f.ventaBruta,0);
     const tDescuento = fases.reduce((s,f)=>s+(f.descMonto||0),0);
-    const tVentaFinal = fases.reduce((s,f)=>s+f.ventaConDesc,0);
+    const tVentaFinal = Math.round(fases.reduce((s,f)=>s+f.ventaConDesc,0) / 100) * 100;
     const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
     const pct = tCosto>0?(tMargen/tCosto*100).toFixed(1):0;
     const PDF_TYPE_ORDER = {"Equipos":0,"Ferretería":1,"Materiales":1,"Mano de Obra / HH":2,"Costos Indirectos":3};
@@ -7249,7 +7249,7 @@ function CosteoView({ contacts }) {
     const tVentaNeta = fases.reduce((s,f)=>s+f.ventaNeta,0);
     const tVentaBruta = fases.reduce((s,f)=>s+f.ventaBruta,0);
     const tDescuentoCli = fases.reduce((s,f)=>s+(f.descMonto||0),0);
-    const tVentaFinalCli = fases.reduce((s,f)=>s+f.ventaConDesc,0);
+    const tVentaFinalCli = Math.round(fases.reduce((s,f)=>s+f.ventaConDesc,0) / 100) * 100;
     const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
     const partidas = proyecto.partidas||[];
     const tPartidas = partidas.reduce((s,p)=>s+Number(p.monto),0);
@@ -9455,7 +9455,7 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
   const ff = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
   // ── Calcular totales partidas ──
-  const subtotal = form.partidas.reduce((s, p) => s + (Number(p.total) || 0), 0);
+  const subtotal = Math.round(form.partidas.reduce((s, p) => s + (Number(p.total) || 0), 0));
   const iva      = Math.round(subtotal * 0.19);
   const total    = subtotal + iva;
 
