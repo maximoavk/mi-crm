@@ -6341,20 +6341,21 @@ function QuotePDF({ quote, onBack }) {
 
       <style>{`
         @media print {
+          @page { size: A4 portrait; margin: 8mm 10mm; }
           body * { visibility: hidden; }
           #print-area, #print-area * { visibility: visible; }
           #print-area {
             position: absolute; left: 0; top: 0;
-            width: 210mm; padding: 7mm 10mm;
+            width: 190mm;
+            padding: 0;
             box-sizing: border-box;
-            font-size: 9px !important;
-            line-height: 1.2 !important;
-            max-height: 277mm;
-            overflow: hidden;
+            zoom: 0.78;
+            font-size: 11px !important;
+            line-height: 1.3 !important;
           }
-          #print-area img { height: 36px !important; }
-          #print-area .quote-number { font-size: 20px !important; }
-          #print-area table th, #print-area table td { padding: 3px 5px !important; font-size: 9px !important; }
+          #print-area img { height: 40px !important; }
+          #print-area .quote-number { font-size: 22px !important; }
+          #print-area table th, #print-area table td { padding: 4px 6px !important; font-size: 10px !important; }
           #print-area table { width: 100%; table-layout: fixed; border-collapse: collapse; }
           #print-area table th:nth-child(1) { width: 10%; }
           #print-area table th:nth-child(2) { width: 36%; }
@@ -6370,7 +6371,6 @@ function QuotePDF({ quote, onBack }) {
           #print-area .rut-label { color: #cc0000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           #print-area .totals-table { width: 220px; margin-left: auto; }
           #print-area .totals-table td { white-space: nowrap; }
-          @page { margin: 0; size: A4; }
         }
       `}</style>
     </div>
@@ -7190,7 +7190,7 @@ function CosteoView({ contacts }) {
       </div>`;
     }).join("");
     w.document.write(`<!DOCTYPE html><html><head><title>Costeo Interno - ${proyecto.nombre}</title>
-      <style>body{font-family:Arial,sans-serif;font-size:11px;color:#1e293b;padding:18px} @media print{@page{margin:8mm;size:A4 landscape}}</style>
+      <style>body{font-family:Arial,sans-serif;font-size:11px;color:#1e293b;padding:18px} @media print{@page{margin:6mm;size:A4 landscape}body{zoom:0.72;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style>
       </head><body>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #e2e8f0">
         <div><img src="${LOGO_PRINT}" style="height:45px;margin-bottom:6px;display:block" />
@@ -7344,7 +7344,7 @@ function CosteoView({ contacts }) {
         </table>
       </div>` : "";
     w.document.write(`<!DOCTYPE html><html><head><title>Presupuesto - ${proyecto.nombre}</title>
-      <style>body{font-family:Arial,sans-serif;font-size:12px;color:#1e293b;padding:20px} @media print{@page{margin:10mm}}</style>
+      <style>body{font-family:Arial,sans-serif;font-size:12px;color:#1e293b;padding:20px} @media print{@page{margin:6mm;size:A4 portrait}body{zoom:0.70;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style>
       </head><body>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #e2e8f0">
         <div><img src="${LOGO_PRINT}" style="height:50px;margin-bottom:8px;display:block" />
