@@ -5701,7 +5701,7 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
 
   const neto  = Math.round(lines.filter(l=>l.lineType!=="hito").reduce((s,l)=>s+Number(l.subtotal),0));
   const iva   = header.hasIva ? Math.round(neto * 0.19) : 0;
-  const total = neto + iva;
+  const total = Math.round((neto + iva) / 100) * 100;
 
   const save = async () => {
     setSaving(true);
@@ -6100,7 +6100,7 @@ function QuotePDF({ quote, onBack }) {
   // Desde costeo: extraer neto e IVA implícitos
   const netoDisplay = fromCosteo ? Math.round(neto / 1.19) : neto;
   const ivaDisplay  = fromCosteo ? neto - Math.round(neto / 1.19) : Math.round(neto * 0.19);
-  const total       = fromCosteo ? neto : quote.hasIva ? neto + Math.round(neto * 0.19) : neto;
+  const total       = fromCosteo ? neto : quote.hasIva ? Math.round((neto + Math.round(neto * 0.19)) / 100) * 100 : neto;
   const showIva     = quote.hasIva || fromCosteo; // true → mostrar desglose neto+IVA+total
 
   // ── Forma de pago: calcular tramos con montos reales ──
@@ -9457,7 +9457,7 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
   // ── Calcular totales partidas ──
   const subtotal = Math.round(form.partidas.reduce((s, p) => s + (Number(p.total) || 0), 0));
   const iva      = Math.round(subtotal * 0.19);
-  const total    = subtotal + iva;
+  const total    = Math.round((subtotal + iva) / 100) * 100;
 
   const updatePartida = (id, key, val) => {
     setForm(prev => ({
