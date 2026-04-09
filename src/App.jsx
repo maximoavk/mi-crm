@@ -6349,7 +6349,6 @@ function QuotePDF({ quote, onBack }) {
             width: 190mm;
             padding: 0;
             box-sizing: border-box;
-            zoom: 0.78;
             font-size: 11px !important;
             line-height: 1.3 !important;
           }
@@ -7190,7 +7189,7 @@ function CosteoView({ contacts }) {
       </div>`;
     }).join("");
     w.document.write(`<!DOCTYPE html><html><head><title>Costeo Interno - ${proyecto.nombre}</title>
-      <style>body{font-family:Arial,sans-serif;font-size:11px;color:#1e293b;padding:18px} @media print{@page{margin:6mm;size:A4 landscape}body{zoom:0.72;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style>
+      <style>body{font-family:Arial,sans-serif;font-size:11px;color:#1e293b;padding:18px} @media print{@page{margin:8mm;size:A4 landscape}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style>
       </head><body>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #e2e8f0">
         <div><img src="${LOGO_PRINT}" style="height:45px;margin-bottom:6px;display:block" />
@@ -7344,7 +7343,7 @@ function CosteoView({ contacts }) {
         </table>
       </div>` : "";
     w.document.write(`<!DOCTYPE html><html><head><title>Presupuesto - ${proyecto.nombre}</title>
-      <style>body{font-family:Arial,sans-serif;font-size:12px;color:#1e293b;padding:20px} @media print{@page{margin:6mm;size:A4 portrait}body{zoom:0.70;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style>
+      <style>body{font-family:Arial,sans-serif;font-size:12px;color:#1e293b;padding:20px} @media print{@page{margin:10mm}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style>
       </head><body>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #e2e8f0">
         <div><img src="${LOGO_PRINT}" style="height:50px;margin-bottom:8px;display:block" />
