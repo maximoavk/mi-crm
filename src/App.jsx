@@ -5194,12 +5194,10 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
     return Math.round(p*(1-d/100)*qty);
   };
 
-  // q.total es el total neto guardado en la cotización (siempre refleja descuentos correctamente).
-  // Para PF sumamos IVA si la cot no lo tiene; evita usar lsub() que puede ignorar descuentos de fase.
-  const qTotalPF = q => isPF
-    ? (q.hasIva ? (q.total||0) : Math.round((q.total||0)*1.19))
-    : (q.total||0);
-  const cotTotal  = selQuotes.reduce((s,q)=>s+qTotalPF(q),0);
+  // q.total siempre refleja el total c/IVA correcto (con descuentos aplicados).
+  // En costeos: ventaBruta ya incluye IVA, por lo que q.total = ventaConDesc = c/IVA.
+  // No multiplicar por 1.19 — el total guardado ya es el definitivo.
+  const cotTotal  = selQuotes.reduce((s,q)=>s+(q.total||0),0);
   const lineTotal = selectedLineKeys===null
     ? cotTotal
     : allLines.reduce((s,l)=>s+lsub(l),0);
@@ -7468,7 +7466,7 @@ function CosteoView({ contacts }) {
       contact_id:proyecto.clienteId||null, nombre_cliente:proyecto.clienteNombre||proyecto.cliente||"",
       rut_cliente:proyecto.clienteRut||"", razon_social:proyecto.clienteEmpresa||"",
       direccion:proyecto.clienteDireccion||"", telefono:proyecto.clienteTelefono||"",
-      forma_pago:formaPago, aplica_iva:false, iva_modo:"empresa",
+      forma_pago:formaPago, aplica_iva:true, iva_modo:"empresa",
       comentarios:`${proyecto.nombre}`,
       terminos:"", estado:"borrador", tipo:"productos", total:Math.round(totalBrutoFinal),
     };
@@ -7478,25 +7476,27 @@ function CosteoView({ contacts }) {
     let lineas = [];
     let ordenCounter = 0;
     if(genTipo==="fases") {
-      // Línea por fase — precio = ventaBruta, descuento = % de fase (ya calculado en costeo)
-      // Así el cotizador muestra precio original + descuento de fase, sin doble descuento
+      // Línea por fase — precio NETO (ventaNeta) + descuento de fase.
+      // ventaBruta ya incluye IVA; guardamos el neto para que lsub() pueda agregar IVA correctamente.
       fases.forEach((f,fi)=>{
         const codigoFase = `${sapBase}-F${fi+1}`;
         const desc = Number(f.descPct)||0;
-        const subtotalFinal = desc > 0 ? Math.round(f.ventaBruta*(1-desc/100)) : Math.round(f.ventaBruta);
+        const netoUnit = Math.round(f.ventaNeta);
+        const subtotalNeto = Math.round(f.ventaNeta*(1-desc/100));
         lineas.push({ quote_id:savedQuote.id, product_id:null,
           codigo:codigoFase, descripcion:f.nombre||`Fase ${fi+1}`,
-          cantidad:1, precio_unitario:Math.round(f.ventaBruta),
+          cantidad:1, precio_unitario:netoUnit,
           descuento:desc, tipo_linea:"item", hito:"",
-          subtotal:subtotalFinal, orden: ordenCounter++ });
+          subtotal:subtotalNeto, orden: ordenCounter++ });
       });
     } else {
-      // Proyecto total: una sola línea con totalBrutoFinal (ya con descuentos de fase aplicados)
+      // Proyecto total: una línea con precio NETO total (totalBrutoFinal ya es c/IVA → dividir).
+      const netoTotal = Math.round(totalBrutoFinal/1.19);
       lineas.push({ quote_id:savedQuote.id, product_id:null,
         codigo:codigoProyecto, descripcion:proyecto.nombre||"Suministro e instalación",
-        cantidad:1, precio_unitario:Math.round(totalBrutoFinal),
+        cantidad:1, precio_unitario:netoTotal,
         descuento:0, tipo_linea:"item", hito:"",
-        subtotal:Math.round(totalBrutoFinal), orden: ordenCounter++ });
+        subtotal:netoTotal, orden: ordenCounter++ });
     }
     // Hitos de pago al final como sección separada
     if(partidas.length>0) {
