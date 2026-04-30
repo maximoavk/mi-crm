@@ -5194,8 +5194,15 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
     return Math.round(p*(1-d/100)*qty);
   };
 
-  const lineTotal  = allLines.reduce((s,l)=>s+lsub(l),0);
-  const cotTotal   = allLinesRaw.reduce((s,l)=>s+lsub(l),0);
+  // q.total es el total neto guardado en la cotización (siempre refleja descuentos correctamente).
+  // Para PF sumamos IVA si la cot no lo tiene; evita usar lsub() que puede ignorar descuentos de fase.
+  const qTotalPF = q => isPF
+    ? (q.hasIva ? (q.total||0) : Math.round((q.total||0)*1.19))
+    : (q.total||0);
+  const cotTotal  = selQuotes.reduce((s,q)=>s+qTotalPF(q),0);
+  const lineTotal = selectedLineKeys===null
+    ? cotTotal
+    : allLines.reduce((s,l)=>s+lsub(l),0);
   const txTotal    = transacciones.reduce((s,t)=>s+Number(t.monto||0),0);
   const totalMonto = txTotal>0?txTotal:lineTotal;
   const firstQ     = selQuotes[0]||quotes[0];
@@ -7484,12 +7491,12 @@ function CosteoView({ contacts }) {
           subtotal:subtotalFinal, orden: ordenCounter++ });
       });
     } else {
-      // Proyecto total: una sola línea con ventaBruta total
+      // Proyecto total: una sola línea con totalBrutoFinal (ya con descuentos de fase aplicados)
       lineas.push({ quote_id:savedQuote.id, product_id:null,
         codigo:codigoProyecto, descripcion:proyecto.nombre||"Suministro e instalación",
-        cantidad:1, precio_unitario:Math.round(totalBruto),
+        cantidad:1, precio_unitario:Math.round(totalBrutoFinal),
         descuento:0, tipo_linea:"item", hito:"",
-        subtotal:Math.round(totalBruto), orden: ordenCounter++ });
+        subtotal:Math.round(totalBrutoFinal), orden: ordenCounter++ });
     }
     // Hitos de pago al final como sección separada
     if(partidas.length>0) {
