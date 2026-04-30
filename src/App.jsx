@@ -4252,7 +4252,7 @@ function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditPedido, 
     const pedDocs   = docs.filter(d=>(d.quote_ids||[]).some(qid=>(ped.quote_ids||[]).includes(qid)));
 
     const cotData = pedQuotes.map(q=>{
-      const qTotal  = (q.lines||[]).reduce((s,l)=>s+lineSubtotal(l),0);
+      const qTotal  = q.total||0;  // q.total ya refleja el precio c/IVA con descuentos aplicados
       const qDocs   = docs.filter(d=>(d.quote_ids||[]).includes(q.id));
       const qPagado = qDocs.reduce((s,d)=>s+txPagado(d),0);  // ← transacciones reales
       return { quote:q, docs:qDocs, qTotal, qPagado };
@@ -5178,16 +5178,25 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
   const toggleLine=key=>setSelectedLineKeys(prev=>{const all=allLinesRaw.map(l=>l._key);const cur=prev===null?all:prev;return cur.includes(key)?cur.filter(k=>k!==key):[...cur,key];});
 
   const selQuotes  = quotes.filter(q=>selectedQuoteIds.includes(q.id));
-  const allLinesRaw= selQuotes.flatMap(q=>(q.lines||[]).map(l=>({...l,quoteNum:q.number,quoteId:q.id,_key:l.id||`${q.id}-${l.code}`})));
+  // quoteHasIva: true → l.subtotal es neto (aplica_iva=true); false → l.subtotal es c/IVA (costeo viejo con aplica_iva=false)
+  const allLinesRaw= selQuotes.flatMap(q=>(q.lines||[]).map(l=>({...l,quoteNum:q.number,quoteId:q.id,quoteHasIva:!!q.hasIva,_key:l.id||`${q.id}-${l.code}`})));
   const allLines   = selectedLineKeys===null?allLinesRaw:allLinesRaw.filter(l=>selectedLineKeys.includes(l._key));
+  // lsub: retorna el valor c/IVA por línea para PF, o neto para CP.
+  // Para hasIva=false (costeo viejo): l.subtotal ya ES c/IVA → usarlo directo.
+  // Para hasIva=true (costeo nuevo / QuoteEditor): l.subtotal es neto → agregar *1.19 en PF.
   const lsub = l => {
+    const sub=Number(l.subtotal||0);
+    if(sub>0) return isPF ? (l.quoteHasIva ? Math.round(sub*1.19) : sub) : sub;
     const qty=Number(l.qty||l.quantity||l.cantidad||1);
     const p=Number(l.unitPrice||l.precio_unitario||0);
     const d=Number(l.discount||l.descuento||0);
     const neto=Math.round(p*(1-d/100)*qty);
     return isPF ? Math.round(neto*1.19) : neto;
   };
+  // lsubNeto: retorna siempre el valor neto (sin IVA) por línea.
   const lsubNeto = l => {
+    const sub=Number(l.subtotal||0);
+    if(sub>0) return l.quoteHasIva ? sub : Math.round(sub/1.19);
     const qty=Number(l.qty||l.quantity||l.cantidad||1);
     const p=Number(l.unitPrice||l.precio_unitario||0);
     const d=Number(l.discount||l.descuento||0);
@@ -5277,10 +5286,11 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
     <tbody>
     ${allLines.map((l,i)=>{
       const qty=Number(l.qty||l.quantity||l.cantidad||1);
-      const unitNeto=Number(l.unitPrice||l.precio_unitario||0);
       const disc=Number(l.discount||l.descuento||0);
       const neto=lsubNeto(l);
-      return `<tr><td>${i+1}</td><td style="font-size:9px">${l.code||l.codigo||"—"}</td><td>${l.description||l.descripcion||"—"}</td><td class="c">${qty}</td><td class="r">${Math.round(unitNeto*(1-disc/100)).toLocaleString("es-CL")}</td><td class="r">${neto.toLocaleString("es-CL")}</td></tr>`;
+      // P. Unit. Neto: neto por unidad (sin IVA, con descuento)
+      const unitNetoDisc = qty>0 ? Math.round(neto/qty) : neto;
+      return `<tr><td>${i+1}</td><td style="font-size:9px">${l.code||l.codigo||"—"}</td><td>${l.description||l.descripcion||"—"}</td><td class="c">${qty}</td><td class="r">${unitNetoDisc.toLocaleString("es-CL")}</td><td class="r">${neto.toLocaleString("es-CL")}</td></tr>`;
     }).join("")}
     ${ivaRow}
     <tr style="font-weight:bold;background:#f5f5f5;border-top:2px solid #1a1a1a"><td colspan="4"></td><td style="padding:5px 6px;font-size:12px;text-align:right;">TOTAL</td><td style="padding:5px 6px;font-size:13px;font-weight:900;text-align:right;">$${lineTotal.toLocaleString("es-CL")}</td></tr>
