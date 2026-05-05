@@ -6125,6 +6125,11 @@ function QuotePDF({ quote, onBack }) {
   const montoAnt = Math.round(total * pctAnt / 100);
   const montoSal = total - montoAnt;
   const pctSal   = 100 - pctAnt;
+  const knownPMs = ["50% anticipo y saldo al finalizar","% personalizado","Al finalizar","0 a 30 días","Contado"];
+  const hitoLines = lines.filter(l=>l.lineType==="hito");
+  const hitoAnticipo  = hitoLines.reduce((s,l)=>{ const m=(l.milestone||"").match(/(\d+)%\s*[Aa]nticipo/); return s+(m?Math.round(Number(l.subtotal||0)*Number(m[1])/100):0); },0);
+  const hitoFinalizar = hitoLines.reduce((s,l)=>{ const m=(l.milestone||"").match(/(\d+)%\s*[Ff]inal/);    return s+(m?Math.round(Number(l.subtotal||0)*Number(m[1])/100):0); },0);
+  const hitoAvance    = hitoLines.reduce((s,l)=>{ const m=(l.milestone||"").match(/(\d+)%\s*[Aa]vance/);   return s+(m?Math.round(Number(l.subtotal||0)*Number(m[1])/100):0); },0);
   const fechaSal = (() => { const d = new Date(); d.setDate(d.getDate() + diasPago); return d.toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"}); })();
   const fmtCLP   = (n) => `$${Math.round(n).toLocaleString("es-CL")}`;
 
@@ -6320,6 +6325,13 @@ function QuotePDF({ quote, onBack }) {
                 <span style={labelStyle}>Pago contado</span>
                 <span style={noteStyle}>Pago inmediato</span>
                 <span style={valStyle}>{fmtCLP(total)}</span>
+              </div>
+            )}
+            {!knownPMs.includes(pm) && hitoLines.length>0 && (hitoAnticipo>0||hitoAvance>0||hitoFinalizar>0) && (
+              <div style={{ fontSize:11, marginTop:4 }}>
+                {hitoAnticipo>0  && <div style={rowStyle}><span style={labelStyle}>Anticipo</span><span style={noteStyle}>Al inicio del servicio</span><span style={valStyle}>{fmtCLP(hitoAnticipo)}</span></div>}
+                {hitoAvance>0    && <div style={rowStyle}><span style={labelStyle}>Avance de obra</span><span style={noteStyle}>Al avance del servicio</span><span style={valStyle}>{fmtCLP(hitoAvance)}</span></div>}
+                {hitoFinalizar>0 && <div style={rowStyle}><span style={labelStyle}>Al finalizar</span><span style={noteStyle}>Al término del servicio</span><span style={valStyle}>{fmtCLP(hitoFinalizar)}</span></div>}
               </div>
             )}
           </div>
