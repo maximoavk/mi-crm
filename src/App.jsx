@@ -7415,9 +7415,11 @@ function CosteoView({ contacts }) {
     const totalAnt = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctAnticipo)||0)/100),0);
     const totalPar = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctParcial)||0)/100),0);
     const totalFin = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctFinalizar)||0)/100),0);
-    const pctAnt = totalBruto>0?Math.round(totalAnt/totalBruto*100):0;
-    const pctPar = totalBruto>0?Math.round(totalPar/totalBruto*100):0;
-    const pctFin = totalBruto>0?Math.round(totalFin/totalBruto*100):0;
+    // Usar totalBrutoFinal como base — las partidas tienen montos post-descuento
+    const pctBase = totalBrutoFinal>0 ? totalBrutoFinal : totalBruto;
+    const pctAnt = pctBase>0?Math.round(totalAnt/pctBase*100):0;
+    const pctPar = pctBase>0?Math.round(totalPar/pctBase*100):0;
+    const pctFin = pctBase>0?Math.round(totalFin/pctBase*100):0;
     // Mapear al valor estándar del dropdown del QuoteEditor
     const formaPago = pctAnt===0 ? "Al finalizar" : "% personalizado";
     const { data: ultimas } = await supabase.from("cotizaciones").select("numero").order("numero",{ascending:false}).limit(1);
@@ -7463,7 +7465,7 @@ function CosteoView({ contacts }) {
       contact_id:proyecto.clienteId||null, nombre_cliente:proyecto.clienteNombre||proyecto.cliente||"",
       rut_cliente:proyecto.clienteRut||"", razon_social:proyecto.clienteEmpresa||"",
       direccion:proyecto.clienteDireccion||"", telefono:proyecto.clienteTelefono||"",
-      forma_pago:formaPago, pct_anticipo:pctAnt, aplica_iva:true, iva_modo:"empresa",
+      forma_pago:formaPago, pct_anticipo:pctAnt, aplica_iva:false, iva_modo:"empresa",
       comentarios:`${proyecto.nombre}`,
       terminos:"", estado:"borrador", tipo:"productos", total:Math.round(totalBrutoFinal),
     };
@@ -7473,27 +7475,25 @@ function CosteoView({ contacts }) {
     let lineas = [];
     let ordenCounter = 0;
     if(genTipo==="fases") {
-      // Línea por fase — precio NETO (ventaNeta) + descuento de fase.
-      // ventaBruta ya incluye IVA; guardamos el neto para que lsub() pueda agregar IVA correctamente.
+      // Línea por fase — precio c/IVA (ventaBruta) con descuento de fase.
+      // aplica_iva=false porque el precio ya incluye IVA; q.total = ventaConDesc (c/IVA discountado).
       fases.forEach((f,fi)=>{
         const codigoFase = `${sapBase}-F${fi+1}`;
         const desc = Number(f.descPct)||0;
-        const netoUnit = Math.round(f.ventaNeta);
-        const subtotalNeto = Math.round(f.ventaNeta*(1-desc/100));
+        const subtotalFinal = Math.round(f.ventaConDesc);
         lineas.push({ quote_id:savedQuote.id, product_id:null,
           codigo:codigoFase, descripcion:f.nombre||`Fase ${fi+1}`,
-          cantidad:1, precio_unitario:netoUnit,
+          cantidad:1, precio_unitario:Math.round(f.ventaBruta),
           descuento:desc, tipo_linea:"item", hito:"",
-          subtotal:subtotalNeto, orden: ordenCounter++ });
+          subtotal:subtotalFinal, orden: ordenCounter++ });
       });
     } else {
-      // Proyecto total: una línea con precio NETO total (totalBrutoFinal ya es c/IVA → dividir).
-      const netoTotal = Math.round(totalBrutoFinal/1.19);
+      // Proyecto total: una línea con precio c/IVA post-descuento (totalBrutoFinal).
       lineas.push({ quote_id:savedQuote.id, product_id:null,
         codigo:codigoProyecto, descripcion:proyecto.nombre||"Suministro e instalación",
-        cantidad:1, precio_unitario:netoTotal,
+        cantidad:1, precio_unitario:Math.round(totalBrutoFinal),
         descuento:0, tipo_linea:"item", hito:"",
-        subtotal:netoTotal, orden: ordenCounter++ });
+        subtotal:Math.round(totalBrutoFinal), orden: ordenCounter++ });
     }
     // Hitos de pago al final como sección separada
     if(partidas.length>0) {
