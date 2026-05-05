@@ -6125,11 +6125,6 @@ function QuotePDF({ quote, onBack }) {
   const montoAnt = Math.round(total * pctAnt / 100);
   const montoSal = total - montoAnt;
   const pctSal   = 100 - pctAnt;
-  const knownPMs = ["50% anticipo y saldo al finalizar","% personalizado","Al finalizar","0 a 30 días","Contado"];
-  const hitoLines = lines.filter(l=>l.lineType==="hito");
-  const hitoAnticipo  = hitoLines.reduce((s,l)=>{ const m=(l.milestone||"").match(/(\d+)%\s*[Aa]nticipo/); return s+(m?Math.round(Number(l.subtotal||0)*Number(m[1])/100):0); },0);
-  const hitoFinalizar = hitoLines.reduce((s,l)=>{ const m=(l.milestone||"").match(/(\d+)%\s*[Ff]inal/);    return s+(m?Math.round(Number(l.subtotal||0)*Number(m[1])/100):0); },0);
-  const hitoAvance    = hitoLines.reduce((s,l)=>{ const m=(l.milestone||"").match(/(\d+)%\s*[Aa]vance/);   return s+(m?Math.round(Number(l.subtotal||0)*Number(m[1])/100):0); },0);
   const fechaSal = (() => { const d = new Date(); d.setDate(d.getDate() + diasPago); return d.toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"}); })();
   const fmtCLP   = (n) => `$${Math.round(n).toLocaleString("es-CL")}`;
 
@@ -6258,7 +6253,6 @@ function QuotePDF({ quote, onBack }) {
                 <tr style={{ background:"#f0f0f0" }}>
                   <th style={{ padding:"5px 8px", textAlign:"left" }}>Concepto</th>
                   <th style={{ padding:"5px 8px", textAlign:"right" }}>Monto</th>
-                  <th style={{ padding:"5px 8px", textAlign:"left", color:"#555" }}>Condición</th>
                 </tr>
               </thead>
               <tbody>
@@ -6266,7 +6260,6 @@ function QuotePDF({ quote, onBack }) {
                   <tr key={l.id} style={{ borderBottom:"1px solid #e0e0e0", background:i%2===0?"white":"#f9f9f9" }}>
                     <td style={{ padding:"5px 8px" }}>{l.description}</td>
                     <td style={{ padding:"5px 8px", textAlign:"right", fontWeight:600 }}>{fmt(l.subtotal)}</td>
-                    <td style={{ padding:"5px 8px", color:"#555" }}>{l.milestone}</td>
                   </tr>
                 ))}
               </tbody>
@@ -6325,13 +6318,6 @@ function QuotePDF({ quote, onBack }) {
                 <span style={labelStyle}>Pago contado</span>
                 <span style={noteStyle}>Pago inmediato</span>
                 <span style={valStyle}>{fmtCLP(total)}</span>
-              </div>
-            )}
-            {!knownPMs.includes(pm) && hitoLines.length>0 && (hitoAnticipo>0||hitoAvance>0||hitoFinalizar>0) && (
-              <div style={{ fontSize:11, marginTop:4 }}>
-                {hitoAnticipo>0  && <div style={rowStyle}><span style={labelStyle}>Anticipo</span><span style={noteStyle}>Al inicio del servicio</span><span style={valStyle}>{fmtCLP(hitoAnticipo)}</span></div>}
-                {hitoAvance>0    && <div style={rowStyle}><span style={labelStyle}>Avance de obra</span><span style={noteStyle}>Al avance del servicio</span><span style={valStyle}>{fmtCLP(hitoAvance)}</span></div>}
-                {hitoFinalizar>0 && <div style={rowStyle}><span style={labelStyle}>Al finalizar</span><span style={noteStyle}>Al término del servicio</span><span style={valStyle}>{fmtCLP(hitoFinalizar)}</span></div>}
               </div>
             )}
           </div>
@@ -7432,11 +7418,8 @@ function CosteoView({ contacts }) {
     const pctAnt = totalBruto>0?Math.round(totalAnt/totalBruto*100):0;
     const pctPar = totalBruto>0?Math.round(totalPar/totalBruto*100):0;
     const pctFin = totalBruto>0?Math.round(totalFin/totalBruto*100):0;
-    const partes = [];
-    if(pctAnt>0) partes.push(`${pctAnt}% Anticipo`);
-    if(pctPar>0) partes.push(`${pctPar}% Avance de obra`);
-    if(pctFin>0) partes.push(`${pctFin}% Al finalizar`);
-    const formaPago = partes.length>0 ? partes.join(" · ") : "A convenir";
+    // Mapear al valor estándar del dropdown del QuoteEditor
+    const formaPago = pctAnt===0 ? "Al finalizar" : "% personalizado";
     const { data: ultimas } = await supabase.from("cotizaciones").select("numero").order("numero",{ascending:false}).limit(1);
     const nextNum = ultimas&&ultimas[0] ? ultimas[0].numero+1 : 1;
     const sapBase = `POL-${String(nextNum).padStart(4,"0")}`;
@@ -7480,7 +7463,7 @@ function CosteoView({ contacts }) {
       contact_id:proyecto.clienteId||null, nombre_cliente:proyecto.clienteNombre||proyecto.cliente||"",
       rut_cliente:proyecto.clienteRut||"", razon_social:proyecto.clienteEmpresa||"",
       direccion:proyecto.clienteDireccion||"", telefono:proyecto.clienteTelefono||"",
-      forma_pago:formaPago, aplica_iva:true, iva_modo:"empresa",
+      forma_pago:formaPago, pct_anticipo:pctAnt, aplica_iva:true, iva_modo:"empresa",
       comentarios:`${proyecto.nombre}`,
       terminos:"", estado:"borrador", tipo:"productos", total:Math.round(totalBrutoFinal),
     };
