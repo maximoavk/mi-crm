@@ -6889,7 +6889,7 @@ function PartidaRow({ partida, fases, onChange, onDelete }) {
   const handleFaseChange = (faseId) => {
     const fase = fases.find(f=>String(f.id)===String(faseId));
     const updates = { faseId };
-    if(fase) updates.monto = Math.round(calcFase(fase).ventaBruta);
+    if(fase) updates.monto = Math.round(calcFase(fase).ventaConDesc);
     onChange({...partida, ...updates});
   };
   const style = { background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"5px 8px" };
