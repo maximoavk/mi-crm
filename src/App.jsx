@@ -14520,7 +14520,25 @@ function GuiasView({ isMobile }) {
         .from("shipments")
         .select("*, purchase_orders(id, numero_oc, estado, suppliers(nombre))")
         .order("created_at", { ascending: false });
-      setShipments(ships||[]);
+      if(!ships?.length){ setShipments([]); setLoading(false); return; }
+
+      // Traer líneas de OC con nombre de producto para listar en la tarjeta
+      const ocIds = [...new Set(ships.map(s=>s.purchase_order_id).filter(Boolean))];
+      const { data: lines } = await supabase
+        .from("purchase_order_lines")
+        .select("purchase_order_id, cantidad, products(codigo, nombre)")
+        .in("purchase_order_id", ocIds);
+
+      // Adjuntar líneas a cada shipment
+      const linesByOC = (lines||[]).reduce((acc,l)=>{
+        if(!acc[l.purchase_order_id]) acc[l.purchase_order_id]=[];
+        acc[l.purchase_order_id].push(l);
+        return acc;
+      },{});
+      setShipments(ships.map(s=>({
+        ...s,
+        ocLines: linesByOC[s.purchase_order_id]||[],
+      })));
       setLoading(false);
     })();
   },[]);
@@ -14762,6 +14780,19 @@ function GuiasView({ isMobile }) {
                   {s.created_at ? new Date(s.created_at).toLocaleDateString("es-CL",{ day:"2-digit", month:"short", year:"numeric" }) : "—"}
                 </span>
               </div>
+
+              {/* Productos de la OC */}
+              {s.ocLines?.length > 0 && (
+                <div style={{ marginTop:8, paddingTop:8, borderTop:`1px solid ${COLORS.border}`, display:"flex", flexWrap:"wrap", gap:6 }}>
+                  {s.ocLines.map((l,i)=>(
+                    <span key={i} style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"2px 8px" }}>
+                      <span style={{ color:COLORS.accent, fontWeight:700 }}>{l.cantidad}×</span>{" "}
+                      {l.products?.nombre||"—"}
+                      {l.products?.codigo && <span style={{ color:COLORS.textDim }}> · {l.products.codigo}</span>}
+                    </span>
+                  ))}
+                </div>
+              )}
 
             </div>
           );
