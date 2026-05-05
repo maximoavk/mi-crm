@@ -6270,8 +6270,7 @@ function QuotePDF({ quote, onBack }) {
         )}
 
         {/* FORMA DE PAGO con montos */}
-        {lines.filter(l=>l.lineType==="hito").length === 0 && (
-          <div style={{ marginBottom:12, borderTop:"1px solid #e0e0e0", paddingTop:8 }}>
+        <div style={{ marginBottom:12, borderTop:"1px solid #e0e0e0", paddingTop:8 }}>
             {quote.comments && (
               <div style={{ marginBottom:6, fontSize:11 }}>
                 <span style={{ fontWeight:700 }}>Comentarios: </span>
@@ -6324,13 +6323,6 @@ function QuotePDF({ quote, onBack }) {
               </div>
             )}
           </div>
-        )}
-        {lines.filter(l=>l.lineType==="hito").length > 0 && quote.comments && (
-          <div style={{ marginBottom:12, paddingTop:8, borderTop:"1px solid #e0e0e0" }}>
-            <span style={{ fontWeight:700 }}>Comentarios: </span>
-            <span style={{ fontSize:11, color:"#555" }}>{quote.comments}</span>
-          </div>
-        )}
 
         {/* TÉRMINOS */}
         {quote.terms && (
