@@ -7043,6 +7043,8 @@ function CosteoView({ contacts }) {
   const totalVentaFinal   = Math.round(fasesCalc.reduce((s,f)=>s+f.ventaConDesc,0) / 100) * 100; // con descuento aplicado, redondeado al 100 más cercano
   const hayDescuento      = totalDescuento > 0;
   const margenPct = totalCosto > 0 ? (totalMargen/totalCosto*100).toFixed(1) : 0;
+  const margenFinalBruto  = totalVentaFinal - totalCostoBruto; // margen post-descuento (venta final - costo bruto)
+  const margenFinalPct    = totalCostoBruto > 0 ? (margenFinalBruto/totalCostoBruto*100).toFixed(1) : 0;
 
   // Totales partidas
   const partidas = proyecto?.partidas||[];
@@ -7553,7 +7555,9 @@ function CosteoView({ contacts }) {
                   <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}><strong>RUT:</strong> {proyecto.clienteRut||"—"}</div>
                   <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}><strong>Fecha:</strong> {proyecto.fecha}</div>
                   <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text, marginTop:4 }}><strong>Forma de pago:</strong> {(()=>{
-                    const ps=proyecto.partidas||[], tb=fasesCalc.reduce((s,f)=>s+f.ventaBruta,0);
+                    const ps=proyecto.partidas||[];
+                    const tbFinal=fasesCalc.reduce((s,f)=>s+f.ventaConDesc,0);
+                    const tb=tbFinal>0?tbFinal:fasesCalc.reduce((s,f)=>s+f.ventaBruta,0);
                     const ant=ps.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctAnticipo)||0)/100),0);
                     const par=ps.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctParcial)||0)/100),0);
                     const fin=ps.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctFinalizar)||0)/100),0);
@@ -7659,7 +7663,7 @@ function CosteoView({ contacts }) {
             <TotBox label="IVA Neto SII"     value={totalIvaNetoSII} color="#f59e0b"          sub="A pagar al SII" />
             <TotBox label="Venta c/IVA"      value={totalVentaBruta} color={COLORS.accent}    sub={hayDescuento?"Antes de descuento":"Precio al cliente"} />
             {hayDescuento && <TotBox label="Descuento" value={totalDescuento} color="#f59e0b" sub={`${fasesCalc.filter(f=>f.descPct>0).map(f=>`${f.nombre} −${f.descPct}%`).join(" · ")}`} />}
-            {hayDescuento && <TotBox label="Venta Final" value={totalVentaFinal} color="#22c55e" sub="Con descuento aplicado" />}
+            {hayDescuento && <TotBox label="Venta Final" value={totalVentaFinal} color="#22c55e" sub={`Con descuento · Margen ${margenFinalPct}% sobre costo`} />}
           </div>
 
           {/* Fases */}
