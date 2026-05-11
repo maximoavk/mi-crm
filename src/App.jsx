@@ -6982,6 +6982,7 @@ function CosteoView({ contacts }) {
   const [genTipo, setGenTipo] = useState("fases");
   const [genSaving, setGenSaving] = useState(false);
   const [genDone, setGenDone] = useState(null);
+  const [search, setSearch] = useState("");
 
   useEffect(()=>{
     const saved = localStorage.getItem("costeo_proyectos");
@@ -7002,6 +7003,18 @@ function CosteoView({ contacts }) {
 
   const updateProyecto = (p) => { const list = proyectos.map(x=>x.id===p.id?p:x); save(list); };
   const deleteProyecto = (id) => { save(proyectos.filter(x=>x.id!==id)); if(selected===id) setSelected(null); };
+  const duplicateProyecto = (p, e) => {
+    e.stopPropagation();
+    const copia = {
+      ...p,
+      id: Date.now(),
+      nombre: `${p.nombre} (copia)`,
+      fecha: new Date().toISOString().slice(0,10),
+      fases: (p.fases||[]).map(f=>({ ...f, id: Date.now()+Math.random(), items:(f.items||[]).map(it=>({...it, id:Math.random().toString(36).slice(2)})) })),
+      partidas: (p.partidas||[]).map(pa=>({...pa, id: Date.now()+Math.random()}))
+    };
+    save([copia, ...proyectos]);
+  };
 
   const proyecto = proyectos.find(p=>p.id===selected);
 
@@ -7066,9 +7079,17 @@ function CosteoView({ contacts }) {
         </div>
         <button onClick={newProyecto} style={{ padding:"10px 20px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>+ Nuevo Proyecto</button>
       </div>
+      <input
+        value={search} onChange={e=>setSearch(e.target.value)}
+        placeholder="Buscar por nombre o cliente..."
+        style={{ width:"100%", padding:"10px 14px", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.text, fontFamily:FONT, fontSize:13, marginBottom:16, boxSizing:"border-box", outline:"none" }}
+      />
       {proyectos.length===0 && <div style={{ textAlign:"center", color:COLORS.textMuted, fontFamily:FONT, padding:60 }}>Sin proyectos. ¡Crea el primero!</div>}
       <div style={{ display:"grid", gap:12 }}>
-        {proyectos.map(p=>{
+        {proyectos.filter(p=>{
+          const q = search.toLowerCase();
+          return !q || (p.nombre||"").toLowerCase().includes(q) || (p.cliente||"").toLowerCase().includes(q) || (p.clienteNombre||"").toLowerCase().includes(q) || (p.clienteEmpresa||"").toLowerCase().includes(q);
+        }).map(p=>{
           const fc = (p.fases||[]).map(calcFase);
           const tv = fc.reduce((s,f)=>s+f.ventaTotal,0);
           const tc = fc.reduce((s,f)=>s+f.costoTotal,0);
@@ -7093,6 +7114,7 @@ function CosteoView({ contacts }) {
                   <div style={{ fontFamily:FONT, fontSize:13, fontWeight:600, color:COLORS.accent }}>${tv.toLocaleString("es-CL")}</div>
                 </div>
               </div>
+              <button onClick={e=>duplicateProyecto(p,e)} title="Duplicar proyecto" style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:15, padding:"0 4px" }}>⧉</button>
               <button onClick={e=>{e.stopPropagation();deleteProyecto(p.id);}} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:16 }}>×</button>
             </div>
           );
