@@ -6608,7 +6608,11 @@ function ItemRow({ item, onChange, onDelete, onDuplicate, onReorder, productos }
             style={{...style, color:COLORS.accent, fontWeight:600}}
             type="number"
             value={item.ventaUnitNeta !== undefined && item.ventaUnitNeta !== null ? item.ventaUnitNeta : Math.round(ventaUnit)}
-            onChange={e=>inp("ventaUnitNeta", e.target.value===""?"":Number(e.target.value))}
+            onChange={e=>{
+              const newVenta = e.target.value===""?"":Number(e.target.value);
+              const newMargen = costoUnit > 0 && newVenta ? Math.round((newVenta - costoUnit) / costoUnit * 100) : item.margen;
+              onChange({ ...item, ventaUnitNeta: newVenta, margen: newMargen });
+            }}
             placeholder="Precio venta"
             title="Precio venta neto unitario"
           />
