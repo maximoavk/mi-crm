@@ -3111,12 +3111,14 @@ function QuotesView({ contacts, isMobile }) {
   const updateStatus = async (id, status) => {
     await supabase.from("cotizaciones").update({ estado: status }).eq("id", id);
     setQuotes(quotes.map(q=>q.id===id?{...q,status}:q));
-    // Auto-push a pipeline cuando estado = "enviada" (tanto COT como SIN)
-    if(status==="enviada"){
+    // Auto-push a pipeline cuando estado = "enviada" o "aprobada"
+    if(status==="enviada" || status==="aprobada"){
       const q = quotes.find(x=>x.id===id);
       if(q){
         const serie  = q.serie||"COT";
         const codigo = `${serie}-${String(q.number).padStart(3,"0")}`;
+        const etapa  = status==="aprobada" ? "cierre" : "propuesta";
+        const prob   = status==="aprobada" ? 80 : 40;
         const { data:existing } = await supabase.from("deals").select("id").eq("quote_id",id).limit(1);
         if(!existing||existing.length===0){
           await supabase.from("deals").insert({
@@ -3125,14 +3127,14 @@ function QuotesView({ contacts, isMobile }) {
             rut_empresa: q.clientRut||"",
             contact_id: q.contactId||null,
             valor: q.total||0,
-            etapa: "propuesta",
-            probabilidad: 40,
+            etapa,
+            probabilidad: prob,
             quote_id: id,
             serie,
           });
         } else {
           await supabase.from("deals").update({
-            etapa:"propuesta",
+            etapa,
             titulo:`${codigo} – ${q.clientCompany||q.clientName||"Cliente"}`,
             valor: q.total||0,
             serie,
@@ -5905,6 +5907,8 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
             <option>0 a 30 días</option>
             <option>Contado</option>
             <option>% personalizado</option>
+            <option>Según partidas</option>
+            <option>A convenir</option>
           </Select>
           {(header.paymentMethod==="% personalizado"||header.paymentMethod==="0 a 30 días") && (
             <div style={{ display:"flex", gap:10, marginTop:8 }}>
@@ -6318,6 +6322,18 @@ function QuotePDF({ quote, onBack }) {
                 <span style={labelStyle}>Pago contado</span>
                 <span style={noteStyle}>Pago inmediato</span>
                 <span style={valStyle}>{fmtCLP(total)}</span>
+              </div>
+            )}
+            {pm==="Según partidas" && (
+              <div style={rowStyle}>
+                <span style={labelStyle}>Según partidas detalladas</span>
+                <span style={noteStyle}>Ver sección "Partidas de Pago" del presente documento</span>
+              </div>
+            )}
+            {pm==="A convenir" && (
+              <div style={rowStyle}>
+                <span style={labelStyle}>A convenir</span>
+                <span style={noteStyle}>Las condiciones de pago serán definidas por las partes</span>
               </div>
             )}
           </div>
@@ -7449,7 +7465,7 @@ function CosteoView({ contacts }) {
     const pctPar = pctBase>0?Math.round(totalPar/pctBase*100):0;
     const pctFin = pctBase>0?Math.round(totalFin/pctBase*100):0;
     // Mapear al valor estándar del dropdown del QuoteEditor
-    const formaPago = pctAnt===0 ? "Al finalizar" : "% personalizado";
+    const formaPago = partidas.length > 0 ? "Según partidas" : "A convenir";
     const { data: ultimas } = await supabase.from("cotizaciones").select("numero").order("numero",{ascending:false}).limit(1);
     const nextNum = ultimas&&ultimas[0] ? ultimas[0].numero+1 : 1;
     const sapBase = `POL-${String(nextNum).padStart(4,"0")}`;
@@ -16500,10 +16516,10 @@ function OperacionesView({ isMobile }) {
                       {pct>0 && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Checklist {pct}%</span>}
                       {o.firma_imagen && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.green }}>✓ Firmado</span>}
                     </div>
-                    <button onClick={async e=>{ e.stopPropagation(); const {data:hist}=await supabase.from("ordenes_trabajo").select("id,numero_ot,fecha_programada,estado,checklist,observaciones,proveedor_nombre,valor_servicio").eq("cliente_nombre",o.cliente_nombre).eq("equipo_tipo",o.equipo_tipo).neq("id",o.id).order("fecha_programada",{ascending:false}).limit(10); printOT(o,false,hist||[]); }}
+                    <button onClick={async e=>{ e.stopPropagation(); const {data:hist}=await supabase.from("ordenes_trabajo").select("id,numero_ot,fecha_programada,fecha_ultima_mantencion,estado,checklist,observaciones,proveedor_nombre,valor_servicio").eq("cliente_nombre",o.cliente_nombre).eq("equipo_tipo",o.equipo_tipo).neq("id",o.id).order("fecha_programada",{ascending:false}).limit(10); printOT(o,false,hist||[]); }}
                       title="PDF Técnico (con valor)"
                       style={{ background:"none", border:`1px solid ${COLORS.accent}44`, borderRadius:6, color:COLORS.accent, cursor:"pointer", padding:"4px 10px", fontSize:11, flexShrink:0 }}>🖨 Técnico</button>
-                    <button onClick={async e=>{ e.stopPropagation(); const {data:hist}=await supabase.from("ordenes_trabajo").select("id,numero_ot,fecha_programada,estado,checklist,observaciones,proveedor_nombre,valor_servicio").eq("cliente_nombre",o.cliente_nombre).eq("equipo_tipo",o.equipo_tipo).neq("id",o.id).order("fecha_programada",{ascending:false}).limit(10); printOT(o,true,hist||[]); }}
+                    <button onClick={async e=>{ e.stopPropagation(); const {data:hist}=await supabase.from("ordenes_trabajo").select("id,numero_ot,fecha_programada,fecha_ultima_mantencion,estado,checklist,observaciones,proveedor_nombre,valor_servicio").eq("cliente_nombre",o.cliente_nombre).eq("equipo_tipo",o.equipo_tipo).neq("id",o.id).order("fecha_programada",{ascending:false}).limit(10); printOT(o,true,hist||[]); }}
                       title="PDF Cliente (sin valor)"
                       style={{ background:"none", border:`1px solid ${COLORS.green}44`, borderRadius:6, color:COLORS.green, cursor:"pointer", padding:"4px 10px", fontSize:11, flexShrink:0 }}>🖨 Cliente</button>
                     <button onClick={async e=>{ e.stopPropagation(); if(!window.confirm("¿Eliminar esta OT?")) return; const {error}=await supabase.from("ordenes_trabajo").delete().eq("id",o.id); if(error){ alert("Error al eliminar: "+error.message); return; } setOts(prev=>prev.filter(x=>x.id!==o.id)); }}
@@ -16754,7 +16770,10 @@ function printOT(ot, clienteMode=false, historial=[]) {
   const fecha = ot.fecha_programada
     ? new Date(ot.fecha_programada+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"})
     : "—";
-  const fmtClp = n => "$"+Math.round(n||0).toLocaleString("es-CL");
+  const fmtClp  = n => "$"+Math.round(n||0).toLocaleString("es-CL");
+  const fmtFecha = s => s ? new Date(s+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"}) : null;
+  const fUltima  = fmtFecha(ot.fecha_ultima_mantencion);
+  const fProxima = fmtFecha(ot.fecha_proxima_mantencion);
   const tipoLabel = { mantencion:"Checklist de Mantención", comisionamiento:"Informe de Comisionamiento", visita:"Visita Técnica", garantia:"Garantía", emergencia:"Emergencia" };
 
   const checklistHtml = (ot.checklist||[]).map(sec=>`
@@ -16811,6 +16830,20 @@ function printOT(ot, clienteMode=false, historial=[]) {
     ? `<div class="firma-box"><div class="firma-label">Firma de conformidad del cliente</div><img src="${ot.firma_imagen}" style="max-width:200px;max-height:70px;display:block;margin:4px 0"/><div style="font-size:9px;color:#666">${ot.firma_nombre||""} · ${fecha}</div></div>`
     : `<div class="firma-box"><div class="firma-label">Firma de conformidad del cliente</div><div style="border-bottom:1px solid #aaa;height:50px;margin:4px 0"></div><div style="font-size:9px;color:#888">____________________________</div></div>`;
 
+  // Construir log unificado: OTs del historial + registros manuales acumulados
+  const logEntries = [];
+  historial.forEach(h => {
+    const hItems = (h.checklist||[]).flatMap(s=>s.items||[]).filter(it=>it.estado!=="na");
+    const hDone  = hItems.filter(it=>it.estado==="ok"||it.estado==="ok_c");
+    const hPct   = hItems.length ? Math.round(hDone.length/hItems.length*100) : null;
+    if(h.fecha_programada) logEntries.push({ tipo:"ot", num:h.numero_ot||"—", prov:h.proveedor_nombre||"—", pct:hPct, fecha:h.fecha_programada, obs:h.observaciones||"" });
+    if(h.fecha_ultima_mantencion && h.fecha_ultima_mantencion!==h.fecha_programada)
+      logEntries.push({ tipo:"manual", num:"—", prov:"Registro manual", pct:null, fecha:h.fecha_ultima_mantencion, obs:"" });
+  });
+  if(ot.fecha_ultima_mantencion && !logEntries.some(e=>e.fecha===ot.fecha_ultima_mantencion))
+    logEntries.push({ tipo:"manual", num:"—", prov:"Registro manual", pct:null, fecha:ot.fecha_ultima_mantencion, obs:"" });
+  logEntries.sort((a,b)=>b.fecha.localeCompare(a.fecha));
+
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     @page{size:A4 portrait;margin:12mm 14mm;}
     @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
@@ -16853,8 +16886,16 @@ function printOT(ot, clienteMode=false, historial=[]) {
     .hist-head{background:#f8fafc;font-weight:700;font-size:8.5px;color:#64748b;text-transform:uppercase;}
     .hist-num{color:#3b82f6;font-weight:700;}
     .hist-obs{font-size:8.5px;color:#64748b;font-style:italic;padding:2px 10px 4px;background:#fafafa;}
+    .hist-row.manual{background:#fffbeb;}
+    .hist-manual-badge{font-size:7.5px;font-weight:700;color:#b45309;background:#fef3c7;padding:1px 5px;border-radius:3px;margin-left:4px;}
     .mant-dates{display:flex;gap:6mm;margin:4mm 0;}
     .mant-date-box{flex:1;border:1px solid #e2e8f0;border-radius:3px;padding:5px 8px;}
+    .mant-reg{margin-top:5mm;border:1.5px solid #334155;border-radius:4px;overflow:hidden;}
+    .mant-reg-title{background:#1e293b;color:#fff;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:5px 10px;display:flex;justify-content:space-between;align-items:center;}
+    .mant-reg-dates{display:grid;grid-template-columns:1fr 1fr;gap:4mm;padding:6px 10px;background:#f8fafc;border-bottom:1px solid #e2e8f0;}
+    .mant-reg-lbl{font-size:7.5px;text-transform:uppercase;letter-spacing:.07em;color:#64748b;font-weight:600;margin-bottom:1px;}
+    .mant-reg-val{font-size:10.5px;font-weight:700;color:#1a1a1a;}
+    .mant-reg-val.no-data{color:#94a3b8;font-style:italic;font-weight:400;}
   </style></head><body>
   <div class="hdr">
     <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/696fa8336e4a7738348ad6c2_Logo%20Polygonos%20.png" alt="Polygonos"/>
@@ -16874,37 +16915,6 @@ function printOT(ot, clienteMode=false, historial=[]) {
   ${checklistHtml}
   ${materialesHtml}
   ${ot.observaciones?`<div class="obs-cierre"><b>Observaciones de cierre:</b> ${ot.observaciones}</div>`:""}
-  ${(ot.fecha_ultima_mantencion||ot.fecha_proxima_mantencion)?`
-  <div class="mant-dates">
-    <div class="mant-date-box">
-      <div class="meta-label">Última mantención</div>
-      <div class="meta-val">${ot.fecha_ultima_mantencion?new Date(ot.fecha_ultima_mantencion+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"}):"—"}</div>
-    </div>
-    <div class="mant-date-box">
-      <div class="meta-label">Próxima mantención programada</div>
-      <div class="meta-val">${ot.fecha_proxima_mantencion?new Date(ot.fecha_proxima_mantencion+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"}):"—"}</div>
-    </div>
-  </div>`:""}
-  ${historial.length>0?`
-  <div class="hist-block">
-    <div class="hist-title">📋 Log de mantenciones anteriores — ${ot.equipo_tipo} · ${ot.cliente_nombre}</div>
-    <div class="hist-row hist-head"><span>N° OT</span><span>Proveedor</span><span>Checklist</span><span>Fecha</span></div>
-    ${historial.map(h=>{
-      const hItems = (h.checklist||[]).flatMap(s=>s.items||[]).filter(it=>it.estado!=="na");
-      const hDone  = hItems.filter(it=>it.estado==="ok"||it.estado==="ok_c");
-      const hPct   = hItems.length?Math.round(hDone.length/hItems.length*100):null;
-      const ESTADO_LABELS = {borrador:"Borrador",pendiente:"Pendiente",confirmado:"Confirmado",en_progreso:"En progreso",prorrogado:"Prorrogado",completado:"Completado",cancelado:"Cancelado",firmada:"Firmada"};
-      return `<div>
-        <div class="hist-row">
-          <span class="hist-num">${h.numero_ot||"—"}</span>
-          <span>${h.proveedor_nombre||"—"}</span>
-          <span>${hPct!==null?hPct+"%":"—"}</span>
-          <span>${h.fecha_programada?new Date(h.fecha_programada+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"}):"—"}</span>
-        </div>
-        ${h.observaciones?`<div class="hist-obs">↳ ${h.observaciones}</div>`:""}
-      </div>`;
-    }).join("")}
-  </div>`:""}
   <div class="footer-row">
     <div class="tecnico-box">
       <div class="firma-label">Elaborado por</div>
@@ -16913,6 +16923,33 @@ function printOT(ot, clienteMode=false, historial=[]) {
       <div style="border-bottom:1px solid #aaa;height:40px;margin-top:6px"></div>
     </div>
     ${firmaHtml}
+  </div>
+  <div class="mant-reg">
+    <div class="mant-reg-title">
+      <span>📋 Registro de Mantenimiento · ${ot.equipo_tipo||"Equipo"} · ${ot.cliente_nombre||""}</span>
+      <span style="font-weight:400;font-size:8.5px;letter-spacing:0">${historial.length>0?historial.length+" mantención"+(historial.length!==1?"es":"")+" anterior"+(historial.length!==1?"es":""):"Sin historial previo"}</span>
+    </div>
+    <div class="mant-reg-dates">
+      <div>
+        <div class="mant-reg-lbl">Última mantención</div>
+        <div class="mant-reg-val${fUltima?"":" no-data"}">${fUltima||"Sin registro"}</div>
+      </div>
+      <div>
+        <div class="mant-reg-lbl">Próxima mantención programada</div>
+        <div class="mant-reg-val${fProxima?"":" no-data"}">${fProxima||"Por definir"}</div>
+      </div>
+    </div>
+    ${logEntries.length>0?`
+    <div class="hist-row hist-head" style="border-top:1px solid #e2e8f0"><span>N° OT</span><span>Proveedor / Origen</span><span>Checklist</span><span>Fecha</span></div>
+    ${logEntries.map(e=>`<div>
+        <div class="hist-row${e.tipo==="manual"?" manual":""}">
+          <span class="${e.tipo==="ot"?"hist-num":""}">${e.num}${e.tipo==="manual"?`<span class="hist-manual-badge">MANUAL</span>`:""}</span>
+          <span>${e.prov}</span>
+          <span>${e.pct!==null?e.pct+"%":"—"}</span>
+          <span>${new Date(e.fecha+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}</span>
+        </div>
+        ${e.obs?`<div class="hist-obs">↳ ${e.obs}</div>`:""}
+      </div>`).join("")}`:""}
   </div>
   <div class="foot">Innovación | Tecnología | Seguridad · ventas@polygonos.cl · +56 9 6426 6356 · Polygonos SpA · RUT 77.180.437-3</div>
   <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;background:#fff;z-index:9999"><div style="display:flex;flex-direction:column;line-height:1.15"><span style="font-size:6px;font-weight:700;color:#0ea5e9;letter-spacing:0.18em;text-transform:uppercase;font-family:Arial,sans-serif">CLAUDE ERP</span><span style="font-size:11px;font-weight:900;color:#0f172a;font-family:Arial,sans-serif;letter-spacing:-0.01em">Polygonos 360</span></div></div>
