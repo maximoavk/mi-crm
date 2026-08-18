@@ -7229,7 +7229,16 @@ function CosteoView({ contacts }) {
       <div style={{ display:"grid", gap:12 }}>
         {proyectos.filter(p=>{
           const q = search.toLowerCase();
-          return !q || (p.nombre||"").toLowerCase().includes(q) || (p.cliente||"").toLowerCase().includes(q) || (p.clienteNombre||"").toLowerCase().includes(q) || (p.clienteEmpresa||"").toLowerCase().includes(q);
+          return !q || (p.nombre||"").toLowerCase().includes(q) || (p.cliente||"").toLowerCase().includes(q) || (p.clienteNombre||"").toLowerCase().includes(q) || (p.clienteEmpresa||"").toLowerCase().includes(q) || (p.cotizacion||"").includes(q);
+        }).sort((a,b)=>{
+          const an = a.cotizacion ? Number(a.cotizacion) : null;
+          const bn = b.cotizacion ? Number(b.cotizacion) : null;
+          if(an!=null || bn!=null){
+            if(an==null) return 1;   // sin cotizar → al final
+            if(bn==null) return -1;
+            if(an!==bn) return bn-an; // cotización más reciente primero
+          }
+          return (b.fecha||"").localeCompare(a.fecha||""); // entre iguales, fecha más reciente primero
         }).map(p=>{
           const fc = (p.fases||[]).map(calcFase);
           const tv = fc.reduce((s,f)=>s+f.ventaTotal,0);
@@ -7238,7 +7247,10 @@ function CosteoView({ contacts }) {
           return (
             <div key={p.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"16px 20px", display:"flex", alignItems:"center", gap:16, cursor:"pointer" }} onClick={()=>setSelected(p.id)}>
               <div style={{ flex:1 }}>
-                <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>{p.nombre}</div>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>
+                  {p.cotizacion && <span style={{ color:COLORS.accent }}>COT-{String(p.cotizacion).padStart(3,"0")} · </span>}
+                  {p.nombre}
+                </div>
                 <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{p.cliente} · {p.fecha}</div>
               </div>
               <div style={{ display:"flex", gap:20 }}>
@@ -7676,6 +7688,7 @@ function CosteoView({ contacts }) {
       }))];
     }
     if(lineas.length>0) await supabase.from("quote_lines").insert(lineas);
+    updateProyecto({ ...proyecto, cotizacion: String(nextNum) });
     setGenSaving(false);
     setGenDone(nextNum);
   };
@@ -7755,6 +7768,11 @@ function CosteoView({ contacts }) {
       {/* Header */}
       <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16, flexWrap:"wrap" }}>
         <button onClick={()=>{ flushPending(selected); setSelected(null); }} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>← Proyectos</button>
+        {proyecto.cotizacion && (
+          <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.accent, background:`${COLORS.accent}18`, border:`1px solid ${COLORS.accent}44`, borderRadius:6, padding:"4px 10px" }}>
+            COT-{String(proyecto.cotizacion).padStart(3,"0")}
+          </span>
+        )}
         <div style={{ flex:1 }}>
           <input value={proyecto.nombre} onChange={e=>updateProyecto({...proyecto,nombre:e.target.value})}
             style={{ background:"transparent", border:"none", color:COLORS.text, fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, outline:"none", width:"100%" }} />
