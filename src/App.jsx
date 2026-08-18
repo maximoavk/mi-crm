@@ -7064,7 +7064,14 @@ function CosteoView({ contacts }) {
   const importLocalBackup = async () => {
     if(!localBackup || localBackup.length===0) return;
     setImporting(true);
-    const rows = localBackup.map(p => mapCosteoToDb(p));
+    const contactIds = new Set(contacts.map(c=>c.id));
+    // clienteId/proyectoId de datos viejos pueden apuntar a un contacto/proyecto ya borrado
+    // o inexistente en este entorno: se descartan para no violar la FK y perder toda la importación.
+    const rows = localBackup.map(p => mapCosteoToDb({
+      ...p,
+      clienteId: contactIds.has(p.clienteId) ? p.clienteId : null,
+      proyectoId: null,
+    }));
     const { error } = await supabase.from("costeos").insert(rows);
     if(error){ alert("Error al importar: "+error.message); setImporting(false); return; }
     localStorage.removeItem("costeo_proyectos");
