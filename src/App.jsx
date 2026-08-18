@@ -1930,13 +1930,38 @@ function GanttView({ isMobile }) {
       const { data: cot } = await supabase.from("cotizaciones").select("*").eq("numero", Number(num)).single();
       if(cot) {
         setProyecto({ nombre: cot.comentarios||cot.razon_social||`Proyecto Cot. ${num}`, cotNum: num });
-        // Buscar líneas tipo "item" para importar como fases
-        const { data: lines } = await supabase.from("quote_lines").select("*").eq("quote_id", cot.id).eq("tipo_linea","item").order("orden");
-        const imported = (lines||[]).map((l,i)=>({
-          id: `new_${Date.now()}_${i}`, tipo:"F", nombre: l.descripcion||`Fase ${i+1}`,
-          rol:"PM", responsable:"", inicio: today, fin: addDays(today, 14),
-          pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, hhTerceros:0, depende:"", orden:i, parentId:null,
-        }));
+        // Buscar costeo vinculado para importar fases + desglose de Mano de Obra (HH cotizadas)
+        const { data: costeo } = await supabase.from("costeos").select("fases").eq("cotizacion_id", cot.id).maybeSingle();
+        let imported = [];
+        if(costeo && (costeo.fases||[]).length > 0) {
+          let orden = 0;
+          (costeo.fases||[]).forEach((f, fi) => {
+            const faseId = `new_${Date.now()}_${fi}`;
+            imported.push({
+              id: faseId, tipo:"F", nombre: f.nombre||`Fase ${fi+1}`,
+              rol:"PM", responsable:"", inicio: today, fin: addDays(today, 14),
+              pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, hhTerceros:0, depende:"", orden:orden++, parentId:null,
+            });
+            // Cada actividad de Mano de Obra del costeo entra como tarea hija de su fase,
+            // con las HH ya cotizadas — solo faltan rol/responsable/fechas y las tareas admin que no están en el costo.
+            (f.items||[]).filter(it=>it.tipo==="Mano de Obra / HH").forEach((it, ii) => {
+              imported.push({
+                id: `new_${Date.now()}_${fi}_${ii}`, tipo:"T", nombre: it.descripcion||"Actividad",
+                rol:"", responsable:"", inicio: today, fin: addDays(today, 14),
+                pctPlan:0, pctAvance:0, hhPresup:(Number(it.hh)||1)*(Number(it.qty)||1), hhReal:0, hhTerceros:0,
+                depende:"", orden:orden++, parentId:faseId,
+              });
+            });
+          });
+        } else {
+          // Sin costeo vinculado: fallback a importar fases desde las líneas de la cotización
+          const { data: lines } = await supabase.from("quote_lines").select("*").eq("quote_id", cot.id).eq("tipo_linea","item").order("orden");
+          imported = (lines||[]).map((l,i)=>({
+            id: `new_${Date.now()}_${i}`, tipo:"F", nombre: l.descripcion||`Fase ${i+1}`,
+            rol:"PM", responsable:"", inicio: today, fin: addDays(today, 14),
+            pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, hhTerceros:0, depende:"", orden:i, parentId:null,
+          }));
+        }
         setTasks(imported);
         setGanttId(null);
       } else {
