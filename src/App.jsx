@@ -6469,20 +6469,19 @@ const IVA = 1.19;
 const CAT_TIPOS = ["Equipos","Ferretería","Mano de Obra / HH"];
 const CAT_COLOR = { "Equipos":"#3b82f6","Mano de Obra / HH":"#10b981","Ferretería":"#f59e0b","Materiales":"#f59e0b" };
 
-// Prefijo SAP por tipo de recurso
-const SAP_PREFIX = {
-  "Equipos":           "E",
-  "Ferretería":        "M",
-  "Materiales":        "M",
-  "Mano de Obra / HH": "H",
-  "Costos Indirectos": "I",
-};
-
-// Genera código SAP automático: F{fi+1}-E001
-function genSapCod(tipo, faseIdx, itemsDelTipo) {
-  const prefix = SAP_PREFIX[tipo] || "X";
-  const num = String(itemsDelTipo.length + 1).padStart(3, "0");
-  return `F${faseIdx + 1}-${prefix}${num}`;
+// Códigos SAP de una fase: correlativo único (sin distinguir categoría) según el orden
+// visual de los ítems (mismo agrupamiento que se renderiza: Equipos, Ferretería, Mano de Obra).
+// Se recalcula siempre a partir de la posición real — así reordenar/duplicar ítems o fases
+// nunca puede dejar códigos repetidos o desalineados con la fase que los contiene.
+function codigosPorFase(items, faseIdx) {
+  const grouped = CAT_TIPOS.reduce((acc,t)=>{
+    acc[t] = t==="Ferretería" ? (items||[]).filter(i=>i.tipo==="Ferretería"||i.tipo==="Materiales") : (items||[]).filter(i=>i.tipo===t);
+    return acc;
+  },{});
+  const map = {};
+  let n = 0;
+  CAT_TIPOS.forEach(t => { grouped[t].forEach(it => { n++; map[it.id] = `F${faseIdx+1}-${String(n).padStart(3,"0")}`; }); });
+  return map;
 }
 
 function newItem(tipo) {
@@ -6550,7 +6549,7 @@ function TotBox({ label, value, color, sub }) {
   );
 }
 
-function ItemRow({ item, onChange, onDelete, onDuplicate, onReorder, productos }) {
+function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, productos }) {
   const [busqueda, setBusqueda] = useState("");
   const [showCat, setShowCat] = useState(false);
   const dragFromHandle = React.useRef(false);
@@ -6602,9 +6601,11 @@ function ItemRow({ item, onChange, onDelete, onDuplicate, onReorder, productos }
         onMouseDown={()=>{ dragFromHandle.current=true; }}
         onMouseUp={()=>{ dragFromHandle.current=false; }}
       >⠿</td>
-      {/* COD */}
+      {/* COD — calculado según posición, se recalcula solo al reordenar/duplicar */}
       <td style={{ padding:"6px 4px", width:55 }}>
-        <input style={{...style, textAlign:"center", color:COLORS.accent, fontWeight:600}} value={item.cod||""} onChange={e=>inp("cod",e.target.value)} placeholder={`F?-${SAP_PREFIX[item.tipo]||"X"}001`} title={`Código SAP: POL-XXXX-${item.cod||"F?-"+SAP_PREFIX[item.tipo]+"001"} (se completa al generar cotización)`} />
+        <div style={{ textAlign:"center", color:COLORS.accent, fontWeight:600, fontFamily:FONT, fontSize:11, padding:"4px 2px" }} title={`Código SAP: POL-XXXX-${codigo||""} (se completa al generar cotización)`}>
+          {codigo||"—"}
+        </div>
       </td>
 
       {/* Descripción + buscador catálogo */}
@@ -6759,10 +6760,9 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
   const margenPct = calc.costoNeto > 0 ? (calc.margenTotal/calc.costoNeto*100).toFixed(1) : 0;
 
   const addItem = (tipo) => {
-    const itemsDelTipo = (fase.items||[]).filter(i=>i.tipo===tipo||( tipo==="Ferretería"&&i.tipo==="Materiales"));
-    const cod = genSapCod(tipo, faseIdx, itemsDelTipo);
-    onChange({ ...fase, items:[...(fase.items||[]), { ...newItem(tipo), cod }] });
+    onChange({ ...fase, items:[...(fase.items||[]), newItem(tipo)] });
   };
+  const codigoPorId = codigosPorFase(fase.items, faseIdx);
   const updateItem = (id, item) => onChange({ ...fase, items: fase.items.map(i=>i.id===id?item:i) });
   const deleteItem = (id) => onChange({ ...fase, items: fase.items.filter(i=>i.id!==id) });
   const duplicateItem = (id) => {
@@ -6902,7 +6902,7 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
                       </thead>
                       <tbody>
                         {grouped[tipo].map(it=>(
-                          <ItemRow key={it.id} item={esMO ? {...it, moConIVA: fase.moConIVA} : it} onChange={item=>updateItem(it.id, esMO ? {...item, moConIVA: undefined} : item)} onDelete={()=>deleteItem(it.id)} onDuplicate={()=>duplicateItem(it.id)} onReorder={reorderItem} productos={productos} />
+                          <ItemRow key={it.id} item={esMO ? {...it, moConIVA: fase.moConIVA} : it} codigo={codigoPorId[it.id]} onChange={item=>updateItem(it.id, esMO ? {...item, moConIVA: undefined} : item)} onDelete={()=>deleteItem(it.id)} onDuplicate={()=>duplicateItem(it.id)} onReorder={reorderItem} productos={productos} />
                         ))}
                       </tbody>
                         <tfoot>
@@ -7386,7 +7386,8 @@ function CosteoView({ contacts, openId, onOpenIdHandled }) {
     const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
     const pct = tCosto>0?(tMargen/tCosto*100).toFixed(1):0;
     const PDF_TYPE_ORDER = {"Equipos":0,"Ferretería":1,"Materiales":1,"Mano de Obra / HH":2,"Costos Indirectos":3};
-    const fasesHTML = fases.map(f=>{
+    const fasesHTML = fases.map((f,fi)=>{
+      const codigoPorId = codigosPorFase(f.items, fi);
       const sortedItems = [...(f.items||[])].sort((a,b)=>(PDF_TYPE_ORDER[a.tipo]??9)-(PDF_TYPE_ORDER[b.tipo]??9));
       const rows = sortedItems.map(calcItem).map(it=>{
         const tieneIVA = it.ivaVenta > 0;
@@ -7398,7 +7399,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled }) {
           </td>
         </tr>` : "";
         return `<tr style="border-bottom:${it.datasheet_url?"none":"1px solid #f1f5f9"}">
-          <td style="padding:4px 6px;color:#3b82f6;font-weight:600">${it.cod||""}</td>
+          <td style="padding:4px 6px;color:#3b82f6;font-weight:600">${codigoPorId[it.id]||""}</td>
           <td style="padding:4px 6px">${it.descripcion||""}</td>
           <td style="padding:4px 6px;color:#94a3b8">${it.modelo||""}</td>
           <td style="padding:4px 6px;text-align:center">${it.tipo==="Mano de Obra / HH"?`${it.hh}HH×${it.qty}`:it.qty}</td>
@@ -7516,7 +7517,8 @@ function CosteoView({ contacts, openId, onOpenIdHandled }) {
     const tParcial = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctParcial)||0)/100),0);
     const tFinalizar = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctFinalizar)||0)/100),0);
     const CLI_TYPE_ORDER = {"Equipos":0,"Ferretería":1,"Materiales":1,"Mano de Obra / HH":2,"Costos Indirectos":3};
-    const fasesHTML = fases.map(f=>{
+    const fasesHTML = fases.map((f,fi)=>{
+      const codigoPorId = codigosPorFase(f.items, fi);
       const sortedItems = [...(f.items||[])].sort((a,b)=>(CLI_TYPE_ORDER[a.tipo]??9)-(CLI_TYPE_ORDER[b.tipo]??9));
       const rows = sortedItems.map(calcItem).map(it=>{
         const tieneIVA = it.ivaVenta > 0;
@@ -7527,7 +7529,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled }) {
           </td>
         </tr>` : "";
         return `<tr style="border-bottom:${it.datasheet_url?"none":"1px solid #f1f5f9"}">
-          <td style="padding:5px 8px;color:#3b82f6;font-weight:600">${it.cod||""}</td>
+          <td style="padding:5px 8px;color:#3b82f6;font-weight:600">${codigoPorId[it.id]||""}</td>
           <td style="padding:5px 8px">${it.descripcion||""}</td>
           <td style="padding:5px 8px;color:#94a3b8">${it.modelo||""}</td>
           <td style="padding:5px 8px;text-align:center">${cantLabel}</td>
@@ -7684,16 +7686,12 @@ function CosteoView({ contacts, openId, onOpenIdHandled }) {
 
     // ── INDEXAR ÍTEMS AL CATÁLOGO ────────────────────────────────────────────
     // Para cada ítem de cada fase, upsert en products usando el código SAP como key
+    // (mismo código correlativo que se muestra en el costeo, vía codigosPorFase)
     const itemsParaCatalogo = [];
     fases.forEach((f, fi) => {
+      const codigoPorId = codigosPorFase(f.items, fi);
       (f.items||[]).forEach(it => {
-        const prefix = SAP_PREFIX[it.tipo]||"X";
-        // Si el ítem ya tiene cod con formato F#-X###, lo completa con POL-XXXX-
-        // Si no tiene, genera uno nuevo
-        const codBase = it.cod && it.cod.match(/^F\d+-[A-Z]\d{3}$/)
-          ? it.cod
-          : genSapCod(it.tipo, fi, []);
-        const sapCod = `${sapBase}-${codBase}`;
+        const sapCod = `${sapBase}-${codigoPorId[it.id]}`;
         // Solo indexa si tiene descripción
         if(it.descripcion) {
           itemsParaCatalogo.push({
