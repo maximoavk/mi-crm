@@ -1444,17 +1444,17 @@ function ControlProyectosView({ contacts }) {
   // Carga proyectos + enriquece con gantt y costeo
   const load = async () => {
     setLoading(true);
-    const [{ data: pRows }, { data: gRows }, { data: tRows }, { data: cRows }] = await Promise.all([
+    const [{ data: pRows }, { data: gRows }, { data: tRows }, { data: cRows }, { data: costeoRows }] = await Promise.all([
       supabase.from("proyectos").select("*").order("created_at", { ascending: false }),
       supabase.from("gantt_proyectos").select("*"),
       supabase.from("gantt_tareas").select("id, gantt_id, pct_avance, nombre, tipo"),
       supabase.from("cotizaciones").select("id, numero, serie, nombre_cliente, razon_social, total, aplica_iva"),
+      supabase.from("costeos").select("id, nombre, fases, partidas, proyecto_id, cotizacion"),
     ]);
     const tareasByGantt = (tRows||[]).reduce((acc,t)=>{ (acc[t.gantt_id]=acc[t.gantt_id]||[]).push(t); return acc; },{});
     const ganttByCot = (gRows||[]).reduce((acc,g)=>{ acc[g.numero_cotizacion]=g; return acc; },{});
-    // Leer costeo desde localStorage
-    let costeoProyectos = [];
-    try { costeoProyectos = JSON.parse(localStorage.getItem("costeo_proyectos")||"[]"); } catch{}
+    // Costeo desde Supabase (proyectoId → costeoRows.proyecto_id, cotizacion → costeoRows.cotizacion)
+    const costeoProyectos = (costeoRows||[]).map(cp=>({ ...cp, proyectoId: cp.proyecto_id }));
 
     const enriched = (pRows||[]).map(p=>{
       const cot = (cRows||[]).find(c=>c.id===p.cotizacion_id || c.numero===p.numero_cotizacion);
@@ -1535,16 +1535,15 @@ function ControlProyectosView({ contacts }) {
   };
 
   const updateFaseEstado = async (proyId, faseId, nuevoEstado) => {
-    // Guarda en localStorage el estado de la fase
-    let costeoProyectos = [];
-    try { costeoProyectos = JSON.parse(localStorage.getItem("costeo_proyectos")||"[]"); } catch{}
-    const updated = costeoProyectos.map(cp=>{
-      const pr = proyectos.find(p=>p.id===proyId);
-      if(!pr) return cp;
-      if(cp.proyectoId!==proyId && String(cp.cotizacion)!==String(pr.numero_cotizacion)) return cp;
-      return { ...cp, fases:(cp.fases||[]).map(fa=>fa.id===faseId?{...fa,estado:nuevoEstado}:fa) };
-    });
-    localStorage.setItem("costeo_proyectos", JSON.stringify(updated));
+    const pr = proyectos.find(p=>p.id===proyId);
+    if(!pr) return;
+    const { data: cRows } = await supabase.from("costeos").select("id, fases")
+      .or(`proyecto_id.eq.${proyId}${pr.numero_cotizacion?`,cotizacion.eq.${pr.numero_cotizacion}`:""}`);
+    const costeo = (cRows||[])[0];
+    if(costeo){
+      const fasesActualizadas = (costeo.fases||[]).map(fa=>fa.id===faseId?{...fa,estado:nuevoEstado}:fa);
+      await supabase.from("costeos").update({ fases: fasesActualizadas, updated_at: new Date().toISOString() }).eq("id", costeo.id);
+    }
     setProyectos(prev=>prev.map(p=>{
       if(p.id!==proyId) return p;
       return { ...p, fases: p.fases.map(fa=>fa.id===faseId?{...fa,estado:nuevoEstado}:fa) };
@@ -3076,7 +3075,7 @@ function ProductsDB({ isMobile }) {
 }
 
 // ── COTIZACIONES LIST ────────────────────────────────────────────────────────
-function QuotesView({ contacts, isMobile }) {
+function QuotesView({ contacts, isMobile, setDeals: setCrmDeals }) {
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("list");
@@ -3106,6 +3105,18 @@ function QuotesView({ contacts, isMobile }) {
     enviada:   { label:"Enviada",   color:COLORS.yellow },
     aprobada:  { label:"Aprobada",  color:COLORS.green },
     rechazada: { label:"Rechazada", color:COLORS.red },
+  };
+
+  const refreshDealForQuote = async (quoteId) => {
+    if(!setCrmDeals) return;
+    const { data } = await supabase.from("deals").select("*").eq("quote_id", quoteId).limit(1);
+    if(data && data.length > 0) {
+      const d = mapDeal(data[0]);
+      setCrmDeals(prev => {
+        const idx = prev.findIndex(x => x.id === d.id);
+        return idx >= 0 ? prev.map((x,i) => i===idx ? d : x) : [...prev, d];
+      });
+    }
   };
 
   const updateStatus = async (id, status) => {
@@ -3140,6 +3151,7 @@ function QuotesView({ contacts, isMobile }) {
             serie,
           }).eq("id", existing[0].id);
         }
+        await refreshDealForQuote(id);
       }
     }
   };
@@ -3188,8 +3200,8 @@ function QuotesView({ contacts, isMobile }) {
     setQuotes(quotes.filter(q=>q.id!==id));
   };
 
-  if (view==="new") return <QuoteEditor contacts={contacts} nextCOT={nextCOT} nextSIN={nextSIN} onSave={(q)=>{ setQuotes([q,...quotes]); if((q.serie||"COT")==="COT") setNextCOT(n=>n+1); else setNextSIN(n=>n+1); setSelectedQuote(q); setView("list"); }} onCancel={()=>setView("list")} />;
-  if (view==="detail" && selectedQuote) return <QuoteEditor contacts={contacts} quote={selectedQuote} nextCOT={nextCOT} nextSIN={nextSIN} onSave={(q)=>{ setQuotes(quotes.map(x=>x.id===q.id?q:x)); setSelectedQuote(q); setView("list"); }} onCancel={()=>setView("list")} />;
+  if (view==="new") return <QuoteEditor contacts={contacts} nextCOT={nextCOT} nextSIN={nextSIN} onSave={(q)=>{ setQuotes([q,...quotes]); if((q.serie||"COT")==="COT") setNextCOT(n=>n+1); else setNextSIN(n=>n+1); setSelectedQuote(q); setView("list"); if(q.status==="enviada"||q.status==="aprobada") refreshDealForQuote(q.id); }} onCancel={()=>setView("list")} />;
+  if (view==="detail" && selectedQuote) return <QuoteEditor contacts={contacts} quote={selectedQuote} nextCOT={nextCOT} nextSIN={nextSIN} onSave={(q)=>{ setQuotes(quotes.map(x=>x.id===q.id?q:x)); setSelectedQuote(q); setView("list"); if(q.status==="enviada"||q.status==="aprobada") refreshDealForQuote(q.id); }} onCancel={()=>setView("list")} />;
   if (view==="pdf" && selectedQuote) return <QuotePDF quote={selectedQuote} onBack={()=>setView("list")} />;
 
   return (
@@ -5735,15 +5747,15 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
     if (savedQuote && lines.length > 0) {
       await supabase.from("quote_lines").insert(lines.map(l=>mapQuoteLineToDb(l, savedQuote.id)));
     }
-    // Auto-push a Pipeline si estado = "enviada" (COT → Propuesta 40%, SIN → Por Facturar 100%)
-    if((quoteData.estado === "enviada" || quoteData.serie === "SIN") && savedQuote){
+    // Auto-push a Pipeline si estado = "enviada" o "aprobada" (COT → Propuesta/Cierre, SIN → Cerrado 100%)
+    if((quoteData.estado === "enviada" || quoteData.estado === "aprobada" || quoteData.serie === "SIN") && savedQuote){
       const serie  = header.serie||savedQuote.serie||"COT";
       const isSIN  = serie === "SIN";
       const num    = String(header.number||savedQuote.numero||"?").padStart(3,"0");
       const codigo = `${serie}-${num}`;
       const titulo = `${codigo} – ${header.clientCompany||header.clientName||"Cliente"}`;
-      const etapa  = isSIN ? "cerrado" : "propuesta";
-      const prob   = isSIN ? 100 : 40;
+      const etapa  = isSIN ? "cerrado" : (quoteData.estado === "aprobada" ? "cierre" : "propuesta");
+      const prob   = isSIN ? 100 : (quoteData.estado === "aprobada" ? 80 : 40);
       const { data:existing } = await supabase.from("deals").select("id").eq("quote_id",savedQuote.id).limit(1);
       if(!existing||existing.length===0){
         await supabase.from("deals").insert({
@@ -6991,8 +7003,28 @@ function PartidaRow({ partida, fases, onChange, onDelete }) {
   );
 }
 
+const mapCosteo = (r) => ({
+  id: r.id, nombre: r.nombre || "", cliente: r.cliente || "",
+  fecha: r.fecha || new Date().toISOString().slice(0,10),
+  fases: r.fases || [], partidas: r.partidas || [],
+  clienteNombre: r.cliente_nombre || "", clienteEmpresa: r.cliente_empresa || "",
+  clienteRut: r.cliente_rut || "", clienteTelefono: r.cliente_telefono || "",
+  clienteDireccion: r.cliente_direccion || "", clienteId: r.cliente_id || "",
+  proyectoId: r.proyecto_id || null, cotizacion: r.cotizacion || "",
+});
+const mapCosteoToDb = (p) => ({
+  nombre: p.nombre || "Nuevo Proyecto", cliente: p.cliente || "",
+  fecha: p.fecha || null, fases: p.fases || [], partidas: p.partidas || [],
+  cliente_nombre: p.clienteNombre || "", cliente_empresa: p.clienteEmpresa || "",
+  cliente_rut: p.clienteRut || "", cliente_telefono: p.clienteTelefono || "",
+  cliente_direccion: p.clienteDireccion || "", cliente_id: p.clienteId || null,
+  proyecto_id: p.proyectoId || null, cotizacion: p.cotizacion || null,
+  updated_at: new Date().toISOString(),
+});
+
 function CosteoView({ contacts }) {
   const [proyectos, setProyectos] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
   const [page, setPage] = useState("costeo");
   const [rutSearch, setRutSearch] = useState("");
@@ -7003,37 +7035,107 @@ function CosteoView({ contacts }) {
   const [genSaving, setGenSaving] = useState(false);
   const [genDone, setGenDone] = useState(null);
   const [search, setSearch] = useState("");
+  const [saveStatus, setSaveStatus] = useState("idle"); // idle | saving | saved
+  const [localBackup, setLocalBackup] = useState(null); // proyectos sin sincronizar de este navegador
+  const [importing, setImporting] = useState(false);
+  const saveTimers = React.useRef({});
+  const proyectosRef = React.useRef([]);
+  React.useEffect(()=>{ proyectosRef.current = proyectos; },[proyectos]);
+
+  const loadCosteos = async () => {
+    const { data } = await supabase.from("costeos").select("*").order("created_at",{ascending:false});
+    setProyectos((data||[]).map(mapCosteo));
+    setLoading(false);
+  };
 
   useEffect(()=>{
-    const saved = localStorage.getItem("costeo_proyectos");
-    if(saved) try { setProyectos(JSON.parse(saved)); } catch{}
+    loadCosteos();
+    // Detecta proyectos guardados en localStorage de ESTE navegador (de antes de Supabase,
+    // o de un navegador/PC que nunca se sincronizó) para ofrecer importarlos.
+    let local = [];
+    try { local = JSON.parse(localStorage.getItem("costeo_proyectos")||"[]"); } catch{}
+    if(local.length > 0) setLocalBackup(local);
     // Cargar catálogo desde Supabase
     supabase.from("products").select("*").then(({data})=>{
       if(data) setProductos(data.map(mapProduct));
     });
   },[]);
 
-  const save = (list) => { setProyectos(list); localStorage.setItem("costeo_proyectos",JSON.stringify(list)); };
+  const importLocalBackup = async () => {
+    if(!localBackup || localBackup.length===0) return;
+    setImporting(true);
+    const rows = localBackup.map(p => mapCosteoToDb(p));
+    const { error } = await supabase.from("costeos").insert(rows);
+    if(error){ alert("Error al importar: "+error.message); setImporting(false); return; }
+    localStorage.removeItem("costeo_proyectos");
+    setLocalBackup(null);
+    await loadCosteos();
+    setImporting(false);
+  };
 
-  const newProyecto = () => {
-    const p = { id: Date.now(), nombre:"Nuevo Proyecto", cliente:"", fecha: new Date().toISOString().slice(0,10), fases:[], partidas:[] };
-    save([p, ...proyectos]);
+  useEffect(()=>{
+    return () => {
+      Object.keys(saveTimers.current).forEach(id=>{
+        clearTimeout(saveTimers.current[id]);
+        const p = proyectosRef.current.find(x=>String(x.id)===String(id));
+        if(p) supabase.from("costeos").update(mapCosteoToDb(p)).eq("id", p.id).then(()=>{});
+      });
+    };
+  },[]);
+
+  const persistNow = async (p) => {
+    setSaveStatus("saving");
+    const { error } = await supabase.from("costeos").update(mapCosteoToDb(p)).eq("id", p.id);
+    setSaveStatus(error ? "idle" : "saved");
+  };
+
+  const scheduleSave = (p) => {
+    clearTimeout(saveTimers.current[p.id]);
+    saveTimers.current[p.id] = setTimeout(()=>{ delete saveTimers.current[p.id]; persistNow(p); }, 700);
+  };
+
+  const flushPending = (id) => {
+    if(saveTimers.current[id]){
+      clearTimeout(saveTimers.current[id]);
+      delete saveTimers.current[id];
+      const p = proyectosRef.current.find(x=>x.id===id);
+      if(p) persistNow(p);
+    }
+  };
+
+  const newProyecto = async () => {
+    const draft = { nombre:"Nuevo Proyecto", cliente:"", fecha: new Date().toISOString().slice(0,10), fases:[], partidas:[] };
+    const { data, error } = await supabase.from("costeos").insert(mapCosteoToDb(draft)).select().single();
+    if(error){ alert("Error al crear proyecto: "+error.message); return; }
+    const p = mapCosteo(data);
+    setProyectos(prev=>[p, ...prev]);
     setSelected(p.id);
   };
 
-  const updateProyecto = (p) => { const list = proyectos.map(x=>x.id===p.id?p:x); save(list); };
-  const deleteProyecto = (id) => { save(proyectos.filter(x=>x.id!==id)); if(selected===id) setSelected(null); };
-  const duplicateProyecto = (p, e) => {
+  const updateProyecto = (p) => {
+    setProyectos(prev => prev.map(x=>x.id===p.id?p:x));
+    scheduleSave(p);
+  };
+  const deleteProyecto = async (id) => {
+    clearTimeout(saveTimers.current[id]); delete saveTimers.current[id];
+    setProyectos(prev => prev.filter(x=>x.id!==id));
+    if(selected===id) setSelected(null);
+    await supabase.from("costeos").delete().eq("id", id);
+  };
+  const duplicateProyecto = async (p, e) => {
     e.stopPropagation();
     const copia = {
-      ...p,
-      id: Date.now(),
       nombre: `${p.nombre} (copia)`,
+      cliente: p.cliente, clienteNombre: p.clienteNombre, clienteEmpresa: p.clienteEmpresa,
+      clienteRut: p.clienteRut, clienteTelefono: p.clienteTelefono, clienteDireccion: p.clienteDireccion,
+      clienteId: p.clienteId,
       fecha: new Date().toISOString().slice(0,10),
       fases: (p.fases||[]).map(f=>({ ...f, id: Date.now()+Math.random(), items:(f.items||[]).map(it=>({...it, id:Math.random().toString(36).slice(2)})) })),
       partidas: (p.partidas||[]).map(pa=>({...pa, id: Date.now()+Math.random()}))
     };
-    save([copia, ...proyectos]);
+    const { data, error } = await supabase.from("costeos").insert(mapCosteoToDb(copia)).select().single();
+    if(error){ alert("Error al duplicar proyecto: "+error.message); return; }
+    setProyectos(prev=>[mapCosteo(data), ...prev]);
   };
 
   const proyecto = proyectos.find(p=>p.id===selected);
@@ -7099,12 +7201,24 @@ function CosteoView({ contacts }) {
         </div>
         <button onClick={newProyecto} style={{ padding:"10px 20px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>+ Nuevo Proyecto</button>
       </div>
+      {localBackup && localBackup.length>0 && (
+        <div style={{ background:`${COLORS.yellow}15`, border:`1px solid ${COLORS.yellow}44`, borderRadius:10, padding:"12px 16px", marginBottom:16, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
+          <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text }}>
+            📥 Se encontraron <strong>{localBackup.length}</strong> proyecto{localBackup.length===1?"":"s"} de costeo guardados en este navegador que aún no están en la nube.
+          </div>
+          <button onClick={importLocalBackup} disabled={importing}
+            style={{ padding:"8px 16px", background:COLORS.accent, border:"none", borderRadius:7, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:importing?"default":"pointer", opacity:importing?0.6:1 }}>
+            {importing?"Importando…":"Importar a la nube"}
+          </button>
+        </div>
+      )}
       <input
         value={search} onChange={e=>setSearch(e.target.value)}
         placeholder="Buscar por nombre o cliente..."
         style={{ width:"100%", padding:"10px 14px", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.text, fontFamily:FONT, fontSize:13, marginBottom:16, boxSizing:"border-box", outline:"none" }}
       />
-      {proyectos.length===0 && <div style={{ textAlign:"center", color:COLORS.textMuted, fontFamily:FONT, padding:60 }}>Sin proyectos. ¡Crea el primero!</div>}
+      {loading && <div style={{ textAlign:"center", color:COLORS.textMuted, fontFamily:FONT, padding:60 }}>Cargando…</div>}
+      {!loading && proyectos.length===0 && <div style={{ textAlign:"center", color:COLORS.textMuted, fontFamily:FONT, padding:60 }}>Sin proyectos. ¡Crea el primero!</div>}
       <div style={{ display:"grid", gap:12 }}>
         {proyectos.filter(p=>{
           const q = search.toLowerCase();
@@ -7633,11 +7747,13 @@ function CosteoView({ contacts }) {
 
       {/* Header */}
       <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16, flexWrap:"wrap" }}>
-        <button onClick={()=>setSelected(null)} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>← Proyectos</button>
+        <button onClick={()=>{ flushPending(selected); setSelected(null); }} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>← Proyectos</button>
         <div style={{ flex:1 }}>
           <input value={proyecto.nombre} onChange={e=>updateProyecto({...proyecto,nombre:e.target.value})}
             style={{ background:"transparent", border:"none", color:COLORS.text, fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, outline:"none", width:"100%" }} />
         </div>
+        {saveStatus==="saving" && <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Guardando…</span>}
+        {saveStatus==="saved" && <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.green }}>✓ Guardado</span>}
         <input type="date" value={proyecto.fecha} onChange={e=>updateProyecto({...proyecto,fecha:e.target.value})}
           style={{ background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:12, padding:"5px 10px" }} />
         <button onClick={printInterno} style={{ padding:"8px 14px", background:"#1e293b", border:"none", borderRadius:7, color:"white", fontFamily:FONT, fontSize:11, cursor:"pointer" }}>📋 PDF Interno</button>
@@ -7825,6 +7941,9 @@ function PurchaseView({ isMobile }) {
 
   // Modal despacho
   const emptyDespacho = { nombre:"", rut:"", telefono:"", correo:"", courier:"Starken", tipo:"sucursal", sucursal:"", direccion:"", region:"", comuna:"", ciudad:"", tracking_code:"", notas_despacho:"", num_cotizacion:"", costo_despacho:"", aplica_iva_despacho:false };
+  const MIS_DIRECCIONES = [
+    { label:"Marcos Gallo 536B · Torre D Dpto 411", direccion:"Marcos Gallo Vergara 536B, Torre D, Dpto 411", region:"", ciudad:"", comuna:"" },
+  ];
   const [showDespachoModal, setShowDespachoModal] = useState(false);
   const [despachoOC, setDespachoOC]               = useState(null);
   const [despachoForm, setDespachoForm]           = useState(emptyDespacho);
@@ -9108,6 +9227,27 @@ function PurchaseView({ isMobile }) {
                 </div>
 
                 {despachoForm.tipo==="sucursal" && inp("Sucursal","sucursal","Ej: Sucursal La Serena Centro")}
+
+                {/* Direcciones guardadas */}
+                <div style={{ marginBottom:8 }}>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5, fontWeight:600 }}>📌 Mis Direcciones</div>
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                    {MIS_DIRECCIONES.map((d,i)=>(
+                      <button key={i} onClick={()=>{
+                        df("direccion", d.direccion);
+                        if(d.region) { df("region", d.region); df("ciudad",""); df("comuna",""); }
+                        if(d.ciudad) df("ciudad", d.ciudad);
+                        if(d.comuna) df("comuna", d.comuna);
+                      }}
+                        style={{ padding:"5px 12px", background: despachoForm.direccion===d.direccion?`${COLORS.accent}22`:`${COLORS.accent}0d`,
+                          border:`1px solid ${despachoForm.direccion===d.direccion?COLORS.accent:COLORS.accent+"44"}`,
+                          borderRadius:20, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer", whiteSpace:"nowrap" }}>
+                        📌 {d.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {inp("Dirección (calle y número)","direccion","Ej: Av. Pacífico 510")}
 
                 {/* Región */}
@@ -19373,7 +19513,7 @@ export default function CRM() {
           {view==="dashboard" && <Dashboard contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} />}
           {view==="contacts"  && <ContactsView contacts={contacts} setContacts={setContacts} isMobile={isMobile} />}
           {view==="pipeline"  && <PipelineView deals={deals} setDeals={setDeals} contacts={contacts} tasks={tasks} setTasks={setTasks} isMobile={isMobile} userRole={userRole} session={session} />}
-          {view==="quotes"       && <QuotesView contacts={contacts} isMobile={isMobile} />}
+          {view==="quotes"       && <QuotesView contacts={contacts} isMobile={isMobile} setDeals={setDeals} />}
           {view==="prestaciones" && <PrestacionesView isMobile={isMobile} />}
           {view==="products"     && <ProductsDB isMobile={isMobile} />}
           {view==="proveedores"  && <ProveedoresView isMobile={isMobile} />}
