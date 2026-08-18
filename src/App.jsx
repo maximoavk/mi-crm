@@ -3075,7 +3075,7 @@ function ProductsDB({ isMobile }) {
 }
 
 // ── COTIZACIONES LIST ────────────────────────────────────────────────────────
-function QuotesView({ contacts, isMobile, setDeals: setCrmDeals }) {
+function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCosteo }) {
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("list");
@@ -3087,8 +3087,21 @@ function QuotesView({ contacts, isMobile, setDeals: setCrmDeals }) {
   const [collapsed, setCollapsed] = useState({});
   const toggleQ = (id) => setCollapsed(p=>({...p,[id]:!p[id]}));
   const [subTab, setSubTab] = useState("cotizaciones");
+  const [costeoMap, setCosteoMap] = useState({}); // cotizacion_id → { id, nombre } del costeo origen
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 30;
 
   useEffect(()=>{ loadQuotes(); },[]);
+  useEffect(()=>{
+    supabase.from("costeos").select("id,nombre,cotizacion_id").not("cotizacion_id","is",null).then(({data})=>{
+      if(data){
+        const map = {};
+        data.forEach(c=>{ map[c.cotizacion_id] = { id:c.id, nombre:c.nombre }; });
+        setCosteoMap(map);
+      }
+    });
+  },[]);
+  useEffect(()=>{ setPage(1); },[search, filterSerie]);
   const loadQuotes = async () => {
     const { data } = await supabase.from("cotizaciones").select("*").order("numero", { ascending: false });
     const mapped = (data||[]).map(mapQuote);
@@ -3204,6 +3217,20 @@ function QuotesView({ contacts, isMobile, setDeals: setCrmDeals }) {
   if (view==="detail" && selectedQuote) return <QuoteEditor contacts={contacts} quote={selectedQuote} nextCOT={nextCOT} nextSIN={nextSIN} onSave={(q)=>{ setQuotes(quotes.map(x=>x.id===q.id?q:x)); setSelectedQuote(q); setView("list"); if(q.status==="enviada"||q.status==="aprobada") refreshDealForQuote(q.id); }} onCancel={()=>setView("list")} />;
   if (view==="pdf" && selectedQuote) return <QuotePDF quote={selectedQuote} onBack={()=>setView("list")} />;
 
+  const filteredQuotes = quotes.filter(q=>{
+    const matchSerie = filterSerie==="todos" || (q.serie||"COT")===filterSerie;
+    if(!search) return matchSerie;
+    const s = search.toLowerCase();
+    const matchSearch = String(q.number).includes(s) ||
+      (q.serie||"COT").toLowerCase().includes(s) ||
+      (q.clientRut||"").toLowerCase().includes(s) ||
+      (q.clientName||"").toLowerCase().includes(s) ||
+      (q.clientCompany||"").toLowerCase().includes(s);
+    return matchSerie && matchSearch;
+  });
+  const totalPages = Math.max(1, Math.ceil(filteredQuotes.length / PAGE_SIZE));
+  const pagedQuotes = filteredQuotes.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
+
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:12, flexWrap:"wrap", gap:10 }}>
@@ -3243,17 +3270,8 @@ function QuotesView({ contacts, isMobile, setDeals: setCrmDeals }) {
             })}
           </div>
           {quotes.length===0 && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>Sin cotizaciones aún.</div>}
-          {quotes.filter(q=>{
-            const matchSerie = filterSerie==="todos" || (q.serie||"COT")===filterSerie;
-            if(!search) return matchSerie;
-            const s = search.toLowerCase();
-            const matchSearch = String(q.number).includes(s) ||
-              (q.serie||"COT").toLowerCase().includes(s) ||
-              (q.clientRut||"").toLowerCase().includes(s) ||
-              (q.clientName||"").toLowerCase().includes(s) ||
-              (q.clientCompany||"").toLowerCase().includes(s);
-            return matchSerie && matchSearch;
-          }).map(q=>{
+          {quotes.length>0 && filteredQuotes.length===0 && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>Sin resultados para este filtro.</div>}
+          {pagedQuotes.map(q=>{
             const sc = STATUS_QUOTE[q.status]||STATUS_QUOTE.borrador;
             const isOpen = !!collapsed[q.id];
             const serie = q.serie||"COT";
@@ -3289,6 +3307,9 @@ function QuotesView({ contacts, isMobile, setDeals: setCrmDeals }) {
                     <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
                       <button onClick={(e)=>{ e.stopPropagation(); setSelectedQuote(q); setView("detail"); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>✏️ Editar</button>
                       <button onClick={(e)=>{ e.stopPropagation(); setSelectedQuote(q); setView("pdf"); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.green}44`, color:COLORS.green }}>📄 Ver PDF</button>
+                      {costeoMap[q.id] && onOpenCosteo && (
+                        <button onClick={(e)=>{ e.stopPropagation(); onOpenCosteo(costeoMap[q.id].id); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>📐 Ver costeo origen</button>
+                      )}
                       {["enviada","aprobada","rechazada"].map(s=>(
                         <button key={s} onClick={(e)=>{ e.stopPropagation(); updateStatus(q.id,s); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:q.status===s?STATUS_QUOTE[s].color+"22":"transparent", border:`1px solid ${STATUS_QUOTE[s].color}44`, color:STATUS_QUOTE[s].color }}>
                           {STATUS_QUOTE[s].label}
@@ -3301,6 +3322,13 @@ function QuotesView({ contacts, isMobile, setDeals: setCrmDeals }) {
               </div>
             );
           })}
+          {totalPages>1 && (
+            <div style={{ display:"flex", justifyContent:"center", alignItems:"center", gap:16, marginTop:8, padding:"10px 0" }}>
+              <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page<=1} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:12, cursor:page<=1?"default":"pointer", background:"transparent", border:`1px solid ${COLORS.border}`, color:page<=1?COLORS.textMuted:COLORS.text, opacity:page<=1?0.5:1 }}>← Anterior</button>
+              <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Página {page} de {totalPages}</div>
+              <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page>=totalPages} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:12, cursor:page>=totalPages?"default":"pointer", background:"transparent", border:`1px solid ${COLORS.border}`, color:page>=totalPages?COLORS.textMuted:COLORS.text, opacity:page>=totalPages?0.5:1 }}>Siguiente →</button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -7011,6 +7039,7 @@ const mapCosteo = (r) => ({
   clienteRut: r.cliente_rut || "", clienteTelefono: r.cliente_telefono || "",
   clienteDireccion: r.cliente_direccion || "", clienteId: r.cliente_id || "",
   proyectoId: r.proyecto_id || null, cotizacion: r.cotizacion || "",
+  cotizacionId: r.cotizacion_id || null,
 });
 const mapCosteoToDb = (p) => ({
   nombre: p.nombre || "Nuevo Proyecto", cliente: p.cliente || "",
@@ -7019,10 +7048,11 @@ const mapCosteoToDb = (p) => ({
   cliente_rut: p.clienteRut || "", cliente_telefono: p.clienteTelefono || "",
   cliente_direccion: p.clienteDireccion || "", cliente_id: p.clienteId || null,
   proyecto_id: p.proyectoId || null, cotizacion: p.cotizacion || null,
+  cotizacion_id: p.cotizacionId || null,
   updated_at: new Date().toISOString(),
 });
 
-function CosteoView({ contacts }) {
+function CosteoView({ contacts, openId, onOpenIdHandled }) {
   const [proyectos, setProyectos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
@@ -7030,6 +7060,7 @@ function CosteoView({ contacts }) {
   const [rutSearch, setRutSearch] = useState("");
   const [rutMatches, setRutMatches] = useState([]);
   const [productos, setProductos] = useState([]);
+  const [quoteMap, setQuoteMap] = useState({}); // cotizacion_id → { numero, serie }
   const [genModal, setGenModal] = useState(false);
   const [genTipo, setGenTipo] = useState("fases");
   const [genSaving, setGenSaving] = useState(false);
@@ -7059,7 +7090,22 @@ function CosteoView({ contacts }) {
     supabase.from("products").select("*").then(({data})=>{
       if(data) setProductos(data.map(mapProduct));
     });
+    // Mapa liviano de cotizaciones para resolver serie/número reales en el listado
+    supabase.from("cotizaciones").select("id,numero,serie").then(({data})=>{
+      if(data){
+        const map = {};
+        data.forEach(q=>{ map[q.id] = { numero:q.numero, serie:q.serie||"COT" }; });
+        setQuoteMap(map);
+      }
+    });
   },[]);
+
+  // Si llega un proyecto a abrir desde otro módulo (ej. link "Ver costeo origen" en Cotizar), lo selecciona.
+  useEffect(()=>{
+    if(!openId || proyectos.length===0) return;
+    if(proyectos.some(p=>p.id===openId)) setSelected(openId);
+    if(onOpenIdHandled) onOpenIdHandled();
+  },[openId, proyectos]);
 
   const importLocalBackup = async () => {
     if(!localBackup || localBackup.length===0) return;
@@ -7244,11 +7290,18 @@ function CosteoView({ contacts }) {
           const tv = fc.reduce((s,f)=>s+f.ventaTotal,0);
           const tc = fc.reduce((s,f)=>s+f.costoTotal,0);
           const tm = fc.reduce((s,f)=>s+f.margenTotal,0);
+          const qInfo = p.cotizacionId ? quoteMap[p.cotizacionId] : null;
+          const codigoCot = qInfo ? `${qInfo.serie}-${String(qInfo.numero).padStart(3,"0")}`
+            : (p.cotizacion ? `COT-${String(p.cotizacion).padStart(3,"0")}` : null); // fallback proyectos legacy sin cotizacion_id
           return (
             <div key={p.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"16px 20px", display:"flex", alignItems:"center", gap:16, cursor:"pointer" }} onClick={()=>setSelected(p.id)}>
               <div style={{ flex:1 }}>
+                {codigoCot && (
+                  <span style={{ display:"inline-block", fontFamily:FONT, fontSize:10, fontWeight:700, color:COLORS.accent, background:`${COLORS.accent}18`, border:`1px solid ${COLORS.accent}33`, borderRadius:5, padding:"2px 7px", marginBottom:5 }}>
+                    {codigoCot}
+                  </span>
+                )}
                 <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>
-                  {p.cotizacion && <span style={{ color:COLORS.accent }}>COT-{String(p.cotizacion).padStart(3,"0")} · </span>}
                   {p.nombre}
                 </div>
                 <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{p.cliente} · {p.fecha}</div>
@@ -7688,7 +7741,8 @@ function CosteoView({ contacts }) {
       }))];
     }
     if(lineas.length>0) await supabase.from("quote_lines").insert(lineas);
-    updateProyecto({ ...proyecto, cotizacion: String(nextNum) });
+    setQuoteMap(prev=>({ ...prev, [savedQuote.id]: { numero:savedQuote.numero, serie:savedQuote.serie||"COT" } }));
+    updateProyecto({ ...proyecto, cotizacion: String(nextNum), cotizacionId: savedQuote.id });
     setGenSaving(false);
     setGenDone(nextNum);
   };
@@ -19369,6 +19423,7 @@ function ColaboradorView({ session }) {
 
 export default function CRM() {
   const [view, setView] = useState("dashboard");
+  const [openCosteoId, setOpenCosteoId] = useState(null);
   const [contacts, setContacts] = useState([]);
   const [deals, setDeals] = useState([]);
   const [tasks, setTasks] = useState([]);
@@ -19538,14 +19593,14 @@ export default function CRM() {
           {view==="dashboard" && <Dashboard contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} />}
           {view==="contacts"  && <ContactsView contacts={contacts} setContacts={setContacts} isMobile={isMobile} />}
           {view==="pipeline"  && <PipelineView deals={deals} setDeals={setDeals} contacts={contacts} tasks={tasks} setTasks={setTasks} isMobile={isMobile} userRole={userRole} session={session} />}
-          {view==="quotes"       && <QuotesView contacts={contacts} isMobile={isMobile} setDeals={setDeals} />}
+          {view==="quotes"       && <QuotesView contacts={contacts} isMobile={isMobile} setDeals={setDeals} onOpenCosteo={(id)=>{ setOpenCosteoId(id); setView("costeo"); }} />}
           {view==="prestaciones" && <PrestacionesView isMobile={isMobile} />}
           {view==="products"     && <ProductsDB isMobile={isMobile} />}
           {view==="proveedores"  && <ProveedoresView isMobile={isMobile} />}
           {view==="purchase"     && <PurchaseView isMobile={isMobile} />}
           {view==="guias"        && <GuiasView isMobile={isMobile} />}
           {view==="control_proyectos" && <ControlProyectosView contacts={contacts} />}
-          {view==="costeo"    && <CosteoView contacts={contacts} isMobile={isMobile} />}
+          {view==="costeo"    && <CosteoView contacts={contacts} isMobile={isMobile} openId={openCosteoId} onOpenIdHandled={()=>setOpenCosteoId(null)} />}
           {view==="gantt"     && <GanttView isMobile={isMobile} />}
           {view==="operaciones" && <OperacionesView isMobile={isMobile} />}
           {view==="analisis"    && <AnalisisPreciosView isMobile={isMobile} />}
