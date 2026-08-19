@@ -2600,9 +2600,9 @@ const mapQuoteToDb = (f) => ({
   rubro: f.rubro || null, tipo_trabajo: f.tipoTrabajo || null,
 });
 
-const RUBRO_OPTIONS = ["CCTV", "Motores de Portones", "Cercos Eléctricos", "Alarmas", "Control de Acceso", "Otro"];
+const RUBRO_OPTIONS = ["CCTV", "Motores de Portones", "Cercos Eléctricos", "Alarmas", "Control de Acceso", "Citofonía IP", "Otro"];
 const TIPO_TRABAJO_OPTIONS = ["Mantención", "Instalación Nueva", "Reparación", "Otro"];
-const RUBRO_ICON = { "CCTV":"🎥", "Motores de Portones":"⚙️", "Cercos Eléctricos":"⚡", "Alarmas":"🚨", "Control de Acceso":"🔑", "Otro":"🏷️" };
+const RUBRO_ICON = { "CCTV":"🎥", "Motores de Portones":"⚙️", "Cercos Eléctricos":"⚡", "Alarmas":"🚨", "Control de Acceso":"🔑", "Citofonía IP":"📞", "Otro":"🏷️" };
 
 const mapQuoteLine = (r) => ({
   id: r.id, quoteId: r.quote_id, productId: r.product_id,
