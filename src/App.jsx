@@ -36,6 +36,7 @@ const mapDeal = (r) => ({
   facturado:     r.facturado      || false,
   numeroFactura: r.numero_factura || "",
   fechaFactura:  r.fecha_factura  || "",
+  pctAnticipo: r.pct_anticipo || 50,
 });
 const mapDealToDb = (f) => ({
   titulo: f.title, empresa: f.company, rut_empresa: f.rut,
@@ -47,6 +48,7 @@ const mapDealToDb = (f) => ({
   facturado:      f.facturado      || false,
   numero_factura: f.numeroFactura  || null,
   fecha_factura:  f.fechaFactura   || null,
+  pct_anticipo: Number(f.pctAnticipo) || 50,
 });
 
 const mapTask = (r) => ({
@@ -226,6 +228,7 @@ function Dashboard({ contacts, deals, tasks, isMobile }) {
   const totalRevenue       = deals.filter(d=>d.stage==="cerrado").reduce((s,d)=>s+Number(d.value),0);
   const pipeline           = deals.filter(d=>d.stage!=="cerrado").reduce((s,d)=>s+Number(d.value)*Number(d.probability)/100,0);
   const pendientesFacturar = deals.filter(d=>d.stage==="cerrado"&&!d.facturado).reduce((s,d)=>s+Number(d.value),0);
+  const anticipoEsperado   = deals.filter(d=>d.stage==="cerrado").reduce((s,d)=>s+Math.round(Number(d.value)*(d.pctAnticipo||50)/100),0);
   const overdueTasks = tasks.filter(t=>!t.done&&isOverdue(t.dueDate)).length;
   const stageData    = STAGES.map(s=>({ ...s, count:deals.filter(d=>d.stage===s.key).length, value:deals.filter(d=>d.stage===s.key).reduce((a,d)=>a+Number(d.value),0) }));
   const recentTasks  = tasks.filter(t=>!t.done).sort((a,b)=>(a.dueDate||"").localeCompare(b.dueDate||"")).slice(0,4);
@@ -295,8 +298,9 @@ function Dashboard({ contacts, deals, tasks, isMobile }) {
       </div>
 
       {/* B — KPIs */}
-      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,minmax(0,1fr))", gap:10, marginBottom:14 }}>
+      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(auto-fit,minmax(160px,1fr))", gap:10, marginBottom:14 }}>
         <KpiCard label="Ingresos cerrados" value={fmt(totalRevenue)} sub="acumulado" accentColor={COLORS.green} valueColor={COLORS.green} />
+        <KpiCard label="Anticipo esperado" value={fmt(anticipoEsperado)} sub="cerrados, según % anticipo" accentColor={COLORS.purple} valueColor={COLORS.purple} />
         <KpiCard label="Pipeline esperado" value={fmt(pipeline)} sub="ponderado" accentColor={COLORS.accent} valueColor={COLORS.accent} />
         <KpiCard label="Pendientes de facturar" value={fmt(pendientesFacturar)} sub={`${deals.filter(d=>d.stage==="cerrado"&&!d.facturado).length} deal(s)`} accentColor={COLORS.yellow} valueColor={COLORS.yellow} />
         <KpiCard label="Tareas vencidas" value={overdueTasks} sub={overdueTasks>0?"requieren atención":"al día"} accentColor={overdueTasks>0?COLORS.red:COLORS.green} valueColor={overdueTasks>0?COLORS.red:COLORS.green} />
@@ -595,8 +599,8 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
     setFacturandoId(null); setFacturaVal(""); setFacturaFecha("");
   };
 
-  const openNew = (serie="COT") => { setEditingId(null); setForm({ title:"", company:"", contactId:"", rut:"", value:"", stage:"propuesta", probability:"40", closeDate:"", quoteNumber:"", serie }); setQuoteFound(null); setQuoteBusqueda(""); setShowModal(true); };
-  const openEdit = (d) => { setEditingId(d.id); setForm({ title:d.title, company:d.company, contactId:d.contactId||"", rut:d.rut||"", value:String(d.value), stage:d.stage, probability:String(d.probability), closeDate:d.closeDate||"", quoteNumber:d.quoteNumber||"", serie:d.serie||"COT" }); setQuoteFound(null); setQuoteBusqueda(""); setShowModal(true); };
+  const openNew = (serie="COT") => { setEditingId(null); setForm({ title:"", company:"", contactId:"", rut:"", value:"", stage:"propuesta", probability:"40", closeDate:"", quoteNumber:"", serie, pctAnticipo:50 }); setQuoteFound(null); setQuoteBusqueda(""); setShowModal(true); };
+  const openEdit = (d) => { setEditingId(d.id); setForm({ title:d.title, company:d.company, contactId:d.contactId||"", rut:d.rut||"", value:String(d.value), stage:d.stage, probability:String(d.probability), closeDate:d.closeDate||"", quoteNumber:d.quoteNumber||"", serie:d.serie||"COT", pctAnticipo:d.pctAnticipo||50 }); setQuoteFound(null); setQuoteBusqueda(""); setShowModal(true); };
   const toggleCollapse = (id) => setCollapsed(p=>({...p,[id]:!p[id]}));
   const allCollapsed = Object.values(collapsed).filter(Boolean).length >= deals.length/2;
   const toggleAll = () => { const n={}; deals.forEach(d=>{n[d.id]=!allCollapsed;}); setCollapsed(n); };
@@ -614,6 +618,7 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
       f("company", q.razon_social || q.nombre_cliente || "");
       f("rut", q.rut_cliente || "");
       f("value", String(Math.round(q.total || 0)));
+      f("pctAnticipo", q.pct_anticipo || 50);
       // Mapear estado cotización → etapa pipeline
       const estadoMap = { aprobado:"cierre", enviado:"propuesta", enviada:"propuesta", borrador:"contacto", rechazado:"contacto" };
       f("stage", estadoMap[q.estado] || "propuesta");
@@ -705,6 +710,9 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
   const renderStageCol = (stage, grouped, laneKey, accentColor) => {
     const stageDeals = grouped[stage.key]||[];
     const total = stageDeals.reduce((s,d)=>s+Number(d.value),0);
+    const totalAnticipo = stage.key === "cerrado"
+      ? stageDeals.reduce((s,d)=>s+Math.round(Number(d.value)*(d.pctAnticipo||50)/100),0)
+      : null;
     const dropKey = `${laneKey}:${stage.key}`;
     const isDropTarget = dragDealId && dragOverKey===dropKey;
     return (
@@ -717,6 +725,7 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
           <div>
             <div style={{ fontFamily:FONT, fontSize:10, color:accentColor, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600 }}>{stage.label}</div>
             <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:1 }}>{fmt(total)}</div>
+            {totalAnticipo!==null && <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim, marginTop:1 }}>Anticipo esperado: {fmt(totalAnticipo)}</div>}
           </div>
           <div style={{ width:20, height:20, borderRadius:"50%", background:accentColor+"22", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT, fontSize:10, color:accentColor, fontWeight:700 }}>{stageDeals.length}</div>
         </div>
@@ -761,6 +770,11 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
                       <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.green, fontWeight:700 }}>{fmt(d.value)}</div>
                       <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{fmtDate(d.closeDate)}</div>
                     </div>
+                    {stage.key === "cerrado" && (()=>{ const pct=d.pctAnticipo||50; const ant=Math.round(d.value*pct/100); const saldo=d.value-ant; return (
+                      <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, marginBottom:7 }}>
+                        Anticipo esperado: <span style={{ color:COLORS.textMuted }}>{fmt(ant)} ({pct}%)</span> · Saldo: <span style={{ color:COLORS.textMuted }}>{fmt(saldo)}</span>
+                      </div>
+                    );})()}
                     <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
                       <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Prob.</span>
                       <span style={{ fontFamily:FONT, fontSize:10, color:accentColor }}>{d.probability}%</span>
@@ -3191,6 +3205,7 @@ function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCosteo })
             rut_empresa: q.clientRut||"",
             contact_id: q.contactId||null,
             valor: q.total||0,
+            pct_anticipo: q.pctAnticipo||50,
             etapa,
             probabilidad: prob,
             quote_id: id,
@@ -3201,6 +3216,7 @@ function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCosteo })
             etapa,
             titulo:`${codigo} – ${q.clientCompany||q.clientName||"Cliente"}`,
             valor: q.total||0,
+            pct_anticipo: q.pctAnticipo||50,
             serie,
           }).eq("id", existing[0].id);
         }
@@ -3232,6 +3248,7 @@ function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCosteo })
         rut_empresa: q.clientRut||"",
         contact_id: q.contactId||null,
         valor: q.total||0,
+        pct_anticipo: q.pctAnticipo||50,
         etapa: "cerrado",
         probabilidad: 100,
         quote_id: q.id,
@@ -5865,11 +5882,11 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
         await supabase.from("deals").insert({
           titulo, empresa: header.clientCompany||header.clientName||"",
           rut_empresa: header.clientRut||"", contact_id: header.contactId||null,
-          valor: total||0, etapa, probabilidad: prob,
+          valor: total||0, pct_anticipo: header.pctAnticipo||50, etapa, probabilidad: prob,
           quote_id: savedQuote.id, serie,
         });
       } else {
-        await supabase.from("deals").update({ etapa, titulo, valor:total||0, serie })
+        await supabase.from("deals").update({ etapa, titulo, valor:total||0, pct_anticipo: header.pctAnticipo||50, serie })
           .eq("id", existing[0].id);
       }
     }
