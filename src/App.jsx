@@ -1648,10 +1648,10 @@ function ControlProyectosView({ contacts }) {
           </div>
         </div>
 
-        {/* Fases del Costeo */}
+        {/* Fases del Proyecto */}
         {pr.fases.length > 0 && (
           <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16, marginBottom:16 }}>
-            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12 }}>Fases del Costeo</div>
+            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12 }}>Fases del Proyecto</div>
             <div style={{ display:"grid", gap:8 }}>
               {pr.fases.map(fa=>{
                 const FASE_ESTADOS = [
@@ -2571,6 +2571,7 @@ const mapQuote = (r) => ({
   hasIva: r.aplica_iva, ivaMode: r.iva_modo||"empresa", comments: r.comentarios,
   terms: r.terminos, status: r.estado || "borrador",
   type: r.tipo || "productos", total: r.total || 0,
+  rubro: r.rubro || "", tipoTrabajo: r.tipo_trabajo || "",
 });
 const mapQuoteToDb = (f) => ({
   numero: f.number, serie: f.serie||"COT", fecha: f.date,
@@ -2582,7 +2583,12 @@ const mapQuoteToDb = (f) => ({
   aplica_iva: f.hasIva, iva_modo: f.ivaMode||"empresa", comentarios: f.comments,
   terminos: f.terms, estado: f.status, tipo: f.type,
   total: Number(f.total) || 0,
+  rubro: f.rubro || null, tipo_trabajo: f.tipoTrabajo || null,
 });
+
+const RUBRO_OPTIONS = ["CCTV", "Motores de Portones", "Cercos Eléctricos", "Alarmas", "Control de Acceso", "Otro"];
+const TIPO_TRABAJO_OPTIONS = ["Mantención", "Instalación Nueva", "Reparación", "Otro"];
+const RUBRO_ICON = { "CCTV":"🎥", "Motores de Portones":"⚙️", "Cercos Eléctricos":"⚡", "Alarmas":"🚨", "Control de Acceso":"🔑", "Otro":"🏷️" };
 
 const mapQuoteLine = (r) => ({
   id: r.id, quoteId: r.quote_id, productId: r.product_id,
@@ -3109,6 +3115,9 @@ function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCosteo })
   const [nextSIN, setNextSIN] = useState(1);
   const [search, setSearch] = useState("");
   const [filterSerie, setFilterSerie] = useState("todos");
+  const [filterRubro, setFilterRubro] = useState("todos");
+  const [filterTipo, setFilterTipo] = useState("todos");
+  const [editingTag, setEditingTag] = useState(null);
   const [collapsed, setCollapsed] = useState({});
   const toggleQ = (id) => setCollapsed(p=>({...p,[id]:!p[id]}));
   const [subTab, setSubTab] = useState("cotizaciones");
@@ -3126,7 +3135,13 @@ function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCosteo })
       }
     });
   },[]);
-  useEffect(()=>{ setPage(1); },[search, filterSerie]);
+  useEffect(()=>{ setPage(1); },[search, filterSerie, filterRubro, filterTipo]);
+
+  const updateTag = async (id, field, value) => {
+    const dbField = field==="tipoTrabajo" ? "tipo_trabajo" : "rubro";
+    setQuotes(prev => prev.map(q=>q.id===id ? { ...q, [field]:value } : q));
+    await supabase.from("cotizaciones").update({ [dbField]: value || null }).eq("id", id);
+  };
   const loadQuotes = async () => {
     const { data } = await supabase.from("cotizaciones").select("*").order("numero", { ascending: false });
     const mapped = (data||[]).map(mapQuote);
@@ -3244,14 +3259,16 @@ function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCosteo })
 
   const filteredQuotes = quotes.filter(q=>{
     const matchSerie = filterSerie==="todos" || (q.serie||"COT")===filterSerie;
-    if(!search) return matchSerie;
+    const matchRubro = filterRubro==="todos" || q.rubro===filterRubro;
+    const matchTipo = filterTipo==="todos" || q.tipoTrabajo===filterTipo;
+    if(!search) return matchSerie && matchRubro && matchTipo;
     const s = search.toLowerCase();
     const matchSearch = String(q.number).includes(s) ||
       (q.serie||"COT").toLowerCase().includes(s) ||
       (q.clientRut||"").toLowerCase().includes(s) ||
       (q.clientName||"").toLowerCase().includes(s) ||
       (q.clientCompany||"").toLowerCase().includes(s);
-    return matchSerie && matchSearch;
+    return matchSerie && matchRubro && matchTipo && matchSearch;
   });
   const totalPages = Math.max(1, Math.ceil(filteredQuotes.length / PAGE_SIZE));
   const pagedQuotes = filteredQuotes.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
@@ -3293,6 +3310,16 @@ function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCosteo })
                 </button>
               );
             })}
+            <select value={filterRubro} onChange={e=>setFilterRubro(e.target.value)}
+              style={{ padding:"6px 10px", borderRadius:20, fontFamily:FONT, fontSize:11, background:"transparent", border:`1px solid ${COLORS.border}`, color:COLORS.textMuted, cursor:"pointer" }}>
+              <option value="todos">Rubro: todos</option>
+              {RUBRO_OPTIONS.map(r=><option key={r} value={r}>{r}</option>)}
+            </select>
+            <select value={filterTipo} onChange={e=>setFilterTipo(e.target.value)}
+              style={{ padding:"6px 10px", borderRadius:20, fontFamily:FONT, fontSize:11, background:"transparent", border:`1px solid ${COLORS.border}`, color:COLORS.textMuted, cursor:"pointer" }}>
+              <option value="todos">Tipo: todos</option>
+              {TIPO_TRABAJO_OPTIONS.map(t=><option key={t} value={t}>{t}</option>)}
+            </select>
           </div>
           {quotes.length===0 && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>Sin cotizaciones aún.</div>}
           {quotes.length>0 && filteredQuotes.length===0 && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>Sin resultados para este filtro.</div>}
@@ -3315,6 +3342,28 @@ function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCosteo })
                     <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
                       <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:600, color:COLORS.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{q.clientCompany||q.clientName}</div>
                       {q.clientRut && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{q.clientName!==q.clientCompany&&q.clientName?q.clientName+" · ":""}{q.clientRut}</div>}
+                      <div onClick={e=>e.stopPropagation()}>
+                        {editingTag===q.id ? (
+                          <div style={{ display:"flex", gap:4, marginTop:3 }}>
+                            <select autoFocus value={q.rubro||""} onChange={e=>updateTag(q.id,"rubro",e.target.value)}
+                              style={{ fontFamily:FONT, fontSize:10, padding:"2px 4px", borderRadius:4, background:COLORS.bg, border:`1px solid ${COLORS.border}`, color:COLORS.text }}>
+                              <option value="">Rubro</option>
+                              {RUBRO_OPTIONS.map(r=><option key={r} value={r}>{r}</option>)}
+                            </select>
+                            <select value={q.tipoTrabajo||""} onChange={e=>updateTag(q.id,"tipoTrabajo",e.target.value)}
+                              style={{ fontFamily:FONT, fontSize:10, padding:"2px 4px", borderRadius:4, background:COLORS.bg, border:`1px solid ${COLORS.border}`, color:COLORS.text }}>
+                              <option value="">Tipo</option>
+                              {TIPO_TRABAJO_OPTIONS.map(t=><option key={t} value={t}>{t}</option>)}
+                            </select>
+                            <button onClick={()=>setEditingTag(null)} style={{ fontFamily:FONT, fontSize:10, padding:"2px 6px", borderRadius:4, background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent, cursor:"pointer" }}>✓</button>
+                          </div>
+                        ) : (
+                          <div onClick={()=>setEditingTag(q.id)}
+                            style={{ fontFamily:FONT, fontSize:10, color:q.rubro?COLORS.accent:COLORS.textMuted, cursor:"pointer", marginTop:2 }}>
+                            {q.rubro ? `${RUBRO_ICON[q.rubro]||"🏷️"} ${q.rubro}${q.tipoTrabajo?" · "+q.tipoTrabajo:""}` : "+ Clasificar"}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div style={{ textAlign:"right", flexShrink:0 }}>
@@ -3333,7 +3382,7 @@ function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCosteo })
                       <button onClick={(e)=>{ e.stopPropagation(); setSelectedQuote(q); setView("detail"); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>✏️ Editar</button>
                       <button onClick={(e)=>{ e.stopPropagation(); setSelectedQuote(q); setView("pdf"); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.green}44`, color:COLORS.green }}>📄 Ver PDF</button>
                       {costeoMap[q.id] && onOpenCosteo && (
-                        <button onClick={(e)=>{ e.stopPropagation(); onOpenCosteo(costeoMap[q.id].id); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>📐 Ver costeo origen</button>
+                        <button onClick={(e)=>{ e.stopPropagation(); onOpenCosteo(costeoMap[q.id].id); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>📐 Ver proyecto origen</button>
                       )}
                       {["enviada","aprobada","rechazada"].map(s=>(
                         <button key={s} onClick={(e)=>{ e.stopPropagation(); updateStatus(q.id,s); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:q.status===s?STATUS_QUOTE[s].color+"22":"transparent", border:`1px solid ${STATUS_QUOTE[s].color}44`, color:STATUS_QUOTE[s].color }}>
@@ -5692,11 +5741,13 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
     hasIva: quote.hasIva!==false, ivaMode: quote.ivaMode||"empresa", comments: quote.comments||"",
     terms: quote.terms||TERMS_DEFAULT, status: quote.status||"borrador",
     type: quote.type||"productos",
+    rubro: quote.rubro||"", tipoTrabajo: quote.tipoTrabajo||"",
   } : {
     number: nextCOT, serie:"COT", date: new Date().toISOString().slice(0,10),
     contactId:"", clientName:"", clientRut:"", clientCompany:"",
     clientAddress:"", clientPhone:"", paymentMethod:"Al finalizar",
     hasIva:true, ivaMode:"empresa", comments:"", terms:TERMS_DEFAULT, status:"borrador", type:"productos",
+    rubro:"", tipoTrabajo:"",
   });
 
   const [lines, setLines] = useState([]);
@@ -5926,6 +5977,14 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
             <option value="enviada">Enviada</option>
             <option value="aprobada">Aprobada</option>
             <option value="rechazada">Rechazada</option>
+          </Select>
+          <Select label="Rubro" value={header.rubro} onChange={e=>hf("rubro",e.target.value)}>
+            <option value="">Sin clasificar</option>
+            {RUBRO_OPTIONS.map(r=><option key={r} value={r}>{r}</option>)}
+          </Select>
+          <Select label="Tipo de trabajo" value={header.tipoTrabajo} onChange={e=>hf("tipoTrabajo",e.target.value)}>
+            <option value="">Sin clasificar</option>
+            {TIPO_TRABAJO_OPTIONS.map(t=><option key={t} value={t}>{t}</option>)}
           </Select>
         </div>
       </div>
@@ -7065,6 +7124,7 @@ const mapCosteo = (r) => ({
   clienteDireccion: r.cliente_direccion || "", clienteId: r.cliente_id || "",
   proyectoId: r.proyecto_id || null, cotizacion: r.cotizacion || "",
   cotizacionId: r.cotizacion_id || null,
+  rubro: r.rubro || "", tipoTrabajo: r.tipo_trabajo || "",
 });
 const mapCosteoToDb = (p) => ({
   nombre: p.nombre || "Nuevo Proyecto", cliente: p.cliente || "",
@@ -7074,6 +7134,7 @@ const mapCosteoToDb = (p) => ({
   cliente_direccion: p.clienteDireccion || "", cliente_id: p.clienteId || null,
   proyecto_id: p.proyectoId || null, cotizacion: p.cotizacion || null,
   cotizacion_id: p.cotizacionId || null,
+  rubro: p.rubro || null, tipo_trabajo: p.tipoTrabajo || null,
   updated_at: new Date().toISOString(),
 });
 
@@ -7274,7 +7335,6 @@ function CosteoView({ contacts, openId, onOpenIdHandled }) {
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
         <div>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Costeo</div>
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Proyectos</div>
         </div>
         <button onClick={newProyecto} style={{ padding:"10px 20px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>+ Nuevo Proyecto</button>
@@ -7721,6 +7781,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled }) {
       forma_pago:formaPago, pct_anticipo:pctAnt, aplica_iva:false, iva_modo:"empresa",
       comentarios:`${proyecto.nombre}`,
       terminos:"", estado:"borrador", tipo:"productos", total:Math.round(totalBrutoFinal),
+      rubro: proyecto.rubro || null, tipo_trabajo: proyecto.tipoTrabajo || null,
     };
     const { data: savedQuote } = await supabase.from("cotizaciones").insert(quoteData).select().single();
     if(!savedQuote){ setGenSaving(false); return; }
@@ -7864,6 +7925,20 @@ function CosteoView({ contacts, openId, onOpenIdHandled }) {
           style={{ padding:"8px 16px", background:"#7c3aed", border:"none", borderRadius:7, color:"white", fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer" }}>
           ✦ Generar Cotización
         </button>
+      </div>
+
+      {/* Rubro / Tipo de trabajo */}
+      <div style={{ display:"flex", gap:10, marginBottom:16 }}>
+        <select value={proyecto.rubro||""} onChange={e=>updateProyecto({...proyecto,rubro:e.target.value})}
+          style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:7, color:proyecto.rubro?COLORS.text:COLORS.textMuted, fontFamily:FONT, fontSize:12, padding:"7px 10px" }}>
+          <option value="">Rubro: sin clasificar</option>
+          {RUBRO_OPTIONS.map(r=><option key={r} value={r}>{r}</option>)}
+        </select>
+        <select value={proyecto.tipoTrabajo||""} onChange={e=>updateProyecto({...proyecto,tipoTrabajo:e.target.value})}
+          style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:7, color:proyecto.tipoTrabajo?COLORS.text:COLORS.textMuted, fontFamily:FONT, fontSize:12, padding:"7px 10px" }}>
+          <option value="">Tipo de trabajo: sin clasificar</option>
+          {TIPO_TRABAJO_OPTIONS.map(t=><option key={t} value={t}>{t}</option>)}
+        </select>
       </div>
 
       {/* Buscador RUT / Cliente */}
@@ -10265,9 +10340,9 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
               <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
                 {costeos.length > 0 && (
                   <div style={{ flex:1, minWidth:200 }}>
-                    <label style={lbl}>Costeo de proyecto</label>
+                    <label style={lbl}>Proyecto</label>
                     <select onChange={e => { if(e.target.value) importFromCosteo(e.target.value); e.target.value=""; }} style={inp}>
-                      <option value="">— Seleccionar costeo —</option>
+                      <option value="">— Seleccionar proyecto —</option>
                       {costeos.map(c => <option key={c.id} value={c.id}>{c.nombre || c.titulo || c.id}</option>)}
                     </select>
                   </div>
@@ -15126,7 +15201,7 @@ const NAV_GROUPS = [
   {
     key: "proyectos", label: "Proyectos", Icon: GanttChartSquare, children: [
       { key:"control_proyectos", label:"Control",  Icon: LayoutDashboard  },
-      { key:"costeo",            label:"Costeo",   Icon: Calculator       },
+      { key:"costeo",            label:"Crear proyecto", Icon: Calculator },
       { key:"gantt",             label:"Gantt",    Icon: GanttChartSquare },
     ],
   },
