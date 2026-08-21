@@ -16,14 +16,11 @@ const LOGO_PRINT = "https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/
 const mapContact = (r) => ({
   id: r.id, name: r.nombre, company: r.empresa, role: r.cargo,
   email: r.email, phone: r.telefono, rut: r.rut, status: r.estado,
-  value: r.valor || 0, lastContact: r.ultimo_contacto,
   address: { calle: r.calle||"", comuna: r.comuna||"", region: r.region||"" },
 });
 const mapContactToDb = (f) => ({
   nombre: f.name, empresa: f.company, cargo: f.role, email: f.email,
   telefono: f.phone, rut: f.rut, estado: f.status,
-  valor: Number(f.value) || 0,
-  ultimo_contacto: f.lastContact || new Date().toISOString().slice(0,10),
   calle: f.address?.calle||"", comuna: f.address?.comuna||"", region: f.address?.region||"",
 });
 
@@ -390,8 +387,15 @@ function ContactsView({ contacts, setContacts, isMobile }) {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name:"", company:"", role:"", email:"", phone:"", rut:"", status:"lead", value:"", lastContact:"", address:{calle:"",comuna:"",region:""} });
+  const [form, setForm] = useState({ name:"", company:"", role:"", email:"", phone:"", rut:"", status:"lead", address:{calle:"",comuna:"",region:""} });
   const f = (k,v) => setForm(p=>({...p,[k]:v}));
+
+  const [quotes, setQuotes] = useState([]);
+  useEffect(()=>{
+    supabase.from("cotizaciones").select("id,numero,serie,contact_id,total").then(({data})=>{
+      setQuotes((data||[]).map(r=>({ id:r.id, number:r.numero, serie:r.serie||"COT", contactId:r.contact_id, total:r.total||0 })));
+    });
+  },[]);
 
   const filtered = contacts.filter(c => {
     const q = search.toLowerCase();
@@ -399,8 +403,8 @@ function ContactsView({ contacts, setContacts, isMobile }) {
       (c.name.toLowerCase().includes(q)||c.company.toLowerCase().includes(q)||(c.rut||"").toLowerCase().includes(q));
   });
 
-  const openNew = () => { setEditingId(null); setForm({ name:"", company:"", role:"", email:"", phone:"", rut:"", status:"lead", value:"", lastContact:"", address:{calle:"",comuna:"",region:""} }); setShowModal(true); };
-  const openEdit = (c) => { setEditingId(c.id); setForm({ name:c.name, company:c.company, role:c.role||"", email:c.email||"", phone:c.phone||"", rut:c.rut||"", status:c.status, value:String(c.value||0), lastContact:c.lastContact||"", address:c.address||{calle:"",comuna:"",region:""} }); setShowModal(true); };
+  const openNew = () => { setEditingId(null); setForm({ name:"", company:"", role:"", email:"", phone:"", rut:"", status:"lead", address:{calle:"",comuna:"",region:""} }); setShowModal(true); };
+  const openEdit = (c) => { setEditingId(c.id); setForm({ name:c.name, company:c.company, role:c.role||"", email:c.email||"", phone:c.phone||"", rut:c.rut||"", status:c.status, address:c.address||{calle:"",comuna:"",region:""} }); setShowModal(true); };
 
   const updateStatus = async (c, newStatus) => {
     await supabase.from("contactos").update({ estado: newStatus }).eq("id", c.id);
@@ -467,6 +471,9 @@ function ContactsView({ contacts, setContacts, isMobile }) {
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(auto-fill, minmax(300px,1fr))", gap:14 }}>
         {filtered.map(c=>{
           const sc=STATUS_CONFIG[c.status]||STATUS_CONFIG.lead;
+          const contactQuotes = quotes.filter(q=>q.contactId===c.id);
+          const totalCot = contactQuotes.reduce((s,q)=>s+Number(q.total),0);
+          const cotOpen = !!collapsed[c.id];
           return (
             <div key={c.id} onClick={()=>setSelected(c)} style={{ background:COLORS.card, border:`1px solid ${selected?.id===c.id?COLORS.accent:COLORS.border}`, borderRadius:10, padding:18, cursor:"pointer" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
@@ -481,10 +488,30 @@ function ContactsView({ contacts, setContacts, isMobile }) {
                   <Badge color={sc.color}>{sc.label}</Badge>
                 </div>
               </div>
-              <div style={{ borderTop:`1px solid ${COLORS.border}`, paddingTop:10, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div style={{ borderTop:`1px solid ${COLORS.border}`, paddingTop:10 }}>
                 <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{c.email}</div>
-                <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.green, fontWeight:600 }}>{fmt(c.value)}</div>
               </div>
+              {contactQuotes.length>0 && (
+                <div style={{ borderTop:`1px solid ${COLORS.border}`, marginTop:10 }} onClick={e=>e.stopPropagation()}>
+                  <div onClick={()=>toggleQ(c.id)} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", cursor:"pointer" }}>
+                    <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Cotizaciones ({contactQuotes.length})</span>
+                    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                      <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.green, fontWeight:600 }}>{fmt(totalCot)}</span>
+                      <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>{cotOpen?"▲":"▼"}</span>
+                    </div>
+                  </div>
+                  {cotOpen && (
+                    <div style={{ display:"flex", flexDirection:"column", gap:4, paddingBottom:8 }}>
+                      {contactQuotes.map(q=>(
+                        <div key={q.id} style={{ display:"flex", justifyContent:"space-between" }}>
+                          <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{q.serie}-{String(q.number).padStart(3,"0")}</span>
+                          <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.text }}>{fmt(q.total)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               {/* Botones cambio estado */}
               <div style={{ display:"flex", gap:6, marginTop:10 }} onClick={e=>e.stopPropagation()}>
                 {STATUS_BACK[c.status] && (
@@ -528,7 +555,7 @@ function ContactsView({ contacts, setContacts, isMobile }) {
             )}
           </div>
           <div style={{ marginTop:20, display:"flex", flexDirection:"column", gap:10 }}>
-            {[["RUT",selected.rut||"—"],["Email",selected.email],["Teléfono",selected.phone],["Dirección",[selected.address?.calle,selected.address?.comuna,selected.address?.region].filter(Boolean).join(", ")||"—"],["Último contacto",fmtDate(selected.lastContact)],["Valor total",fmt(selected.value)]].map(([k,v])=>(
+            {[["RUT",selected.rut||"—"],["Email",selected.email],["Teléfono",selected.phone],["Dirección",[selected.address?.calle,selected.address?.comuna,selected.address?.region].filter(Boolean).join(", ")||"—"]].map(([k,v])=>(
               <div key={k} style={{ background:COLORS.card, borderRadius:8, padding:"10px 14px", border:`1px solid ${COLORS.border}` }}>
                 <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:3 }}>{k}</div>
                 <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.text }}>{v||"—"}</div>
@@ -549,8 +576,6 @@ function ContactsView({ contacts, setContacts, isMobile }) {
           <Select label="Estado" value={form.status} onChange={e=>f("status",e.target.value)}>
             <option value="lead">Lead</option><option value="prospecto">Prospecto</option><option value="cliente">Cliente</option>
           </Select>
-          <Input label="Valor estimado (CLP)" value={form.value} onChange={e=>f("value",e.target.value)} placeholder="0" type="number" />
-          <Input label="Último contacto" value={form.lastContact} onChange={e=>f("lastContact",e.target.value)} type="date" />
           <AddressSelector value={form.address} onChange={v=>f("address",v)} />
           {saving && <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.accent, textAlign:"center" }}>Guardando…</div>}
         </Modal>
@@ -1349,21 +1374,6 @@ function ReportsView({ contacts, deals, tasks, isMobile }) {
             );
           })}
         </div>
-      </div>
-      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20 }}>
-        <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Top empresas por valor</div>
-        {contacts.length===0 && <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.textMuted }}>Sin datos aún.</div>}
-        {[...contacts].sort((a,b)=>Number(b.value)-Number(a.value)).slice(0,6).map((c,i)=>(
-          <div key={c.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"9px 0", borderBottom:`1px solid ${COLORS.border}` }}>
-            <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textDim, width:18 }}>#{i+1}</div>
-            <div style={{ flex:1 }}>
-              <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, color:COLORS.text }}>{c.company}</div>
-              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{c.name}</div>
-            </div>
-            <Badge color={(STATUS_CONFIG[c.status]||STATUS_CONFIG.lead).color}>{(STATUS_CONFIG[c.status]||STATUS_CONFIG.lead).label}</Badge>
-            <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.green, fontWeight:600 }}>{fmt(c.value)}</div>
-          </div>
-        ))}
       </div>
     </div>
   );
