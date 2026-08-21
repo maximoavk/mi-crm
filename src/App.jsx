@@ -15878,17 +15878,17 @@ function AnalisisComparativa({ analysis, onBack, onEdit }) {
 const CHECKLIST_TEMPLATES = {
   "Motor de portón": [
     { seccion:"1.0 Inspección General", items:["Funcionamiento apertura y cierre","Ruidos o vibraciones anómalas","Velocidad de operación","Detención en finales de carrera","Alineación general del portón"] },
-    { seccion:"2.0 Motor – Mecánica",  items:["Estado piñón de salida","Fijación del motor a la base","Ajuste de tornillería","Acople piñón–cremallera","Holguras mecánicas"] },
+    { seccion:"2.0 Motor – Mecánica",  items:["Estado piñón de salida","Ajuste de tornillería","Holguras mecánicas"] },
     { seccion:"3.0 Motor – Electrónica", items:["Estado tarjeta electrónica","Limpieza tarjeta (aire/brocha)","Bornes de alimentación","Fusibles","Programación de fuerza","Programación de recorrido"] },
-    { seccion:"4.0 Cremallera",        items:["Alineación con piñón","Fijaciones al portón","Tramos duros o saltos","Limpieza","Lubricación"] },
-    { seccion:"5.0 Estructura Portón", items:["Estado del marco","Soldaduras","Rigidez estructural","Anclajes de cremallera","Roce con suelo"] },
+    { seccion:"4.0 Cremallera",        items:["Alineación y acople piñón–cremallera","Fijaciones/anclajes de cremallera al portón","Tramos duros o saltos","Lubricación"] },
+    { seccion:"5.0 Estructura Portón", items:["Estado del marco","Soldaduras","Rigidez estructural","Roce con suelo"] },
     { seccion:"6.0 Ruedas y Rodadura", items:["Desgaste de ruedas","Giro libre de polines","Enderezamiento de polines","Ajuste de altura","Lubricación de ejes"] },
     { seccion:"7.0 Guía Superior",     items:["Estado de rodillos guía","Ajuste de presión","Alineación vertical","Lubricación"] },
-    { seccion:"8.0 Base y Fundaciones",items:["Nivelación base motor","Limpieza de base","Firmeza del anclaje","Ajuste de pernos"] },
-    { seccion:"9.0 Seguridad",         items:["Limpieza fotoceldas","Alineación fotoceldas","Prueba inversión de movimiento","Cambio baterías sensores","Revisión desbloqueo manual"] },
+    { seccion:"8.0 Base y Fundaciones",items:["Nivelación base motor","Limpieza de base","Firmeza del anclaje / fijación del motor a la base","Ajuste de pernos"] },
+    { seccion:"9.0 Seguridad",         items:["Limpieza fotoceldas","Alineación fotoceldas","Cambio baterías sensores","Revisión desbloqueo manual"] },
     { seccion:"10.0 Batería/Respaldo", items:["Medición de voltaje","Estado físico","Conexiones","Prueba sin energía","Recomendación de cambio"] },
-    { seccion:"11.0 Limpieza General", items:["Limpieza interior motor","Limpieza exterior motor","Limpieza de riel","Retiro de residuos"] },
-    { seccion:"12.0 Pruebas Finales",  items:["Apertura completa","Cierre completo","Prueba con obstáculo","Tiempo de apertura"] },
+    { seccion:"11.0 Limpieza General", items:["Limpieza interior motor","Limpieza exterior motor","Limpieza de riel y cremallera","Retiro de residuos"] },
+    { seccion:"12.0 Pruebas Finales",  items:["Apertura completa","Cierre completo","Prueba de inversión al detectar obstáculo","Tiempo de apertura"] },
   ],
   "Barrera vehicular": [
     { seccion:"1.0 Inspección General", items:["Funcionamiento apertura/cierre","Tiempo de ciclo","Detección de vehículos","Funcionamiento bucles"] },
@@ -16903,7 +16903,7 @@ function OperacionesView({ isMobile }) {
             const q = quotes.find(q=>q.id===op.quote_id);
             const tc = TIPO_COLOR[op.tipo]||COLORS.accent;
             const checklist = op.checklist||[];
-            const totalItems = checklist.reduce((s,sec)=>s+(sec.items||[]).length,0);
+            const totalItems = checklist.reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado!=="na").length,0);
             const doneItems  = checklist.reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado==="ok"||it.estado==="obs").length,0);
             const pct = totalItems>0?Math.round(doneItems/totalItems*100):0;
             const garantiaVence = op.garantia_meses && op.fecha_visita
@@ -17529,7 +17529,7 @@ function OpModal({ op, defaultTipo, quotes, contacts, onClose, onSaved, onPrint 
   const clearFirma = () => { canvasRef.current?.getContext("2d").clearRect(0,0,400,120); };
   const saveFirma  = () => { setFirma(p=>({...p, img:canvasRef.current.toDataURL()})); setFirmaMode(false); };
 
-  const totalItems = (checklist||[]).reduce((s,sec)=>s+(sec.items||[]).length,0);
+  const totalItems = (checklist||[]).reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado!=="na").length,0);
   const doneItems  = (checklist||[]).reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado==="ok"||it.estado==="obs").length,0);
   const pct = totalItems>0?Math.round(doneItems/totalItems*100):0;
 
