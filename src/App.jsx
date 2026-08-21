@@ -392,16 +392,22 @@ function ContactsView({ contacts, setContacts, isMobile }) {
 
   const [quotes, setQuotes] = useState([]);
   useEffect(()=>{
-    supabase.from("cotizaciones").select("id,numero,serie,contact_id,total").then(({data})=>{
-      setQuotes((data||[]).map(r=>({ id:r.id, number:r.numero, serie:r.serie||"COT", contactId:r.contact_id, total:r.total||0 })));
+    supabase.from("cotizaciones").select("id,numero,serie,contact_id,total,estado").then(({data})=>{
+      setQuotes((data||[]).map(r=>({ id:r.id, number:r.numero, serie:r.serie||"COT", contactId:r.contact_id, total:r.total||0, status:r.estado||"borrador" })));
     });
   },[]);
+
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
+  useEffect(()=>{ setPage(1); },[search, filterStatus]);
 
   const filtered = contacts.filter(c => {
     const q = search.toLowerCase();
     return (filterStatus==="todos"||c.status===filterStatus) &&
       (c.name.toLowerCase().includes(q)||c.company.toLowerCase().includes(q)||(c.rut||"").toLowerCase().includes(q));
   });
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pagedContacts = filtered.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
 
   const openNew = () => { setEditingId(null); setForm({ name:"", company:"", role:"", email:"", phone:"", rut:"", status:"lead", address:{calle:"",comuna:"",region:""} }); setShowModal(true); };
   const openEdit = (c) => { setEditingId(c.id); setForm({ name:c.name, company:c.company, role:c.role||"", email:c.email||"", phone:c.phone||"", rut:c.rut||"", status:c.status, address:c.address||{calle:"",comuna:"",region:""} }); setShowModal(true); };
@@ -469,7 +475,7 @@ function ContactsView({ contacts, setContacts, isMobile }) {
       {search && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:12 }}>{filtered.length} resultado{filtered.length!==1?"s":""} para <span style={{ color:COLORS.accent }}>"{search}"</span></div>}
       {filtered.length===0 && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>{search?`Sin resultados para "${search}"`:"Sin contactos. ¡Agrega el primero!"}</div>}
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(auto-fill, minmax(300px,1fr))", gap:14 }}>
-        {filtered.map(c=>{
+        {pagedContacts.map(c=>{
           const sc=STATUS_CONFIG[c.status]||STATUS_CONFIG.lead;
           const contactQuotes = quotes.filter(q=>q.contactId===c.id);
           const totalCot = contactQuotes.reduce((s,q)=>s+Number(q.total),0);
@@ -502,12 +508,15 @@ function ContactsView({ contacts, setContacts, isMobile }) {
                   </div>
                   {cotOpen && (
                     <div style={{ display:"flex", flexDirection:"column", gap:4, paddingBottom:8 }}>
-                      {contactQuotes.map(q=>(
-                        <div key={q.id} style={{ display:"flex", justifyContent:"space-between" }}>
-                          <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{q.serie}-{String(q.number).padStart(3,"0")}</span>
-                          <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.text }}>{fmt(q.total)}</span>
-                        </div>
-                      ))}
+                      {contactQuotes.map(q=>{
+                        const approved = q.status==="aprobada";
+                        return (
+                          <div key={q.id} style={{ display:"flex", justifyContent:"space-between", padding:approved?"2px 4px":0, borderRadius:approved?4:0, background:approved?`${COLORS.green}18`:"transparent" }}>
+                            <span style={{ fontFamily:FONT, fontSize:10, color:approved?COLORS.green:COLORS.textMuted, fontWeight:approved?700:400 }}>{q.serie}-{String(q.number).padStart(3,"0")}</span>
+                            <span style={{ fontFamily:FONT, fontSize:10, color:approved?COLORS.green:COLORS.text, fontWeight:approved?700:400 }}>{fmt(q.total)}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -531,6 +540,13 @@ function ContactsView({ contacts, setContacts, isMobile }) {
           );
         })}
       </div>
+      {totalPages>1 && (
+        <div style={{ display:"flex", justifyContent:"center", alignItems:"center", gap:16, marginTop:16, padding:"10px 0" }}>
+          <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page<=1} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:12, cursor:page<=1?"default":"pointer", background:"transparent", border:`1px solid ${COLORS.border}`, color:page<=1?COLORS.textMuted:COLORS.text, opacity:page<=1?0.5:1 }}>← Anterior</button>
+          <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Página {page} de {totalPages}</div>
+          <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page>=totalPages} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:12, cursor:page>=totalPages?"default":"pointer", background:"transparent", border:`1px solid ${COLORS.border}`, color:page>=totalPages?COLORS.textMuted:COLORS.text, opacity:page>=totalPages?0.5:1 }}>Siguiente →</button>
+        </div>
+      )}
       {selected && (
         <div style={{ position:"fixed", top:0, right:0, width:isMobile?"100%":360, height:"100%", background:COLORS.surface, borderLeft:`1px solid ${COLORS.border}`, padding:28, overflowY:"auto", zIndex:100 }}>
           <button onClick={()=>setSelected(null)} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12, marginBottom:20 }}>← Cerrar</button>
