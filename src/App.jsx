@@ -8163,7 +8163,7 @@ function PurchaseView({ isMobile }) {
   const RAPID_CARGO_DIRECCION = { direccion:"Pampa Baja 98", comuna:"La Serena", ciudad:"La Serena", region:"Coquimbo" };
 
   // Modal despacho
-  const emptyDespacho = { nombre:"", rut:"", telefono:"", correo:"", courier:"Starken", tipo:"sucursal", sucursal:"", direccion:"", region:"", comuna:"", ciudad:"", tracking_code:"", notas_despacho:"", num_cotizacion:"", costo_despacho:"", aplica_iva_despacho:false };
+  const emptyDespacho = { nombre:"Maximo Hudson", rut:"26074100-4", telefono:"+56 981334980", correo:"maximo.hudson.blanco@gmail.com", courier:"Starken", tipo:"sucursal", sucursal:"", direccion:"", region:"", comuna:"", ciudad:"", tracking_code:"", notas_despacho:"", num_cotizacion:"", costo_despacho:"", aplica_iva_despacho:false };
   const MIS_DIRECCIONES = [
     { label:"Marcos Gallo Vergara 536 B · Torre D Dpto 411", direccion:"Marcos Gallo Vergara 536 B, Torre D, Dpto 411", region:"", ciudad:"", comuna:"" },
   ];
