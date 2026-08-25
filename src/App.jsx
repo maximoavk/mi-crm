@@ -8157,12 +8157,15 @@ function PurchaseView({ isMobile }) {
     { key:"Starken",       url:"https://www.starken.cl/seguimiento?codigo=", color:"#E63946" },
     { key:"Blue Express",  url:"https://www.blueexpress.com/seguimiento?guia=", color:"#1D6FA4" },
     { key:"Chile Express", url:"https://www.chilexpress.cl/seguimiento/",      color:"#FF6B00" },
+    { key:"Rapid Cargo",   url:"", color:"#8B5CF6" },
   ];
+  // Rapid Cargo solo tiene retiro en su oficina: la dirección va fija, no editable
+  const RAPID_CARGO_DIRECCION = { direccion:"Pampa Baja 98", comuna:"La Serena", ciudad:"La Serena", region:"Coquimbo" };
 
   // Modal despacho
   const emptyDespacho = { nombre:"", rut:"", telefono:"", correo:"", courier:"Starken", tipo:"sucursal", sucursal:"", direccion:"", region:"", comuna:"", ciudad:"", tracking_code:"", notas_despacho:"", num_cotizacion:"", costo_despacho:"", aplica_iva_despacho:false };
   const MIS_DIRECCIONES = [
-    { label:"Marcos Gallo 536B · Torre D Dpto 411", direccion:"Marcos Gallo Vergara 536B, Torre D, Dpto 411", region:"", ciudad:"", comuna:"" },
+    { label:"Marcos Gallo Vergara 536 B · Torre D Dpto 411", direccion:"Marcos Gallo Vergara 536 B, Torre D, Dpto 411", region:"", ciudad:"", comuna:"" },
   ];
   const [showDespachoModal, setShowDespachoModal] = useState(false);
   const [despachoOC, setDespachoOC]               = useState(null);
@@ -9423,7 +9426,13 @@ function PurchaseView({ isMobile }) {
                 <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600, marginBottom:12 }}>🚚 Courier</div>
                 <div style={{ display:"flex", gap:8, marginBottom:14 }}>
                   {COURIERS.map(c=>(
-                    <button key={c.key} onClick={()=>df("courier",c.key)}
+                    <button key={c.key} onClick={()=>{
+                      if(c.key==="Rapid Cargo") {
+                        setDespachoForm(p=>({ ...p, courier:c.key, tipo:"sucursal", sucursal:"", ...RAPID_CARGO_DIRECCION }));
+                      } else {
+                        df("courier",c.key);
+                      }
+                    }}
                       style={{ flex:1, padding:"9px 8px", borderRadius:8, cursor:"pointer", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700,
                         background: despachoForm.courier===c.key ? c.color : COLORS.surface,
                         border: `2px solid ${despachoForm.courier===c.key ? c.color : COLORS.border}`,
@@ -9433,74 +9442,81 @@ function PurchaseView({ isMobile }) {
                   ))}
                 </div>
 
-                {/* Tipo envío */}
-                <div style={{ display:"flex", gap:8, marginBottom:14 }}>
-                  {[{k:"sucursal",l:"📍 Sucursal"},{k:"domicilio",l:"🏠 Domicilio"}].map(opt=>(
-                    <button key={opt.k} onClick={()=>df("tipo",opt.k)}
-                      style={{ flex:1, padding:"8px 0", borderRadius:7, cursor:"pointer", fontFamily:FONT, fontSize:12, fontWeight:600,
-                        background: despachoForm.tipo===opt.k ? `${COLORS.accent}22` : COLORS.surface,
-                        border: `1px solid ${despachoForm.tipo===opt.k ? COLORS.accent : COLORS.border}`,
-                        color: despachoForm.tipo===opt.k ? COLORS.accent : COLORS.textMuted }}>
-                      {opt.l}
-                    </button>
-                  ))}
-                </div>
-
-                {despachoForm.tipo==="sucursal" && inp("Sucursal","sucursal","Ej: Sucursal La Serena Centro")}
-
-                {/* Direcciones guardadas */}
-                <div style={{ marginBottom:8 }}>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5, fontWeight:600 }}>📌 Mis Direcciones</div>
-                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                    {MIS_DIRECCIONES.map((d,i)=>(
-                      <button key={i} onClick={()=>{
-                        df("direccion", d.direccion);
-                        if(d.region) { df("region", d.region); df("ciudad",""); df("comuna",""); }
-                        if(d.ciudad) df("ciudad", d.ciudad);
-                        if(d.comuna) df("comuna", d.comuna);
-                      }}
-                        style={{ padding:"5px 12px", background: despachoForm.direccion===d.direccion?`${COLORS.accent}22`:`${COLORS.accent}0d`,
-                          border:`1px solid ${despachoForm.direccion===d.direccion?COLORS.accent:COLORS.accent+"44"}`,
-                          borderRadius:20, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer", whiteSpace:"nowrap" }}>
-                        📌 {d.label}
+                {despachoForm.courier==="Rapid Cargo" ? (
+                  <div style={{ padding:"10px 12px", marginBottom:14, background:`${COURIERS.find(c=>c.key==="Rapid Cargo").color}15`, border:`1px solid ${COURIERS.find(c=>c.key==="Rapid Cargo").color}44`, borderRadius:8, fontFamily:FONT, fontSize:12, color:COLORS.text }}>
+                    📍 Retiro en oficina Rapid Cargo — única opción disponible con este courier<br/>
+                    <strong>{RAPID_CARGO_DIRECCION.direccion}, {RAPID_CARGO_DIRECCION.comuna}, {RAPID_CARGO_DIRECCION.region}</strong>
+                  </div>
+                ) : (<>
+                  {/* Tipo envío */}
+                  <div style={{ display:"flex", gap:8, marginBottom:14 }}>
+                    {[{k:"sucursal",l:"📍 Sucursal"},{k:"domicilio",l:"🏠 Domicilio"}].map(opt=>(
+                      <button key={opt.k} onClick={()=>df("tipo",opt.k)}
+                        style={{ flex:1, padding:"8px 0", borderRadius:7, cursor:"pointer", fontFamily:FONT, fontSize:12, fontWeight:600,
+                          background: despachoForm.tipo===opt.k ? `${COLORS.accent}22` : COLORS.surface,
+                          border: `1px solid ${despachoForm.tipo===opt.k ? COLORS.accent : COLORS.border}`,
+                          color: despachoForm.tipo===opt.k ? COLORS.accent : COLORS.textMuted }}>
+                        {opt.l}
                       </button>
                     ))}
                   </div>
-                </div>
 
-                {inp("Dirección (calle y número)","direccion","Ej: Av. Pacífico 510")}
+                  {despachoForm.tipo==="sucursal" && inp("Sucursal","sucursal","Ej: Sucursal La Serena Centro")}
 
-                {/* Región */}
-                <div style={{ marginBottom:12 }}>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5, fontWeight:600 }}>Región</div>
-                  <select value={despachoForm.region} onChange={e=>{ df("region",e.target.value); df("ciudad",""); df("comuna",""); }}
-                    style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:despachoForm.region?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box" }}>
-                    <option value="">— Seleccionar región —</option>
-                    {Object.keys(CHILE_GEO).map(r=><option key={r} value={r}>{r}</option>)}
-                  </select>
-                </div>
+                  {/* Direcciones guardadas */}
+                  <div style={{ marginBottom:8 }}>
+                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5, fontWeight:600 }}>📌 Mis Direcciones</div>
+                    <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                      {MIS_DIRECCIONES.map((d,i)=>(
+                        <button key={i} onClick={()=>{
+                          df("direccion", d.direccion);
+                          if(d.region) { df("region", d.region); df("ciudad",""); df("comuna",""); }
+                          if(d.ciudad) df("ciudad", d.ciudad);
+                          if(d.comuna) df("comuna", d.comuna);
+                        }}
+                          style={{ padding:"5px 12px", background: despachoForm.direccion===d.direccion?`${COLORS.accent}22`:`${COLORS.accent}0d`,
+                            border:`1px solid ${despachoForm.direccion===d.direccion?COLORS.accent:COLORS.accent+"44"}`,
+                            borderRadius:20, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer", whiteSpace:"nowrap" }}>
+                          📌 {d.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-                {/* Ciudad y Comuna */}
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 16px" }}>
+                  {inp("Dirección (calle y número)","direccion","Ej: Av. Pacífico 510")}
+
+                  {/* Región */}
                   <div style={{ marginBottom:12 }}>
-                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5, fontWeight:600 }}>Ciudad</div>
-                    <select value={despachoForm.ciudad} onChange={e=>df("ciudad",e.target.value)}
-                      disabled={!despachoForm.region}
-                      style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:despachoForm.ciudad?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box", opacity:!despachoForm.region?0.4:1 }}>
-                      <option value="">— Ciudad —</option>
-                      {(CHILE_GEO[despachoForm.region]?.ciudades||[]).map(c=><option key={c} value={c}>{c}</option>)}
+                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5, fontWeight:600 }}>Región</div>
+                    <select value={despachoForm.region} onChange={e=>{ df("region",e.target.value); df("ciudad",""); df("comuna",""); }}
+                      style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:despachoForm.region?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box" }}>
+                      <option value="">— Seleccionar región —</option>
+                      {Object.keys(CHILE_GEO).map(r=><option key={r} value={r}>{r}</option>)}
                     </select>
                   </div>
-                  <div style={{ marginBottom:12 }}>
-                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5, fontWeight:600 }}>Comuna</div>
-                    <select value={despachoForm.comuna} onChange={e=>df("comuna",e.target.value)}
-                      disabled={!despachoForm.region}
-                      style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:despachoForm.comuna?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box", opacity:!despachoForm.region?0.4:1 }}>
-                      <option value="">— Comuna —</option>
-                      {(CHILE_GEO[despachoForm.region]?.comunas||[]).map(c=><option key={c} value={c}>{c}</option>)}
-                    </select>
+
+                  {/* Ciudad y Comuna */}
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 16px" }}>
+                    <div style={{ marginBottom:12 }}>
+                      <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5, fontWeight:600 }}>Ciudad</div>
+                      <select value={despachoForm.ciudad} onChange={e=>df("ciudad",e.target.value)}
+                        disabled={!despachoForm.region}
+                        style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:despachoForm.ciudad?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box", opacity:!despachoForm.region?0.4:1 }}>
+                        <option value="">— Ciudad —</option>
+                        {(CHILE_GEO[despachoForm.region]?.ciudades||[]).map(c=><option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ marginBottom:12 }}>
+                      <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5, fontWeight:600 }}>Comuna</div>
+                      <select value={despachoForm.comuna} onChange={e=>df("comuna",e.target.value)}
+                        disabled={!despachoForm.region}
+                        style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:despachoForm.comuna?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box", opacity:!despachoForm.region?0.4:1 }}>
+                        <option value="">— Comuna —</option>
+                        {(CHILE_GEO[despachoForm.region]?.comunas||[]).map(c=><option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
                   </div>
-                </div>
+                </>)}
               </div>
 
               {/* N° Cotización manual */}
@@ -14912,6 +14928,7 @@ function GuiasView({ isMobile }) {
     { key:"Starken",       color:"#E63946" },
     { key:"Blue Express",  color:"#1D6FA4" },
     { key:"Chile Express", color:"#FF6B00" },
+    { key:"Rapid Cargo",   color:"#8B5CF6" },
   ];
 
   const COURIER_URLS = {
@@ -19573,6 +19590,7 @@ export default function CRM() {
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [userRole, setUserRole] = useState(null); // "admin" | "colaborador" | "prueba"
+  const [profileError, setProfileError] = useState(null);
   const isMobile = useIsMobile();
 
   // Auth listener
@@ -19587,26 +19605,39 @@ export default function CRM() {
     return () => subscription.unsubscribe();
   },[]);
 
-  useEffect(()=>{
-    if(!session) return;
-    (async()=>{
-      // Load user role from tabla usuarios_roles
-      const email = session.user?.email || "";
-      const { data: roleData } = await supabase.from("usuarios_roles").select("rol").eq("email", email).single();
-      const rol = roleData?.rol || "admin"; // default admin si no está en tabla
-      setUserRole(rol);
+  // Id estable del usuario: evita recargar todo cada vez que Supabase emite
+  // una nueva referencia de `session` (ej. refresh de token) sin cambiar de usuario
+  const userId = session?.user?.id || null;
 
-      const [{ data: c }, { data: d }, { data: t }] = await Promise.all([
-        supabase.from("contactos").select("*"),
-        supabase.from("deals").select("*"),
-        supabase.from("task").select("*"),
-      ]);
-      setContacts((c||[]).map(mapContact));
-      setDeals((d||[]).map(mapDeal));
-      setTasks((t||[]).map(mapTask));
-      setLoading(false);
+  useEffect(()=>{
+    if(!userId) return;
+    let cancelled = false;
+    (async()=>{
+      setProfileError(null);
+      try {
+        const email = session.user?.email || "";
+        // Rol y datos son independientes entre sí: se piden en paralelo
+        // en vez de esperar el rol antes de pedir el resto (menos round-trips)
+        const [{ data: roleData }, { data: c }, { data: d }, { data: t }] = await Promise.all([
+          supabase.from("usuarios_roles").select("rol").eq("email", email).single(),
+          supabase.from("contactos").select("*"),
+          supabase.from("deals").select("*"),
+          supabase.from("task").select("*"),
+        ]);
+        if(cancelled) return;
+        setUserRole(roleData?.rol || "admin"); // default admin si no está en tabla
+        setContacts((c||[]).map(mapContact));
+        setDeals((d||[]).map(mapDeal));
+        setTasks((t||[]).map(mapTask));
+        setLoading(false);
+      } catch(err) {
+        if(cancelled) return;
+        setProfileError(err?.message || "No se pudo cargar el perfil");
+        setLoading(false);
+      }
     })();
-  },[session]);
+    return () => { cancelled = true; };
+  },[userId]);
 
   const navigate = (key) => { setView(key); setMenuOpen(false); };
   const logout = () => supabase.auth.signOut();
@@ -19622,6 +19653,13 @@ export default function CRM() {
   );
 
   if(!session) return <LoginScreen />;
+
+  if(profileError) return (
+    <div style={{ display:"flex", flexDirection:"column", gap:12, alignItems:"center", justifyContent:"center", height:"100vh", background:"#0A0C10" }}>
+      <div style={{ fontFamily:FONT, color:COLORS.red, fontSize:14, letterSpacing:"0.05em", textAlign:"center", maxWidth:320 }}>No se pudo cargar el perfil: {profileError}</div>
+      <button onClick={()=>window.location.reload()} style={{ fontFamily:FONT, color:"#00C2FF", fontSize:13, background:"transparent", border:"1px solid #00C2FF", borderRadius:6, padding:"8px 16px", cursor:"pointer" }}>Reintentar</button>
+    </div>
+  );
 
   // Esperar que cargue el rol
   if(userRole === null) return (
