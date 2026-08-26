@@ -789,6 +789,7 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
   const [facturaFecha, setFacturaFecha] = useState("");
   const [cotFechas, setCotFechas] = useState([]);
   const [monthOverride, setMonthOverride] = useState({});
+  const [hoverMonth, setHoverMonth] = useState(null);
 
   useEffect(() => {
     supabase.from("cotizaciones").select("id,fecha").then(({data})=>{ if(data) setCotFechas(data); });
@@ -948,6 +949,66 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
       .map(k=>({ key:k, label:monthLabel(k), deals:groups[k] }));
     if(groups["sin-fecha"]) ordered.push({ key:"sin-fecha", label:"Sin fecha", deals:groups["sin-fecha"] });
     return ordered;
+  };
+  const monthShortLabel = (key) => {
+    const [y,m] = key.split("-");
+    const label = new Date(Number(y), Number(m)-1, 1).toLocaleDateString("es-CL", { month:"short" }).replace(".","");
+    return label.charAt(0).toUpperCase()+label.slice(1);
+  };
+
+  // ── Resumen mensual combinado COT+SIN (panel de donas) ───────────────────────
+  const monthlyStats = useMemo(()=>{
+    const groups = {};
+    deals.forEach(d=>{
+      const cot = cotFechas.find(c=>c.id===d.quoteId);
+      if(!cot?.fecha) return;
+      const key = cot.fecha.slice(0,7);
+      if(!groups[key]) groups[key] = { propuesta:0, cerrado:0, rechazado:0 };
+      groups[key][d.stage] = (groups[key][d.stage]||0) + Number(d.value);
+    });
+    return Object.keys(groups).sort().map(key=>{
+      const g = groups[key];
+      return { key, label:monthLabel(key), shortLabel:monthShortLabel(key), ...g, total:g.propuesta+g.cerrado+g.rechazado };
+    });
+  },[deals, cotFechas]);
+
+  // Dona chica de resumen mensual (hover = agranda + tooltip con detalle)
+  const renderMonthDonut = (m) => {
+    const isHover = hoverMonth===m.key;
+    const size = 46, r = size*0.32, cx = size/2, cy = size/2, sw = size*0.16;
+    const circ = 2*Math.PI*r;
+    let offset = 0;
+    const segs = STAGES.map(s=>{
+      const val = m[s.key];
+      const len = m.total>0 ? (val/m.total)*circ : 0;
+      const rot = (offset/circ)*360 - 90;
+      offset += len;
+      return len>0 ? { key:s.key, color:s.color, dash:`${len} ${circ-len}`, rot } : null;
+    }).filter(Boolean);
+    return (
+      <div key={m.key} onMouseEnter={()=>setHoverMonth(m.key)} onMouseLeave={()=>setHoverMonth(null)}
+        style={{ position:"relative", display:"flex", flexDirection:"column", alignItems:"center", gap:4, padding:6, borderRadius:8, cursor:"default", background:isHover?COLORS.border:"transparent", transition:"background 0.15s" }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform:isHover?"scale(1.35)":"scale(1)", transition:"transform 0.18s ease" }}>
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke={COLORS.border} strokeWidth={sw} />
+          {segs.map(seg=>(
+            <circle key={seg.key} cx={cx} cy={cy} r={r} fill="none" stroke={seg.color} strokeWidth={sw}
+              strokeDasharray={seg.dash} transform={`rotate(${seg.rot} ${cx} ${cy})`} />
+          ))}
+        </svg>
+        <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase" }}>{m.shortLabel}</span>
+        {isHover && (
+          <div style={{ position:"absolute", bottom:"100%", left:"50%", transform:"translateX(-50%) translateY(-6px)", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:7, padding:"8px 10px", width:150, zIndex:10, boxShadow:"0 8px 20px #00000066" }}>
+            {STAGES.filter(s=>m[s.key]>0).map(s=>(
+              <div key={s.key} style={{ display:"flex", alignItems:"center", gap:5, fontFamily:FONT, fontSize:9, color:COLORS.text, marginBottom:3 }}>
+                <span style={{ width:6, height:6, borderRadius:"50%", background:s.color, flexShrink:0 }} />
+                {s.label}: {fmt(m[s.key])}
+              </div>
+            ))}
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:10, fontWeight:700, color:COLORS.text, marginTop:4, paddingTop:4, borderTop:`1px dashed ${COLORS.border}` }}>Total: {fmt(m.total)}</div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   // Render de una card de deal individual
@@ -1125,28 +1186,42 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
         </div>
       </div>
 
-      {/* ── LANE COT — Con factura / IVA ── */}
-      <div style={{ marginBottom:6 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
-          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.12em", fontWeight:700 }}>COT · Con IVA · Facturas empresa</div>
-          <div style={{ flex:1, height:1, background:COLORS.accent+"33" }} />
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{fmt(dealsCOT.reduce((s,d)=>s+Number(d.value),0))}</div>
-        </div>
-        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)", gap:12 }}>
-          {STAGES.map(stage => renderStageCol(stage, groupedCOT, "COT", COLORS.accent))}
-        </div>
-      </div>
+      <div style={{ display:"flex", gap:16, alignItems:"flex-start" }}>
+        <div style={{ flex:1, minWidth:0 }}>
+          {/* ── LANE COT — Con factura / IVA ── */}
+          <div style={{ marginBottom:6 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
+              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.12em", fontWeight:700 }}>COT · Con IVA · Facturas empresa</div>
+              <div style={{ flex:1, height:1, background:COLORS.accent+"33" }} />
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{fmt(dealsCOT.reduce((s,d)=>s+Number(d.value),0))}</div>
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)", gap:12 }}>
+              {STAGES.map(stage => renderStageCol(stage, groupedCOT, "COT", COLORS.accent))}
+            </div>
+          </div>
 
-      {/* ── LANE SIN — Sin IVA / Boletas / Personal ── */}
-      <div style={{ marginTop:28 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
-          <div style={{ fontFamily:FONT, fontSize:10, color:"#2563EB", textTransform:"uppercase", letterSpacing:"0.12em", fontWeight:700 }}>SIN · Sin IVA · Boletas / Personal</div>
-          <div style={{ flex:1, height:1, background:"#2563EB33" }} />
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{fmt(dealsSIN.reduce((s,d)=>s+Number(d.value),0))}</div>
+          {/* ── LANE SIN — Sin IVA / Boletas / Personal ── */}
+          <div style={{ marginTop:28 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
+              <div style={{ fontFamily:FONT, fontSize:10, color:"#2563EB", textTransform:"uppercase", letterSpacing:"0.12em", fontWeight:700 }}>SIN · Sin IVA · Boletas / Personal</div>
+              <div style={{ flex:1, height:1, background:"#2563EB33" }} />
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{fmt(dealsSIN.reduce((s,d)=>s+Number(d.value),0))}</div>
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)", gap:12 }}>
+              {STAGES.map(stage => renderStageCol(stage, groupedSIN, "SIN", "#2563EB"))}
+            </div>
+          </div>
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)", gap:12 }}>
-          {STAGES.map(stage => renderStageCol(stage, groupedSIN, "SIN", "#2563EB"))}
-        </div>
+
+        {/* ── Panel resumen mensual (dona COT+SIN por mes) ── */}
+        {!isMobile && monthlyStats.length>0 && (
+          <div style={{ width:280, flexShrink:0, background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:14 }}>
+            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>Resumen por mes</div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:4 }}>
+              {monthlyStats.map(renderMonthDonut)}
+            </div>
+          </div>
+        )}
       </div>
       {rejectModal && (
         <Modal title="Motivo de rechazo" onClose={()=>setRejectModal(null)} onSubmit={confirmReject}>
