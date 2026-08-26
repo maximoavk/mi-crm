@@ -34,6 +34,8 @@ const mapDeal = (r) => ({
   numeroFactura: r.numero_factura || "",
   fechaFactura:  r.fecha_factura  || "",
   pctAnticipo: r.pct_anticipo || 50,
+  motivoRechazo: r.motivo_rechazo || "",
+  fechaRechazo:  r.fecha_rechazo  || "",
 });
 const mapDealToDb = (f) => ({
   titulo: f.title, empresa: f.company, rut_empresa: f.rut,
@@ -46,6 +48,8 @@ const mapDealToDb = (f) => ({
   numero_factura: f.numeroFactura  || null,
   fecha_factura:  f.fechaFactura   || null,
   pct_anticipo: Number(f.pctAnticipo) || 50,
+  motivo_rechazo: f.motivoRechazo || null,
+  fecha_rechazo:  f.fechaRechazo  || null,
 });
 
 const mapTask = (r) => ({
@@ -130,11 +134,11 @@ function AddressSelector({ value, onChange }) {
 }
 
 const STAGES = [
-  { key: "prospecto",    label: "Prospecto",    color: COLORS.textMuted },
-  { key: "propuesta",    label: "Propuesta",    color: COLORS.yellow },
-  { key: "negociacion",  label: "Negociación",  color: COLORS.accent },
-  { key: "cerrado",      label: "Cerrado",      color: COLORS.green },
+  { key: "propuesta", label: "Propuesta", color: COLORS.yellow },
+  { key: "cerrado",   label: "Cerrado",   color: COLORS.green },
+  { key: "rechazado", label: "Rechazado", color: COLORS.red },
 ];
+const REJECT_REASONS = ["Precio", "Sin presupuesto", "Indisposición del cliente", "Perdido con competencia", "Otro"];
 const STATUS_CONFIG = {
   cliente:   { label: "Cliente",   color: COLORS.green },
   prospecto: { label: "Prospecto", color: COLORS.yellow },
@@ -223,7 +227,7 @@ const Loader = () => (
 // ── DASHBOARD ───────────────────────────────────────────────────────────────
 function Dashboard({ contacts, deals, tasks, isMobile, navigate }) {
   const totalRevenue       = deals.filter(d=>d.stage==="cerrado").reduce((s,d)=>s+Number(d.value),0);
-  const pipeline           = deals.filter(d=>d.stage!=="cerrado").reduce((s,d)=>s+Number(d.value)*Number(d.probability)/100,0);
+  const pipeline           = deals.filter(d=>d.stage!=="cerrado"&&d.stage!=="rechazado").reduce((s,d)=>s+Number(d.value)*Number(d.probability)/100,0);
   const pendientesFacturar = deals.filter(d=>d.stage==="cerrado"&&!d.facturado).reduce((s,d)=>s+Number(d.value),0);
   const anticipoEsperado   = deals.filter(d=>d.stage==="cerrado").reduce((s,d)=>s+Math.round(Number(d.value)*(d.pctAnticipo||50)/100),0);
   const overdueTasks = tasks.filter(t=>!t.done&&isOverdue(t.dueDate)).length;
@@ -294,17 +298,14 @@ function Dashboard({ contacts, deals, tasks, isMobile, navigate }) {
   });
   const anticiposSaldosMax = Math.max(anticipoPendTotal, saldoPendTotal, 1);
 
-  // Donut: pipeline por estado real de la cotización (aprobada / en negociación / enviada / vencida / rechazada)
-  const ESTADO_BUCKET_COLOR = { aprobada:COLORS.green, negociacion:COLORS.accent, enviada:COLORS.yellow, rechazada:COLORS.red };
-  const ESTADO_BUCKET_LABEL = { aprobada:"Aprobada", negociacion:"En negociación", enviada:"Enviada", rechazada:"Rechazada / vencida" };
-  const ESTADO_BUCKET_ORDER = ["aprobada","negociacion","enviada","rechazada"];
+  // Donut: pipeline por estado real de la cotización (aprobada / enviada / vencida / rechazada)
+  const ESTADO_BUCKET_COLOR = { aprobada:COLORS.green, enviada:COLORS.yellow, rechazada:COLORS.red };
+  const ESTADO_BUCKET_LABEL = { aprobada:"Aprobada", enviada:"Enviada", rechazada:"Rechazada / vencida" };
+  const ESTADO_BUCKET_ORDER = ["aprobada","enviada","rechazada"];
   const cotEstadoBucket = (c) => {
     if(c.estado==="aprobada") return "aprobada";
     if(c.estado==="rechazada") return "rechazada";
-    if(c.estado==="enviada"){
-      const deal = deals.find(d=>String(d.quoteNumber)===String(c.numero) && (d.serie||"COT")===(c.serie||"COT"));
-      return deal?.stage==="negociacion" ? "negociacion" : "enviada";
-    }
+    if(c.estado==="enviada") return "enviada";
     return null; // borrador: aún no entra al pipeline
   };
   const cotBuckets = cotizaciones.map(cotEstadoBucket).filter(Boolean);
@@ -419,7 +420,7 @@ function Dashboard({ contacts, deals, tasks, isMobile, navigate }) {
 
         <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16 }}>
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, marginBottom:10 }}>Deals activos — mayor valor</div>
-          {deals.filter(d=>d.stage!=="cerrado").sort((a,b)=>Number(b.value)-Number(a.value)).slice(0,3).map((d,i)=>{
+          {deals.filter(d=>d.stage!=="cerrado"&&d.stage!=="rechazado").sort((a,b)=>Number(b.value)-Number(a.value)).slice(0,3).map((d,i)=>{
             const stage = STAGES.find(s=>s.key===d.stage);
             return (
               <div key={d.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 0", borderBottom:`1px solid ${COLORS.border}` }}>
@@ -829,7 +830,7 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
       f("value", String(Math.round(q.total || 0)));
       f("pctAnticipo", q.pct_anticipo || 50);
       // Mapear estado cotización → etapa pipeline
-      const estadoMap = { aprobada:"cerrado", enviada:"propuesta", borrador:"prospecto", rechazada:"prospecto" };
+      const estadoMap = { aprobada:"cerrado", enviada:"propuesta" };
       f("stage", estadoMap[q.estado] || "propuesta");
     } else {
       setQuoteFound(null);
@@ -840,14 +841,6 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
 
   const save = async () => {
     if (!form.title||!form.company) return;
-    // Validación: prospecto duplicado por contacto (Escenario D)
-    if (!editingId && form.stage==="prospecto" && form.contactId) {
-      const existing = deals.find(d=>d.contactId===form.contactId && d.stage==="prospecto");
-      if (existing) {
-        const ok = window.confirm(`Ya existe un prospecto activo para ${form.company}. ¿Crear otro de todas formas?`);
-        if (!ok) return;
-      }
-    }
     setSaving(true);
     const dbData = { ...mapDealToDb(form), numero_cotizacion: form.quoteNumber ? Number(form.quoteNumber) : null };
     if (editingId) {
@@ -860,9 +853,25 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
     setSaving(false); setShowModal(false); setEditingId(null);
   };
 
-  const moveDeal = async (id, stage) => {
-    await supabase.from("deals").update({ etapa: stage }).eq("id", id);
-    setDeals(deals.map(d=>d.id===id?{...d,stage}:d));
+  const moveDeal = async (id, stage, motivo=null) => {
+    const updates = { etapa: stage };
+    if(stage==="rechazado"){ updates.motivo_rechazo = motivo||null; updates.fecha_rechazo = new Date().toISOString(); }
+    await supabase.from("deals").update(updates).eq("id", id);
+    setDeals(deals.map(d=>d.id===id?{...d, stage, ...(stage==="rechazado"?{motivoRechazo:motivo||"", fechaRechazo:updates.fecha_rechazo}:{})}:d));
+  };
+
+  const [rejectModal, setRejectModal] = useState(null); // { dealId }
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectOtro, setRejectOtro] = useState("");
+  const requestMoveDeal = (id, stage) => {
+    if(stage==="rechazado"){ setRejectModal({ dealId:id }); setRejectReason(""); setRejectOtro(""); }
+    else moveDeal(id, stage);
+  };
+  const confirmReject = () => {
+    if(!rejectModal) return;
+    const motivo = rejectReason==="Otro" ? rejectOtro.trim() : rejectReason;
+    moveDeal(rejectModal.dealId, "rechazado", motivo||null);
+    setRejectModal(null);
   };
 
   const del = async (id) => {
@@ -928,7 +937,7 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
       <div key={`${laneKey}-${stage.key}`}
         onDragOver={e=>{ e.preventDefault(); setDragOverKey(dropKey); }}
         onDragLeave={e=>{ if(!e.currentTarget.contains(e.relatedTarget)) setDragOverKey(null); }}
-        onDrop={e=>{ e.preventDefault(); if(dragDealId) moveDeal(dragDealId, stage.key); setDragDealId(null); setDragOverKey(null); }}
+        onDrop={e=>{ e.preventDefault(); if(dragDealId) requestMoveDeal(dragDealId, stage.key); setDragDealId(null); setDragOverKey(null); }}
         style={{ outline: isDropTarget ? `2px dashed ${accentColor}` : "2px dashed transparent", borderRadius:8, transition:"outline 0.15s" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10, padding:"8px 12px", background:COLORS.card, borderRadius:8, border:`1px solid ${accentColor}33` }}>
           <div>
@@ -993,7 +1002,7 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
                     </div>
                     <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
                       {STAGES.filter(s=>s.key!==stage.key).map(s=>(
-                        <button key={s.key} onClick={()=>moveDeal(d.id,s.key)} style={{ padding:"2px 6px", borderRadius:4, fontFamily:FONT, fontSize:10, cursor:"pointer", background:"transparent", border:`1px solid ${accentColor}44`, color:accentColor }}>→ {s.label}</button>
+                        <button key={s.key} onClick={()=>requestMoveDeal(d.id,s.key)} style={{ padding:"2px 6px", borderRadius:4, fontFamily:FONT, fontSize:10, cursor:"pointer", background:"transparent", border:`1px solid ${accentColor}44`, color:accentColor }}>→ {s.label}</button>
                       ))}
                       <button onClick={()=>del(d.id)} style={{ padding:"2px 6px", borderRadius:4, fontFamily:FONT, fontSize:10, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red, marginLeft:"auto" }}>✕</button>
                     </div>
@@ -1024,6 +1033,13 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
                         ) : (
                           <button onClick={()=>{ setFacturandoId(d.id); setFacturaVal(""); setFacturaFecha(""); }} style={{ width:"100%", padding:"5px 0", background:`${COLORS.yellow}18`, border:`1px solid ${COLORS.yellow}44`, borderRadius:5, color:COLORS.yellow, fontFamily:FONT, fontSize:10, fontWeight:700, cursor:"pointer" }}>📋 Pendiente facturar</button>
                         )}
+                      </div>
+                    )}
+                    {/* Motivo de rechazo — solo en stage rechazado */}
+                    {stage.key === "rechazado" && (
+                      <div style={{ marginTop:10, paddingTop:10, borderTop:`1px solid ${COLORS.border}` }}>
+                        <span style={{ fontSize:9, padding:"2px 8px", borderRadius:4, fontWeight:600, background:`${COLORS.red}18`, color:COLORS.red, border:`1px solid ${COLORS.red}33` }}>{d.motivoRechazo || "Sin motivo especificado"}</span>
+                        {d.fechaRechazo && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, marginLeft:8 }}>{fmtDate(d.fechaRechazo.slice(0,10))}</span>}
                       </div>
                     )}
                   </div>
@@ -1058,7 +1074,7 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
           <div style={{ flex:1, height:1, background:COLORS.accent+"33" }} />
           <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{fmt(dealsCOT.reduce((s,d)=>s+Number(d.value),0))}</div>
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(4,1fr)", gap:12 }}>
+        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)", gap:12 }}>
           {STAGES.map(stage => renderStageCol(stage, groupedCOT, "COT", COLORS.accent))}
         </div>
       </div>
@@ -1070,10 +1086,21 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
           <div style={{ flex:1, height:1, background:"#a855f733" }} />
           <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{fmt(dealsSIN.reduce((s,d)=>s+Number(d.value),0))}</div>
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(4,1fr)", gap:12 }}>
+        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)", gap:12 }}>
           {STAGES.map(stage => renderStageCol(stage, groupedSIN, "SIN", "#a855f7"))}
         </div>
       </div>
+      {rejectModal && (
+        <Modal title="Motivo de rechazo" onClose={()=>setRejectModal(null)} onSubmit={confirmReject}>
+          <Select label="Causa" value={rejectReason} onChange={e=>setRejectReason(e.target.value)}>
+            <option value="">Sin especificar</option>
+            {REJECT_REASONS.map(r=><option key={r} value={r}>{r}</option>)}
+          </Select>
+          {rejectReason==="Otro" && (
+            <Input label="Detalle" value={rejectOtro} onChange={e=>setRejectOtro(e.target.value)} placeholder="Especifica el motivo..." />
+          )}
+        </Modal>
+      )}
       {quickTask && (
         <Modal title={`${quickTask.editingId?"Editar":"Nueva"} actividad — ${quickTask.company}`} onClose={()=>setQuickTask(null)} onSubmit={()=>saveQuickTask(quickTaskForm)}>
           <Input label="Título *" value={quickTaskForm.title} onChange={e=>setQuickTaskForm(p=>({...p,title:e.target.value}))} placeholder="Ej: Llamada de seguimiento" />
@@ -1532,7 +1559,7 @@ function TasksView({ tasks, setTasks, contacts, deals, isMobile }) {
                   <label style={lbl}>Vincular a Deal</label>
                   <select value={form.dealId} onChange={e=>{ const deal=deals.find(d=>d.id===e.target.value); ff("dealId",e.target.value); if(deal){ ff("company",deal.company||form.company); ff("dealStageSnapshot",deal.stage); if(deal.quoteNumber) ff("cotizacion",deal.quoteNumber); } }} style={inp}>
                     <option value="">— Sin deal vinculado —</option>
-                    {(deals||[]).filter(d=>d.stage!=="cerrado").sort((a,b)=>a.company.localeCompare(b.company)).map(d=>{ const stage=STAGES.find(s=>s.key===d.stage); return <option key={d.id} value={d.id}>{d.company} — {d.title} [{stage?.label||d.stage}]</option>; })}
+                    {(deals||[]).filter(d=>d.stage!=="cerrado"&&d.stage!=="rechazado").sort((a,b)=>a.company.localeCompare(b.company)).map(d=>{ const stage=STAGES.find(s=>s.key===d.stage); return <option key={d.id} value={d.id}>{d.company} — {d.title} [{stage?.label||d.stage}]</option>; })}
                   </select>
                 </div>
                 <div><label style={lbl}>N° Cotización</label><input value={form.cotizacion} onChange={e=>ff("cotizacion",e.target.value)} placeholder="Ej: 88" style={inp} /></div>
@@ -1567,6 +1594,17 @@ function ReportsView({ contacts, deals, tasks, isMobile }) {
   const totalFacturado   = deals.filter(d=>d.stage==="cerrado"&&d.facturado).reduce((s,d)=>s+Number(d.value),0);
   const totalPorFacturar = deals.filter(d=>d.stage==="cerrado"&&!d.facturado).reduce((s,d)=>s+Number(d.value),0);
 
+  const rechazados = deals.filter(d=>d.stage==="rechazado");
+  const totalRechazado = rechazados.reduce((s,d)=>s+Number(d.value),0);
+  const motivoMap = {};
+  rechazados.forEach(d=>{
+    const key = d.motivoRechazo || "Sin especificar";
+    if(!motivoMap[key]) motivoMap[key] = { count:0, valor:0 };
+    motivoMap[key].count++;
+    motivoMap[key].valor += Number(d.value);
+  });
+  const motivoList = Object.entries(motivoMap).sort((a,b)=>b[1].valor-a[1].valor);
+
   return (
     <div>
       <div style={{ marginBottom:24 }}>
@@ -1580,6 +1618,8 @@ function ReportsView({ contacts, deals, tasks, isMobile }) {
         <Stat label="Tareas completadas" value={`${taskCompletion}%`} color={COLORS.text} />
         <Stat label="Total facturado" value={fmt(totalFacturado)} color={COLORS.purple} />
         <Stat label="Pendiente de facturar" value={fmt(totalPorFacturar)} color={COLORS.yellow} />
+        <Stat label="Deals rechazados" value={rechazados.length} color={COLORS.red} />
+        <Stat label="Valor perdido" value={fmt(totalRechazado)} color={COLORS.red} />
       </div>
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:16, marginBottom:16 }}>
         <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20 }}>
@@ -1618,6 +1658,39 @@ function ReportsView({ contacts, deals, tasks, isMobile }) {
           })}
         </div>
       </div>
+      {rechazados.length>0 && (
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20, marginTop:16 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, flexWrap:"wrap", gap:8 }}>
+            <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, fontSize:14 }}>Motivos de rechazo</div>
+            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textDim }}>{rechazados.length} deal(s) · {fmt(totalRechazado)} perdidos</div>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:20 }}>
+            <div>
+              {motivoList.map(([motivo,d])=>(
+                <div key={motivo} style={{ marginBottom:12 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
+                    <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{motivo}</span>
+                    <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{d.count} · {fmt(d.valor)}</span>
+                  </div>
+                  <div style={{ height:7, background:COLORS.border, borderRadius:4 }}>
+                    <div style={{ height:7, borderRadius:4, background:COLORS.red, width:`${totalRechazado>0?(d.valor/totalRechazado)*100:0}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:8, maxHeight:220, overflowY:"auto" }}>
+              {[...rechazados].sort((a,b)=>(b.fechaRechazo||"").localeCompare(a.fechaRechazo||"")).map(d=>(
+                <div key={d.id} style={{ display:"flex", justifyContent:"space-between", gap:8, fontFamily:FONT, fontSize:11, borderBottom:`1px solid ${COLORS.border}`, paddingBottom:6 }}>
+                  <span style={{ color:COLORS.text, flex:1, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{d.company}</span>
+                  <span style={{ color:COLORS.textDim, flexShrink:0 }}>{d.fechaRechazo?fmtDate(d.fechaRechazo.slice(0,10)):"—"}</span>
+                  <span style={{ color:COLORS.textMuted, flexShrink:0 }}>{d.motivoRechazo||"Sin especificar"}</span>
+                  <span style={{ color:COLORS.red, fontWeight:700, flexShrink:0 }}>{fmt(d.value)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
