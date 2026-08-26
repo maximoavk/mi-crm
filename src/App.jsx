@@ -221,7 +221,7 @@ const Loader = () => (
 );
 
 // ── DASHBOARD ───────────────────────────────────────────────────────────────
-function Dashboard({ contacts, deals, tasks, isMobile }) {
+function Dashboard({ contacts, deals, tasks, isMobile, navigate }) {
   const totalRevenue       = deals.filter(d=>d.stage==="cerrado").reduce((s,d)=>s+Number(d.value),0);
   const pipeline           = deals.filter(d=>d.stage!=="cerrado").reduce((s,d)=>s+Number(d.value)*Number(d.probability)/100,0);
   const pendientesFacturar = deals.filter(d=>d.stage==="cerrado"&&!d.facturado).reduce((s,d)=>s+Number(d.value),0);
@@ -229,10 +229,11 @@ function Dashboard({ contacts, deals, tasks, isMobile }) {
   const overdueTasks = tasks.filter(t=>!t.done&&isOverdue(t.dueDate)).length;
   const stageData    = STAGES.map(s=>({ ...s, count:deals.filter(d=>d.stage===s.key).length, value:deals.filter(d=>d.stage===s.key).reduce((a,d)=>a+Number(d.value),0) }));
   const recentTasks  = tasks.filter(t=>!t.done).sort((a,b)=>(a.dueDate||"").localeCompare(b.dueDate||"")).slice(0,4);
-  const maxVal       = Math.max(...stageData.map(x=>x.value), 1);
 
   const [cuentas, setCuentas] = useState([]);
   const [gastosCC, setGastosCC] = useState([]);
+  const [cotizaciones, setCotizaciones] = useState([]);
+  const [comprobantes, setComprobantes] = useState([]);
 
   useEffect(() => {
     const mesActual = new Date().toISOString().slice(0, 7);
@@ -242,7 +243,9 @@ function Dashboard({ contacts, deals, tasks, isMobile }) {
       supabase.from("facturas_recibidas").select("monto_total, centro_costo, estado_manual")
         .gte("fecha_recepcion", `${mesActual}-01`)
         .lte("fecha_recepcion", `${mesActual}-31`),
-    ]).then(([{ data: cu }, { data: mv }, { data: gc }]) => {
+      supabase.from("cotizaciones").select("id,numero,serie,estado,nombre_cliente,total,pct_anticipo,fecha"),
+      supabase.from("comprobantes_pago").select("monto_pagado,quote_ids"),
+    ]).then(([{ data: cu }, { data: mv }, { data: gc }, { data: cot }, { data: cp }]) => {
       const cuentasData = cu||[];
       const movs = mv||[];
       setCuentas(cuentasData.map(c=>{
@@ -252,6 +255,8 @@ function Dashboard({ contacts, deals, tasks, isMobile }) {
         return { ...c, saldo };
       }));
       setGastosCC(gc||[]);
+      setCotizaciones(cot||[]);
+      setComprobantes(cp||[]);
     });
   }, []);
 
@@ -260,6 +265,70 @@ function Dashboard({ contacts, deals, tasks, isMobile }) {
   const gastosMes    = gastosCC.reduce((s,g)=>s+Number(g.monto_total||0),0);
   const colchon      = Math.round(ingresosMes*0.20);
   const disponible   = Math.max(0, ingresosMes - gastosMes - colchon);
+
+  // Top clientes por cotizaciones (total / aprobadas)
+  const clienteMap = {};
+  cotizaciones.forEach(c=>{
+    const key = c.nombre_cliente || "Sin nombre";
+    if(!clienteMap[key]) clienteMap[key] = { nombre:key, total:0, aprob:0 };
+    clienteMap[key].total++;
+    if(c.estado==="aprobada") clienteMap[key].aprob++;
+  });
+  const topClientes = Object.values(clienteMap).sort((a,b)=>b.total-a.total).slice(0,4);
+
+  // Anticipos vs saldos por cobrar — cotizaciones aprobadas, excluye las ya
+  // cerradas en Prestaciones (pagado acumulado en comprobantes_pago >= total)
+  const cotAbiertas = [];
+  let cotCerradasCount = 0;
+  let anticipoPendTotal = 0, saldoPendTotal = 0;
+  cotizaciones.filter(c=>c.estado==="aprobada").forEach(c=>{
+    const total = Number(c.total||0);
+    const pagado = comprobantes.filter(cp=>(cp.quote_ids||[]).includes(c.id)).reduce((s,cp)=>s+Number(cp.monto_pagado||0),0);
+    if(total>0 && pagado>=total){ cotCerradasCount++; return; }
+    const pct = c.pct_anticipo!=null ? c.pct_anticipo : 50;
+    const anticipoFull = Math.round(total*pct/100);
+    const anticipoPend = pagado>=anticipoFull ? 0 : anticipoFull-pagado;
+    const saldoPend    = pagado>=anticipoFull ? Math.max(total-pagado,0) : total-anticipoFull;
+    anticipoPendTotal += anticipoPend;
+    saldoPendTotal    += saldoPend;
+    cotAbiertas.push(c);
+  });
+  const anticiposSaldosMax = Math.max(anticipoPendTotal, saldoPendTotal, 1);
+
+  // Donut: pipeline sobre contactos
+  const donutBase = [
+    { label:"Cerrado",     count: stageData.find(s=>s.key==="cerrado")?.count||0,     color:COLORS.green },
+    { label:"Negociación", count: stageData.find(s=>s.key==="negociacion")?.count||0, color:COLORS.accent },
+    { label:"Propuesta",   count: stageData.find(s=>s.key==="propuesta")?.count||0,   color:COLORS.yellow },
+    { label:"Sin gestión", count: Math.max(contacts.length-deals.length,0),           color:COLORS.textDim },
+  ].filter(s=>s.count>0);
+  const circumference = 2*Math.PI*50;
+  let cumOffset = 0;
+  const donutArcs = donutBase.map(s=>{
+    const len = (s.count/(contacts.length||1))*circumference;
+    const arc = { ...s, dasharray:`${len} ${circumference-len}`, dashoffset:-cumOffset };
+    cumOffset += len;
+    return arc;
+  });
+
+  // Cotizaciones recientes
+  const cotRecientes = [...cotizaciones].sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"")).slice(0,3);
+  const COT_ESTADO_COLOR = { borrador:COLORS.textMuted, enviada:COLORS.yellow, aprobada:COLORS.green, rechazada:COLORS.red };
+
+  // Próximas tareas — resumen hoy / semana
+  const todayStr    = new Date().toISOString().slice(0,10);
+  const weekEndStr  = (()=>{ const d=new Date(); d.setDate(d.getDate()+7); return d.toISOString().slice(0,10); })();
+  const tasksToday  = tasks.filter(t=>!t.done && t.dueDate===todayStr).length;
+  const tasksSemana = tasks.filter(t=>!t.done && t.dueDate && t.dueDate>=todayStr && t.dueDate<=weekEndStr).length;
+
+  const QUICK_ACTIONS = [
+    { label:"Nuevo proyecto",  view:"costeo",            Icon:Calculator },
+    { label:"Nuevo Gantt",     view:"gantt",              Icon:GanttChartSquare },
+    { label:"Nuevo contacto",  view:"contacts",           Icon:Users },
+    { label:"Nueva OC",        view:"purchase",           Icon:ShoppingCart },
+    { label:"Registrar gasto", view:"finanzas_dashboard", Icon:Receipt },
+    { label:"Nueva tarea",     view:"tasks",              Icon:CheckSquare },
+  ];
 
   const KpiCard = ({ label, value, sub, accentColor, valueColor }) => (
     <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderLeft:`3px solid ${accentColor}`, borderRadius:10, padding:"14px 16px" }}>
@@ -286,52 +355,45 @@ function Dashboard({ contacts, deals, tasks, isMobile }) {
     );
   };
 
-  return (
-    <div>
-      {/* A — Page header */}
-      <div style={{ marginBottom:24 }}>
-        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, letterSpacing:"0.14em", textTransform:"uppercase", marginBottom:4 }}>Vista general</div>
-        <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Dashboard B2B</div>
-      </div>
-
-      {/* B — KPIs */}
-      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(auto-fit,minmax(160px,1fr))", gap:10, marginBottom:14 }}>
+  const mainCol = (
+    <div style={{ display:"flex", flexDirection:"column", gap:10, minWidth:0 }}>
+      {/* KPIs — una sola grilla, sin cards huérfanas */}
+      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,minmax(0,1fr))", gap:10 }}>
         <KpiCard label="Ingresos cerrados" value={fmt(totalRevenue)} sub="acumulado" accentColor={COLORS.green} valueColor={COLORS.green} />
         <KpiCard label="Anticipo esperado" value={fmt(anticipoEsperado)} sub="cerrados, según % anticipo" accentColor={COLORS.purple} valueColor={COLORS.purple} />
         <KpiCard label="Pipeline esperado" value={fmt(pipeline)} sub="ponderado" accentColor={COLORS.accent} valueColor={COLORS.accent} />
         <KpiCard label="Pendientes de facturar" value={fmt(pendientesFacturar)} sub={`${deals.filter(d=>d.stage==="cerrado"&&!d.facturado).length} deal(s)`} accentColor={COLORS.yellow} valueColor={COLORS.yellow} />
         <KpiCard label="Tareas vencidas" value={overdueTasks} sub={overdueTasks>0?"requieren atención":"al día"} accentColor={overdueTasks>0?COLORS.red:COLORS.green} valueColor={overdueTasks>0?COLORS.red:COLORS.green} />
-      </div>
-      <div style={{ marginBottom:14 }}>
         <KpiCard label="Disponible retiro estimado" value={fmt(disponible)} sub={`Ingresos ${fmt(ingresosMes)} − Gastos ${fmt(gastosMes)} − Colchón 20%`} accentColor={disponible>0?COLORS.green:COLORS.red} valueColor={disponible>0?COLORS.green:COLORS.red} />
       </div>
 
-      {/* C — Cuentas bancarias */}
-      {cuentas.length > 0 && (
-        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(2,minmax(0,1fr))", gap:10, marginBottom:14 }}>
-          {cuentas.map(c=>(
-            <BankCard key={c.id} nombre={`${c.nombre} · ${c.banco||""}`} monto={c.saldo} tipo={c.tipo} />
-          ))}
-        </div>
-      )}
-
-      {/* D — Embudo + Tareas */}
-      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1.2fr 1fr", gap:10, marginBottom:14 }}>
-        {/* Panel izquierdo: embudo + deals */}
+      {/* Donut pipeline + Deals activos */}
+      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"0.85fr 1.15fr", gap:10 }}>
         <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16 }}>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, marginBottom:14 }}>Embudo de ventas</div>
-          {stageData.map(s=>(
-            <div key={s.key} style={{ marginBottom:10 }}>
-              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                <span style={{ fontFamily:FONT, fontSize:11, color:s.color }}>{s.label}</span>
-                <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textDim }}>{s.count} · {fmt(s.value)}</span>
-              </div>
-              <div style={{ height:5, background:COLORS.border, borderRadius:3 }}>
-                <div style={{ height:5, borderRadius:3, background:s.color, width:`${(s.value/maxVal)*100}%` }} />
-              </div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, marginBottom:14 }}>Pipeline sobre contactos</div>
+          <div style={{ display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
+            <svg width="120" height="120" viewBox="0 0 120 120" style={{ flexShrink:0 }}>
+              <circle cx="60" cy="60" r="50" fill="none" stroke={COLORS.border} strokeWidth="14" />
+              {donutArcs.map(a=>(
+                <circle key={a.label} cx="60" cy="60" r="50" fill="none" stroke={a.color} strokeWidth="14"
+                  strokeDasharray={a.dasharray} strokeDashoffset={a.dashoffset} transform="rotate(-90 60 60)" />
+              ))}
+              <text x="60" y="56" textAnchor="middle" fill={COLORS.text} fontFamily={FONT_DISPLAY} fontWeight="700" fontSize="22">{contacts.length}</text>
+              <text x="60" y="72" textAnchor="middle" fill={COLORS.textDim} fontFamily={FONT} fontSize="8" letterSpacing="0.08em">CONTACTOS</text>
+            </svg>
+            <div style={{ display:"flex", flexDirection:"column", gap:8, minWidth:0 }}>
+              {donutBase.map(s=>(
+                <div key={s.label} style={{ display:"flex", alignItems:"center", gap:7 }}>
+                  <span style={{ width:8, height:8, borderRadius:2, background:s.color, flexShrink:0 }} />
+                  <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{s.label}</span>
+                  <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, marginLeft:"auto" }}>{s.count} · {Math.round(s.count/(contacts.length||1)*100)}%</span>
+                </div>
+              ))}
             </div>
-          ))}
-          <div style={{ borderTop:`1px solid ${COLORS.border}`, margin:"14px 0" }} />
+          </div>
+        </div>
+
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16 }}>
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, marginBottom:10 }}>Deals activos — mayor valor</div>
           {deals.filter(d=>d.stage!=="cerrado").sort((a,b)=>Number(b.value)-Number(a.value)).slice(0,3).map((d,i)=>{
             const stage = STAGES.find(s=>s.key===d.stage);
@@ -348,29 +410,111 @@ function Dashboard({ contacts, deals, tasks, isMobile }) {
             );
           })}
         </div>
+      </div>
 
-        {/* Panel derecho: tareas */}
+      {/* Top clientes + Anticipos vs Saldos por cobrar */}
+      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:10 }}>
         <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16 }}>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, marginBottom:14 }}>Próximas tareas</div>
-          {recentTasks.length===0 && <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.textDim }}>Sin tareas pendientes</div>}
-          {recentTasks.map(t=>{
-            const overdue = !t.done && isOverdue(t.dueDate);
-            return (
-              <div key={t.id} style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"9px 0", borderBottom:`1px solid ${COLORS.border}` }}>
-                <div style={{ width:15, height:15, borderRadius:4, flexShrink:0, marginTop:1, border:`1.5px solid ${t.done?COLORS.green:COLORS.border}`, background:t.done?COLORS.green:"transparent", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                  {t.done && <span style={{ color:COLORS.bg, fontSize:9, fontWeight:700 }}>✓</span>}
-                </div>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text, lineHeight:1.4, textDecoration:t.done?"line-through":"none" }}>{t.title}</div>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, marginTop:2 }}>{t.company}</div>
-                </div>
-                <div style={{ fontFamily:FONT, fontSize:10, flexShrink:0, color:overdue?COLORS.red:COLORS.textDim }}>
-                  {overdue&&"⚠ "}{fmtDate(t.dueDate)}
-                </div>
-              </div>
-            );
-          })}
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, marginBottom:2 }}>Top clientes</div>
+          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, marginBottom:12 }}>por cotizaciones totales / aprobadas</div>
+          {topClientes.map((c,i)=>(
+            <div key={c.nombre} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 0", borderBottom:`1px solid ${COLORS.border}` }}>
+              <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textDim, width:18 }}>#{i+1}</span>
+              <div style={{ flex:1, fontFamily:FONT_DISPLAY, fontSize:12, color:COLORS.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.nombre}</div>
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{c.total} <span style={{ color:COLORS.green }}>· {c.aprob} aprob.</span></div>
+            </div>
+          ))}
+          {topClientes.length===0 && <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textDim }}>Sin cotizaciones registradas</div>}
         </div>
+
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16 }}>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, marginBottom:2 }}>Anticipos vs Saldos por cobrar</div>
+          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, marginBottom:16 }}>{cotAbiertas.length} cotizaciones abiertas{cotCerradasCount>0?` · ${cotCerradasCount} con saldo ya cerrado en Prestaciones (excluidas)`:""}</div>
+          <div style={{ marginBottom:14 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
+              <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.purple }}>Anticipos pendientes</span>
+              <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.purple }}>{fmt(anticipoPendTotal)}</span>
+            </div>
+            <div style={{ height:10, background:COLORS.border, borderRadius:5, overflow:"hidden" }}>
+              <div style={{ height:10, borderRadius:5, background:COLORS.purple, width:`${(anticipoPendTotal/anticiposSaldosMax)*100}%` }} />
+            </div>
+          </div>
+          <div>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
+              <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.red }}>Saldo por cobrar</span>
+              <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.red }}>{fmt(saldoPendTotal)}</span>
+            </div>
+            <div style={{ height:10, background:COLORS.border, borderRadius:5, overflow:"hidden" }}>
+              <div style={{ height:10, borderRadius:5, background:COLORS.red, width:`${(saldoPendTotal/anticiposSaldosMax)*100}%` }} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const sideCol = (
+    <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16 }}>
+        <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, marginBottom:10 }}>Accesos rápidos</div>
+        {QUICK_ACTIONS.map((qa,i)=>(
+          <div key={qa.label} onClick={()=>navigate(qa.view)}
+            style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 4px", borderBottom:i<QUICK_ACTIONS.length-1?`1px solid ${COLORS.border}`:"none", cursor:"pointer" }}>
+            <qa.Icon size={15} color={COLORS.accent} />
+            <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text }}>{qa.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {cuentas.map(c=>(
+        <BankCard key={c.id} nombre={`${c.nombre} · ${c.banco||""}`} monto={c.saldo} tipo={c.tipo} />
+      ))}
+
+      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16 }}>
+        <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, marginBottom:2 }}>Próximas tareas</div>
+        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, marginBottom:10 }}>{tasksToday} hoy · {tasksSemana} esta semana</div>
+        {recentTasks.length===0 && <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.textDim }}>Sin tareas pendientes</div>}
+        {recentTasks.map(t=>{
+          const overdue = !t.done && isOverdue(t.dueDate);
+          return (
+            <div key={t.id} style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"9px 0", borderBottom:`1px solid ${COLORS.border}` }}>
+              <div style={{ width:15, height:15, borderRadius:4, flexShrink:0, marginTop:1, border:`1.5px solid ${t.done?COLORS.green:COLORS.border}`, background:t.done?COLORS.green:"transparent", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                {t.done && <span style={{ color:COLORS.bg, fontSize:9, fontWeight:700 }}>✓</span>}
+              </div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text, lineHeight:1.4, textDecoration:t.done?"line-through":"none" }}>{t.title}</div>
+                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, marginTop:2 }}>{t.company}</div>
+              </div>
+              <div style={{ fontFamily:FONT, fontSize:10, flexShrink:0, color:overdue?COLORS.red:COLORS.textDim }}>
+                {overdue&&"⚠ "}{fmtDate(t.dueDate)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16 }}>
+        <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, marginBottom:8 }}>Cotizaciones recientes</div>
+        {cotRecientes.map(c=>(
+          <div key={c.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 0", borderBottom:`1px solid ${COLORS.border}` }}>
+            <div style={{ flex:1, minWidth:0, fontFamily:FONT, fontSize:11, color:COLORS.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.serie||"COT"}-{c.numero} · {c.nombre_cliente||"—"}</div>
+            <span style={{ fontSize:9, fontWeight:700, padding:"2px 7px", borderRadius:9, background:`${COT_ESTADO_COLOR[c.estado]||COLORS.textMuted}18`, color:COT_ESTADO_COLOR[c.estado]||COLORS.textMuted, fontFamily:FONT, flexShrink:0, textTransform:"uppercase" }}>{c.estado||"—"}</span>
+          </div>
+        ))}
+        {cotRecientes.length===0 && <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textDim }}>Sin cotizaciones</div>}
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{ marginBottom:24 }}>
+        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, letterSpacing:"0.14em", textTransform:"uppercase", marginBottom:4 }}>Vista general</div>
+        <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Dashboard B2B</div>
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 320px", gap:16, alignItems:"start" }}>
+        {mainCol}
+        {sideCol}
       </div>
     </div>
   );
@@ -1003,7 +1147,7 @@ function TasksView({ tasks, setTasks, contacts, deals, isMobile }) {
     "Cobranza / Pago":"#FF4D6A","Soporte / Post-venta":"#F97316","Administrativa":"#6B7A99"
   };
 
-  const [viewMode, setViewMode]   = useState("lista"); // lista | dia | semana
+  const [viewMode, setViewMode]   = useState("semana"); // lista | dia | semana | mes
   const [calDate, setCalDate]     = useState(new Date().toISOString().slice(0,10));
   const [dragTaskId, setDragTaskId] = useState(null);
   const [dropTarget, setDropTarget] = useState(null); // hora o fecha resaltada
@@ -1085,6 +1229,14 @@ function TasksView({ tasks, setTasks, contacts, deals, isMobile }) {
     const week = Array.from({length:7}, (_,i)=>{ const dd=new Date(d); dd.setDate(d.getDate()+i); return dd.toISOString().slice(0,10); });
     return week.map(date=>({ date, tasks: tasks.filter(t=>(t.startDate||t.dueDate)===date) }));
   })();
+  // Vista mes: cuadrícula completa (semanas de lunes a domingo) cubriendo el mes de calDate
+  const tasksMonth = (() => {
+    const ref = new Date(calDate+"T12:00");
+    const firstOfMonth = new Date(ref.getFullYear(), ref.getMonth(), 1);
+    const start = new Date(firstOfMonth); start.setDate(start.getDate() - ((start.getDay()+6)%7)); // lunes anterior/actual
+    const days = Array.from({length:42}, (_,i)=>{ const d=new Date(start); d.setDate(start.getDate()+i); return d.toISOString().slice(0,10); });
+    return days.map(date=>({ date, inMonth: new Date(date+"T12:00").getMonth()===ref.getMonth(), tasks: tasks.filter(t=>(t.startDate||t.dueDate)===date) }));
+  })();
 
   return (
     <div>
@@ -1096,9 +1248,9 @@ function TasksView({ tasks, setTasks, contacts, deals, isMobile }) {
         </div>
         <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
           {/* Vista */}
-          {["lista","dia","semana"].map(v=>(
+          {["lista","dia","semana","mes"].map(v=>(
             <button key={v} onClick={()=>setViewMode(v)} style={{ padding:"6px 12px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:viewMode===v?COLORS.accent:COLORS.card, color:viewMode===v?COLORS.bg:COLORS.textMuted, border:`1px solid ${viewMode===v?COLORS.accent:COLORS.border}` }}>
-              {v==="lista"?"☰ Lista":v==="dia"?"📅 Día":"📆 Semana"}
+              {v==="lista"?"☰ Lista":v==="dia"?"📅 Día":v==="semana"?"📆 Semana":"🗓 Mes"}
             </button>
           ))}
           <AddBtn onClick={()=>{ setEditTask(null); setForm(emptyForm()); setShowModal(true); }} label="Nueva tarea" />
@@ -1263,6 +1415,57 @@ function TasksView({ tasks, setTasks, contacts, deals, isMobile }) {
                       );
                     })}
                     {dayTasks.length===0 && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, textAlign:"center", padding:"8px 0" }}>—</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── VISTA MES ── */}
+      {viewMode==="mes" && (
+        <div>
+          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:14 }}>
+            <button onClick={()=>{ const d=new Date(calDate+"T12:00"); d.setMonth(d.getMonth()-1); setCalDate(d.toISOString().slice(0,10)); }} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"5px 10px", color:COLORS.text, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>←</button>
+            <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:600, color:COLORS.text, textTransform:"capitalize" }}>
+              {new Date(calDate+"T12:00").toLocaleDateString("es-CL",{month:"long",year:"numeric"})}
+            </span>
+            <button onClick={()=>{ const d=new Date(calDate+"T12:00"); d.setMonth(d.getMonth()+1); setCalDate(d.toISOString().slice(0,10)); }} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"5px 10px", color:COLORS.text, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>→</button>
+            <button onClick={()=>setCalDate(new Date().toISOString().slice(0,10))} style={{ background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, borderRadius:6, padding:"5px 10px", color:COLORS.accent, cursor:"pointer", fontFamily:FONT, fontSize:11 }}>Hoy</button>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:1, background:COLORS.border, border:`1px solid ${COLORS.border}`, borderRadius:8, overflow:"hidden" }}>
+            {["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"].map(d=>(
+              <div key={d} style={{ background:COLORS.surface, padding:"6px 8px", fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", textAlign:"center" }}>{d}</div>
+            ))}
+            {tasksMonth.map(({date,inMonth,tasks:dayTasks})=>{
+              const isToday = date===new Date().toISOString().slice(0,10);
+              const isDropDay = dropTarget===date;
+              return (
+                <div key={date}
+                  onDragOver={e=>{ e.preventDefault(); setDropTarget(date); }}
+                  onDragLeave={()=>setDropTarget(null)}
+                  onDrop={e=>{ e.preventDefault(); const id=e.dataTransfer.getData("taskId"); if(id) rescheduleTask(id, date, null); }}
+                  style={{ background:isDropDay?`${COLORS.accent}18`:COLORS.card, minHeight:78, padding:"4px 5px", opacity:inMonth?1:0.4, transition:"background 0.1s" }}>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:isToday?700:400, color:isToday?COLORS.accent:COLORS.text, marginBottom:3 }}>
+                    {isToday ? <span style={{ background:COLORS.accentDim, borderRadius:4, padding:"0 5px" }}>{new Date(date+"T12:00").getDate()}</span> : new Date(date+"T12:00").getDate()}
+                  </div>
+                  <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
+                    {dayTasks.slice(0,3).map(t=>{
+                      const catColor=CAT_COLORS[t.category]||COLORS.textMuted;
+                      const isDragging = dragTaskId===t.id;
+                      return (
+                        <div key={t.id}
+                          draggable
+                          onDragStart={e=>{ e.dataTransfer.setData("taskId", t.id); setDragTaskId(t.id); }}
+                          onDragEnd={()=>{ setDragTaskId(null); setDropTarget(null); }}
+                          onClick={()=>openEdit(t)}
+                          style={{ background:`${catColor}18`, borderLeft:`2px solid ${catColor}`, borderRadius:3, padding:"1px 4px", cursor:"grab", fontSize:9, opacity:isDragging?0.4:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", fontFamily:FONT, color:COLORS.text }}>
+                          {t.title}
+                        </div>
+                      );
+                    })}
+                    {dayTasks.length>3 && <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim }}>+{dayTasks.length-3} más</div>}
                   </div>
                 </div>
               );
@@ -19769,7 +19972,7 @@ export default function CRM() {
 
       <main style={{ flex:1, overflowY:"auto", paddingBottom:isMobile?80:0, background:COLORS.bg }}>
         <div style={{ maxWidth:1400, margin:"0 auto", padding:isMobile?16:32 }}>
-          {view==="dashboard" && <Dashboard contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} />}
+          {view==="dashboard" && <Dashboard contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} navigate={navigate} />}
           {view==="contacts"  && <ContactsView contacts={contacts} setContacts={setContacts} isMobile={isMobile} />}
           {view==="pipeline"  && <PipelineView deals={deals} setDeals={setDeals} contacts={contacts} tasks={tasks} setTasks={setTasks} isMobile={isMobile} userRole={userRole} session={session} />}
           {view==="quotes"       && <QuotesView contacts={contacts} isMobile={isMobile} setDeals={setDeals} onOpenCosteo={(id)=>{ setOpenCosteoId(id); setView("costeo"); }} />}
