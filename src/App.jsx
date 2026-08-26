@@ -227,7 +227,6 @@ function Dashboard({ contacts, deals, tasks, isMobile, navigate }) {
   const pendientesFacturar = deals.filter(d=>d.stage==="cerrado"&&!d.facturado).reduce((s,d)=>s+Number(d.value),0);
   const anticipoEsperado   = deals.filter(d=>d.stage==="cerrado").reduce((s,d)=>s+Math.round(Number(d.value)*(d.pctAnticipo||50)/100),0);
   const overdueTasks = tasks.filter(t=>!t.done&&isOverdue(t.dueDate)).length;
-  const stageData    = STAGES.map(s=>({ ...s, count:deals.filter(d=>d.stage===s.key).length, value:deals.filter(d=>d.stage===s.key).reduce((a,d)=>a+Number(d.value),0) }));
   const recentTasks  = tasks.filter(t=>!t.done).sort((a,b)=>(a.dueDate||"").localeCompare(b.dueDate||"")).slice(0,4);
 
   const [cuentas, setCuentas] = useState([]);
@@ -243,7 +242,7 @@ function Dashboard({ contacts, deals, tasks, isMobile, navigate }) {
       supabase.from("facturas_recibidas").select("monto_total, centro_costo, estado_manual")
         .gte("fecha_recepcion", `${mesActual}-01`)
         .lte("fecha_recepcion", `${mesActual}-31`),
-      supabase.from("cotizaciones").select("id,numero,serie,estado,nombre_cliente,total,pct_anticipo,fecha"),
+      supabase.from("cotizaciones").select("id,numero,serie,estado,nombre_cliente,total,pct_anticipo,fecha,vencida"),
       supabase.from("comprobantes_pago").select("monto_pagado,quote_ids"),
     ]).then(([{ data: cu }, { data: mv }, { data: gc }, { data: cot }, { data: cp }]) => {
       const cuentasData = cu||[];
@@ -295,17 +294,29 @@ function Dashboard({ contacts, deals, tasks, isMobile, navigate }) {
   });
   const anticiposSaldosMax = Math.max(anticipoPendTotal, saldoPendTotal, 1);
 
-  // Donut: pipeline sobre contactos
-  const donutBase = [
-    { label:"Cerrado",     count: stageData.find(s=>s.key==="cerrado")?.count||0,     color:COLORS.green },
-    { label:"Negociación", count: stageData.find(s=>s.key==="negociacion")?.count||0, color:COLORS.accent },
-    { label:"Propuesta",   count: stageData.find(s=>s.key==="propuesta")?.count||0,   color:COLORS.yellow },
-    { label:"Sin gestión", count: Math.max(contacts.length-deals.length,0),           color:COLORS.textDim },
-  ].filter(s=>s.count>0);
+  // Donut: pipeline por estado real de la cotización (aprobada / en negociación / enviada / vencida / rechazada)
+  const ESTADO_BUCKET_COLOR = { aprobada:COLORS.green, negociacion:COLORS.accent, enviada:COLORS.yellow, rechazada:COLORS.red };
+  const ESTADO_BUCKET_LABEL = { aprobada:"Aprobada", negociacion:"En negociación", enviada:"Enviada", rechazada:"Rechazada / vencida" };
+  const ESTADO_BUCKET_ORDER = ["aprobada","negociacion","enviada","rechazada"];
+  const cotEstadoBucket = (c) => {
+    if(c.estado==="aprobada") return "aprobada";
+    if(c.estado==="rechazada") return "rechazada";
+    if(c.estado==="enviada"){
+      const deal = deals.find(d=>String(d.quoteNumber)===String(c.numero) && (d.serie||"COT")===(c.serie||"COT"));
+      return deal?.stage==="negociacion" ? "negociacion" : "enviada";
+    }
+    return null; // borrador: aún no entra al pipeline
+  };
+  const cotBuckets = cotizaciones.map(cotEstadoBucket).filter(Boolean);
+  const donutTotal = cotBuckets.length;
+  const donutBase = ESTADO_BUCKET_ORDER.map(key=>({
+    label: ESTADO_BUCKET_LABEL[key], color: ESTADO_BUCKET_COLOR[key],
+    count: cotBuckets.filter(k=>k===key).length,
+  })).filter(s=>s.count>0);
   const circumference = 2*Math.PI*50;
   let cumOffset = 0;
   const donutArcs = donutBase.map(s=>{
-    const len = (s.count/(contacts.length||1))*circumference;
+    const len = (s.count/(donutTotal||1))*circumference;
     const arc = { ...s, dasharray:`${len} ${circumference-len}`, dashoffset:-cumOffset };
     cumOffset += len;
     return arc;
@@ -314,6 +325,12 @@ function Dashboard({ contacts, deals, tasks, isMobile, navigate }) {
   // Cotizaciones recientes
   const cotRecientes = [...cotizaciones].sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"")).slice(0,3);
   const COT_ESTADO_COLOR = { borrador:COLORS.textMuted, enviada:COLORS.yellow, aprobada:COLORS.green, rechazada:COLORS.red };
+
+  // % rechazadas por vencimiento — solo cohortes que ya cumplieron 30 días desde el 2026-08-25
+  const VENCIMIENTO_DESDE = "2026-08-25";
+  const hace30Dias = (()=>{ const d=new Date(); d.setDate(d.getDate()-30); return d.toISOString().slice(0,10); })();
+  const cohorteResuelta = cotizaciones.filter(c=>c.fecha>=VENCIMIENTO_DESDE && c.fecha<=hace30Dias);
+  const pctVencidas = cohorteResuelta.length>0 ? Math.round(cohorteResuelta.filter(c=>c.vencida).length/cohorteResuelta.length*100) : null;
 
   // Próximas tareas — resumen hoy / semana
   const todayStr    = new Date().toISOString().slice(0,10);
@@ -370,27 +387,34 @@ function Dashboard({ contacts, deals, tasks, isMobile, navigate }) {
       {/* Donut pipeline + Deals activos */}
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"0.85fr 1.15fr", gap:10 }}>
         <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16 }}>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, marginBottom:14 }}>Pipeline sobre contactos</div>
-          <div style={{ display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
-            <svg width="120" height="120" viewBox="0 0 120 120" style={{ flexShrink:0 }}>
-              <circle cx="60" cy="60" r="50" fill="none" stroke={COLORS.border} strokeWidth="14" />
-              {donutArcs.map(a=>(
-                <circle key={a.label} cx="60" cy="60" r="50" fill="none" stroke={a.color} strokeWidth="14"
-                  strokeDasharray={a.dasharray} strokeDashoffset={a.dashoffset} transform="rotate(-90 60 60)" />
-              ))}
-              <text x="60" y="56" textAnchor="middle" fill={COLORS.text} fontFamily={FONT_DISPLAY} fontWeight="700" fontSize="22">{contacts.length}</text>
-              <text x="60" y="72" textAnchor="middle" fill={COLORS.textDim} fontFamily={FONT} fontSize="8" letterSpacing="0.08em">CONTACTOS</text>
-            </svg>
-            <div style={{ display:"flex", flexDirection:"column", gap:8, minWidth:0 }}>
-              {donutBase.map(s=>(
-                <div key={s.label} style={{ display:"flex", alignItems:"center", gap:7 }}>
-                  <span style={{ width:8, height:8, borderRadius:2, background:s.color, flexShrink:0 }} />
-                  <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{s.label}</span>
-                  <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, marginLeft:"auto" }}>{s.count} · {Math.round(s.count/(contacts.length||1)*100)}%</span>
-                </div>
-              ))}
-            </div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, marginBottom:2 }}>Pipeline por estado</div>
+          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, marginBottom:14 }}>
+            {pctVencidas===null ? "% rechazadas por vencimiento: sin datos aún" : `${pctVencidas}% rechazadas por vencimiento`}
           </div>
+          {donutTotal===0 ? (
+            <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textDim }}>Sin cotizaciones registradas</div>
+          ) : (
+            <div style={{ display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
+              <svg width="120" height="120" viewBox="0 0 120 120" style={{ flexShrink:0 }}>
+                <circle cx="60" cy="60" r="50" fill="none" stroke={COLORS.border} strokeWidth="14" />
+                {donutArcs.map(a=>(
+                  <circle key={a.label} cx="60" cy="60" r="50" fill="none" stroke={a.color} strokeWidth="14"
+                    strokeDasharray={a.dasharray} strokeDashoffset={a.dashoffset} transform="rotate(-90 60 60)" />
+                ))}
+                <text x="60" y="56" textAnchor="middle" fill={COLORS.text} fontFamily={FONT_DISPLAY} fontWeight="700" fontSize="22">{donutTotal}</text>
+                <text x="60" y="72" textAnchor="middle" fill={COLORS.textDim} fontFamily={FONT} fontSize="8" letterSpacing="0.08em">COTIZACIONES</text>
+              </svg>
+              <div style={{ display:"flex", flexDirection:"column", gap:8, minWidth:0 }}>
+                {donutBase.map(s=>(
+                  <div key={s.label} style={{ display:"flex", alignItems:"center", gap:7 }}>
+                    <span style={{ width:8, height:8, borderRadius:2, background:s.color, flexShrink:0 }} />
+                    <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{s.label}</span>
+                    <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, marginLeft:"auto" }}>{s.count} · {Math.round(s.count/(donutTotal||1)*100)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16 }}>
