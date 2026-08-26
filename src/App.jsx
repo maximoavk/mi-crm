@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calculator, GanttChartSquare, CheckSquare, BarChart2, LogOut, Receipt, Wrench, Scale, AlertTriangle, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calculator, GanttChartSquare, CheckSquare, BarChart2, LogOut, Receipt, Wrench, Scale, AlertTriangle, TrendingUp, Wallet } from "lucide-react";
 
 // ── SUPABASE ────────────────────────────────────────────────────────────────
 const supabase = createClient(
@@ -1114,8 +1114,14 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
         </div>
         <div style={{ display:"flex", gap:8 }}>
           <button onClick={toggleAll} style={{ padding:"8px 14px", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:7, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer" }}>{allCollapsed?"⊞ Expandir":"⊟ Comprimir"}</button>
-          <button onClick={()=>openNew("SIN")} style={{ padding:"8px 14px", background:"#a855f722", border:`1px solid #a855f744`, borderRadius:7, color:"#a855f7", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>+ Deal SIN</button>
-          <AddBtn onClick={()=>openNew("COT")} label="+ Deal COT" />
+          <button onClick={()=>openNew("SIN")} style={{ position:"relative", display:"flex", alignItems:"center", gap:7, padding:"8px 16px 8px 12px", borderRadius:20, background:"#2563EB22", border:"1px solid #2563EB44", color:"#2563EB", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>
+            <span style={{ position:"absolute", top:-4, right:-4, width:14, height:14, borderRadius:"50%", background:"#2563EB", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:900, color:COLORS.bg }}>+</span>
+            <Wallet size={14} /> SIN
+          </button>
+          <button onClick={()=>openNew("COT")} style={{ position:"relative", display:"flex", alignItems:"center", gap:7, padding:"8px 16px 8px 12px", borderRadius:20, background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, color:COLORS.accent, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>
+            <span style={{ position:"absolute", top:-4, right:-4, width:14, height:14, borderRadius:"50%", background:COLORS.accent, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:900, color:COLORS.bg }}>+</span>
+            <Receipt size={14} /> COT
+          </button>
         </div>
       </div>
 
@@ -1134,12 +1140,12 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
       {/* ── LANE SIN — Sin IVA / Boletas / Personal ── */}
       <div style={{ marginTop:28 }}>
         <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
-          <div style={{ fontFamily:FONT, fontSize:10, color:"#a855f7", textTransform:"uppercase", letterSpacing:"0.12em", fontWeight:700 }}>SIN · Sin IVA · Boletas / Personal</div>
-          <div style={{ flex:1, height:1, background:"#a855f733" }} />
+          <div style={{ fontFamily:FONT, fontSize:10, color:"#2563EB", textTransform:"uppercase", letterSpacing:"0.12em", fontWeight:700 }}>SIN · Sin IVA · Boletas / Personal</div>
+          <div style={{ flex:1, height:1, background:"#2563EB33" }} />
           <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{fmt(dealsSIN.reduce((s,d)=>s+Number(d.value),0))}</div>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)", gap:12 }}>
-          {STAGES.map(stage => renderStageCol(stage, groupedSIN, "SIN", "#a855f7"))}
+          {STAGES.map(stage => renderStageCol(stage, groupedSIN, "SIN", "#2563EB"))}
         </div>
       </div>
       {rejectModal && (
@@ -1202,7 +1208,7 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
             )}
           </div>
           <div style={{ display:"flex", gap:8, marginBottom:12 }}>
-            {[{k:"COT",label:"COT · Con IVA",color:COLORS.accent},{k:"SIN",label:"SIN · Sin IVA",color:"#a855f7"}].map(({k,label,color})=>(
+            {[{k:"COT",label:"COT · Con IVA",color:COLORS.accent},{k:"SIN",label:"SIN · Sin IVA",color:"#2563EB"}].map(({k,label,color})=>(
               <button key={k} onClick={()=>f("serie",k)}
                 style={{ flex:1, padding:"9px 0", borderRadius:7, cursor:"pointer", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, border:`1px solid ${form.serie===k?color:COLORS.border}`, background:form.serie===k?color+"22":"transparent", color:form.serie===k?color:COLORS.textMuted }}>
                 {label}
