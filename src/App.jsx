@@ -29,6 +29,7 @@ const mapDeal = (r) => ({
   value: r.valor || 0, stage: r.etapa, probability: r.probabilidad || 0,
   closeDate: r.fecha_cierre, contactId: r.contact_id,
   quoteNumber: r.numero_cotizacion ? String(r.numero_cotizacion) : "",
+  quoteId: r.quote_id || null,
   serie: r.serie || "COT",
   facturado:     r.facturado      || false,
   numeroFactura: r.numero_factura || "",
@@ -786,6 +787,12 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
   const [facturandoId, setFacturandoId] = useState(null);
   const [facturaVal, setFacturaVal]     = useState("");
   const [facturaFecha, setFacturaFecha] = useState("");
+  const [cotFechas, setCotFechas] = useState([]);
+  const [monthOverride, setMonthOverride] = useState({});
+
+  useEffect(() => {
+    supabase.from("cotizaciones").select("id,fecha").then(({data})=>{ if(data) setCotFechas(data); });
+  }, []);
 
   const dealsCOT = useMemo(()=>deals.filter(d=>(d.serie||"COT")==="COT"),[deals]);
   const dealsSIN = useMemo(()=>deals.filter(d=>d.serie==="SIN"),[deals]);
@@ -924,33 +931,29 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
   };
   const ACTIVITY_BORDER = { active:COLORS.green, overdue:COLORS.red, none:COLORS.border };
 
-  // Render de una columna de etapa para un lane específico
-  const renderStageCol = (stage, grouped, laneKey, accentColor) => {
-    const stageDeals = grouped[stage.key]||[];
-    const total = stageDeals.reduce((s,d)=>s+Number(d.value),0);
-    const totalAnticipo = stage.key === "cerrado"
-      ? stageDeals.reduce((s,d)=>s+Math.round(Number(d.value)*(d.pctAnticipo||50)/100),0)
-      : null;
-    const dropKey = `${laneKey}:${stage.key}`;
-    const isDropTarget = dragDealId && dragOverKey===dropKey;
+  // ── Agrupación por mes (según fecha de la cotización vinculada) ─────────────
+  const monthLabel = (key) => {
+    const [y,m] = key.split("-");
+    const label = new Date(Number(y), Number(m)-1, 1).toLocaleDateString("es-CL", { month:"long", year:"numeric" });
+    return label.charAt(0).toUpperCase()+label.slice(1);
+  };
+  const groupDealsByMonth = (dealsArr) => {
+    const groups = {};
+    dealsArr.forEach(d=>{
+      const cot = cotFechas.find(c=>c.id===d.quoteId);
+      const key = cot?.fecha ? cot.fecha.slice(0,7) : "sin-fecha";
+      (groups[key] = groups[key]||[]).push(d);
+    });
+    const ordered = Object.keys(groups).filter(k=>k!=="sin-fecha").sort()
+      .map(k=>({ key:k, label:monthLabel(k), deals:groups[k] }));
+    if(groups["sin-fecha"]) ordered.push({ key:"sin-fecha", label:"Sin fecha", deals:groups["sin-fecha"] });
+    return ordered;
+  };
+
+  // Render de una card de deal individual
+  const renderDealCard = (d, stage, laneKey, accentColor) => {
+    const isCollapsed = collapsed[d.id] !== false;
     return (
-      <div key={`${laneKey}-${stage.key}`}
-        onDragOver={e=>{ e.preventDefault(); setDragOverKey(dropKey); }}
-        onDragLeave={e=>{ if(!e.currentTarget.contains(e.relatedTarget)) setDragOverKey(null); }}
-        onDrop={e=>{ e.preventDefault(); if(dragDealId) requestMoveDeal(dragDealId, stage.key); setDragDealId(null); setDragOverKey(null); }}
-        style={{ outline: isDropTarget ? `2px dashed ${accentColor}` : "2px dashed transparent", borderRadius:8, transition:"outline 0.15s" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10, padding:"8px 12px", background:COLORS.card, borderRadius:8, border:`1px solid ${accentColor}33` }}>
-          <div>
-            <div style={{ fontFamily:FONT, fontSize:10, color:accentColor, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600 }}>{stage.label}</div>
-            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:1 }}>{fmt(total)}</div>
-            {totalAnticipo!==null && <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim, marginTop:1 }}>Anticipo esperado: {fmt(totalAnticipo)}</div>}
-          </div>
-          <div style={{ width:20, height:20, borderRadius:"50%", background:accentColor+"22", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT, fontSize:10, color:accentColor, fontWeight:700 }}>{stageDeals.length}</div>
-        </div>
-        <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
-          {stageDeals.map(d=>{
-            const isCollapsed = collapsed[d.id] !== false;
-            return (
               <div key={d.id} draggable
                 onDragStart={()=>setDragDealId(d.id)}
                 onDragEnd={()=>{ setDragDealId(null); setDragOverKey(null); }}
@@ -1042,6 +1045,51 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
                         {d.fechaRechazo && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, marginLeft:8 }}>{fmtDate(d.fechaRechazo.slice(0,10))}</span>}
                       </div>
                     )}
+                  </div>
+                )}
+              </div>
+    );
+  };
+
+  // Render de una columna de etapa para un lane específico (con cards agrupadas por mes)
+  const renderStageCol = (stage, grouped, laneKey, accentColor) => {
+    const stageDeals = grouped[stage.key]||[];
+    const total = stageDeals.reduce((s,d)=>s+Number(d.value),0);
+    const totalAnticipo = stage.key === "cerrado"
+      ? stageDeals.reduce((s,d)=>s+Math.round(Number(d.value)*(d.pctAnticipo||50)/100),0)
+      : null;
+    const dropKey = `${laneKey}:${stage.key}`;
+    const isDropTarget = dragDealId && dragOverKey===dropKey;
+    const monthGroups = groupDealsByMonth(stageDeals);
+    return (
+      <div key={`${laneKey}-${stage.key}`}
+        onDragOver={e=>{ e.preventDefault(); setDragOverKey(dropKey); }}
+        onDragLeave={e=>{ if(!e.currentTarget.contains(e.relatedTarget)) setDragOverKey(null); }}
+        onDrop={e=>{ e.preventDefault(); if(dragDealId) requestMoveDeal(dragDealId, stage.key); setDragDealId(null); setDragOverKey(null); }}
+        style={{ outline: isDropTarget ? `2px dashed ${accentColor}` : "2px dashed transparent", borderRadius:8, transition:"outline 0.15s" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10, padding:"8px 12px", background:COLORS.card, borderRadius:8, border:`1px solid ${accentColor}33` }}>
+          <div>
+            <div style={{ fontFamily:FONT, fontSize:10, color:accentColor, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600 }}>{stage.label}</div>
+            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:1 }}>{fmt(total)}</div>
+            {totalAnticipo!==null && <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim, marginTop:1 }}>Anticipo esperado: {fmt(totalAnticipo)}</div>}
+          </div>
+          <div style={{ width:20, height:20, borderRadius:"50%", background:accentColor+"22", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT, fontSize:10, color:accentColor, fontWeight:700 }}>{stageDeals.length}</div>
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+          {monthGroups.map((group, gi) => {
+            const groupKey = `${laneKey}:${stage.key}:${group.key}`;
+            const isOldest = gi===0 && group.key!=="sin-fecha";
+            const isOpen = monthOverride[groupKey] !== undefined ? monthOverride[groupKey] : isOldest;
+            return (
+              <div key={group.key}>
+                <button onClick={()=>setMonthOverride(p=>({...p,[groupKey]:!isOpen}))}
+                  style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 10px", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, cursor:"pointer", marginBottom: isOpen?7:0 }}>
+                  <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.06em" }}>{isOpen?"▼":"▶"} {group.label}</span>
+                  <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim }}>{group.deals.length}</span>
+                </button>
+                {isOpen && (
+                  <div style={{ display:"flex", flexDirection:"column", gap:7, marginBottom:7 }}>
+                    {group.deals.map(d=>renderDealCard(d, stage, laneKey, accentColor))}
                   </div>
                 )}
               </div>
