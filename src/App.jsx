@@ -829,7 +829,7 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
       f("value", String(Math.round(q.total || 0)));
       f("pctAnticipo", q.pct_anticipo || 50);
       // Mapear estado cotización → etapa pipeline
-      const estadoMap = { aprobado:"cierre", enviado:"propuesta", enviada:"propuesta", borrador:"contacto", rechazado:"contacto" };
+      const estadoMap = { aprobada:"cerrado", enviada:"propuesta", borrador:"prospecto", rechazada:"prospecto" };
       f("stage", estadoMap[q.estado] || "propuesta");
     } else {
       setQuoteFound(null);
@@ -3448,7 +3448,7 @@ function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCosteo })
       if(q){
         const serie  = q.serie||"COT";
         const codigo = `${serie}-${String(q.number).padStart(3,"0")}`;
-        const etapa  = status==="aprobada" ? "cierre" : "propuesta";
+        const etapa  = status==="aprobada" ? "cerrado" : "propuesta";
         const prob   = status==="aprobada" ? 80 : 40;
         const { data:existing } = await supabase.from("deals").select("id").eq("quote_id",id).limit(1);
         if(!existing||existing.length===0){
@@ -6128,7 +6128,7 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
       const num    = String(header.number||savedQuote.numero||"?").padStart(3,"0");
       const codigo = `${serie}-${num}`;
       const titulo = `${codigo} – ${header.clientCompany||header.clientName||"Cliente"}`;
-      const etapa  = isSIN ? "cerrado" : (quoteData.estado === "aprobada" ? "cierre" : "propuesta");
+      const etapa  = isSIN ? "cerrado" : (quoteData.estado === "aprobada" ? "cerrado" : "propuesta");
       const prob   = isSIN ? 100 : (quoteData.estado === "aprobada" ? 80 : 40);
       const { data:existing } = await supabase.from("deals").select("id").eq("quote_id",savedQuote.id).limit(1);
       if(!existing||existing.length===0){
