@@ -1080,12 +1080,16 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
             const groupKey = `${laneKey}:${stage.key}:${group.key}`;
             const isOldest = gi===0 && group.key!=="sin-fecha";
             const isOpen = monthOverride[groupKey] !== undefined ? monthOverride[groupKey] : isOldest;
+            const groupTotal = group.deals.reduce((s,d)=>s+Number(d.value),0);
             return (
               <div key={group.key}>
                 <button onClick={()=>setMonthOverride(p=>({...p,[groupKey]:!isOpen}))}
-                  style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 10px", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, cursor:"pointer", marginBottom: isOpen?7:0 }}>
-                  <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.06em" }}>{isOpen?"▼":"▶"} {group.label}</span>
-                  <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim }}>{group.deals.length}</span>
+                  style={{ width:"100%", display:"flex", flexDirection:"column", padding:"6px 10px", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, cursor:"pointer", marginBottom: isOpen?7:0 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", width:"100%" }}>
+                    <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.06em" }}>{isOpen?"▼":"▶"} {group.label}</span>
+                    <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim }}>{group.deals.length}</span>
+                  </div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:accentColor, fontWeight:600, marginTop:2, textAlign:"left" }}>{fmt(groupTotal)}</div>
                 </button>
                 {isOpen && (
                   <div style={{ display:"flex", flexDirection:"column", gap:7, marginBottom:7 }}>
