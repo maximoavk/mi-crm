@@ -1840,10 +1840,25 @@ const TIPO_LABEL  = { F:"Fase", T:"Tarea", H:"Hito" };
 const ROL_OPTS    = ["PM","EXC","COO","DES","MAR","ADM"];
 
 function addDays(dateStr, days) {
-  const d = new Date(dateStr); d.setDate(d.getDate() + days); return d.toISOString().slice(0,10);
+  const d = new Date(dateStr + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0,10);
 }
 function diffDays(a, b) {
   return Math.round((new Date(b) - new Date(a)) / 86400000);
+}
+// Días hábiles de lunes a sábado (se salta solo el domingo)
+function isSunday(dateStr) {
+  return new Date(dateStr+"T00:00").getDay() === 0;
+}
+function nextBusinessDay(dateStr) {
+  let d = addDays(dateStr, 1);
+  if(isSunday(d)) d = addDays(d, 1);
+  return d;
+}
+// Fecha de fin dado un inicio (día hábil) y una cantidad de días hábiles, contando el inicio como día 1
+function endOfBusinessSpan(startDateStr, days) {
+  let d = isSunday(startDateStr) ? addDays(startDateStr, 1) : startDateStr;
+  for(let i=1; i<days; i++) d = nextBusinessDay(d);
+  return d;
 }
 function fmtShort(dateStr) {
   if(!dateStr) return "";
@@ -2477,10 +2492,10 @@ function GanttView({ isMobile }) {
       (costeo.fases||[]).forEach((f, fi) => {
         const faseId = `new_${Date.now()}_${fi}`;
         const faseInicio = today;
-        const faseFin = addDays(today, 14);
+        const faseIdx = imported.length;
         imported.push({
           id: faseId, tipo:"F", nombre: f.nombre||`Fase ${fi+1}`,
-          rol:"PM", responsable:"", inicio: faseInicio, fin: faseFin,
+          rol:"PM", responsable:"", inicio: faseInicio, fin: faseInicio, // fin real se fija más abajo, al conocer el cierre
           pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, hhTerceros:0, depende:"", orden:orden++, parentId:null,
         });
         // Hitos de apertura automáticos, escalonados 1 día cada uno desde el inicio de la fase
@@ -2492,29 +2507,38 @@ function GanttView({ isMobile }) {
             pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, hhTerceros:0, depende:"", orden:orden++, parentId:faseId,
           });
         });
-        // Cada actividad de Mano de Obra del costeo entra como tarea hija de su fase,
-        // con las HH ya cotizadas — solo faltan responsable/fechas y las tareas admin que no están en el costo.
+        // Cada actividad de Mano de Obra del costeo entra como tarea hija de su fase, encadenada
+        // según sus HH: jornada de 8h → 1 día hábil (redondeo hacia arriba), de lunes a sábado.
+        let cursor = nextBusinessDay(addDays(faseInicio, 1)); // primer día hábil después de Compras
         (f.items||[]).filter(it=>it.tipo==="Mano de Obra / HH").forEach((it, ii) => {
+          const hh = (Number(it.hh)||1)*(Number(it.qty)||1);
+          const dias = Math.max(1, Math.ceil(hh / 8));
+          const inicioTarea = cursor;
+          const finTarea = endOfBusinessSpan(inicioTarea, dias);
           imported.push({
             id: `new_${Date.now()}_${fi}_${ii}`, tipo:"T", nombre: it.descripcion||"Actividad",
-            rol:"EXC", responsable:"", inicio: faseInicio, fin: faseFin,
-            pctPlan:0, pctAvance:0, hhPresup:(Number(it.hh)||1)*(Number(it.qty)||1), hhReal:0, hhTerceros:0,
+            rol:"EXC", responsable:"", inicio: inicioTarea, fin: finTarea,
+            pctPlan:0, pctAvance:0, hhPresup:hh, hhReal:0, hhTerceros:0,
             depende:"", orden:orden++, parentId:faseId,
           });
+          cursor = nextBusinessDay(finTarea);
         });
         // Documentación va justo antes del cierre (se hace al terminar el trabajo, no al empezar la fase)
-        const fechaDocumentacion = addDays(faseFin, -1);
+        const fechaDocumentacion = cursor;
         imported.push({
           id: `new_${Date.now()}_${fi}_doc`, tipo:"H", nombre:"Documentación",
           rol:"ADM", responsable:"", inicio: fechaDocumentacion, fin: fechaDocumentacion,
           pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, hhTerceros:0, depende:"", orden:orden++, parentId:faseId,
         });
-        // Hito de cierre automático al final de la fase
+        // Hito de cierre automático, el día hábil siguiente a Documentación
+        const fechaCierre = nextBusinessDay(fechaDocumentacion);
         imported.push({
           id: `new_${Date.now()}_${fi}_cierre`, tipo:"H", nombre:"Cierre de fase",
-          rol:"", responsable:"", inicio: faseFin, fin: faseFin,
+          rol:"", responsable:"", inicio: fechaCierre, fin: fechaCierre,
           pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, hhTerceros:0, depende:"", orden:orden++, parentId:faseId,
         });
+        // La barra de la fase cubre desde su inicio hasta el cierre real (duración dinámica según HH)
+        imported[faseIdx].fin = fechaCierre;
       });
     } else {
       // Sin costeo vinculado: fallback a importar fases desde las líneas de la cotización
