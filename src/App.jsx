@@ -1850,6 +1850,12 @@ function fmtShort(dateStr) {
   const d = new Date(dateStr);
   return d.toLocaleDateString("es-CL",{day:"2-digit",month:"short"});
 }
+// Formatea un string "YYYY-MM-DD" como "dd/mm/aaaa" sin depender del locale del navegador
+function fmtDDMMYYYY(dateStr) {
+  if(!dateStr) return "";
+  const [y,m,d] = dateStr.split("-");
+  return `${d}/${m}/${y}`;
+}
 
 // Genera rango de fechas para el header del calendario
 function buildCalHeader(startDate, days) {
@@ -2731,10 +2737,23 @@ function GanttView({ isMobile }) {
           {/* Controles de vista */}
           <div style={{ display:"flex", gap:10, marginBottom:12, alignItems:"center", flexWrap:"wrap" }}>
             <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Inicio calendario:</span>
-            <input type="date" value={calStart} onChange={e=>{
-              const v = e.target.value;
-              if(v && !isNaN(new Date(v).getTime())) setCalStart(v);
-            }} style={{...s}} />
+            <div style={{ position:"relative", display:"inline-block" }}>
+              <div style={{...s, display:"flex", alignItems:"center", pointerEvents:"none"}}>{fmtDDMMYYYY(calStart)}</div>
+              <input type="date" value={calStart} onChange={e=>{
+                const v = e.target.value;
+                if(v && !isNaN(new Date(v).getTime())) {
+                  const delta = diffDays(calStart, v);
+                  if(delta !== 0) {
+                    setTasks(prev => prev.map(t => ({
+                      ...t,
+                      inicio: t.inicio ? addDays(t.inicio, delta) : t.inicio,
+                      fin: t.fin ? addDays(t.fin, delta) : t.fin,
+                    })));
+                  }
+                  setCalStart(v);
+                }
+              }} style={{ position:"absolute", inset:0, opacity:0, cursor:"pointer", width:"100%", height:"100%" }} />
+            </div>
             <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Días vista:</span>
             {[{d:5,l:"5d"},{d:7,l:"7d"},{d:15,l:"15d"},{d:30,l:"30d"},{d:60,l:"60d"}].map(({d,l})=>(
               <button key={d} onClick={()=>setCalDays(d)} style={{ padding:"3px 10px", background: calDays===d?COLORS.accent:"transparent", border:`1px solid ${calDays===d?COLORS.accent:COLORS.border}`, borderRadius:5, color: calDays===d?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>{l}</button>
