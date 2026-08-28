@@ -1854,8 +1854,10 @@ function fmtShort(dateStr) {
 // Genera rango de fechas para el header del calendario
 function buildCalHeader(startDate, days) {
   const cols = [];
+  const base = new Date(startDate);
+  if(isNaN(base.getTime())) return cols;
   for(let i=0; i<days; i++) {
-    const d = new Date(startDate); d.setDate(d.getDate()+i);
+    const d = new Date(base); d.setDate(d.getDate()+i);
     const dow = ["D","L","M","X","J","V","S"][d.getDay()];
     const isWeekend = d.getDay()===0||d.getDay()===6;
     cols.push({ date: d.toISOString().slice(0,10), dow, day: d.getDate(), month: d.getMonth(), isWeekend });
@@ -2382,6 +2384,66 @@ function GanttView({ isMobile }) {
     else months[months.length-1].count++;
   });
 
+  // Importa fases + hitos automáticos + HH desde el costeo vinculado a una cotización
+  const importarFasesDesdeCosteo = async (cot) => {
+    const { data: costeo } = await supabase.from("costeos").select("fases").eq("cotizacion_id", cot.id).maybeSingle();
+    let imported = [];
+    if(costeo && (costeo.fases||[]).length > 0) {
+      let orden = 0;
+      (costeo.fases||[]).forEach((f, fi) => {
+        const faseId = `new_${Date.now()}_${fi}`;
+        const faseInicio = today;
+        const faseFin = addDays(today, 14);
+        imported.push({
+          id: faseId, tipo:"F", nombre: f.nombre||`Fase ${fi+1}`,
+          rol:"PM", responsable:"", inicio: faseInicio, fin: faseFin,
+          pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, hhTerceros:0, depende:"", orden:orden++, parentId:null,
+        });
+        // Hitos de apertura automáticos, escalonados 1 día cada uno desde el inicio de la fase
+        [{ nombre:"Planificación", rol:"PM" }, { nombre:"Compras", rol:"ADM" }].forEach(({nombre, rol}, hi) => {
+          const fechaHito = addDays(faseInicio, hi);
+          imported.push({
+            id: `new_${Date.now()}_${fi}_h${hi}`, tipo:"H", nombre,
+            rol, responsable:"", inicio: fechaHito, fin: fechaHito,
+            pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, hhTerceros:0, depende:"", orden:orden++, parentId:faseId,
+          });
+        });
+        // Cada actividad de Mano de Obra del costeo entra como tarea hija de su fase,
+        // con las HH ya cotizadas — solo faltan responsable/fechas y las tareas admin que no están en el costo.
+        (f.items||[]).filter(it=>it.tipo==="Mano de Obra / HH").forEach((it, ii) => {
+          imported.push({
+            id: `new_${Date.now()}_${fi}_${ii}`, tipo:"T", nombre: it.descripcion||"Actividad",
+            rol:"EXC", responsable:"", inicio: faseInicio, fin: faseFin,
+            pctPlan:0, pctAvance:0, hhPresup:(Number(it.hh)||1)*(Number(it.qty)||1), hhReal:0, hhTerceros:0,
+            depende:"", orden:orden++, parentId:faseId,
+          });
+        });
+        // Documentación va justo antes del cierre (se hace al terminar el trabajo, no al empezar la fase)
+        const fechaDocumentacion = addDays(faseFin, -1);
+        imported.push({
+          id: `new_${Date.now()}_${fi}_doc`, tipo:"H", nombre:"Documentación",
+          rol:"ADM", responsable:"", inicio: fechaDocumentacion, fin: fechaDocumentacion,
+          pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, hhTerceros:0, depende:"", orden:orden++, parentId:faseId,
+        });
+        // Hito de cierre automático al final de la fase
+        imported.push({
+          id: `new_${Date.now()}_${fi}_cierre`, tipo:"H", nombre:"Cierre de fase",
+          rol:"", responsable:"", inicio: faseFin, fin: faseFin,
+          pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, hhTerceros:0, depende:"", orden:orden++, parentId:faseId,
+        });
+      });
+    } else {
+      // Sin costeo vinculado: fallback a importar fases desde las líneas de la cotización
+      const { data: lines } = await supabase.from("quote_lines").select("*").eq("quote_id", cot.id).eq("tipo_linea","item").order("orden");
+      imported = (lines||[]).map((l,i)=>({
+        id: `new_${Date.now()}_${i}`, tipo:"F", nombre: l.descripcion||`Fase ${i+1}`,
+        rol:"PM", responsable:"", inicio: today, fin: addDays(today, 14),
+        pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, hhTerceros:0, depende:"", orden:i, parentId:null,
+      }));
+    }
+    return imported;
+  };
+
   // Cargar Gantt existente desde Supabase
   const cargarGantt = async (num) => {
     setSearching(true);
@@ -2391,57 +2453,38 @@ function GanttView({ isMobile }) {
       setProyecto({ nombre: gantt.nombre, cotNum: num });
       setCalStart(gantt.fecha_inicio || today);
       const { data: rows } = await supabase.from("gantt_tareas").select("*").eq("gantt_id", gantt.id).order("orden");
-      setTasks((rows||[]).map(r=>({
-        id: r.id, tipo: r.tipo, nombre: r.nombre, rol: r.rol||"",
-        responsable: r.responsable||"", inicio: r.fecha_inicio, fin: r.fecha_fin,
-        pctPlan: r.pct_plan||0, pctAvance: r.pct_avance||0,
-        hhPresup: r.hh_presup||0, hhReal: r.hh_real||0, hhTerceros: r.hh_terceros||0,
-        depende: r.depende_de||"", orden: r.orden||0, parentId: r.parent_id||null,
-      })));
+      if((rows||[]).length > 0) {
+        setTasks(rows.map(r=>({
+          id: r.id, tipo: r.tipo, nombre: r.nombre, rol: r.rol||"",
+          responsable: r.responsable||"", inicio: r.fecha_inicio, fin: r.fecha_fin,
+          pctPlan: r.pct_plan||0, pctAvance: r.pct_avance||0,
+          hhPresup: r.hh_presup||0, hhReal: r.hh_real||0, hhTerceros: r.hh_terceros||0,
+          depende: r.depende_de||"", orden: r.orden||0, parentId: r.parent_id||null,
+        })));
+      } else {
+        // Gantt guardado pero sin tareas (huérfano): reimportar fases/hitos desde el costeo vinculado
+        const { data: cot } = await supabase.from("cotizaciones").select("*").eq("numero", Number(num)).single();
+        setTasks(cot ? await importarFasesDesdeCosteo(cot) : []);
+      }
     } else {
       // Nueva: buscar cotización para obtener nombre e importar fases del costeo
       const { data: cot } = await supabase.from("cotizaciones").select("*").eq("numero", Number(num)).single();
       if(cot) {
         setProyecto({ nombre: cot.comentarios||cot.razon_social||`Proyecto Cot. ${num}`, cotNum: num });
-        // Buscar costeo vinculado para importar fases + desglose de Mano de Obra (HH cotizadas)
-        const { data: costeo } = await supabase.from("costeos").select("fases").eq("cotizacion_id", cot.id).maybeSingle();
-        let imported = [];
-        if(costeo && (costeo.fases||[]).length > 0) {
-          let orden = 0;
-          (costeo.fases||[]).forEach((f, fi) => {
-            const faseId = `new_${Date.now()}_${fi}`;
-            imported.push({
-              id: faseId, tipo:"F", nombre: f.nombre||`Fase ${fi+1}`,
-              rol:"PM", responsable:"", inicio: today, fin: addDays(today, 14),
-              pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, hhTerceros:0, depende:"", orden:orden++, parentId:null,
-            });
-            // Cada actividad de Mano de Obra del costeo entra como tarea hija de su fase,
-            // con las HH ya cotizadas — solo faltan rol/responsable/fechas y las tareas admin que no están en el costo.
-            (f.items||[]).filter(it=>it.tipo==="Mano de Obra / HH").forEach((it, ii) => {
-              imported.push({
-                id: `new_${Date.now()}_${fi}_${ii}`, tipo:"T", nombre: it.descripcion||"Actividad",
-                rol:"", responsable:"", inicio: today, fin: addDays(today, 14),
-                pctPlan:0, pctAvance:0, hhPresup:(Number(it.hh)||1)*(Number(it.qty)||1), hhReal:0, hhTerceros:0,
-                depende:"", orden:orden++, parentId:faseId,
-              });
-            });
-          });
-        } else {
-          // Sin costeo vinculado: fallback a importar fases desde las líneas de la cotización
-          const { data: lines } = await supabase.from("quote_lines").select("*").eq("quote_id", cot.id).eq("tipo_linea","item").order("orden");
-          imported = (lines||[]).map((l,i)=>({
-            id: `new_${Date.now()}_${i}`, tipo:"F", nombre: l.descripcion||`Fase ${i+1}`,
-            rol:"PM", responsable:"", inicio: today, fin: addDays(today, 14),
-            pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, hhTerceros:0, depende:"", orden:i, parentId:null,
-          }));
-        }
-        setTasks(imported);
+        setTasks(await importarFasesDesdeCosteo(cot));
         setGanttId(null);
       } else {
         alert(`No se encontró la cotización N° ${num}`);
       }
     }
     setSearching(false);
+  };
+
+  const eliminarGantt = async (g) => {
+    if(!window.confirm(`¿Eliminar la carta Gantt de "${g.nombre}" (Cot. N° ${g.numero_cotizacion})? Esta acción no se puede deshacer.`)) return;
+    await supabase.from("gantt_tareas").delete().eq("gantt_id", g.id);
+    await supabase.from("gantt_proyectos").delete().eq("id", g.id);
+    setAllGantts(prev => prev.filter(x => x.id !== g.id));
   };
 
   const saveGantt = async () => {
@@ -2512,16 +2555,13 @@ function GanttView({ isMobile }) {
         currentFaseId = t.id;
         phaseChildrenMap[t.id] = [];
         numbers[t.id] = `${faseCount}.0`;
+      } else if (currentFaseId) {
+        subCount++;
+        numbers[t.id] = `${faseCount}.${subCount}`;
+        phaseChildrenMap[currentFaseId].push(t.id);
       } else {
-        if (currentFaseId) {
-          subCount++;
-          numbers[t.id] = `${faseCount}.${subCount}`;
-          phaseChildrenMap[currentFaseId].push(t.id);
-          if (t.tipo === "H") { currentFaseId = null; subCount = 0; }
-        } else {
-          noFaseCount++;
-          numbers[t.id] = String(noFaseCount);
-        }
+        noFaseCount++;
+        numbers[t.id] = String(noFaseCount);
       }
     });
     const taskMap = Object.fromEntries(tasks.map(t => [t.id, t]));
@@ -2622,6 +2662,8 @@ function GanttView({ isMobile }) {
                       </div>
                     </div>
                     <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.accent }}>Abrir →</span>
+                    <button onClick={(e)=>{ e.stopPropagation(); eliminarGantt(g); }} title="Eliminar carta Gantt"
+                      style={{ padding:"5px 8px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:GANTT_COLORS.late, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>🗑️</button>
                   </div>
                 ))}
               </div>
@@ -2689,7 +2731,10 @@ function GanttView({ isMobile }) {
           {/* Controles de vista */}
           <div style={{ display:"flex", gap:10, marginBottom:12, alignItems:"center", flexWrap:"wrap" }}>
             <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Inicio calendario:</span>
-            <input type="date" value={calStart} onChange={e=>setCalStart(e.target.value)} style={{...s}} />
+            <input type="date" value={calStart} onChange={e=>{
+              const v = e.target.value;
+              if(v && !isNaN(new Date(v).getTime())) setCalStart(v);
+            }} style={{...s}} />
             <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Días vista:</span>
             {[{d:5,l:"5d"},{d:7,l:"7d"},{d:15,l:"15d"},{d:30,l:"30d"},{d:60,l:"60d"}].map(({d,l})=>(
               <button key={d} onClick={()=>setCalDays(d)} style={{ padding:"3px 10px", background: calDays===d?COLORS.accent:"transparent", border:`1px solid ${calDays===d?COLORS.accent:COLORS.border}`, borderRadius:5, color: calDays===d?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>{l}</button>
