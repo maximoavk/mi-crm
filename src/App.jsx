@@ -1857,6 +1857,84 @@ function fmtDDMMYYYY(dateStr) {
   return `${d}/${m}/${y}`;
 }
 
+// Calendario propio (desplegable) para elegir una fecha "YYYY-MM-DD" sin depender del picker nativo del navegador
+function CalendarPicker({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const initial = value ? new Date(value+"T00:00") : new Date();
+  const [viewYear, setViewYear] = useState(initial.getFullYear());
+  const [viewMonth, setViewMonth] = useState(initial.getMonth());
+  const ref = React.useRef(null);
+  const pad2 = n => String(n).padStart(2,"0");
+
+  useEffect(() => {
+    if(!open) return;
+    const onDocClick = (e) => { if(ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  const toggleOpen = () => {
+    if(!open) {
+      const d = value ? new Date(value+"T00:00") : new Date();
+      setViewYear(d.getFullYear()); setViewMonth(d.getMonth());
+    }
+    setOpen(o=>!o);
+  };
+  const changeMonth = (delta) => {
+    let m = viewMonth + delta, y = viewYear;
+    if(m<0){ m=11; y--; } else if(m>11){ m=0; y++; }
+    setViewMonth(m); setViewYear(y);
+  };
+
+  const firstDow = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
+  const monthLabel = new Date(viewYear, viewMonth, 1).toLocaleDateString("es-CL", { month:"long", year:"numeric" });
+  const cells = [];
+  for(let i=0;i<firstDow;i++) cells.push(null);
+  for(let d=1; d<=daysInMonth; d++) cells.push(d);
+
+  const selectDay = (d) => {
+    onChange(`${viewYear}-${pad2(viewMonth+1)}-${pad2(d)}`);
+    setOpen(false);
+  };
+
+  return (
+    <div ref={ref} style={{ position:"relative", display:"inline-block" }}>
+      <button type="button" onClick={toggleOpen} style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4,
+        color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"3px 6px", cursor:"pointer", display:"flex", alignItems:"center", gap:5 }}>
+        📅 {fmtDDMMYYYY(value)}
+      </button>
+      {open && (
+        <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, zIndex:50, background:COLORS.card, border:`1px solid ${COLORS.border}`,
+          borderRadius:8, padding:10, width:220, boxShadow:"0 8px 24px rgba(0,0,0,0.35)" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+            <button type="button" onClick={()=>changeMonth(-1)} style={{ background:"transparent", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:13 }}>◀</button>
+            <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.text, textTransform:"capitalize" }}>{monthLabel}</span>
+            <button type="button" onClick={()=>changeMonth(1)} style={{ background:"transparent", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:13 }}>▶</button>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:2, marginBottom:4 }}>
+            {["D","L","M","X","J","V","S"].map(d=><div key={d} style={{ textAlign:"center", fontSize:9, color:COLORS.textMuted }}>{d}</div>)}
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:2 }}>
+            {cells.map((d,i) => {
+              if(d===null) return <div key={i} />;
+              const dateStr = `${viewYear}-${pad2(viewMonth+1)}-${pad2(d)}`;
+              const isSelected = dateStr === value;
+              return (
+                <button key={i} type="button" onClick={()=>selectDay(d)}
+                  style={{ padding:"4px 0", background: isSelected?COLORS.accent:"transparent", border:"none", borderRadius:4,
+                    color: isSelected?COLORS.bg:COLORS.text, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+                  {d}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Genera rango de fechas para el header del calendario
 function buildCalHeader(startDate, days) {
   const cols = [];
@@ -2737,23 +2815,17 @@ function GanttView({ isMobile }) {
           {/* Controles de vista */}
           <div style={{ display:"flex", gap:10, marginBottom:12, alignItems:"center", flexWrap:"wrap" }}>
             <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Inicio calendario:</span>
-            <div style={{ position:"relative", display:"inline-block" }}>
-              <div style={{...s, display:"flex", alignItems:"center", pointerEvents:"none"}}>{fmtDDMMYYYY(calStart)}</div>
-              <input type="date" value={calStart} onChange={e=>{
-                const v = e.target.value;
-                if(v && !isNaN(new Date(v).getTime())) {
-                  const delta = diffDays(calStart, v);
-                  if(delta !== 0) {
-                    setTasks(prev => prev.map(t => ({
-                      ...t,
-                      inicio: t.inicio ? addDays(t.inicio, delta) : t.inicio,
-                      fin: t.fin ? addDays(t.fin, delta) : t.fin,
-                    })));
-                  }
-                  setCalStart(v);
-                }
-              }} style={{ position:"absolute", inset:0, opacity:0, cursor:"pointer", width:"100%", height:"100%" }} />
-            </div>
+            <CalendarPicker value={calStart} onChange={v=>{
+              const delta = diffDays(calStart, v);
+              if(delta !== 0) {
+                setTasks(prev => prev.map(t => ({
+                  ...t,
+                  inicio: t.inicio ? addDays(t.inicio, delta) : t.inicio,
+                  fin: t.fin ? addDays(t.fin, delta) : t.fin,
+                })));
+              }
+              setCalStart(v);
+            }} />
             <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Días vista:</span>
             {[{d:5,l:"5d"},{d:7,l:"7d"},{d:15,l:"15d"},{d:30,l:"30d"},{d:60,l:"60d"}].map(({d,l})=>(
               <button key={d} onClick={()=>setCalDays(d)} style={{ padding:"3px 10px", background: calDays===d?COLORS.accent:"transparent", border:`1px solid ${calDays===d?COLORS.accent:COLORS.border}`, borderRadius:5, color: calDays===d?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>{l}</button>
