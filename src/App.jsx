@@ -2530,10 +2530,12 @@ function GanttView({ isMobile }) {
           rol:"ADM", responsable:"", inicio: fechaDocumentacion, fin: fechaDocumentacion,
           pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, hhTerceros:0, depende:"", orden:orden++, parentId:faseId,
         });
-        // Hito de cierre automático, el día hábil siguiente a Documentación
+        // Hito de cierre automático, el día hábil siguiente a Documentación.
+        // La última fase del proyecto cierra con "Cierre de proyecto" en vez de "Cierre de fase".
+        const esUltimaFase = fi === (costeo.fases||[]).length - 1;
         const fechaCierre = nextBusinessDay(fechaDocumentacion);
         imported.push({
-          id: `new_${Date.now()}_${fi}_cierre`, tipo:"H", nombre:"Cierre de fase",
+          id: `new_${Date.now()}_${fi}_cierre`, tipo:"H", nombre: esUltimaFase?"Cierre de proyecto":"Cierre de fase",
           rol:"", responsable:"", inicio: fechaCierre, fin: fechaCierre,
           pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, hhTerceros:0, depende:"", orden:orden++, parentId:faseId,
         });
@@ -7218,10 +7220,13 @@ function calcFase(fase) {
   const ventaNeta   = items.reduce((s,i)=>s+i.ventaNeta,0);
   const ivaTotal    = items.reduce((s,i)=>s+i.ivaVenta,0);
   const ventaBruta  = items.reduce((s,i)=>s+i.ventaBruta,0);
-  // Descuento a nivel de fase (sobre venta c/IVA)
-  const descPct     = Number(fase.descuento)||0;
-  const descMonto   = Math.round(ventaBruta * (descPct/100));
-  const ventaConDesc = Math.round(ventaBruta - descMonto);
+  // Descuento a nivel de fase, aplicado sobre el neto (antes de IVA); el IVA se recalcula
+  // sobre ese neto ya descontado, manteniendo la proporción IVA/neto real de la fase.
+  const descPct      = Number(fase.descuento)||0;
+  const descMonto    = Math.round(ventaNeta * (descPct/100));
+  const ventaNetaConDesc = ventaNeta - descMonto;
+  const ivaConDesc   = Math.round(ivaTotal * (1 - descPct/100));
+  const ventaConDesc = ventaNetaConDesc + ivaConDesc;
   return {
     ...fase, items,
     costoNeto, costoTotal: costoNeto,
