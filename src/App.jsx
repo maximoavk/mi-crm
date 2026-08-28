@@ -2871,7 +2871,7 @@ function GanttView({ isMobile }) {
                 const diasHabiles     = cols.filter(c=>!c.isWeekend).length;
                 // Numeración automática para PDF
                 let _fc=0,_sc=0,_cf=null,_nf=0; const pdfNums={};
-                tasks.forEach(t=>{ if(t.tipo==="F"){_fc++;_sc=0;_cf=t.id;pdfNums[t.id]=`${_fc}.0`;}else if(_cf){_sc++;pdfNums[t.id]=`${_fc}.${_sc}`;if(t.tipo==="H"){_cf=null;_sc=0;}}else{_nf++;pdfNums[t.id]=String(_nf);}});
+                tasks.forEach(t=>{ if(t.tipo==="F"){_fc++;_sc=0;_cf=t.id;pdfNums[t.id]=`${_fc}.0`;}else if(_cf){_sc++;pdfNums[t.id]=`${_fc}.${_sc}`;}else{_nf++;pdfNums[t.id]=String(_nf);}});
                 const colH = cols.map(c=>`<th style="width:${tdW}px;background:${c.isWeekend?"#e2e8f0":"#1e293b"};color:${c.isWeekend?"#94a3b8":"#fff"};font-size:7.5px;padding:2px 0;text-align:center;border:1px solid #cbd5e1">${c.dow}<br>${c.day}</th>`).join("");
                 const mthH = mths.map(m=>`<th colspan="${m.count}" style="background:#0f172a;color:#38bdf8;font-size:8.5px;text-align:center;padding:3px;border:1px solid #334155">${m.n}</th>`).join("");
                 const rows = tasks.map((t,i)=>{
