@@ -7237,7 +7237,7 @@ function calcFase(fase) {
     ventaNeta,
     ivaTotal,
     ventaBruta, ventaTotal: ventaBruta,
-    descPct, descMonto, ventaConDesc,
+    descPct, descMonto, ventaNetaConDesc, ivaConDesc, ventaConDesc,
   };
 }
 
@@ -7957,6 +7957,8 @@ function CosteoView({ contacts, openId, onOpenIdHandled }) {
   const totalVentaBruta   = fasesCalc.reduce((s,f)=>s+f.ventaBruta,0);
   const totalIvaNetoSII   = totalIVA - totalIvaCompra; // débito - crédito fiscal
   const totalDescuento    = fasesCalc.reduce((s,f)=>s+(f.descMonto||0),0);
+  const totalVentaNetaConDesc = fasesCalc.reduce((s,f)=>s+f.ventaNetaConDesc,0); // neto ya con descuento aplicado
+  const totalIvaConDesc   = fasesCalc.reduce((s,f)=>s+f.ivaConDesc,0); // IVA calculado sobre ese neto con descuento
   const totalVentaFinal   = Math.round(fasesCalc.reduce((s,f)=>s+f.ventaConDesc,0) / 100) * 100; // con descuento aplicado, redondeado al 100 más cercano
   const hayDescuento      = totalDescuento > 0;
   const margenPct = totalCosto > 0 ? (totalMargen/totalCosto*100).toFixed(1) : 0;
@@ -8392,9 +8394,16 @@ function CosteoView({ contacts, openId, onOpenIdHandled }) {
             <TotBox label="IVA Compra"       value={totalIvaCompra}  color="#06b6d4"          sub="Crédito fiscal" />
             <TotBox label="IVA Venta"        value={totalIVA}        color="#ef4444"          sub="Débito fiscal" />
             <TotBox label="IVA Neto SII"     value={totalIvaNetoSII} color="#f59e0b"          sub="A pagar al SII" />
-            <TotBox label="Venta c/IVA"      value={totalVentaBruta} color={COLORS.accent}    sub={hayDescuento?"Antes de descuento":"Precio al cliente"} />
-            {hayDescuento && <TotBox label="Descuento" value={totalDescuento} color="#f59e0b" sub={`${fasesCalc.filter(f=>f.descPct>0).map(f=>`${f.nombre} −${f.descPct}%`).join(" · ")}`} />}
-            {hayDescuento && <TotBox label="Venta Final" value={totalVentaFinal} color="#22c55e" sub={`Con descuento · Margen ${margenFinalPct}% sobre costo`} />}
+            {hayDescuento ? (
+              <>
+                <TotBox label="Descuento" value={totalDescuento} color="#f59e0b" />
+                <TotBox label="Venta Neta c/Desc" value={totalVentaNetaConDesc} color={COLORS.text} sub="Neta − descuento" />
+                <TotBox label="IVA c/Desc" value={totalIvaConDesc} color="#ef4444" sub="Sobre neta con descuento" />
+                <TotBox label="Venta Final c/IVA" value={totalVentaFinal} color="#22c55e" sub={`Margen ${margenFinalPct}% sobre costo`} />
+              </>
+            ) : (
+              <TotBox label="Venta c/IVA" value={totalVentaBruta} color={COLORS.accent} sub="Precio al cliente" />
+            )}
           </div>
 
           {/* Fases */}
