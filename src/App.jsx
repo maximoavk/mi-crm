@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calculator, GanttChartSquare, CheckSquare, BarChart2, LogOut, Receipt, Wrench, Scale, AlertTriangle, TrendingUp, Wallet } from "lucide-react";
+import { pdf } from "@react-pdf/renderer";
+import { CosteoInternoDoc, CosteoClienteDoc, fetchImageAsDataUri } from "./CosteoPdfDocs.jsx";
 
 // ── SUPABASE ────────────────────────────────────────────────────────────────
 const supabase = createClient(
@@ -8075,291 +8077,44 @@ function CosteoView({ contacts, openId, onOpenIdHandled }) {
   };
 
   // PDF Interno — muestra todo: bruto, neto, IVA, margen, venta neta y bruta
-  const printInterno = () => {
-    const w = window.open("","_blank");
-    const fases = (proyecto.fases||[]).map(calcFase);
-    const tCosto = fases.reduce((s,f)=>s+f.costoNeto,0);
-    const tMargen = fases.reduce((s,f)=>s+f.margenTotal,0);
-    const tVentaNeta = fases.reduce((s,f)=>s+f.ventaNeta,0);
-    const tVentaBruta = fases.reduce((s,f)=>s+f.ventaBruta,0);
-    const tDescuento = fases.reduce((s,f)=>s+(f.descMonto||0),0);
-    const tVentaFinal = Math.round(fases.reduce((s,f)=>s+f.ventaConDesc,0) / 100) * 100;
-    const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
-    const pct = tCosto>0?(tMargen/tCosto*100).toFixed(1):0;
-    const PDF_TYPE_ORDER = {"Equipos":0,"Ferretería":1,"Materiales":1,"Mano de Obra / HH":2,"Costos Indirectos":3};
-    const fasesHTML = fases.map((f,fi)=>{
-      const codigoPorId = codigosPorFase(f.items, fi);
-      const sortedItems = [...(f.items||[])].sort((a,b)=>(PDF_TYPE_ORDER[a.tipo]??9)-(PDF_TYPE_ORDER[b.tipo]??9));
-      const rows = sortedItems.map(calcItem).map(it=>{
-        const tieneIVA = it.ivaVenta > 0;
-        const precioUnitDisplay = it.tipo==="Mano de Obra / HH" ? fmt(it.valorHH) : it.tipo==="Costos Indirectos" ? fmt(it.costoUnit) : fmt(it.costoUnitNeto||(it.costoNeto/(Number(it.qty)||1)));
-        const netoUnitDisplay = tieneIVA ? fmt(it.costoNeto/(Number(it.qty)||1)) : "-";
-        const datasheetRow = it.datasheet_url ? `<tr style="background:#f8faff;border-bottom:1px solid #e2e8f0">
-          <td colspan="11" style="padding:2px 6px 4px 20px;font-size:9px;color:#64748b">
-            🔗 Ficha técnica: <a href="${it.datasheet_url}" style="color:#1e40af;text-decoration:underline" target="_blank">${it.datasheet_url}</a>
-          </td>
-        </tr>` : "";
-        return `<tr style="border-bottom:${it.datasheet_url?"none":"1px solid #f1f5f9"}">
-          <td style="padding:4px 6px;color:#3b82f6;font-weight:600">${codigoPorId[it.id]||""}</td>
-          <td style="padding:4px 6px">${it.descripcion||""}</td>
-          <td style="padding:4px 6px;color:#94a3b8">${it.modelo||""}</td>
-          <td style="padding:4px 6px;text-align:center">${it.tipo==="Mano de Obra / HH"?`${it.hh}HH×${it.qty}`:it.qty}</td>
-          <td style="padding:4px 6px;text-align:right;color:${tieneIVA?"#ef4444":"#64748b"}">${precioUnitDisplay}</td>
-          <td style="padding:4px 6px;text-align:right;color:#64748b">${netoUnitDisplay}</td>
-          <td style="padding:4px 6px;text-align:center">${it.margen}%</td>
-          <td style="padding:4px 6px;text-align:right">${fmt(it.costoNeto)}</td>
-          <td style="padding:4px 6px;text-align:right;color:#10b981">${fmt(it.margenTotal)}</td>
-          <td style="padding:4px 6px;text-align:right">${fmt(it.ventaNeta)}</td>
-          <td style="padding:4px 6px;text-align:right;font-weight:700;color:#096da3">${fmt(it.ventaBruta)}</td>
-        </tr>${datasheetRow}`;}).join("");
-      return `<div style="margin-bottom:18px">
-        <div style="background:#1e293b;color:white;padding:7px 10px;font-weight:700;font-size:12px;border-radius:5px 5px 0 0">${f.nombre}</div>
-        <table style="width:100%;border-collapse:collapse;font-size:10px">
-          <thead><tr style="background:#f1f5f9">
-            <th style="padding:4px 6px;text-align:left;width:45px">COD</th>
-            <th style="padding:4px 6px;text-align:left">DESCRIPCIÓN</th>
-            <th style="padding:4px 6px;text-align:left">MODELO</th>
-            <th style="padding:4px 6px">QTY</th>
-            <th style="padding:4px 6px;text-align:right;color:#ef4444">P.BRUTO UNIT.</th>
-            <th style="padding:4px 6px;text-align:right">NETO UNIT.</th>
-            <th style="padding:4px 6px">MARG%</th>
-            <th style="padding:4px 6px;text-align:right">COSTO NETO</th>
-            <th style="padding:4px 6px;text-align:right;color:#10b981">MARGEN $</th>
-            <th style="padding:4px 6px;text-align:right">VENTA NETA</th>
-            <th style="padding:4px 6px;text-align:right;color:#096da3">VENTA c/IVA</th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-          <tfoot>
-            <tr style="border-top:2px solid #e2e8f0;background:#f8fafc;font-weight:700;font-size:10px">
-              <td colspan="7" style="padding:5px 6px">Subtotal ${f.nombre}</td>
-              <td style="padding:5px 6px;text-align:right">${fmt(f.costoNeto)}</td>
-              <td style="padding:5px 6px;text-align:right;color:#10b981">${fmt(f.margenTotal)}</td>
-              <td style="padding:5px 6px;text-align:right">${fmt(f.ventaNeta)}</td>
-              <td style="padding:5px 6px;text-align:right;color:#096da3">${fmt(f.ventaBruta)}</td>
-            </tr>
-            ${(f.descPct||0)>0 ? `
-            <tr style="background:#fefce8;font-size:10px">
-              <td colspan="9" style="padding:4px 6px;color:#92400e">Descuento ${f.descPct}%</td>
-              <td colspan="2" style="padding:4px 6px;text-align:right;color:#b45309;font-weight:700">− ${fmt(f.descMonto)}</td>
-            </tr>
-            <tr style="background:#fef3c7;font-weight:800;font-size:11px">
-              <td colspan="9" style="padding:5px 6px;color:#78350f">TOTAL FASE CON DESCUENTO</td>
-              <td colspan="2" style="padding:5px 6px;text-align:right;color:#096da3">${fmt(f.ventaConDesc)}</td>
-            </tr>` : ''}
-          </tfoot>
-        </table>
-      </div>`;
-    }).join("");
-    w.document.write(`<!DOCTYPE html><html><head><title>Costeo Interno - ${proyecto.nombre}</title>
-      <style>body{font-family:Arial,sans-serif;font-size:11px;color:#1e293b;padding:18px} @media print{@page{margin:8mm;size:A4 landscape}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style>
-      </head><body>
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #e2e8f0">
-        <div><img src="${LOGO_PRINT}" style="height:45px;margin-bottom:6px;display:block" />
-          <div style="font-size:10px;color:#64748b">RUT: 77.180.437-3 · ventas@polygonos.cl · 9-81334980</div>
-        </div>
-        <div style="border:2px solid #1e293b;padding:8px 18px;text-align:center">
-          <div style="font-size:11px;font-weight:700;color:#1e293b">COSTEO INTERNO</div>
-          <div style="font-size:10px;color:#64748b">${proyecto.fecha||""}</div>
-        </div>
-      </div>
-      <div style="background:#f8fafc;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:11px">
-        <strong style="font-size:13px">${proyecto.nombre}</strong><br/>
-        <span>Cliente: ${proyecto.clienteNombre||""}</span> &nbsp;|&nbsp;
-        <span>Empresa: ${proyecto.clienteEmpresa||""}</span> &nbsp;|&nbsp;
-        <span>RUT: ${proyecto.clienteRut||""}</span> &nbsp;|&nbsp;
-        <span>Tel: ${proyecto.clienteTelefono||""}</span>
-      </div>
-      ${fasesHTML}
-      <div style="display:flex;gap:10px;margin-top:16px;padding-top:12px;border-top:2px solid #e2e8f0">
-        <div style="flex:1;border:1px solid #e2e8f0;border-radius:6px;padding:8px;text-align:center">
-          <div style="font-size:9px;color:#64748b;margin-bottom:2px">COSTO NETO TOTAL</div>
-          <div style="font-size:16px;font-weight:700">${fmt(tCosto)}</div>
-        </div>
-        <div style="flex:1;border:1px solid #10b981;border-radius:6px;padding:8px;text-align:center">
-          <div style="font-size:9px;color:#10b981;margin-bottom:2px">MARGEN TOTAL</div>
-          <div style="font-size:16px;font-weight:700;color:#10b981">${fmt(tMargen)}</div>
-          <div style="font-size:9px;color:#64748b">${pct}% s/costo neto</div>
-        </div>
-        <div style="flex:1;border:1px solid #94a3b8;border-radius:6px;padding:8px;text-align:center">
-          <div style="font-size:9px;color:#64748b;margin-bottom:2px">VENTA NETA</div>
-          <div style="font-size:16px;font-weight:700">${fmt(tVentaNeta)}</div>
-        </div>
-        <div style="flex:1;border:2px solid #096da3;border-radius:6px;padding:8px;text-align:center">
-          <div style="font-size:9px;color:#096da3;margin-bottom:2px">VENTA c/IVA</div>
-          <div style="font-size:16px;font-weight:700;color:#096da3">${fmt(tVentaBruta)}</div>
-        </div>
-        ${tDescuento>0 ? `
-        <div style="flex:1;border:1px solid #f59e0b;border-radius:6px;padding:8px;text-align:center;background:#fefce8">
-          <div style="font-size:9px;color:#92400e;margin-bottom:2px">DESC. TOTAL</div>
-          <div style="font-size:16px;font-weight:700;color:#b45309">− ${fmt(tDescuento)}</div>
-        </div>
-        <div style="flex:1;border:3px solid #096da3;border-radius:6px;padding:8px;text-align:center;background:#fff5f5">
-          <div style="font-size:9px;color:#096da3;margin-bottom:2px">TOTAL FINAL c/IVA</div>
-          <div style="font-size:20px;font-weight:900;color:#096da3">${fmt(tVentaFinal)}</div>
-        </div>` : ''}
-      </div>
-      <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;background:#fff;z-index:9999"><div style="display:flex;flex-direction:column;line-height:1.15"><span style="font-size:6px;font-weight:700;color:#0ea5e9;letter-spacing:0.18em;text-transform:uppercase;font-family:Arial,sans-serif">CLAUDE ERP</span><span style="font-size:11px;font-weight:900;color:#0f172a;font-family:Arial,sans-serif;letter-spacing:-0.01em">Polygonos 360</span></div></div>
-      <script>window.onload=()=>window.print()</script></body></html>`);
-    w.document.close();
+  const printInterno = async () => {
+    const fases = (proyecto.fases || []).map(calcFase);
+    const codigosPorFaseArr = fases.map((f, fi) => codigosPorFase(f.items, fi));
+    const totales = {
+      costo: fases.reduce((s, f) => s + f.costoNeto, 0),
+      margen: fases.reduce((s, f) => s + f.margenTotal, 0),
+      margenPct: (() => { const c = fases.reduce((s, f) => s + f.costoNeto, 0); const m = fases.reduce((s, f) => s + f.margenTotal, 0); return c > 0 ? (m / c * 100).toFixed(1) : "0"; })(),
+      ventaNeta: fases.reduce((s, f) => s + f.ventaNeta, 0),
+      ventaBruta: fases.reduce((s, f) => s + f.ventaBruta, 0),
+      descuento: fases.reduce((s, f) => s + (f.descMonto || 0), 0),
+      ventaNetaConDesc: fases.reduce((s, f) => s + f.ventaNetaConDesc, 0),
+      ivaConDesc: fases.reduce((s, f) => s + f.ivaConDesc, 0),
+      ventaFinal: Math.round(fases.reduce((s, f) => s + f.ventaConDesc, 0) / 100) * 100,
+    };
+    let logoDataUri = null;
+    try { logoDataUri = await fetchImageAsDataUri(LOGO_PRINT); } catch { /* el documento se genera igual, sin logo */ }
+    const blob = await pdf(<CosteoInternoDoc proyecto={proyecto} fasesCalc={fases} codigosPorFaseArr={codigosPorFaseArr} totales={totales} logoDataUri={logoDataUri} />).toBlob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
   };
 
   // PDF Cliente — solo venta neta + IVA, sin costos ni márgenes
-  const printCliente = () => {
-    const w = window.open("","_blank");
-    const fases = (proyecto.fases||[]).map(calcFase);
-    const tVentaNeta = fases.reduce((s,f)=>s+f.ventaNeta,0);
-    const tVentaBruta = fases.reduce((s,f)=>s+f.ventaBruta,0);
-    const tDescuentoCli = fases.reduce((s,f)=>s+(f.descMonto||0),0);
-    const tVentaFinalCli = Math.round(fases.reduce((s,f)=>s+f.ventaConDesc,0) / 100) * 100;
-    const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
-    const partidas = proyecto.partidas||[];
-    const tPartidas = partidas.reduce((s,p)=>s+Number(p.monto),0);
-    const tAnticipo = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctAnticipo)||0)/100),0);
-    const tParcial = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctParcial)||0)/100),0);
-    const tFinalizar = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctFinalizar)||0)/100),0);
-    const CLI_TYPE_ORDER = {"Equipos":0,"Ferretería":1,"Materiales":1,"Mano de Obra / HH":2,"Costos Indirectos":3};
-    const fasesHTML = fases.map((f,fi)=>{
-      const codigoPorId = codigosPorFase(f.items, fi);
-      const sortedItems = [...(f.items||[])].sort((a,b)=>(CLI_TYPE_ORDER[a.tipo]??9)-(CLI_TYPE_ORDER[b.tipo]??9));
-      const rows = sortedItems.map(calcItem).map(it=>{
-        const tieneIVA = it.ivaVenta > 0;
-        const cantLabel = it.tipo==="Mano de Obra / HH" ? `${(it.hh||1)*(it.qty||1)} HH` : it.qty;
-        const datasheetRow = it.datasheet_url ? `<tr style="background:#f8faff;border-bottom:1px solid #e2e8f0">
-          <td colspan="7" style="padding:2px 8px 5px 22px;font-size:9px;color:#64748b">
-            🔗 Ficha técnica: <a href="${it.datasheet_url}" style="color:#1e40af;text-decoration:underline" target="_blank">${it.datasheet_url}</a>
-          </td>
-        </tr>` : "";
-        return `<tr style="border-bottom:${it.datasheet_url?"none":"1px solid #f1f5f9"}">
-          <td style="padding:5px 8px;color:#3b82f6;font-weight:600">${codigoPorId[it.id]||""}</td>
-          <td style="padding:5px 8px">${it.descripcion||""}</td>
-          <td style="padding:5px 8px;color:#94a3b8">${it.modelo||""}</td>
-          <td style="padding:5px 8px;text-align:center">${cantLabel}</td>
-          <td style="padding:5px 8px;text-align:right">${fmt(it.ventaNeta)}</td>
-          <td style="padding:5px 8px;text-align:right;color:#64748b">${tieneIVA?fmt(it.ivaVenta):"-"}</td>
-          <td style="padding:5px 8px;text-align:right;font-weight:700;color:#1e40af">${fmt(it.ventaBruta)}</td>
-        </tr>${datasheetRow}`;}).join("");
-      return `<div style="margin-bottom:18px">
-        <div style="background:#1e293b;color:white;padding:7px 10px;font-weight:700;font-size:12px;border-radius:5px 5px 0 0">${f.nombre}</div>
-        <table style="width:100%;border-collapse:collapse;font-size:11px">
-          <thead><tr style="background:#f1f5f9">
-            <th style="padding:5px 8px;text-align:left;width:55px">COD</th>
-            <th style="padding:5px 8px;text-align:left">DESCRIPCIÓN</th>
-            <th style="padding:5px 8px;text-align:left">MODELO</th>
-            <th style="padding:5px 8px">CANT.</th>
-            <th style="padding:5px 8px;text-align:right">NETO</th>
-            <th style="padding:5px 8px;text-align:right;color:#64748b">IVA</th>
-            <th style="padding:5px 8px;text-align:right;color:#1e40af">TOTAL c/IVA</th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-          <tfoot>
-            <tr style="border-top:2px solid #e2e8f0;background:#f8fafc;font-weight:700">
-              <td colspan="4" style="padding:6px 8px">Subtotal ${f.nombre}</td>
-              <td style="padding:6px 8px;text-align:right">${fmt(f.ventaNeta)}</td>
-              <td style="padding:6px 8px;text-align:right;color:#64748b">${fmt(f.ventaBruta-f.ventaNeta)}</td>
-              <td style="padding:6px 8px;text-align:right;color:#1e40af">${fmt(f.ventaBruta)}</td>
-            </tr>
-            ${(f.descPct||0)>0 ? `
-            <tr style="background:#fefce8">
-              <td colspan="5" style="padding:4px 8px;color:#92400e">Descuento ${f.descPct}%</td>
-              <td colspan="2" style="padding:4px 8px;text-align:right;color:#b45309;font-weight:700">− ${fmt(f.descMonto)}</td>
-            </tr>
-            <tr style="background:#fef3c7;font-weight:800;font-size:12px">
-              <td colspan="5" style="padding:6px 8px;color:#78350f">TOTAL FASE CON DESCUENTO</td>
-              <td colspan="2" style="padding:6px 8px;text-align:right;color:#1e40af">${fmt(f.ventaConDesc)}</td>
-            </tr>` : ''}
-          </tfoot>
-        </table>
-      </div>`;
-    }).join("");
-    const partidasHTML = partidas.length>0 ? `
-      <div style="margin-top:24px;padding-top:16px;border-top:2px solid #e2e8f0">
-        <div style="font-size:13px;font-weight:700;margin-bottom:10px">Partidas de Pago</div>
-        <table style="width:100%;border-collapse:collapse;font-size:11px">
-          <thead><tr style="background:#f1f5f9">
-            <th style="padding:6px 8px;text-align:left">CONCEPTO</th>
-            <th style="padding:6px 8px;text-align:right">MONTO</th>
-            <th style="padding:6px 8px;text-align:right;color:#3b82f6">ANTICIPO</th>
-            <th style="padding:6px 8px;text-align:right;color:#10b981">PARCIAL</th>
-            <th style="padding:6px 8px;text-align:right;color:#f59e0b">AL FINALIZAR</th>
-          </tr></thead>
-          <tbody>${partidas.map(p=>{
-            const m=Number(p.monto),a=m*(Number(p.pctAnticipo)||0)/100,pa=m*(Number(p.pctParcial)||0)/100,fi=m*(Number(p.pctFinalizar)||0)/100;
-            const dA=Number(p.diasAnticipo)||0, dP=Number(p.diasParcial)||0, dF=Number(p.diasFinalizar)||0;
-            const plazo = (monto,pct,dias,color) => monto>0
-              ? `<td style="padding:5px 8px;text-align:right;color:${color}">${fmt(monto)}<br><span style="font-size:9px;color:#94a3b8">${pct}%${dias>0?` · ${dias} días`:' · contado'}</span></td>`
-              : `<td style="padding:5px 8px;text-align:center;color:#cbd5e1">-</td>`;
-            return `<tr style="border-bottom:1px solid #f1f5f9">
-              <td style="padding:5px 8px">${p.concepto||""}</td>
-              <td style="padding:5px 8px;text-align:right;font-weight:600">${fmt(m)}</td>
-              ${plazo(a,Number(p.pctAnticipo)||0,dA,'#3b82f6')}
-              ${plazo(pa,Number(p.pctParcial)||0,dP,'#10b981')}
-              ${plazo(fi,Number(p.pctFinalizar)||0,dF,'#f59e0b')}
-            </tr>`;}).join("")}
-          </tbody>
-          <tfoot><tr style="border-top:2px solid #e2e8f0;background:#f8fafc;font-weight:700">
-            <td style="padding:6px 8px">TOTAL</td>
-            <td style="padding:6px 8px;text-align:right">${fmt(tPartidas)}</td>
-            <td style="padding:6px 8px;text-align:right;color:#3b82f6">${fmt(tAnticipo)}</td>
-            <td style="padding:6px 8px;text-align:right;color:#10b981">${fmt(tParcial)}</td>
-            <td style="padding:6px 8px;text-align:right;color:#f59e0b">${fmt(tFinalizar)}</td>
-          </tfoot>
-        </table>
-      </div>` : "";
-    w.document.write(`<!DOCTYPE html><html><head><title>Presupuesto - ${proyecto.nombre}</title>
-      <style>body{font-family:Arial,sans-serif;font-size:12px;color:#1e293b;padding:20px} @media print{@page{margin:10mm}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style>
-      </head><body>
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #e2e8f0">
-        <div><img src="${LOGO_PRINT}" style="height:50px;margin-bottom:8px;display:block" />
-          <div style="font-size:10px;color:#64748b">RUT: 77.180.437-3</div>
-          <div style="font-size:10px;color:#64748b">Fono: 9-81334980 · ventas@polygonos.cl</div>
-        </div>
-        <div style="border:2px solid #1e40af;padding:10px 20px;text-align:center">
-          <div style="font-size:11px;font-weight:700;color:#1e40af">PRESUPUESTO</div>
-          <div style="font-size:10px;color:#64748b">${proyecto.fecha||""}</div>
-        </div>
-      </div>
-      <div style="background:#f8fafc;border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:11px">
-        <strong style="font-size:14px">${proyecto.nombre}</strong><br/>
-        <span>Cliente: ${proyecto.clienteNombre||""}</span> &nbsp;|&nbsp;
-        <span>Empresa: ${proyecto.clienteEmpresa||""}</span> &nbsp;|&nbsp;
-        <span>RUT: ${proyecto.clienteRut||""}</span>
-      </div>
-      ${fasesHTML}
-      <div style="display:flex;gap:12px;margin-top:20px;padding-top:16px;border-top:2px solid #e2e8f0">
-        <div style="flex:1;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:9px;color:#64748b;margin-bottom:3px">TOTAL NETO</div>
-          <div style="font-size:18px;font-weight:700">${fmt(tVentaNeta)}</div>
-        </div>
-        <div style="flex:1;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:9px;color:#64748b;margin-bottom:3px">IVA (19%)</div>
-          <div style="font-size:18px;font-weight:700;color:#64748b">${fmt(tVentaBruta-tVentaNeta)}</div>
-        </div>
-        <div style="flex:1;border:2px solid #1e40af;border-radius:8px;padding:10px;text-align:center">
-          <div style="font-size:9px;color:#1e40af;margin-bottom:3px">TOTAL c/IVA</div>
-          <div style="font-size:22px;font-weight:700;color:#1e40af">${fmt(tVentaBruta)}</div>
-        </div>
-        ${tDescuentoCli>0 ? `
-        <div style="flex:1;border:1px solid #f59e0b;border-radius:8px;padding:10px;text-align:center;background:#fefce8">
-          <div style="font-size:9px;color:#92400e;margin-bottom:3px">DESCUENTO</div>
-          <div style="font-size:18px;font-weight:700;color:#b45309">− ${fmt(tDescuentoCli)}</div>
-        </div>
-        <div style="flex:2;border:3px solid #1e40af;border-radius:8px;padding:10px;text-align:center;background:#eff6ff">
-          <div style="font-size:10px;color:#1e40af;margin-bottom:3px;font-weight:700">TOTAL FINAL c/IVA</div>
-          <div style="font-size:26px;font-weight:900;color:#1e40af">${fmt(tVentaFinalCli)}</div>
-        </div>` : ''}
-      </div>
-      ${partidasHTML}
-      <div style="margin-top:24px;padding-top:14px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end">
-        <div style="text-align:right;font-size:10px;color:#475569">
-          <div style="font-weight:700;color:#1e293b;font-size:11px">Firmado digitalmente por</div>
-          <div style="font-weight:700;color:#1e293b;font-size:11px">MAXIMO MANUEL HUDSON BLANCO</div>
-          <div style="margin-top:2px">Fecha: ${new Date().toLocaleDateString("es-CL")} ${new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"})}</div>
-          <div>Polygonos SpA · RUT 77.180.437-3</div>
-        </div>
-      </div>
-      <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;background:#fff;z-index:9999"><div style="display:flex;flex-direction:column;line-height:1.15"><span style="font-size:6px;font-weight:700;color:#0ea5e9;letter-spacing:0.18em;text-transform:uppercase;font-family:Arial,sans-serif">CLAUDE ERP</span><span style="font-size:11px;font-weight:900;color:#0f172a;font-family:Arial,sans-serif;letter-spacing:-0.01em">Polygonos 360</span></div></div>
-      <script>window.onload=()=>window.print()</script></body></html>`);
-    w.document.close();
+  const printCliente = async () => {
+    const fases = (proyecto.fases || []).map(calcFase);
+    const codigosPorFaseArr = fases.map((f, fi) => codigosPorFase(f.items, fi));
+    const totales = {
+      ventaNeta: fases.reduce((s, f) => s + f.ventaNeta, 0),
+      ventaBruta: fases.reduce((s, f) => s + f.ventaBruta, 0),
+      descuento: fases.reduce((s, f) => s + (f.descMonto || 0), 0),
+      ventaNetaConDesc: fases.reduce((s, f) => s + f.ventaNetaConDesc, 0),
+      ivaConDesc: fases.reduce((s, f) => s + f.ivaConDesc, 0),
+      ventaFinal: Math.round(fases.reduce((s, f) => s + f.ventaConDesc, 0) / 100) * 100,
+    };
+    let logoDataUri = null;
+    try { logoDataUri = await fetchImageAsDataUri(LOGO_PRINT); } catch { /* el documento se genera igual, sin logo */ }
+    const blob = await pdf(<CosteoClienteDoc proyecto={proyecto} fasesCalc={fases} codigosPorFaseArr={codigosPorFaseArr} totales={totales} partidas={proyecto.partidas || []} logoDataUri={logoDataUri} />).toBlob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
   };
 
   // ── GENERAR COTIZACIÓN ──────────────────────────────────────────────────────
