@@ -7127,10 +7127,11 @@ function QuotePDF({ quote, onBack }) {
       <style>{`
         @media print {
           @page { size: A4 portrait; margin: 8mm 10mm; }
+          #root { height: 0 !important; overflow: hidden !important; }
           body * { visibility: hidden; }
           #print-area, #print-area * { visibility: visible; }
           #print-area {
-            position: absolute; left: 0; top: 0;
+            position: fixed; left: 0; top: 0;
             width: 190mm;
             padding: 0;
             box-sizing: border-box;
