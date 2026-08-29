@@ -244,3 +244,40 @@ export function GanttTaskRow({ task, numberLabel, calCols, weeks, granularity, t
     </View>
   );
 }
+
+export function GanttDoc({ proyecto, headerData, tasks, calCols, numbersById, totales, logoDataUri }) {
+  const granularity = calCols.length > 15 ? "week" : "day";
+  const weeks = granularity === "week" ? groupColsIntoWeeks(calCols) : [];
+  const timeUnitsCount = granularity === "week" ? weeks.length : calCols.length;
+  const timeColPct = (100 - FIXED_COLS_PCT) / Math.max(1, timeUnitsCount);
+  const today = new Date().toISOString().slice(0, 10);
+
+  return (
+    <Document>
+      <Page size="A4" orientation="landscape" style={ganttPdfStyles.page} wrap>
+        <GanttPdfHeader
+          proyecto={proyecto}
+          headerData={headerData}
+          totales={totales}
+          calCols={calCols}
+          weeks={weeks}
+          granularity={granularity}
+          timeColPct={timeColPct}
+          logoDataUri={logoDataUri}
+        />
+        {tasks.map((t, i) => (
+          <GanttTaskRow
+            key={t.id}
+            task={t}
+            numberLabel={numbersById[t.id] || String(i + 1)}
+            calCols={calCols}
+            weeks={weeks}
+            granularity={granularity}
+            timeColPct={timeColPct}
+            today={today}
+          />
+        ))}
+      </Page>
+    </Document>
+  );
+}
