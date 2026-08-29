@@ -50,7 +50,12 @@ Cada fila de tarea es un elemento independiente (`<View wrap={false}>` por fila)
 
 ## Estilo visual
 
-Mismo lenguaje que Costeo: tarjetas de resumen compactas en azul `#00C2FF`, tipografía Helvetica estándar (sin registrar fuentes), logo como data URI (reusando `fetchImageAsDataUri` ya creado en `src/CosteoPdfDocs.jsx`, importado desde ahí — no se duplica ese helper).
+Se mantiene la paleta de colores semántica que ya tiene el exportable HTML actual (no la de pantalla, que usa un verde distinto para "completado" pensado para fondo oscuro) — no se reemplaza por el azul uniforme usado en Costeo, porque acá el color cumple una función (distinguir tipo de fila y estado), no es solo decorativo:
+- Fase: `#3b82f6` (azul), Tarea: `#6366f1` (violeta), Hito: `#f59e0b` (ámbar).
+- Completado (pct===100): `#22c55e` (verde), Atrasado (fin < hoy y pct<100): `#ef4444` (rojo).
+Son los mismos valores que ya usa el cálculo `bc` dentro del generador de filas actual (`src/App.jsx:2889`), no los `GANTT_COLORS` de la vista en pantalla (que usa `#39ff14` para completado, un verde más saturado pensado para fondo oscuro).
+
+Tipografía Helvetica estándar (sin registrar fuentes), logo como data URI (reusando `fetchImageAsDataUri` ya creado en `src/CosteoPdfDocs.jsx`, importado desde ahí — no se duplica ese helper).
 
 ## Testing y verificación
 
