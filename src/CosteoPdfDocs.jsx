@@ -111,3 +111,53 @@ export function FaseBlockPDF({ fase, variant, codigoPorId }) {
     </View>
   );
 }
+
+export function CosteoInternoDoc({ proyecto, fasesCalc, codigosPorFaseArr, totales, logoDataUri }) {
+  return (
+    <Document>
+      <Page size="A4" orientation="landscape" style={styles.page} wrap>
+        <View style={styles.headerRow}>
+          <View>
+            {logoDataUri ? <Image src={logoDataUri} style={styles.logo} /> : null}
+            <Text style={styles.headerSub}>RUT: 77.180.437-3 · ventas@polygonos.cl · 9-81334980</Text>
+          </View>
+          <View style={styles.titleBox}>
+            <Text style={styles.titleText}>COSTEO INTERNO</Text>
+            <Text style={styles.headerSub}>{proyecto.fecha || ""}</Text>
+          </View>
+        </View>
+        <View style={styles.clienteBox}>
+          <Text style={{ fontSize: 10, fontWeight: 700 }}>{proyecto.nombre}</Text>
+          <Text style={{ fontSize: 8, marginTop: 2 }}>Cliente: {proyecto.clienteNombre || ""}   Empresa: {proyecto.clienteEmpresa || ""}</Text>
+          <Text style={{ fontSize: 8 }}>RUT: {proyecto.clienteRut || ""}   Tel: {proyecto.clienteTelefono || ""}</Text>
+        </View>
+        {fasesCalc.map((f, fi) => (
+          <FaseBlockPDF key={f.id} fase={f} variant="interno" codigoPorId={codigosPorFaseArr[fi]} />
+        ))}
+        <View style={styles.cardsRow} wrap={false}>
+          <View style={styles.card}><Text style={styles.cardLabel}>COSTO NETO TOTAL</Text><Text style={styles.cardValue}>{fmt(totales.costo)}</Text></View>
+          <View style={styles.card}>
+            <Text style={styles.cardLabel}>MARGEN TOTAL</Text>
+            <Text style={styles.cardValue}>{fmt(totales.margen)}</Text>
+            <Text style={{ fontSize: 6, color: "#94a3b8" }}>{totales.margenPct}% s/costo neto</Text>
+          </View>
+          <View style={styles.card}><Text style={styles.cardLabel}>VENTA NETA</Text><Text style={styles.cardValue}>{fmt(totales.ventaNeta)}</Text></View>
+          {totales.descuento > 0 ? (
+            <>
+              <View style={styles.card}><Text style={styles.cardLabel}>DESCUENTO</Text><Text style={styles.cardValue}>− {fmt(totales.descuento)}</Text></View>
+              <View style={styles.card}><Text style={styles.cardLabel}>VENTA NETA C/DESC</Text><Text style={styles.cardValue}>{fmt(totales.ventaNetaConDesc)}</Text></View>
+              <View style={styles.card}><Text style={styles.cardLabel}>IVA (19%)</Text><Text style={styles.cardValue}>{fmt(totales.ivaConDesc)}</Text></View>
+              <View style={[styles.card, { borderWidth: 2, borderColor: "#00C2FF" }]}><Text style={styles.cardLabel}>TOTAL FINAL c/IVA</Text><Text style={styles.cardValue}>{fmt(totales.ventaFinal)}</Text></View>
+            </>
+          ) : (
+            <View style={[styles.card, { borderWidth: 2, borderColor: "#00C2FF" }]}><Text style={styles.cardLabel}>VENTA c/IVA</Text><Text style={styles.cardValue}>{fmt(totales.ventaBruta)}</Text></View>
+          )}
+        </View>
+        <View style={{ position: "absolute", bottom: 10, left: 24 }} fixed>
+          <Text style={{ fontSize: 6, color: "#0ea5e9" }}>CLAUDE ERP</Text>
+          <Text style={{ fontSize: 8, fontWeight: 900, color: "#0f172a" }}>Polygonos 360</Text>
+        </View>
+      </Page>
+    </Document>
+  );
+}
