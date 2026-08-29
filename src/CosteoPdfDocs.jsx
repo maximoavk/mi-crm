@@ -161,3 +161,88 @@ export function CosteoInternoDoc({ proyecto, fasesCalc, codigosPorFaseArr, total
     </Document>
   );
 }
+
+export function CosteoClienteDoc({ proyecto, fasesCalc, codigosPorFaseArr, totales, partidas, logoDataUri }) {
+  const tPartidas = (partidas || []).reduce((s, p) => s + Number(p.monto || 0), 0);
+  const tAnticipo = (partidas || []).reduce((s, p) => s + (Number(p.monto || 0) * (Number(p.pctAnticipo) || 0)) / 100, 0);
+  const tParcial = (partidas || []).reduce((s, p) => s + (Number(p.monto || 0) * (Number(p.pctParcial) || 0)) / 100, 0);
+  const tFinalizar = (partidas || []).reduce((s, p) => s + (Number(p.monto || 0) * (Number(p.pctFinalizar) || 0)) / 100, 0);
+
+  return (
+    <Document>
+      <Page size="A4" style={styles.page} wrap>
+        <View style={styles.headerRow}>
+          <View>
+            {logoDataUri ? <Image src={logoDataUri} style={styles.logo} /> : null}
+          </View>
+          <View style={[styles.titleBox, { borderColor: "#1e40af" }]}>
+            <Text style={[styles.titleText, { color: "#1e40af" }]}>PRESUPUESTO</Text>
+            <Text style={styles.headerSub}>{proyecto.fecha || ""}</Text>
+          </View>
+        </View>
+        <View style={styles.clienteBox}>
+          <Text style={{ fontSize: 11, fontWeight: 700 }}>{proyecto.nombre}</Text>
+          <Text style={{ fontSize: 8, marginTop: 2 }}>Cliente: {proyecto.clienteNombre || ""}   Empresa: {proyecto.clienteEmpresa || ""}</Text>
+          <Text style={{ fontSize: 8 }}>RUT: {proyecto.clienteRut || ""}</Text>
+        </View>
+        {fasesCalc.map((f, fi) => (
+          <FaseBlockPDF key={f.id} fase={f} variant="cliente" codigoPorId={codigosPorFaseArr[fi]} />
+        ))}
+        <View style={styles.cardsRow} wrap={false}>
+          <View style={styles.card}><Text style={styles.cardLabel}>TOTAL NETO</Text><Text style={styles.cardValue}>{fmt(totales.ventaNeta)}</Text></View>
+          {totales.descuento > 0 ? (
+            <>
+              <View style={styles.card}><Text style={styles.cardLabel}>DESCUENTO</Text><Text style={styles.cardValue}>− {fmt(totales.descuento)}</Text></View>
+              <View style={styles.card}><Text style={styles.cardLabel}>NETO C/DESC</Text><Text style={styles.cardValue}>{fmt(totales.ventaNetaConDesc)}</Text></View>
+              <View style={styles.card}><Text style={styles.cardLabel}>IVA (19%)</Text><Text style={styles.cardValue}>{fmt(totales.ivaConDesc)}</Text></View>
+              <View style={[styles.card, { borderWidth: 2, borderColor: "#00C2FF" }]}><Text style={styles.cardLabel}>TOTAL FINAL c/IVA</Text><Text style={styles.cardValue}>{fmt(totales.ventaFinal)}</Text></View>
+            </>
+          ) : (
+            <>
+              <View style={styles.card}><Text style={styles.cardLabel}>IVA (19%)</Text><Text style={styles.cardValue}>{fmt(totales.ventaBruta - totales.ventaNeta)}</Text></View>
+              <View style={[styles.card, { borderWidth: 2, borderColor: "#00C2FF" }]}><Text style={styles.cardLabel}>TOTAL c/IVA</Text><Text style={styles.cardValue}>{fmt(totales.ventaBruta)}</Text></View>
+            </>
+          )}
+        </View>
+        {(partidas || []).length > 0 && (
+          <View style={{ marginTop: 12 }} wrap={false}>
+            <Text style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>Partidas de Pago</Text>
+            <View style={styles.table}>
+              <View style={styles.tr}>
+                <Text style={[styles.th, { flex: 3, textAlign: "left" }]}>CONCEPTO</Text>
+                <Text style={[styles.th, { flex: 1.2, textAlign: "right" }]}>MONTO</Text>
+                <Text style={[styles.th, { flex: 1.2, textAlign: "right", color: "#3b82f6" }]}>ANTICIPO</Text>
+                <Text style={[styles.th, { flex: 1.2, textAlign: "right", color: "#10b981" }]}>PARCIAL</Text>
+                <Text style={[styles.th, { flex: 1.2, textAlign: "right", color: "#f59e0b" }]}>AL FINALIZAR</Text>
+              </View>
+              {(partidas || []).map((p) => {
+                const m = Number(p.monto || 0), a = (m * (Number(p.pctAnticipo) || 0)) / 100, pa = (m * (Number(p.pctParcial) || 0)) / 100, fi = (m * (Number(p.pctFinalizar) || 0)) / 100;
+                return (
+                  <View key={p.id} style={styles.tr} wrap={false}>
+                    <Text style={[styles.td, { flex: 3 }]}>{p.concepto || ""}</Text>
+                    <Text style={[styles.td, { flex: 1.2, textAlign: "right" }]}>{fmt(m)}</Text>
+                    <Text style={[styles.td, { flex: 1.2, textAlign: "right", color: "#3b82f6" }]}>{a > 0 ? fmt(a) : "-"}</Text>
+                    <Text style={[styles.td, { flex: 1.2, textAlign: "right", color: "#10b981" }]}>{pa > 0 ? fmt(pa) : "-"}</Text>
+                    <Text style={[styles.td, { flex: 1.2, textAlign: "right", color: "#f59e0b" }]}>{fi > 0 ? fmt(fi) : "-"}</Text>
+                  </View>
+                );
+              })}
+              <View style={styles.subtotalRow}>
+                <Text style={{ flex: 3, padding: 3 }}>TOTAL</Text>
+                <Text style={{ flex: 1.2, textAlign: "right", padding: 3 }}>{fmt(tPartidas)}</Text>
+                <Text style={{ flex: 1.2, textAlign: "right", padding: 3, color: "#3b82f6" }}>{fmt(tAnticipo)}</Text>
+                <Text style={{ flex: 1.2, textAlign: "right", padding: 3, color: "#10b981" }}>{fmt(tParcial)}</Text>
+                <Text style={{ flex: 1.2, textAlign: "right", padding: 3, color: "#f59e0b" }}>{fmt(tFinalizar)}</Text>
+              </View>
+            </View>
+          </View>
+        )}
+        <View style={{ marginTop: 16, alignItems: "flex-end" }} wrap={false}>
+          <Text style={{ fontSize: 8, fontWeight: 700 }}>Firmado digitalmente por</Text>
+          <Text style={{ fontSize: 8, fontWeight: 700 }}>MAXIMO MANUEL HUDSON BLANCO</Text>
+          <Text style={{ fontSize: 7, color: "#64748b" }}>Polygonos SpA · RUT 77.180.437-3</Text>
+        </View>
+      </Page>
+    </Document>
+  );
+}
