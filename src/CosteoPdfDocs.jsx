@@ -45,70 +45,75 @@ export function FaseBlockPDF({ fase, variant, codigoPorId }) {
   const descColSpan = isInterno ? 6.9 : 5.5;
   const totalColSpan = isInterno ? 9.5 : 7.3;
 
+  // Nota: deliberadamente NO se envuelve título+header+filas+subtotal en un único
+  // <View> contenedor. react-pdf, cuando ese conjunto no cabe entero en el espacio
+  // restante de la página actual, empuja el bloque COMPLETO a la página siguiente
+  // (aunque tenga wrap habilitado) en vez de fragmentarlo, dejando la página actual
+  // con un hueco en blanco. Manteniendo cada fila como hermana directa dentro del
+  // documento, react-pdf evalúa la fragmentación fila por fila (cada una ya protegida
+  // con wrap={false} para no partirse a la mitad) y aprovecha el espacio disponible.
   return (
-    <View style={styles.faseBlock} wrap={false}>
-      <Text style={styles.faseTitle}>{fase.nombre}</Text>
-      <View style={styles.table}>
-        <View style={styles.tr}>
-          <Text style={[styles.th, { flex: 0.6 }]}>COD</Text>
-          <Text style={[styles.th, { flex: 2.2 }]}>DESCRIPCIÓN</Text>
-          <Text style={[styles.th, { flex: 1.3 }]}>MODELO</Text>
-          <Text style={[styles.th, { flex: 0.7, textAlign: "center" }]}>CANT</Text>
-          {isInterno && <Text style={[styles.th, { flex: 0.9, textAlign: "right" }]}>P.BRUTO UNIT.</Text>}
-          {isInterno && <Text style={[styles.th, { flex: 0.9, textAlign: "right" }]}>NETO UNIT.</Text>}
-          {isInterno && <Text style={[styles.th, { flex: 0.6, textAlign: "center" }]}>MARG%</Text>}
-          {isInterno && <Text style={[styles.th, { flex: 0.9, textAlign: "right" }]}>COSTO NETO</Text>}
-          {isInterno && <Text style={[styles.th, { flex: 0.9, textAlign: "right" }]}>MARGEN $</Text>}
-          <Text style={[styles.th, { flex: 0.9, textAlign: "right" }]}>VENTA NETA</Text>
-          {!isInterno && <Text style={[styles.th, { flex: 0.9, textAlign: "right" }]}>IVA</Text>}
-          <Text style={[styles.th, { flex: 0.9, textAlign: "right" }]}>{isInterno ? "VENTA c/IVA" : "TOTAL c/IVA"}</Text>
-        </View>
-        {sortedItems.map((it) => {
-          const cantLabel = it.tipo === "Mano de Obra / HH" ? `${(it.hh || 1) * (it.qty || 1)} HH` : String(it.qty ?? "");
-          const precioUnitDisplay = it.tipo === "Mano de Obra / HH" ? fmt(it.valorHH) : it.tipo === "Costos Indirectos" ? fmt(it.costoUnit) : fmt(it.costoUnitNeto || (it.costoNeto / (Number(it.qty) || 1)));
-          const netoUnitDisplay = it.ivaVenta > 0 ? fmt(it.costoNeto / (Number(it.qty) || 1)) : "-";
-          return (
-            <View key={it.id} style={styles.tr} wrap={false}>
-              <Text style={[styles.td, { flex: 0.6, color: "#3b82f6" }]}>{codigoPorId[it.id] || ""}</Text>
-              <View style={[styles.td, { flex: 2.2 }]}>
-                <Text>{it.descripcion || ""}</Text>
-                {it.datasheet_url ? <Text style={{ fontSize: 5.5, color: "#94a3b8" }}>{it.datasheet_url}</Text> : null}
-              </View>
-              <Text style={[styles.td, { flex: 1.3, color: "#94a3b8" }]}>{it.modelo || ""}</Text>
-              <Text style={[styles.td, { flex: 0.7, textAlign: "center" }]}>{cantLabel}</Text>
-              {isInterno && <Text style={[styles.td, { flex: 0.9, textAlign: "right" }]}>{precioUnitDisplay}</Text>}
-              {isInterno && <Text style={[styles.td, { flex: 0.9, textAlign: "right" }]}>{netoUnitDisplay}</Text>}
-              {isInterno && <Text style={[styles.td, { flex: 0.6, textAlign: "center" }]}>{it.margen}%</Text>}
-              {isInterno && <Text style={[styles.td, { flex: 0.9, textAlign: "right" }]}>{fmt(it.costoNeto)}</Text>}
-              {isInterno && <Text style={[styles.td, { flex: 0.9, textAlign: "right", color: "#10b981" }]}>{fmt(it.margenTotal)}</Text>}
-              <Text style={[styles.td, { flex: 0.9, textAlign: "right" }]}>{fmt(it.ventaNeta)}</Text>
-              {!isInterno && <Text style={[styles.td, { flex: 0.9, textAlign: "right", color: "#64748b" }]}>{it.ivaVenta > 0 ? fmt(it.ivaVenta) : "-"}</Text>}
-              <Text style={[styles.td, { flex: 0.9, textAlign: "right", fontWeight: 700, color: "#096da3" }]}>{fmt(it.ventaBruta)}</Text>
-            </View>
-          );
-        })}
-        <View style={styles.subtotalRow}>
-          <Text style={{ flex: descColSpan, padding: 3 }}>Subtotal {fase.nombre}</Text>
-          {isInterno && <Text style={{ flex: 0.9, textAlign: "right", padding: 3 }}>{fmt(fase.costoNeto)}</Text>}
-          {isInterno && <Text style={{ flex: 0.9, textAlign: "right", padding: 3, color: "#10b981" }}>{fmt(fase.margenTotal)}</Text>}
-          <Text style={{ flex: 0.9, textAlign: "right", padding: 3 }}>{fmt(fase.ventaNeta)}</Text>
-          {!isInterno && <Text style={{ flex: 0.9, textAlign: "right", padding: 3, color: "#64748b" }}>{fmt(fase.ventaBruta - fase.ventaNeta)}</Text>}
-          <Text style={{ flex: 0.9, textAlign: "right", padding: 3, color: "#096da3" }}>{fmt(fase.ventaBruta)}</Text>
-        </View>
-        {fase.descPct > 0 && (
-          <>
-            <View style={styles.descRow}>
-              <Text style={{ flex: totalColSpan, padding: 3, color: "#92400e" }}>Descuento {fase.descPct}%</Text>
-              <Text style={{ flex: 0.9, textAlign: "right", padding: 3, color: "#b45309", fontWeight: 700 }}>− {fmt(fase.descMonto)}</Text>
-            </View>
-            <View style={styles.totalRow}>
-              <Text style={{ flex: totalColSpan, padding: 3, color: "#78350f" }}>TOTAL FASE CON DESCUENTO</Text>
-              <Text style={{ flex: 0.9, textAlign: "right", padding: 3, color: "#096da3" }}>{fmt(fase.ventaConDesc)}</Text>
-            </View>
-          </>
-        )}
+    <>
+      <Text style={[styles.faseTitle, { marginTop: 10 }]}>{fase.nombre}</Text>
+      <View style={styles.tr} wrap={false}>
+        <Text style={[styles.th, { flex: 0.6 }]}>COD</Text>
+        <Text style={[styles.th, { flex: 2.2 }]}>DESCRIPCIÓN</Text>
+        <Text style={[styles.th, { flex: 1.3 }]}>MODELO</Text>
+        <Text style={[styles.th, { flex: 0.7, textAlign: "center" }]}>CANT</Text>
+        {isInterno && <Text style={[styles.th, { flex: 0.9, textAlign: "right" }]}>P.BRUTO UNIT.</Text>}
+        {isInterno && <Text style={[styles.th, { flex: 0.9, textAlign: "right" }]}>NETO UNIT.</Text>}
+        {isInterno && <Text style={[styles.th, { flex: 0.6, textAlign: "center" }]}>MARG%</Text>}
+        {isInterno && <Text style={[styles.th, { flex: 0.9, textAlign: "right" }]}>COSTO NETO</Text>}
+        {isInterno && <Text style={[styles.th, { flex: 0.9, textAlign: "right" }]}>MARGEN $</Text>}
+        <Text style={[styles.th, { flex: 0.9, textAlign: "right" }]}>VENTA NETA</Text>
+        {!isInterno && <Text style={[styles.th, { flex: 0.9, textAlign: "right" }]}>IVA</Text>}
+        <Text style={[styles.th, { flex: 0.9, textAlign: "right" }]}>{isInterno ? "VENTA c/IVA" : "TOTAL c/IVA"}</Text>
       </View>
-    </View>
+      {sortedItems.map((it) => {
+        const cantLabel = it.tipo === "Mano de Obra / HH" ? `${(it.hh || 1) * (it.qty || 1)} HH` : String(it.qty ?? "");
+        const precioUnitDisplay = it.tipo === "Mano de Obra / HH" ? fmt(it.valorHH) : it.tipo === "Costos Indirectos" ? fmt(it.costoUnit) : fmt(it.costoUnitNeto || (it.costoNeto / (Number(it.qty) || 1)));
+        const netoUnitDisplay = it.ivaVenta > 0 ? fmt(it.costoNeto / (Number(it.qty) || 1)) : "-";
+        return (
+          <View key={it.id} style={styles.tr} wrap={false}>
+            <Text style={[styles.td, { flex: 0.6, color: "#3b82f6" }]}>{codigoPorId[it.id] || ""}</Text>
+            <View style={[styles.td, { flex: 2.2 }]}>
+              <Text>{it.descripcion || ""}</Text>
+              {it.datasheet_url ? <Text style={{ fontSize: 5.5, color: "#94a3b8" }}>{it.datasheet_url}</Text> : null}
+            </View>
+            <Text style={[styles.td, { flex: 1.3, color: "#94a3b8" }]}>{it.modelo || ""}</Text>
+            <Text style={[styles.td, { flex: 0.7, textAlign: "center" }]}>{cantLabel}</Text>
+            {isInterno && <Text style={[styles.td, { flex: 0.9, textAlign: "right" }]}>{precioUnitDisplay}</Text>}
+            {isInterno && <Text style={[styles.td, { flex: 0.9, textAlign: "right" }]}>{netoUnitDisplay}</Text>}
+            {isInterno && <Text style={[styles.td, { flex: 0.6, textAlign: "center" }]}>{it.margen}%</Text>}
+            {isInterno && <Text style={[styles.td, { flex: 0.9, textAlign: "right" }]}>{fmt(it.costoNeto)}</Text>}
+            {isInterno && <Text style={[styles.td, { flex: 0.9, textAlign: "right", color: "#10b981" }]}>{fmt(it.margenTotal)}</Text>}
+            <Text style={[styles.td, { flex: 0.9, textAlign: "right" }]}>{fmt(it.ventaNeta)}</Text>
+            {!isInterno && <Text style={[styles.td, { flex: 0.9, textAlign: "right", color: "#64748b" }]}>{it.ivaVenta > 0 ? fmt(it.ivaVenta) : "-"}</Text>}
+            <Text style={[styles.td, { flex: 0.9, textAlign: "right", fontWeight: 700, color: "#096da3" }]}>{fmt(it.ventaBruta)}</Text>
+          </View>
+        );
+      })}
+      <View style={styles.subtotalRow} wrap={false}>
+        <Text style={{ flex: descColSpan, padding: 3 }}>Subtotal {fase.nombre}</Text>
+        {isInterno && <Text style={{ flex: 0.9, textAlign: "right", padding: 3 }}>{fmt(fase.costoNeto)}</Text>}
+        {isInterno && <Text style={{ flex: 0.9, textAlign: "right", padding: 3, color: "#10b981" }}>{fmt(fase.margenTotal)}</Text>}
+        <Text style={{ flex: 0.9, textAlign: "right", padding: 3 }}>{fmt(fase.ventaNeta)}</Text>
+        {!isInterno && <Text style={{ flex: 0.9, textAlign: "right", padding: 3, color: "#64748b" }}>{fmt(fase.ventaBruta - fase.ventaNeta)}</Text>}
+        <Text style={{ flex: 0.9, textAlign: "right", padding: 3, color: "#096da3" }}>{fmt(fase.ventaBruta)}</Text>
+      </View>
+      {fase.descPct > 0 && (
+        <>
+          <View style={styles.descRow} wrap={false}>
+            <Text style={{ flex: totalColSpan, padding: 3, color: "#92400e" }}>Descuento {fase.descPct}%</Text>
+            <Text style={{ flex: 0.9, textAlign: "right", padding: 3, color: "#b45309", fontWeight: 700 }}>− {fmt(fase.descMonto)}</Text>
+          </View>
+          <View style={styles.totalRow} wrap={false}>
+            <Text style={{ flex: totalColSpan, padding: 3, color: "#78350f" }}>TOTAL FASE CON DESCUENTO</Text>
+            <Text style={{ flex: 0.9, textAlign: "right", padding: 3, color: "#096da3" }}>{fmt(fase.ventaConDesc)}</Text>
+          </View>
+        </>
+      )}
+    </>
   );
 }
 
@@ -205,37 +210,35 @@ export function CosteoClienteDoc({ proyecto, fasesCalc, codigosPorFaseArr, total
           )}
         </View>
         {(partidas || []).length > 0 && (
-          <View style={{ marginTop: 12 }} wrap={false}>
-            <Text style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>Partidas de Pago</Text>
-            <View style={styles.table}>
-              <View style={styles.tr}>
-                <Text style={[styles.th, { flex: 3, textAlign: "left" }]}>CONCEPTO</Text>
-                <Text style={[styles.th, { flex: 1.2, textAlign: "right" }]}>MONTO</Text>
-                <Text style={[styles.th, { flex: 1.2, textAlign: "right", color: "#3b82f6" }]}>ANTICIPO</Text>
-                <Text style={[styles.th, { flex: 1.2, textAlign: "right", color: "#10b981" }]}>PARCIAL</Text>
-                <Text style={[styles.th, { flex: 1.2, textAlign: "right", color: "#f59e0b" }]}>AL FINALIZAR</Text>
-              </View>
-              {(partidas || []).map((p) => {
-                const m = Number(p.monto || 0), a = (m * (Number(p.pctAnticipo) || 0)) / 100, pa = (m * (Number(p.pctParcial) || 0)) / 100, fi = (m * (Number(p.pctFinalizar) || 0)) / 100;
-                return (
-                  <View key={p.id} style={styles.tr} wrap={false}>
-                    <Text style={[styles.td, { flex: 3 }]}>{p.concepto || ""}</Text>
-                    <Text style={[styles.td, { flex: 1.2, textAlign: "right" }]}>{fmt(m)}</Text>
-                    <Text style={[styles.td, { flex: 1.2, textAlign: "right", color: "#3b82f6" }]}>{a > 0 ? fmt(a) : "-"}</Text>
-                    <Text style={[styles.td, { flex: 1.2, textAlign: "right", color: "#10b981" }]}>{pa > 0 ? fmt(pa) : "-"}</Text>
-                    <Text style={[styles.td, { flex: 1.2, textAlign: "right", color: "#f59e0b" }]}>{fi > 0 ? fmt(fi) : "-"}</Text>
-                  </View>
-                );
-              })}
-              <View style={styles.subtotalRow}>
-                <Text style={{ flex: 3, padding: 3 }}>TOTAL</Text>
-                <Text style={{ flex: 1.2, textAlign: "right", padding: 3 }}>{fmt(tPartidas)}</Text>
-                <Text style={{ flex: 1.2, textAlign: "right", padding: 3, color: "#3b82f6" }}>{fmt(tAnticipo)}</Text>
-                <Text style={{ flex: 1.2, textAlign: "right", padding: 3, color: "#10b981" }}>{fmt(tParcial)}</Text>
-                <Text style={{ flex: 1.2, textAlign: "right", padding: 3, color: "#f59e0b" }}>{fmt(tFinalizar)}</Text>
-              </View>
+          <>
+            <Text style={{ fontSize: 11, fontWeight: 700, marginTop: 12, marginBottom: 6 }}>Partidas de Pago</Text>
+            <View style={styles.tr} wrap={false}>
+              <Text style={[styles.th, { flex: 3, textAlign: "left" }]}>CONCEPTO</Text>
+              <Text style={[styles.th, { flex: 1.2, textAlign: "right" }]}>MONTO</Text>
+              <Text style={[styles.th, { flex: 1.2, textAlign: "right", color: "#3b82f6" }]}>ANTICIPO</Text>
+              <Text style={[styles.th, { flex: 1.2, textAlign: "right", color: "#10b981" }]}>PARCIAL</Text>
+              <Text style={[styles.th, { flex: 1.2, textAlign: "right", color: "#f59e0b" }]}>AL FINALIZAR</Text>
             </View>
-          </View>
+            {(partidas || []).map((p) => {
+              const m = Number(p.monto || 0), a = (m * (Number(p.pctAnticipo) || 0)) / 100, pa = (m * (Number(p.pctParcial) || 0)) / 100, fi = (m * (Number(p.pctFinalizar) || 0)) / 100;
+              return (
+                <View key={p.id} style={styles.tr} wrap={false}>
+                  <Text style={[styles.td, { flex: 3 }]}>{p.concepto || ""}</Text>
+                  <Text style={[styles.td, { flex: 1.2, textAlign: "right" }]}>{fmt(m)}</Text>
+                  <Text style={[styles.td, { flex: 1.2, textAlign: "right", color: "#3b82f6" }]}>{a > 0 ? fmt(a) : "-"}</Text>
+                  <Text style={[styles.td, { flex: 1.2, textAlign: "right", color: "#10b981" }]}>{pa > 0 ? fmt(pa) : "-"}</Text>
+                  <Text style={[styles.td, { flex: 1.2, textAlign: "right", color: "#f59e0b" }]}>{fi > 0 ? fmt(fi) : "-"}</Text>
+                </View>
+              );
+            })}
+            <View style={styles.subtotalRow} wrap={false}>
+              <Text style={{ flex: 3, padding: 3 }}>TOTAL</Text>
+              <Text style={{ flex: 1.2, textAlign: "right", padding: 3 }}>{fmt(tPartidas)}</Text>
+              <Text style={{ flex: 1.2, textAlign: "right", padding: 3, color: "#3b82f6" }}>{fmt(tAnticipo)}</Text>
+              <Text style={{ flex: 1.2, textAlign: "right", padding: 3, color: "#10b981" }}>{fmt(tParcial)}</Text>
+              <Text style={{ flex: 1.2, textAlign: "right", padding: 3, color: "#f59e0b" }}>{fmt(tFinalizar)}</Text>
+            </View>
+          </>
         )}
         <View style={{ marginTop: 16, alignItems: "flex-end" }} wrap={false}>
           <Text style={{ fontSize: 8, fontWeight: 700 }}>Firmado digitalmente por</Text>
