@@ -28,7 +28,7 @@
 - Test: `/tmp/costeo_pdf_verify/test_logo_fetch.mjs` (script manual, no forma parte del repo — se descarta al terminar la task)
 
 **Interfaces:**
-- Produces: `fmt(v)` — formatea un número como moneda CLP (`"$1.234"`). `fetchImageAsDataUri(url)` — `async (url: string) => Promise<string>`, descarga una imagen y devuelve su data URI (`data:image/png;base64,...`). `styles` — objeto `StyleSheet.create(...)` con los estilos base reutilizados por `FaseBlockPDF` y ambos documentos (definidos en la Task 2 y 3, pero el objeto `styles` se crea acá).
+- Produces: `fmt(v)` — formatea un número como moneda CLP (`"$1.234"`). `fetchImageAsDataUri(url)` — `async (url: string) => Promise<string>`, descarga una imagen y devuelve su data URI (`data:image/png;base64,...`). `styles` — objeto `StyleSheet.create(...)` completo (todas las claves usadas por `FaseBlockPDF`, `CosteoInternoDoc` y `CosteoClienteDoc` ya están definidas en este mismo Step 2 de la Task 1; las Tasks 2-4 solo lo consumen, no le agregan claves nuevas).
 
 - [ ] **Step 1: Instalar `@react-pdf/renderer`**
 
