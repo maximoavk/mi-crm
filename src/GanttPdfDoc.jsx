@@ -191,3 +191,56 @@ export function GanttPdfHeader({ proyecto, headerData, totales, calCols, weeks, 
     </View>
   );
 }
+
+export function GanttTaskRow({ task, numberLabel, calCols, weeks, granularity, timeColPct, today }) {
+  const { pct, isLate, color } = rowColor(task, today);
+  const tipoLabel = task.tipo === "F" ? "Fase" : task.tipo === "T" ? "Tarea" : "Hito";
+  const badgeBg = task.tipo === "F" ? "#dbeafe" : task.tipo === "T" ? "#ede9fe" : "#fef3c7";
+  const badgeColor = task.tipo === "F" ? "#1d4ed8" : task.tipo === "T" ? "#6d28d9" : "#b45309";
+  const fmtDate = (d) => d ? new Date(d + "T00:00:00Z").toLocaleDateString("es-CL", { day: "2-digit", month: "short", timeZone: "UTC" }) : "";
+
+  return (
+    <View style={ganttPdfStyles.taskRow} wrap={false}>
+      <Text style={[ganttPdfStyles.taskCellFixed, { width: `${FIXED_COLS[0].pct}%` }]}>{numberLabel}</Text>
+      <View style={[ganttPdfStyles.taskCellFixed, { width: `${FIXED_COLS[1].pct}%` }]}>
+        <Text style={{ backgroundColor: badgeBg, color: badgeColor, fontSize: 5, padding: 1, borderRadius: 2 }}>{tipoLabel}</Text>
+      </View>
+      <Text style={[ganttPdfStyles.taskCellFixed, { width: `${FIXED_COLS[2].pct}%`, fontWeight: task.tipo === "F" ? 700 : 400 }]}>
+        {task.tipo !== "F" ? "└ " : ""}{task.nombre || ""}
+      </Text>
+      <Text style={[ganttPdfStyles.taskCellFixed, { width: `${FIXED_COLS[3].pct}%` }]}>{task.rol || ""}</Text>
+      <Text style={[ganttPdfStyles.taskCellFixed, { width: `${FIXED_COLS[4].pct}%` }]}>{task.responsable || ""}</Text>
+      <Text style={[ganttPdfStyles.taskCellFixed, { width: `${FIXED_COLS[5].pct}%` }]}>{fmtDate(task.inicio)}</Text>
+      <Text style={[ganttPdfStyles.taskCellFixed, { width: `${FIXED_COLS[6].pct}%` }]}>{fmtDate(task.fin)}</Text>
+      <Text style={[ganttPdfStyles.taskCellFixed, { width: `${FIXED_COLS[7].pct}%` }]}>{task.pctPlan || 0}%</Text>
+      <Text style={[ganttPdfStyles.taskCellFixed, { width: `${FIXED_COLS[8].pct}%`, color: pct === 100 ? "#16a34a" : isLate ? "#dc2626" : "#0369a1", fontWeight: 700 }]}>{pct}%</Text>
+      <Text style={[ganttPdfStyles.taskCellFixed, { width: `${FIXED_COLS[9].pct}%` }]}>{task.hhPresup || "-"}</Text>
+      <Text style={[ganttPdfStyles.taskCellFixed, { width: `${FIXED_COLS[10].pct}%` }]}>{task.hhReal || "-"}</Text>
+      {granularity === "day"
+        ? calCols.map((c, i) => {
+            const within = task.inicio && task.fin && c.date >= task.inicio && c.date <= task.fin;
+            return (
+              <View key={i} style={[ganttPdfStyles.taskCellTime, { width: `${timeColPct}%` }]}>
+                {within ? (
+                  <View style={[ganttPdfStyles.barTrack, { backgroundColor: `${color}33` }]}>
+                    <View style={[ganttPdfStyles.barFill, { width: `${pct}%`, backgroundColor: color }]} />
+                  </View>
+                ) : null}
+              </View>
+            );
+          })
+        : weeks.map((w, i) => {
+            const coverage = weekCoverage(w.weekStart, task.inicio, task.fin);
+            return (
+              <View key={i} style={[ganttPdfStyles.taskCellTime, { width: `${timeColPct}%` }]}>
+                {coverage > 0 ? (
+                  <View style={[ganttPdfStyles.barTrack, { backgroundColor: `${color}33` }]}>
+                    <View style={[ganttPdfStyles.barFill, { width: `${coverage * 100}%`, backgroundColor: color }]} />
+                  </View>
+                ) : null}
+              </View>
+            );
+          })}
+    </View>
+  );
+}
