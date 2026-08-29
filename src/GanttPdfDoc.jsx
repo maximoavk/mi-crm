@@ -120,3 +120,74 @@ export const ganttPdfStyles = StyleSheet.create({
   barTrack: { height: 8, borderRadius: 1 },
   barFill: { height: "100%", borderRadius: 1 },
 });
+
+export function GanttPdfHeader({ proyecto, headerData, totales, calCols, weeks, granularity, timeColPct, logoDataUri }) {
+  const months = granularity === "day" ? groupColsIntoMonths(calCols) : [];
+  return (
+    <View style={ganttPdfStyles.headerFixed} fixed>
+      <View style={ganttPdfStyles.headerTopRow}>
+        <View>
+          {logoDataUri ? <Image src={logoDataUri} style={ganttPdfStyles.logo} /> : null}
+          <Text style={ganttPdfStyles.headerSub}>Polygonos SpA · RUT 77.180.437-3</Text>
+        </View>
+        <View style={{ alignItems: "flex-end" }}>
+          <Text style={ganttPdfStyles.titleText}>Carta Gantt · COT-{proyecto?.cotNum || ""}</Text>
+          <Text style={ganttPdfStyles.projectName}>{proyecto?.nombre || ""}</Text>
+          {headerData?.cliente ? <Text style={ganttPdfStyles.headerSub}>Cliente: {headerData.cliente}</Text> : null}
+          <Text style={ganttPdfStyles.headerSub}>Elaborado por: {headerData?.elaboradoPor || ""}</Text>
+          <Text style={ganttPdfStyles.headerSub}>
+            Emisión: {headerData?.fechaEmision ? new Date(headerData.fechaEmision + "T00:00:00Z").toLocaleDateString("es-CL", { day: "2-digit", month: "long", year: "numeric", timeZone: "UTC" }) : ""}
+          </Text>
+        </View>
+      </View>
+      <View style={ganttPdfStyles.kpiRow}>
+        <View style={ganttPdfStyles.kpiBox}>
+          <Text style={ganttPdfStyles.kpiLabel}>HH PRESUP.</Text>
+          <Text style={ganttPdfStyles.kpiValue}>{totales.hhPresup}HH</Text>
+        </View>
+        <View style={ganttPdfStyles.kpiBox}>
+          <Text style={ganttPdfStyles.kpiLabel}>HH TERCEROS</Text>
+          <Text style={[ganttPdfStyles.kpiValue, { color: "#7c3aed" }]}>{totales.hhTerceros}HH</Text>
+        </View>
+        <View style={ganttPdfStyles.kpiBox}>
+          <Text style={ganttPdfStyles.kpiLabel}>DÍAS HÁBILES</Text>
+          <Text style={[ganttPdfStyles.kpiValue, { color: "#0369a1" }]}>{totales.diasHabiles}d</Text>
+        </View>
+        <View style={ganttPdfStyles.kpiBox}>
+          <Text style={ganttPdfStyles.kpiLabel}>AVANCE PROM.</Text>
+          <Text style={ganttPdfStyles.kpiValue}>{totales.avancePromedio}%</Text>
+        </View>
+      </View>
+      <View style={ganttPdfStyles.legendRow}>
+        {[["Fase", GANTT_PDF_COLORS.fase], ["Tarea", GANTT_PDF_COLORS.tarea], ["Hito", GANTT_PDF_COLORS.hito], ["Completado", GANTT_PDF_COLORS.done], ["Atrasado", GANTT_PDF_COLORS.late]].map(([label, color]) => (
+          <View key={label} style={ganttPdfStyles.legendItem}>
+            <View style={[ganttPdfStyles.legendSwatch, { backgroundColor: color }]} />
+            <Text style={ganttPdfStyles.legendLabel}>{label}</Text>
+          </View>
+        ))}
+      </View>
+      {granularity === "day" && (
+        <View style={ganttPdfStyles.colHeaderRow}>
+          {FIXED_COLS.map((c) => (
+            <Text key={c.key} style={[ganttPdfStyles.colHeaderFixed, { width: `${c.pct}%` }]} />
+          ))}
+          {months.map((m, i) => (
+            <Text key={i} style={[ganttPdfStyles.colHeaderTime, { width: `${timeColPct * m.count}%`, backgroundColor: "#0f172a", color: "#38bdf8" }]}>{m.label}</Text>
+          ))}
+        </View>
+      )}
+      <View style={ganttPdfStyles.colHeaderRow}>
+        {FIXED_COLS.map((c) => (
+          <Text key={c.key} style={[ganttPdfStyles.colHeaderFixed, { width: `${c.pct}%` }]}>{c.label}</Text>
+        ))}
+        {granularity === "day"
+          ? calCols.map((c, i) => (
+              <Text key={i} style={[ganttPdfStyles.colHeaderTime, c.isWeekend && ganttPdfStyles.colHeaderTimeWeekend, { width: `${timeColPct}%` }]}>{c.dow}{"\n"}{c.day}</Text>
+            ))
+          : weeks.map((w, i) => (
+              <Text key={i} style={[ganttPdfStyles.colHeaderTime, { width: `${timeColPct}%`, fontSize: 4.8 }]}>{weekRangeLabel(w.weekStart)}</Text>
+            ))}
+      </View>
+    </View>
+  );
+}
