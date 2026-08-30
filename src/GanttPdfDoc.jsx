@@ -224,9 +224,10 @@ export function GanttPdfHeader({ proyecto, headerData, totales, calCols, weeks, 
   );
 }
 
-export function GanttTaskRow({ task, numberLabel, calCols, weeks, granularity, timeColPct, today }) {
+export function GanttTaskRow({ task, numberLabel, calCols, weeks, granularity, timeColPct, today, phasePresupById }) {
   const { pct, isLate, color } = rowColor(task, today);
-  const phaseDaily = task.tipo === "F" ? phaseDailyHH(task, calCols) : null;
+  const phaseHHPresup = phasePresupById?.[task.id] || 0;
+  const phaseDaily = task.tipo === "F" ? phaseDailyHH({ inicio: task.inicio, fin: task.fin, hhPresup: phaseHHPresup }, calCols) : null;
   const tipoLabel = task.tipo === "F" ? "Fase" : task.tipo === "T" ? "Tarea" : "Hito";
   const badgeBg = task.tipo === "F" ? "#dbeafe" : task.tipo === "T" ? "#ede9fe" : "#fef3c7";
   const badgeColor = task.tipo === "F" ? "#1d4ed8" : task.tipo === "T" ? "#6d28d9" : "#b45309";
@@ -287,7 +288,7 @@ export function GanttTaskRow({ task, numberLabel, calCols, weeks, granularity, t
   );
 }
 
-export function GanttDoc({ proyecto, headerData, tasks, calCols, numbersById, totales, logoDataUri }) {
+export function GanttDoc({ proyecto, headerData, tasks, calCols, numbersById, phasePresupById, totales, logoDataUri }) {
   const granularity = calCols.length > 15 ? "week" : "day";
   const weeks = granularity === "week" ? groupColsIntoWeeks(calCols) : [];
   const timeUnitsCount = granularity === "week" ? weeks.length : calCols.length;
@@ -317,6 +318,7 @@ export function GanttDoc({ proyecto, headerData, tasks, calCols, numbersById, to
             granularity={granularity}
             timeColPct={timeColPct}
             today={today}
+            phasePresupById={phasePresupById}
           />
         ))}
       </Page>

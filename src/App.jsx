@@ -2873,9 +2873,14 @@ function GanttView({ isMobile }) {
                   diasHabiles: calCols.filter(c => !c.isWeekend).length,
                   avancePromedio,
                 };
+                const phasePresupById = {};
+                tasks.forEach(t => {
+                  const faseId = ganttMeta.childPhaseId[t.id];
+                  if (faseId) phasePresupById[faseId] = (phasePresupById[faseId] || 0) + (Number(t.hhPresup) || 0);
+                });
                 let logoDataUri = null;
                 try { logoDataUri = await fetchImageAsDataUri(LOGO_PRINT); } catch { /* el documento se genera igual, sin logo */ }
-                const blob = await pdf(<GanttDoc proyecto={proyecto} headerData={headerData} tasks={tasks} calCols={calCols} numbersById={ganttMeta.numbers} totales={totales} logoDataUri={logoDataUri} />).toBlob();
+                const blob = await pdf(<GanttDoc proyecto={proyecto} headerData={headerData} tasks={tasks} calCols={calCols} numbersById={ganttMeta.numbers} phasePresupById={phasePresupById} totales={totales} logoDataUri={logoDataUri} />).toBlob();
                 const url = URL.createObjectURL(blob);
                 window.open(url, "_blank");
               }} style={{ padding:"4px 14px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:5, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>🖨 PDF</button>
