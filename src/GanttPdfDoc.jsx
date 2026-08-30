@@ -74,6 +74,28 @@ export function weekCoverageOffset(weekStart, inicio, fin) {
   return 0;
 }
 
+// Reparte el HH Presupuestado de una Fase entre sus días hábiles visibles
+// (lunes a sábado, igual que la regla ya usada para calcular estas mismas
+// fechas al importar desde Costeo): 8 HH por día hasta agotar el
+// presupuesto o los días del rango, lo que ocurra primero.
+export function phaseDailyHH(task, calCols) {
+  const dailyHH = {};
+  let remaining = Number(task.hhPresup) || 0;
+  if (remaining <= 0 || !task.inicio || !task.fin) return dailyHH;
+  for (const c of calCols) {
+    if (remaining <= 0) break;
+    if (c.date < task.inicio || c.date > task.fin) continue;
+    // Se deriva el día de la semana desde `c.date` en UTC (no desde `c.dow`,
+    // que viene de buildCalHeader y puede ir un día desfasado según la zona
+    // horaria del navegador) para que el corte de domingo sea correcto.
+    if (new Date(c.date + "T00:00:00Z").getUTCDay() === 0) continue;
+    const alloc = Math.min(8, remaining);
+    dailyHH[c.date] = alloc;
+    remaining -= alloc;
+  }
+  return dailyHH;
+}
+
 export function groupColsIntoMonths(calCols) {
   const months = [];
   calCols.forEach((c) => {
@@ -204,6 +226,7 @@ export function GanttPdfHeader({ proyecto, headerData, totales, calCols, weeks, 
 
 export function GanttTaskRow({ task, numberLabel, calCols, weeks, granularity, timeColPct, today }) {
   const { pct, isLate, color } = rowColor(task, today);
+  const phaseDaily = task.tipo === "F" ? phaseDailyHH(task, calCols) : null;
   const tipoLabel = task.tipo === "F" ? "Fase" : task.tipo === "T" ? "Tarea" : "Hito";
   const badgeBg = task.tipo === "F" ? "#dbeafe" : task.tipo === "T" ? "#ede9fe" : "#fef3c7";
   const badgeColor = task.tipo === "F" ? "#1d4ed8" : task.tipo === "T" ? "#6d28d9" : "#b45309";
@@ -229,9 +252,17 @@ export function GanttTaskRow({ task, numberLabel, calCols, weeks, granularity, t
       {granularity === "day"
         ? calCols.map((c, i) => {
             const within = task.inicio && task.fin && c.date >= task.inicio && c.date <= task.fin;
+            const dayHH = phaseDaily ? phaseDaily[c.date] : undefined;
             return (
               <View key={i} style={[ganttPdfStyles.taskCellTime, c.isWeekend && ganttPdfStyles.taskCellTimeWeekend, { width: `${timeColPct}%` }]}>
-                {within ? (
+                {dayHH !== undefined ? (
+                  <View>
+                    <Text style={{ fontSize: 4.2, textAlign: "center", color: "#1e293b" }}>{dayHH}</Text>
+                    <View style={[ganttPdfStyles.barTrack, { backgroundColor: `${color}33`, height: 5 }]}>
+                      <View style={[ganttPdfStyles.barFill, { width: `${(dayHH / 8) * 100}%`, backgroundColor: color }]} />
+                    </View>
+                  </View>
+                ) : within ? (
                   <View style={[ganttPdfStyles.barTrack, { backgroundColor: `${color}33` }]}>
                     <View style={[ganttPdfStyles.barFill, { width: `${pct}%`, backgroundColor: color }]} />
                   </View>
