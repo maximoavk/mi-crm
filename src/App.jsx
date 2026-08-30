@@ -2865,18 +2865,17 @@ function GanttView({ isMobile }) {
                 <span key={l} style={{ fontFamily:FONT, fontSize:10, color:c }}>● {l}</span>
               ))}
               <button onClick={async () => {
-                const cols = buildCalHeader(calStart, calDays);
                 const ts2 = tasks.filter(t => t.tipo !== "H");
                 const avancePromedio = ts2.length ? Math.round(ts2.reduce((s, t) => s + Number(t.pctAvance || 0), 0) / ts2.length) : 0;
                 const totales = {
                   hhPresup: tasks.reduce((s, t) => s + Number(t.hhPresup || 0), 0),
                   hhTerceros: tasks.reduce((s, t) => s + Number(t.hhTerceros || 0), 0),
-                  diasHabiles: cols.filter(c => !c.isWeekend).length,
+                  diasHabiles: calCols.filter(c => !c.isWeekend).length,
                   avancePromedio,
                 };
                 let logoDataUri = null;
                 try { logoDataUri = await fetchImageAsDataUri(LOGO_PRINT); } catch { /* el documento se genera igual, sin logo */ }
-                const blob = await pdf(<GanttDoc proyecto={proyecto} headerData={headerData} tasks={tasks} calCols={cols} numbersById={ganttMeta.numbers} totales={totales} logoDataUri={logoDataUri} />).toBlob();
+                const blob = await pdf(<GanttDoc proyecto={proyecto} headerData={headerData} tasks={tasks} calCols={calCols} numbersById={ganttMeta.numbers} totales={totales} logoDataUri={logoDataUri} />).toBlob();
                 const url = URL.createObjectURL(blob);
                 window.open(url, "_blank");
               }} style={{ padding:"4px 14px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:5, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>🖨 PDF</button>

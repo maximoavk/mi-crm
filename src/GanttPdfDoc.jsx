@@ -65,6 +65,15 @@ export function weekCoverage(weekStart, inicio, fin) {
   return covered / 7;
 }
 
+export function weekCoverageOffset(weekStart, inicio, fin) {
+  if (!inicio || !fin) return 0;
+  for (let i = 0; i < 7; i++) {
+    const d = addDaysUTC(weekStart, i);
+    if (d >= inicio && d <= fin) return i;
+  }
+  return 0;
+}
+
 export function groupColsIntoMonths(calCols) {
   const months = [];
   calCols.forEach((c) => {
@@ -117,6 +126,7 @@ export const ganttPdfStyles = StyleSheet.create({
   taskRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#e2e8f0" },
   taskCellFixed: { fontSize: 6, padding: 2, borderRightWidth: 1, borderRightColor: "#f1f5f9" },
   taskCellTime: { padding: 1, borderRightWidth: 1, borderRightColor: "#f1f5f9", justifyContent: "center" },
+  taskCellTimeWeekend: { backgroundColor: "#f8fafc" },
   barTrack: { height: 8, borderRadius: 1 },
   barFill: { height: "100%", borderRadius: 1 },
 });
@@ -220,7 +230,7 @@ export function GanttTaskRow({ task, numberLabel, calCols, weeks, granularity, t
         ? calCols.map((c, i) => {
             const within = task.inicio && task.fin && c.date >= task.inicio && c.date <= task.fin;
             return (
-              <View key={i} style={[ganttPdfStyles.taskCellTime, { width: `${timeColPct}%` }]}>
+              <View key={i} style={[ganttPdfStyles.taskCellTime, c.isWeekend && ganttPdfStyles.taskCellTimeWeekend, { width: `${timeColPct}%` }]}>
                 {within ? (
                   <View style={[ganttPdfStyles.barTrack, { backgroundColor: `${color}33` }]}>
                     <View style={[ganttPdfStyles.barFill, { width: `${pct}%`, backgroundColor: color }]} />
@@ -231,11 +241,12 @@ export function GanttTaskRow({ task, numberLabel, calCols, weeks, granularity, t
           })
         : weeks.map((w, i) => {
             const coverage = weekCoverage(w.weekStart, task.inicio, task.fin);
+            const offset = weekCoverageOffset(w.weekStart, task.inicio, task.fin);
             return (
               <View key={i} style={[ganttPdfStyles.taskCellTime, { width: `${timeColPct}%` }]}>
                 {coverage > 0 ? (
                   <View style={[ganttPdfStyles.barTrack, { backgroundColor: `${color}33` }]}>
-                    <View style={[ganttPdfStyles.barFill, { width: `${coverage * 100}%`, backgroundColor: color }]} />
+                    <View style={[ganttPdfStyles.barFill, { width: `${coverage * 100}%`, marginLeft: `${(offset / 7) * 100}%`, backgroundColor: color }]} />
                   </View>
                 ) : null}
               </View>
@@ -254,7 +265,7 @@ export function GanttDoc({ proyecto, headerData, tasks, calCols, numbersById, to
 
   return (
     <Document>
-      <Page size="A4" orientation="landscape" style={ganttPdfStyles.page} wrap>
+      <Page size="A4" orientation="landscape" style={[ganttPdfStyles.page, { paddingTop: granularity === "day" ? 128 : 116 }]} wrap>
         <GanttPdfHeader
           proyecto={proyecto}
           headerData={headerData}
