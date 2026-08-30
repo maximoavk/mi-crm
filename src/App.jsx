@@ -2865,6 +2865,9 @@ function GanttView({ isMobile }) {
                 <span key={l} style={{ fontFamily:FONT, fontSize:10, color:c }}>● {l}</span>
               ))}
               <button onClick={async () => {
+                // Ver comentario en printInterno (src/App.jsx): se abre la pestaña
+                // antes de los await para no chocar con el bloqueador de popups de Firefox.
+                const pdfWindow = window.open("", "_blank");
                 const ts2 = tasks.filter(t => t.tipo !== "H");
                 const avancePromedio = ts2.length ? Math.round(ts2.reduce((s, t) => s + Number(t.pctAvance || 0), 0) / ts2.length) : 0;
                 const totales = {
@@ -2882,7 +2885,7 @@ function GanttView({ isMobile }) {
                 try { logoDataUri = await fetchImageAsDataUri(LOGO_PRINT); } catch { /* el documento se genera igual, sin logo */ }
                 const blob = await pdf(<GanttDoc proyecto={proyecto} headerData={headerData} tasks={tasks} calCols={calCols} numbersById={ganttMeta.numbers} phasePresupById={phasePresupById} totales={totales} logoDataUri={logoDataUri} />).toBlob();
                 const url = URL.createObjectURL(blob);
-                window.open(url, "_blank");
+                if (pdfWindow) pdfWindow.location.href = url; else window.open(url, "_blank");
               }} style={{ padding:"4px 14px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:5, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>🖨 PDF</button>
             </div>
           </div>
@@ -8071,6 +8074,11 @@ function CosteoView({ contacts, openId, onOpenIdHandled }) {
 
   // PDF Interno — muestra todo: bruto, neto, IVA, margen, venta neta y bruta
   const printInterno = async () => {
+    // Se abre la pestaña ANTES de los await: Firefox exige que window.open()
+    // ocurra en el mismo tick síncrono del click, o lo bloquea como popup
+    // (a diferencia de Chrome/Brave, más permisivos). Se navega esa pestaña
+    // ya abierta cuando el blob esté listo, en vez de abrir una nueva.
+    const pdfWindow = window.open("", "_blank");
     const fases = (proyecto.fases || []).map(calcFase);
     const codigosPorFaseArr = fases.map((f, fi) => codigosPorFase(f.items, fi));
     const totales = {
@@ -8088,11 +8096,14 @@ function CosteoView({ contacts, openId, onOpenIdHandled }) {
     try { logoDataUri = await fetchImageAsDataUri(LOGO_PRINT); } catch { /* el documento se genera igual, sin logo */ }
     const blob = await pdf(<CosteoInternoDoc proyecto={proyecto} fasesCalc={fases} codigosPorFaseArr={codigosPorFaseArr} totales={totales} logoDataUri={logoDataUri} />).toBlob();
     const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
+    if (pdfWindow) pdfWindow.location.href = url; else window.open(url, "_blank");
   };
 
   // PDF Cliente — solo venta neta + IVA, sin costos ni márgenes
   const printCliente = async () => {
+    // Ver comentario en printInterno: se abre la pestaña antes de los await
+    // para no chocar con el bloqueador de popups de Firefox.
+    const pdfWindow = window.open("", "_blank");
     const fases = (proyecto.fases || []).map(calcFase);
     const codigosPorFaseArr = fases.map((f, fi) => codigosPorFase(f.items, fi));
     const totales = {
@@ -8107,7 +8118,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled }) {
     try { logoDataUri = await fetchImageAsDataUri(LOGO_PRINT); } catch { /* el documento se genera igual, sin logo */ }
     const blob = await pdf(<CosteoClienteDoc proyecto={proyecto} fasesCalc={fases} codigosPorFaseArr={codigosPorFaseArr} totales={totales} partidas={proyecto.partidas || []} logoDataUri={logoDataUri} />).toBlob();
     const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
+    if (pdfWindow) pdfWindow.location.href = url; else window.open(url, "_blank");
   };
 
   // ── GENERAR COTIZACIÓN ──────────────────────────────────────────────────────
