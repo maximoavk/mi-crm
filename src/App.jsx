@@ -7251,6 +7251,22 @@ function calcFase(fase) {
   };
 }
 
+// Mantiene el monto de cada partida vinculada a una fase igual al total actual
+// de esa fase, para que un cambio en el costeo no deje avances/cobertura desfasados.
+function syncPartidasConFases(partidas, fases) {
+  let changed = false;
+  const next = (partidas||[]).map(p => {
+    if(!p.faseId) return p;
+    const fase = (fases||[]).find(f=>String(f.id)===String(p.faseId));
+    if(!fase) return p;
+    const montoActual = Math.round(calcFase(fase).ventaConDesc);
+    if(Number(p.monto)===montoActual) return p;
+    changed = true;
+    return { ...p, monto: montoActual };
+  });
+  return changed ? next : partidas;
+}
+
 function TotBox({ label, value, color, sub }) {
   return (
     <div style={{ background:COLORS.card, border:`1px solid ${color}33`, borderRadius:8, padding:"10px 14px", minWidth:130, flex:1 }}>
@@ -7709,7 +7725,13 @@ function PartidaRow({ partida, fases, onChange, onDelete }) {
         </select>
       </td>
       <td style={{ padding:"8px 6px", width:120 }}>
-        <input style={{...style, width:"100%"}} type="number" value={partida.monto} onChange={e=>inp("monto",e.target.value)} placeholder="$" />
+        {partida.faseId ? (
+          <div style={{...style, width:"100%", boxSizing:"border-box", color:COLORS.textMuted, cursor:"default"}} title="Se actualiza solo según el costeo de la fase">
+            ${monto.toLocaleString("es-CL")}
+          </div>
+        ) : (
+          <input style={{...style, width:"100%"}} type="number" value={partida.monto} onChange={e=>inp("monto",e.target.value)} placeholder="$" />
+        )}
       </td>
       {/* ANTICIPO */}
       <td style={{ padding:"8px 6px", width:100 }}>
@@ -7932,6 +7954,14 @@ function CosteoView({ contacts, openId, onOpenIdHandled }) {
   };
 
   const proyecto = proyectos.find(p=>p.id===selected);
+
+  // Resincroniza el monto de las partidas vinculadas a una fase cada vez que el
+  // costeo de esa fase cambia, para que nunca quede un monto viejo guardado.
+  useEffect(() => {
+    if(!proyecto) return;
+    const synced = syncPartidasConFases(proyecto.partidas||[], proyecto.fases||[]);
+    if(synced !== proyecto.partidas) updateProyecto({ ...proyecto, partidas: synced });
+  }, [proyecto?.fases, proyecto?.partidas]);
 
   const addFase = () => {
     const f = { id: Date.now(), nombre:`Fase ${(proyecto.fases||[]).length+1}`, items:[] };
