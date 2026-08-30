@@ -45,16 +45,20 @@ export function FaseBlockPDF({ fase, variant, codigoPorId }) {
   const descColSpan = isInterno ? 6.9 : 5.5;
   const totalColSpan = isInterno ? 9.5 : 7.3;
 
-  // Nota: deliberadamente NO se envuelve título+header+filas+subtotal en un único
-  // <View> contenedor. react-pdf, cuando ese conjunto no cabe entero en el espacio
-  // restante de la página actual, empuja el bloque COMPLETO a la página siguiente
-  // (aunque tenga wrap habilitado) en vez de fragmentarlo, dejando la página actual
-  // con un hueco en blanco. Manteniendo cada fila como hermana directa dentro del
-  // documento, react-pdf evalúa la fragmentación fila por fila (cada una ya protegida
-  // con wrap={false} para no partirse a la mitad) y aprovecha el espacio disponible.
-  return (
+  // Una fase con pocos ítems se trata como bloque atómico (wrap={false} en un único
+  // contenedor): si no entra en lo que resta de la página actual, salta entera a la
+  // siguiente, para que ninguna fase quede cortada a la mitad. Por encima de este
+  // umbral se vuelve a las filas sueltas (comportamiento anterior) porque react-pdf
+  // renderiza mal (superpone texto) un bloque wrap={false} que no entra en NINGUNA
+  // página completa — verificado empíricamente: hasta 16 ítems con descripciones
+  // largas entra bien como bloque atómico, desde 18 puede saltar dejando una página
+  // casi en blanco, y bloques bastante más grandes llegan a superponer el texto.
+  const isAtomic = sortedItems.length <= 15;
+  const titleStyle = isAtomic ? styles.faseTitle : [styles.faseTitle, { marginTop: 10 }];
+
+  const body = (
     <>
-      <Text style={[styles.faseTitle, { marginTop: 10 }]}>{fase.nombre}</Text>
+      <Text style={titleStyle}>{fase.nombre}</Text>
       <View style={styles.tr} wrap={false}>
         <Text style={[styles.th, { flex: 0.6 }]}>COD</Text>
         <Text style={[styles.th, { flex: 2.2 }]}>DESCRIPCIÓN</Text>
@@ -115,6 +119,8 @@ export function FaseBlockPDF({ fase, variant, codigoPorId }) {
       )}
     </>
   );
+
+  return isAtomic ? <View style={styles.faseBlock} wrap={false}>{body}</View> : body;
 }
 
 export function CosteoInternoDoc({ proyecto, fasesCalc, codigosPorFaseArr, totales, logoDataUri }) {
