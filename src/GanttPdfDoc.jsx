@@ -227,7 +227,11 @@ export function GanttPdfHeader({ proyecto, headerData, totales, calCols, weeks, 
 export function GanttTaskRow({ task, numberLabel, calCols, weeks, granularity, timeColPct, today, phasePresupById }) {
   const { pct, isLate, color } = rowColor(task, today);
   const phaseHHPresup = phasePresupById?.[task.id] || 0;
-  const phaseDaily = task.tipo === "F" ? phaseDailyHH({ inicio: task.inicio, fin: task.fin, hhPresup: phaseHHPresup }, calCols) : null;
+  // La Fase es el "contenedor" de HH (su total sale en la columna HH P., suma
+  // de sus tareas hijas) y no lleva relleno en los días. Cada Tarea reparte su
+  // propio HH Presupuestada en sus días hábiles.
+  const taskDaily = task.tipo === "T" ? phaseDailyHH(task, calCols) : null;
+  const hhPresupDisplay = task.tipo === "F" ? (phaseHHPresup || task.hhPresup || "-") : (task.hhPresup || "-");
   const tipoLabel = task.tipo === "F" ? "Fase" : task.tipo === "T" ? "Tarea" : "Hito";
   const badgeBg = task.tipo === "F" ? "#dbeafe" : task.tipo === "T" ? "#ede9fe" : "#fef3c7";
   const badgeColor = task.tipo === "F" ? "#1d4ed8" : task.tipo === "T" ? "#6d28d9" : "#b45309";
@@ -248,12 +252,15 @@ export function GanttTaskRow({ task, numberLabel, calCols, weeks, granularity, t
       <Text style={[ganttPdfStyles.taskCellFixed, { width: `${FIXED_COLS[6].pct}%` }]}>{fmtDate(task.fin)}</Text>
       <Text style={[ganttPdfStyles.taskCellFixed, { width: `${FIXED_COLS[7].pct}%` }]}>{task.pctPlan || 0}%</Text>
       <Text style={[ganttPdfStyles.taskCellFixed, { width: `${FIXED_COLS[8].pct}%`, color: pct === 100 ? "#16a34a" : isLate ? "#dc2626" : "#0369a1", fontWeight: 700 }]}>{pct}%</Text>
-      <Text style={[ganttPdfStyles.taskCellFixed, { width: `${FIXED_COLS[9].pct}%` }]}>{task.hhPresup || "-"}</Text>
+      <Text style={[ganttPdfStyles.taskCellFixed, { width: `${FIXED_COLS[9].pct}%` }]}>{hhPresupDisplay}</Text>
       <Text style={[ganttPdfStyles.taskCellFixed, { width: `${FIXED_COLS[10].pct}%` }]}>{task.hhReal || "-"}</Text>
       {granularity === "day"
         ? calCols.map((c, i) => {
+            if (task.tipo === "F") {
+              return <View key={i} style={[ganttPdfStyles.taskCellTime, c.isWeekend && ganttPdfStyles.taskCellTimeWeekend, { width: `${timeColPct}%` }]} />;
+            }
             const within = task.inicio && task.fin && c.date >= task.inicio && c.date <= task.fin;
-            const dayHH = phaseDaily ? phaseDaily[c.date] : undefined;
+            const dayHH = taskDaily ? taskDaily[c.date] : undefined;
             return (
               <View key={i} style={[ganttPdfStyles.taskCellTime, c.isWeekend && ganttPdfStyles.taskCellTimeWeekend, { width: `${timeColPct}%` }]}>
                 {dayHH !== undefined ? (
