@@ -1956,13 +1956,13 @@ function CalendarPicker({ value, onChange }) {
 // Genera rango de fechas para el header del calendario
 function buildCalHeader(startDate, days) {
   const cols = [];
-  const base = new Date(startDate);
+  const base = new Date(startDate+"T00:00:00Z");
   if(isNaN(base.getTime())) return cols;
   for(let i=0; i<days; i++) {
-    const d = new Date(base); d.setDate(d.getDate()+i);
-    const dow = ["D","L","M","X","J","V","S"][d.getDay()];
-    const isWeekend = d.getDay()===0||d.getDay()===6;
-    cols.push({ date: d.toISOString().slice(0,10), dow, day: d.getDate(), month: d.getMonth(), isWeekend });
+    const d = new Date(base); d.setUTCDate(d.getUTCDate()+i);
+    const dow = ["D","L","M","X","J","V","S"][d.getUTCDay()];
+    const isWeekend = d.getUTCDay()===0||d.getUTCDay()===6;
+    cols.push({ date: d.toISOString().slice(0,10), dow, day: d.getUTCDate(), month: d.getUTCMonth(), isWeekend });
   }
   return cols;
 }
