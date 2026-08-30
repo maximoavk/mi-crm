@@ -1995,6 +1995,25 @@ function GanttBar({ task, calStart, calDays, cellW, today }) {
   );
 }
 
+// Modal de vista previa de PDF — se muestra dentro de la misma pestaña (iframe)
+// en vez de abrir una pestaña nueva, porque Firefox no deja navegar una pestaña
+// ya abierta hacia una URL blob: creada en otra ventana (aunque sea el mismo
+// origen), lo que dejaba la pestaña en blanco. Al vivir el <iframe> en la misma
+// ventana que generó el blob, no depende de ese comportamiento entre navegadores.
+function PdfPreviewModal({ url, onClose }) {
+  if (!url) return null;
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:9999, display:"flex", flexDirection:"column" }}>
+      <div style={{ display:"flex", justifyContent:"flex-end", alignItems:"center", gap:8, padding:8, background:"#0f172a" }}>
+        <a href={url} target="_blank" rel="noopener noreferrer" style={{ color:"#38bdf8", fontSize:13, textDecoration:"none", padding:"6px 12px", border:"1px solid #38bdf8", borderRadius:4, fontFamily:FONT }}>Abrir en pestaña nueva</a>
+        <a href={url} download="documento.pdf" style={{ color:"#39ff14", fontSize:13, textDecoration:"none", padding:"6px 12px", border:"1px solid #39ff14", borderRadius:4, fontFamily:FONT }}>Descargar</a>
+        <button onClick={onClose} style={{ background:"#ef4444", color:"#fff", border:"none", borderRadius:4, padding:"6px 12px", cursor:"pointer", fontSize:13, fontFamily:FONT }}>Cerrar ✕</button>
+      </div>
+      <iframe src={url} title="Vista previa PDF" style={{ flex:1, border:"none", background:"#fff" }} />
+    </div>
+  );
+}
+
 // ── CONTROL DE PROYECTOS ─────────────────────────────────────────────────────
 function ControlProyectosView({ contacts }) {
   const [proyectos,   setProyectos]   = useState([]);
@@ -2448,6 +2467,7 @@ function GanttView({ isMobile }) {
   const [ganttId, setGanttId]     = useState(null);
   const [calStart, setCalStart]   = useState(new Date().toISOString().slice(0,10));
   const [calDays, setCalDays]     = useState(15);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
   const [editRow, setEditRow]     = useState(null); // id de fila en edición inline
   const [draggedId, setDraggedId] = useState(null);
   const [dragOverId, setDragOverId] = useState(null);
@@ -2865,9 +2885,6 @@ function GanttView({ isMobile }) {
                 <span key={l} style={{ fontFamily:FONT, fontSize:10, color:c }}>● {l}</span>
               ))}
               <button onClick={async () => {
-                // Ver comentario en printInterno (src/App.jsx): se abre la pestaña
-                // antes de los await para no chocar con el bloqueador de popups de Firefox.
-                const pdfWindow = window.open("", "_blank");
                 const ts2 = tasks.filter(t => t.tipo !== "H");
                 const avancePromedio = ts2.length ? Math.round(ts2.reduce((s, t) => s + Number(t.pctAvance || 0), 0) / ts2.length) : 0;
                 const totales = {
@@ -2885,7 +2902,7 @@ function GanttView({ isMobile }) {
                 try { logoDataUri = await fetchImageAsDataUri(LOGO_PRINT); } catch { /* el documento se genera igual, sin logo */ }
                 const blob = await pdf(<GanttDoc proyecto={proyecto} headerData={headerData} tasks={tasks} calCols={calCols} numbersById={ganttMeta.numbers} phasePresupById={phasePresupById} totales={totales} logoDataUri={logoDataUri} />).toBlob();
                 const url = URL.createObjectURL(blob);
-                if (pdfWindow) pdfWindow.location.href = url; else window.open(url, "_blank");
+                setPdfPreviewUrl(url);
               }} style={{ padding:"4px 14px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:5, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>🖨 PDF</button>
             </div>
           </div>
@@ -3167,6 +3184,7 @@ function GanttView({ isMobile }) {
           </div>
         </>
       )}
+      <PdfPreviewModal url={pdfPreviewUrl} onClose={() => { URL.revokeObjectURL(pdfPreviewUrl); setPdfPreviewUrl(null); }} />
     </div>
   );
 }
@@ -7789,6 +7807,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled }) {
   const [genSaving, setGenSaving] = useState(false);
   const [genDone, setGenDone] = useState(null);
   const [search, setSearch] = useState("");
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
   const [saveStatus, setSaveStatus] = useState("idle"); // idle | saving | saved
   const [localBackup, setLocalBackup] = useState(null); // proyectos sin sincronizar de este navegador
   const [importing, setImporting] = useState(false);
@@ -8074,11 +8093,6 @@ function CosteoView({ contacts, openId, onOpenIdHandled }) {
 
   // PDF Interno — muestra todo: bruto, neto, IVA, margen, venta neta y bruta
   const printInterno = async () => {
-    // Se abre la pestaña ANTES de los await: Firefox exige que window.open()
-    // ocurra en el mismo tick síncrono del click, o lo bloquea como popup
-    // (a diferencia de Chrome/Brave, más permisivos). Se navega esa pestaña
-    // ya abierta cuando el blob esté listo, en vez de abrir una nueva.
-    const pdfWindow = window.open("", "_blank");
     const fases = (proyecto.fases || []).map(calcFase);
     const codigosPorFaseArr = fases.map((f, fi) => codigosPorFase(f.items, fi));
     const totales = {
@@ -8096,14 +8110,11 @@ function CosteoView({ contacts, openId, onOpenIdHandled }) {
     try { logoDataUri = await fetchImageAsDataUri(LOGO_PRINT); } catch { /* el documento se genera igual, sin logo */ }
     const blob = await pdf(<CosteoInternoDoc proyecto={proyecto} fasesCalc={fases} codigosPorFaseArr={codigosPorFaseArr} totales={totales} logoDataUri={logoDataUri} />).toBlob();
     const url = URL.createObjectURL(blob);
-    if (pdfWindow) pdfWindow.location.href = url; else window.open(url, "_blank");
+    setPdfPreviewUrl(url);
   };
 
   // PDF Cliente — solo venta neta + IVA, sin costos ni márgenes
   const printCliente = async () => {
-    // Ver comentario en printInterno: se abre la pestaña antes de los await
-    // para no chocar con el bloqueador de popups de Firefox.
-    const pdfWindow = window.open("", "_blank");
     const fases = (proyecto.fases || []).map(calcFase);
     const codigosPorFaseArr = fases.map((f, fi) => codigosPorFase(f.items, fi));
     const totales = {
@@ -8118,7 +8129,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled }) {
     try { logoDataUri = await fetchImageAsDataUri(LOGO_PRINT); } catch { /* el documento se genera igual, sin logo */ }
     const blob = await pdf(<CosteoClienteDoc proyecto={proyecto} fasesCalc={fases} codigosPorFaseArr={codigosPorFaseArr} totales={totales} partidas={proyecto.partidas || []} logoDataUri={logoDataUri} />).toBlob();
     const url = URL.createObjectURL(blob);
-    if (pdfWindow) pdfWindow.location.href = url; else window.open(url, "_blank");
+    setPdfPreviewUrl(url);
   };
 
   // ── GENERAR COTIZACIÓN ──────────────────────────────────────────────────────
@@ -8476,6 +8487,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled }) {
           </button>
         </>
       )}
+      <PdfPreviewModal url={pdfPreviewUrl} onClose={() => { URL.revokeObjectURL(pdfPreviewUrl); setPdfPreviewUrl(null); }} />
     </div>
   );
 }
