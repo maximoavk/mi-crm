@@ -2004,9 +2004,7 @@ function PdfPreviewModal({ url, onClose }) {
   if (!url) return null;
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:9999, display:"flex", flexDirection:"column" }}>
-      <div style={{ display:"flex", justifyContent:"flex-end", alignItems:"center", gap:8, padding:8, background:"#0f172a" }}>
-        <a href={url} target="_blank" rel="noopener noreferrer" style={{ color:"#38bdf8", fontSize:13, textDecoration:"none", padding:"6px 12px", border:"1px solid #38bdf8", borderRadius:4, fontFamily:FONT }}>Abrir en pestaña nueva</a>
-        <a href={url} download="documento.pdf" style={{ color:"#39ff14", fontSize:13, textDecoration:"none", padding:"6px 12px", border:"1px solid #39ff14", borderRadius:4, fontFamily:FONT }}>Descargar</a>
+      <div style={{ display:"flex", justifyContent:"flex-end", alignItems:"center", padding:8, background:"#0f172a" }}>
         <button onClick={onClose} style={{ background:"#ef4444", color:"#fff", border:"none", borderRadius:4, padding:"6px 12px", cursor:"pointer", fontSize:13, fontFamily:FONT }}>Cerrar ✕</button>
       </div>
       <iframe src={url} title="Vista previa PDF" style={{ flex:1, border:"none", background:"#fff" }} />
