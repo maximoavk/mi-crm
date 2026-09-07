@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
+import { fetchImageAsDataUri } from "../CosteoPdfDocs.jsx";
 import { DeviceIconRail, CAMERA_PRESETS } from "./DeviceIconRail.jsx";
 import { DesignCanvas, VIEW_W, VIEW_H } from "./DesignCanvas.jsx";
 import { TitleBlockForm } from "./TitleBlockForm.jsx";
 import { ExportPanel } from "./ExportPanel.jsx";
+import { clamp } from "./geometry.js";
 import {
   loadDesignProject, saveProjectMeta, insertDevice, upsertDevice, deleteDevice,
   uploadBgImage, getBgImageUrl,
@@ -13,8 +15,15 @@ export function DesignView({ designProjectId, onBack }) {
   const svgRef = useRef(null);
   const fileInputRef = useRef(null);
   const saveTimer = useRef(null);
+  // Guarda el último objeto `project` con cambios pendientes de persistir
+  // (debounce de 700ms). Si el componente se desmonta o el usuario navega
+  // fuera antes de que el timer dispare, esto permite hacer un flush
+  // inmediato en vez de perder el cambio silenciosamente.
+  const pendingProjectRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [project, setProject] = useState(null);
   const [devices, setDevices] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
@@ -26,34 +35,56 @@ export function DesignView({ designProjectId, onBack }) {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
     (async () => {
-      const { project: p, devices: d } = await loadDesignProject(designProjectId);
-      if (cancelled) return;
-      setProject(p);
-      setDevices(d);
-      setSelectedId(d[0]?.id || null);
-      setPlotWidthM(p.plotWidthM || "");
-      setPlotLengthM(p.plotLengthM || "");
-      setDimsApplied(!!(p.plotWidthM && p.plotLengthM));
-      if (p.bgImagePath) {
-        const url = await getBgImageUrl(p.bgImagePath);
+      try {
+        const { project: p, devices: d } = await loadDesignProject(designProjectId);
         if (cancelled) return;
-        setBgImageUrl(url);
-        const img = new Image();
-        img.onload = () => {
+        setProject(p);
+        setDevices(d);
+        setSelectedId(d[0]?.id || null);
+        setPlotWidthM(p.plotWidthM || "");
+        setPlotLengthM(p.plotLengthM || "");
+        setDimsApplied(!!(p.plotWidthM && p.plotLengthM));
+        if (p.bgImagePath) {
+          // getBgImageUrl da una signed URL (expira en 1h) — se usa solo de
+          // forma transiente acá para bajar los bytes y convertirlos de
+          // inmediato a data URI. Lo único que queda en el estado del
+          // componente es el data URI (bgImageUrl), que nunca expira y que
+          // sí es fetcheable cuando el SVG se rasteriza a <canvas> para el
+          // export PNG/PDF (una <image href="https://..."> dentro de un SVG
+          // cargado como Image() no se resuelve — el navegador no permite
+          // fetch de recursos externos en ese modo).
+          const signedUrl = await getBgImageUrl(p.bgImagePath);
           if (cancelled) return;
-          setBgNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
-        };
-        img.src = url;
+          const dataUri = await fetchImageAsDataUri(signedUrl);
+          if (cancelled) return;
+          setBgImageUrl(dataUri);
+          const img = new Image();
+          img.onload = () => {
+            if (cancelled) return;
+            setBgNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
+          };
+          img.src = dataUri;
+        }
+      } catch (err) {
+        if (!cancelled) setLoadError(err?.message || "No se pudo cargar el plano.");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [designProjectId]);
+  }, [designProjectId, reloadKey]);
 
   const scheduleSaveProject = useCallback((p) => {
+    pendingProjectRef.current = p;
     clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => { saveProjectMeta(p); }, 700);
+    saveTimer.current = setTimeout(() => {
+      saveTimer.current = null;
+      pendingProjectRef.current = null;
+      saveProjectMeta(p).catch(() => {});
+    }, 700);
   }, []);
 
   const updateProject = (patch) => {
@@ -64,7 +95,21 @@ export function DesignView({ designProjectId, onBack }) {
     });
   };
 
-  useEffect(() => () => clearTimeout(saveTimer.current), []);
+  // Flush: si hay un guardado pendiente (timer todavía corriendo), lo cancela
+  // y persiste de inmediato en vez de simplemente descartarlo. Se usa tanto
+  // al desmontar (navegación/cierre inesperado) como al hacer click en
+  // "← Volver al proyecto", para que nunca quede un cambio sin guardar.
+  const flushPendingSave = useCallback(() => {
+    if (pendingProjectRef.current) {
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+      const p = pendingProjectRef.current;
+      pendingProjectRef.current = null;
+      saveProjectMeta(p).catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => () => flushPendingSave(), [flushPendingSave]);
 
   const handleDeviceChange = (id, patch) => {
     setDevices((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d)));
@@ -116,8 +161,11 @@ export function DesignView({ designProjectId, onBack }) {
       img.onload = async () => {
         setBgNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
         const path = await uploadBgImage(project.id, file);
-        const url = await getBgImageUrl(path);
-        setBgImageUrl(url);
+        const signedUrl = await getBgImageUrl(path);
+        // Mismo motivo que en la carga inicial: solo el data URI se guarda
+        // en estado, la signed URL es transiente.
+        const dataUri = await fetchImageAsDataUri(signedUrl);
+        setBgImageUrl(dataUri);
         updateProject({ bgImagePath: path, bgScaleX: 1, bgScaleY: 1, bgOffsetX: 0, bgOffsetY: 0 });
       };
       img.src = reader.result;
@@ -132,6 +180,32 @@ export function DesignView({ designProjectId, onBack }) {
     setDimsApplied(true);
     updateProject({ plotWidthM: w, plotLengthM: l });
   };
+
+  const zoomBy = (factor) => {
+    const newScaleX = clamp(Number((project.bgScaleX * factor).toFixed(3)), 0.15, 6);
+    const newScaleY = clamp(Number((project.bgScaleY * factor).toFixed(3)), 0.15, 6);
+    updateProject({ bgScaleX: newScaleX, bgScaleY: newScaleY });
+  };
+
+  const resetView = () => {
+    updateProject({ bgScaleX: 1, bgScaleY: 1, bgOffsetX: 0, bgOffsetY: 0 });
+  };
+
+  if (loadError) {
+    return (
+      <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 12, alignItems: "flex-start" }}>
+        <div style={{ color: COLORS.red, fontFamily: FONT, fontSize: 13 }}>Error al cargar el plano: {loadError}</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => setReloadKey((k) => k + 1)} style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${COLORS.border}`, background: "transparent", color: COLORS.text, fontSize: 12, fontFamily: FONT, cursor: "pointer" }}>
+            Reintentar
+          </button>
+          <button onClick={() => onBack()} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "none", color: COLORS.textMuted, fontSize: 12, fontFamily: FONT, cursor: "pointer" }}>
+            ← Volver
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading || !project) {
     return <div style={{ padding: 24, color: COLORS.textMuted, fontFamily: FONT }}>Cargando plano…</div>;
@@ -148,7 +222,7 @@ export function DesignView({ designProjectId, onBack }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <button onClick={() => onBack(project.costeoId)} style={{ background: "none", border: "none", color: COLORS.textMuted, cursor: "pointer", fontFamily: FONT, fontSize: 12 }}>← Volver al proyecto</button>
+        <button onClick={() => { flushPendingSave(); onBack(project.costeoId); }} style={{ background: "none", border: "none", color: COLORS.textMuted, cursor: "pointer", fontFamily: FONT, fontSize: 12 }}>← Volver al proyecto</button>
         <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, fontWeight: 700, color: COLORS.text }}>
           {project.label || "Plano de diseño"}
         </div>
@@ -182,6 +256,19 @@ export function DesignView({ designProjectId, onBack }) {
             plotLengthM={lNum}
           />
 
+          {bgImageUrl && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", fontSize: 11, fontFamily: FONT, color: COLORS.textMuted }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <button onClick={() => zoomBy(0.9)} disabled={project.locked} style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${COLORS.border}`, background: "transparent", color: project.locked ? COLORS.textDim : COLORS.text, cursor: project.locked ? "default" : "pointer" }}>−</button>
+                <span>Zoom</span>
+                <button onClick={() => zoomBy(1.1)} disabled={project.locked} style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${COLORS.border}`, background: "transparent", color: project.locked ? COLORS.textDim : COLORS.text, cursor: project.locked ? "default" : "pointer" }}>+</button>
+              </div>
+              <button onClick={resetView} disabled={project.locked} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${COLORS.border}`, background: "transparent", color: project.locked ? COLORS.textDim : COLORS.text, cursor: project.locked ? "default" : "pointer" }}>
+                Restablecer
+              </button>
+            </div>
+          )}
+
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => fileInputRef.current && fileInputRef.current.click()} style={{ flex: 1, padding: "10px", borderRadius: 8, border: `1px solid ${COLORS.border}`, background: "transparent", color: COLORS.text, fontSize: 12, fontFamily: FONT, cursor: "pointer" }}>
               📷 Cargar captura
@@ -191,6 +278,42 @@ export function DesignView({ designProjectId, onBack }) {
               {project.locked ? "🔒 Plano bloqueado" : "🔓 Bloquear plano"}
             </button>
           </div>
+
+          {selectedId && devices.find((d) => d.id === selectedId) && (() => {
+            const selectedDevice = devices.find((d) => d.id === selectedId);
+            return (
+              <div style={{ display: "flex", gap: 16, flexWrap: "wrap", background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 10 }}>
+                <div style={{ flex: "1 1 240px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: COLORS.textMuted, fontFamily: FONT }}>
+                    <span>ÁNGULO FOV</span><span>{Math.round(selectedDevice.fov)}°</span>
+                  </div>
+                  <input
+                    type="range" min="10" max="180" value={selectedDevice.fov}
+                    onChange={(e) => handleDeviceChange(selectedId, { fov: Number(e.target.value) })}
+                    onMouseUp={() => handleDeviceSettled(selectedId)}
+                    onTouchEnd={() => handleDeviceSettled(selectedId)}
+                    style={{ width: "100%", accentColor: COLORS.accent }}
+                  />
+                </div>
+                <div style={{ flex: "1 1 240px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: COLORS.textMuted, fontFamily: FONT }}>
+                    <span>ALCANCE</span>
+                    <span>
+                      {Math.round(selectedDevice.range)} px
+                      {mppX ? ` (${(selectedDevice.range * mppX).toFixed(1)} m)` : ""}
+                    </span>
+                  </div>
+                  <input
+                    type="range" min="60" max="500" value={selectedDevice.range}
+                    onChange={(e) => handleDeviceChange(selectedId, { range: Number(e.target.value) })}
+                    onMouseUp={() => handleDeviceSettled(selectedId)}
+                    onTouchEnd={() => handleDeviceSettled(selectedId)}
+                    style={{ width: "100%", accentColor: COLORS.accent }}
+                  />
+                </div>
+              </div>
+            );
+          })()}
 
           <TitleBlockForm
             project={project}
