@@ -10,6 +10,7 @@ export function TitleBlockForm({ project, onChange, plotWidthM, plotLengthM, onP
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 10 }}>
+        <input placeholder="Nombre del plano" value={project.label} onChange={(e) => onChange({ label: e.target.value })} style={fieldStyle} />
         <input placeholder="Nombre del proyecto" value={project.projectName} onChange={(e) => onChange({ projectName: e.target.value })} style={fieldStyle} />
         <input placeholder="Nombre del cliente" value={project.clientName} onChange={(e) => onChange({ clientName: e.target.value })} style={fieldStyle} />
         <input placeholder="Elaborado por" value={project.preparedBy} onChange={(e) => onChange({ preparedBy: e.target.value })} style={fieldStyle} />
