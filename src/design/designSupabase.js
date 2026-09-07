@@ -131,9 +131,15 @@ export async function deleteDesignProject(project) {
 }
 
 export async function uploadBgImage(designProjectId, file) {
-  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-  const path = `${designProjectId}/bg.${ext}`;
-  const { error } = await supabase.storage.from("design-plans").upload(path, file, { upsert: true });
+  // Ruta fija sin extensión: si el usuario reemplaza la imagen por otro tipo
+  // de archivo (ej. .jpg -> .png), se sobrescribe el mismo objeto en vez de
+  // dejar huérfano el archivo anterior en Storage. El tipo real del archivo
+  // se preserva vía `contentType`, no vía el nombre del path.
+  const path = `${designProjectId}/bg`;
+  const { error } = await supabase.storage.from("design-plans").upload(path, file, {
+    upsert: true,
+    contentType: file.type || "application/octet-stream",
+  });
   if (error) throw error;
   return path;
 }
