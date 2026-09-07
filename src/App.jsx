@@ -1,16 +1,10 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calculator, GanttChartSquare, CheckSquare, BarChart2, LogOut, Receipt, Wrench, Scale, AlertTriangle, TrendingUp, Wallet } from "lucide-react";
 import { pdf } from "@react-pdf/renderer";
 import { CosteoInternoDoc, CosteoClienteDoc, fetchImageAsDataUri } from "./CosteoPdfDocs.jsx";
 import { GanttDoc } from "./GanttPdfDoc.jsx";
 import { COLORS, FONT, FONT_DISPLAY } from "./theme.js";
-
-// ── SUPABASE ────────────────────────────────────────────────────────────────
-const supabase = createClient(
-  "https://gvwytgmldfwmdhlnfttz.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd2d3l0Z21sZGZ3bWRobG5mdHR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NjU4MjksImV4cCI6MjA4ODM0MTgyOX0.M_Sul9b-Q60vHzNd2vRqsfgx7VPk59WzwIzzpRi2bL8"
-);
+import { supabase } from "./supabaseClient.js";
 
 // ── LOGO ────────────────────────────────────────────────────────────────────
 const LOGO_B64 = "https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69b784045e7a002f4a490938_Recurso%2013.png"; // Logo blanco para fondo oscuro
