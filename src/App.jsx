@@ -4,6 +4,7 @@ import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calcul
 import { pdf } from "@react-pdf/renderer";
 import { CosteoInternoDoc, CosteoClienteDoc, fetchImageAsDataUri } from "./CosteoPdfDocs.jsx";
 import { GanttDoc } from "./GanttPdfDoc.jsx";
+import { COLORS, FONT, FONT_DISPLAY } from "./theme.js";
 
 // ── SUPABASE ────────────────────────────────────────────────────────────────
 const supabase = createClient(
@@ -84,17 +85,6 @@ const mapTaskToDb = (f) => ({
   deal_id: f.dealId || null,
   deal_stage_snapshot: f.dealStageSnapshot || "",
 });
-
-// ── CONSTANTS ───────────────────────────────────────────────────────────────
-const COLORS_DARK = {
-  bg: "#0A0C10", surface: "#111318", card: "#161A22", border: "#1E2530",
-  accent: "#00C2FF", accentDim: "#00C2FF22", accentGlow: "#00C2FF44",
-  green: "#00E5A0", yellow: "#FFB800", red: "#FF4D6A", purple: "#A855F7",
-  text: "#E8ECF4", textMuted: "#9BAAC4", textDim: "#4A5778",
-};
-const COLORS = { ...COLORS_DARK };
-const FONT = "'DM Mono', 'Courier New', monospace";
-const FONT_DISPLAY = "'Space Grotesk', sans-serif";
 
 // ── CHILE REGIONES Y COMUNAS ─────────────────────────────────────────────────
 const CHILE = {
