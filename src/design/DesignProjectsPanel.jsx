@@ -7,30 +7,49 @@ export function DesignProjectsPanel({ costeoId, onOpenDesign }) {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [error, setError] = useState("");
 
   const load = async () => {
     setLoading(true);
-    const rows = await listDesignProjects(costeoId);
-    setProjects(rows);
-    setLoading(false);
+    setError("");
+    try {
+      const rows = await listDesignProjects(costeoId);
+      setProjects(rows);
+    } catch (err) {
+      setError(err?.message || "No se pudieron cargar los planos de diseño.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, [costeoId]);
 
   const handleCreate = async () => {
     setCreating(true);
-    const created = await createDesignProject(costeoId);
-    setCreating(false);
-    onOpenDesign(created.id);
+    setError("");
+    try {
+      const created = await createDesignProject(costeoId);
+      onOpenDesign(created.id);
+    } catch (err) {
+      setError(err?.message || "No se pudo crear el plano.");
+    } finally {
+      setCreating(false);
+    }
   };
 
   const handleDelete = async (e, project) => {
     e.stopPropagation();
     if (!window.confirm(`¿Eliminar el plano "${project.label || project.projectName || "sin nombre"}"? Esta acción no se puede deshacer.`)) return;
     setDeletingId(project.id);
-    await deleteDesignProject(project);
-    setDeletingId(null);
-    setProjects((prev) => prev.filter((p) => p.id !== project.id));
+    setError("");
+    try {
+      await deleteDesignProject(project);
+      setProjects((prev) => prev.filter((p) => p.id !== project.id));
+    } catch (err) {
+      setError(err?.message || "No se pudo eliminar el plano.");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   if (loading) {
@@ -39,6 +58,9 @@ export function DesignProjectsPanel({ costeoId, onOpenDesign }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {error && (
+        <div style={{ color: COLORS.red, fontFamily: FONT, fontSize: 12 }}>{error}</div>
+      )}
       {projects.length === 0 && (
         <div style={{ color: COLORS.textMuted, fontFamily: FONT, fontSize: 12 }}>Este proyecto todavía no tiene planos de diseño.</div>
       )}
