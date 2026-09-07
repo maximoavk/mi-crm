@@ -37,7 +37,14 @@ export function DesignView({ designProjectId, onBack }) {
       setDimsApplied(!!(p.plotWidthM && p.plotLengthM));
       if (p.bgImagePath) {
         const url = await getBgImageUrl(p.bgImagePath);
-        if (!cancelled) setBgImageUrl(url);
+        if (cancelled) return;
+        setBgImageUrl(url);
+        const img = new Image();
+        img.onload = () => {
+          if (cancelled) return;
+          setBgNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
+        };
+        img.src = url;
       }
       setLoading(false);
     })();
