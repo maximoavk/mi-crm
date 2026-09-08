@@ -6286,6 +6286,12 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
   const [quoteOverrides, setQuoteOverrides] = useState({}); // {quoteId: {total, linesPatch:[{id,subtotal,precio_unitario,descuento}]}}
   const [declaredChangeIds, setDeclaredChangeIds] = useState([]);
   const [declaredChanges, setDeclaredChanges]     = useState([]);
+  // Valor original opcional para el PDF: por defecto se calcula descontando los
+  // cambios declarados EN ESTE documento del total actual, pero eso no ve cambios
+  // de alcance viejos hechos antes de que existiera este panel (ej. vía "Sincronizar
+  // con cotización" directo en el Costeo) — este input deja declarar a mano el
+  // valor original real y la diferencia se ajusta sola contra el total vigente.
+  const [valorOriginalInput, setValorOriginalInput] = useState("");
 
   const ff=(k,v)=>setForm(p=>({...p,[k]:v}));
 
@@ -6374,12 +6380,20 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
     const ivaTotal   = isPF ? lineTotal - netoTotal : 0;
 
     const totalCambios      = declaredChanges.reduce((s,c)=>s+Number(c.valor||0),0);
-    const valorOriginalCot  = Math.round(cotTotal - totalCambios);
+    const autoOriginal      = Math.round(cotTotal - totalCambios);
+    const tieneOverride     = valorOriginalInput!==""&&valorOriginalInput!=null&&!isNaN(Number(valorOriginalInput));
+    // Si se declara el valor original a mano, la diferencia se ajusta contra el total
+    // VIGENTE (no contra la suma de cambios registrados) — así absorbe también
+    // cambios de alcance antiguos que no quedaron guardados en cambios_alcance.
+    const valorOriginalCot  = tieneOverride ? Math.round(Number(valorOriginalInput)) : autoOriginal;
+    const diferenciaNeta    = Math.round(cotTotal - valorOriginalCot);
     const totalAdiciones    = declaredChanges.filter(c=>c.valor>0).reduce((s,c)=>s+c.valor,0);
     const totalSustracciones= declaredChanges.filter(c=>c.valor<0).reduce((s,c)=>s+c.valor,0);
-    const cambiosBlock = declaredChanges.length>0 ? `
+    const mostrarCambios    = declaredChanges.length>0 || (tieneOverride && diferenciaNeta!==0);
+    const cambiosBlock = mostrarCambios ? `
     <div class="cop" style="border-color:#3b82f6;">
-      <div class="cop-title" style="color:#3b82f6;">Cambios de alcance declarados en este documento</div>
+      <div class="cop-title" style="color:#3b82f6;">Cambios de alcance declarados</div>
+      ${declaredChanges.length>0 ? `
       <table class="txs"><thead><tr><th>Tipo</th><th>Descripción</th><th class="r">Valor</th></tr></thead>
       <tbody>
       ${declaredChanges.map(c=>{
@@ -6387,12 +6401,12 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
         const color = c.tipo==="agregado"?"#1a8a1a":c.tipo==="removido"?"#c0392b":"#b85c00";
         return `<tr><td style="color:${color};font-weight:600">${lbl}</td><td>${c.descripcion}</td><td class="r">${c.valor>=0?"+":""}$${Math.round(c.valor).toLocaleString("es-CL")}</td></tr>`;
       }).join("")}
-      </tbody></table>
+      </tbody></table>` : ""}
       <table style="width:100%;border-collapse:collapse;font-size:10px;margin-top:6px;">
         <tr><td style="padding:3px 4px;color:#666">Valor original cotizado</td><td style="padding:3px 4px;text-align:right">$${valorOriginalCot.toLocaleString("es-CL")}</td></tr>
         ${totalAdiciones>0?`<tr><td style="padding:3px 4px;color:#1a8a1a">(+) Adición</td><td style="padding:3px 4px;text-align:right;color:#1a8a1a">+$${Math.round(totalAdiciones).toLocaleString("es-CL")}</td></tr>`:""}
         ${totalSustracciones<0?`<tr><td style="padding:3px 4px;color:#c0392b">(−) Sustracción</td><td style="padding:3px 4px;text-align:right;color:#c0392b">-$${Math.abs(Math.round(totalSustracciones)).toLocaleString("es-CL")}</td></tr>`:""}
-        <tr style="border-top:1px solid #ccc"><td style="padding:3px 4px;color:#666">Diferencia neta</td><td style="padding:3px 4px;text-align:right;font-weight:600">${totalCambios>=0?"+":""}$${Math.round(totalCambios).toLocaleString("es-CL")}</td></tr>
+        <tr style="border-top:1px solid #ccc"><td style="padding:3px 4px;color:#666">Diferencia neta</td><td style="padding:3px 4px;text-align:right;font-weight:600">${diferenciaNeta>=0?"+":""}$${diferenciaNeta.toLocaleString("es-CL")}</td></tr>
         <tr style="border-top:1px solid #1a1a1a"><td style="padding:5px 4px;font-weight:bold;font-size:11px">Valor total actualizado</td><td style="padding:5px 4px;text-align:right;font-weight:bold;font-size:11px">$${Math.round(cotTotal).toLocaleString("es-CL")}</td></tr>
       </table>
     </div>` : "";
@@ -6476,7 +6490,6 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
     }).join("")}
     <tr style="font-weight:bold;background:#f5f5f5;border-top:2px solid #1a1a1a"><td colspan="2">Total pagado</td><td class="r">$${txTot.toLocaleString("es-CL")}</td><td style="text-align:right;font-size:9px">${lineTotal>0?((txTot/lineTotal)*100).toFixed(1):0}%</td></tr>
     </tbody></table></div>
-    ${cambiosBlock}
     <div class="sbox">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <span style="font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.07em;color:#555">Estado de pago</span>
@@ -6485,6 +6498,7 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
       <div class="br" style="margin-bottom:5px"><div class="bl"><span>Pagado / líneas seleccionadas</span><span>${pct1.toFixed(1)}%</span></div><div class="bt"><div style="height:100%;width:${pct1.toFixed(1)}%;background:${saldo<=0?"#1a8a1a":"#e07b00"};border-radius:99px"></div></div></div>
       <div class="br"><div class="bl"><span>Saldo pendiente / total COT</span><span>${pct2.toFixed(1)}%</span></div><div class="bt"><div style="height:100%;width:${pct2.toFixed(1)}%;background:#b85c00;border-radius:99px"></div></div></div>
     </div>
+    ${cambiosBlock}
     <div class="foot">${isPF?`Polygonos SpA · RUT 77.180.437-3 · Sistema de Pre-Facturación Interna · No válido como documento legal · Emitido por ${form.responsable||"mhudson"} el ${new Date().toLocaleDateString("es-CL")} · ${numero}`:`Polygonos SpA · RUT 77.180.437-3 · Documento interno de gestión · Generado el ${new Date().toLocaleDateString("es-CL")} · ${numero}`}</div>
     <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;background:#fff;z-index:9999"><div style="display:flex;flex-direction:column;line-height:1.15"><span style="font-size:6px;font-weight:700;color:#0ea5e9;letter-spacing:0.18em;text-transform:uppercase;font-family:Arial,sans-serif">CLAUDE ERP</span><span style="font-size:11px;font-weight:900;color:#0f172a;font-family:Arial,sans-serif;letter-spacing:-0.01em">Polygonos 360</span></div></div>
     <script>window.onload=()=>window.print();</script></body></html>`;
@@ -6603,6 +6617,13 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
                 style={{marginTop:2,padding:"7px 10px",background:"transparent",border:`1px dashed ${COLORS.accent}88`,borderRadius:6,color:COLORS.accent,fontFamily:FONT,fontSize:11,cursor:"pointer"}}>
                 🌳 Declarar cambio de alcance (agregar/quitar items)
               </button>
+            )}
+            {selectedQuoteIds.length===1 && declaredChanges.length===0 && (
+              <div style={{marginTop:4}}>
+                <label style={{...lbl,marginBottom:3}}>Valor original cotizado en el PDF (opcional — solo si hubo cambios de alcance antiguos, previos a este panel)</label>
+                <input type="number" value={valorOriginalInput} onChange={e=>setValorOriginalInput(e.target.value)}
+                  placeholder={`Auto: ${fmt(cotTotal)}`} style={{...inp,fontSize:12,padding:"7px 10px"}} />
+              </div>
             )}
           </div>
         )}
