@@ -6373,6 +6373,10 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
     const netoTotal  = isPF ? Math.round(lineTotal/1.19) : lineTotal;
     const ivaTotal   = isPF ? lineTotal - netoTotal : 0;
 
+    const totalCambios      = declaredChanges.reduce((s,c)=>s+Number(c.valor||0),0);
+    const valorOriginalCot  = Math.round(cotTotal - totalCambios);
+    const totalAdiciones    = declaredChanges.filter(c=>c.valor>0).reduce((s,c)=>s+c.valor,0);
+    const totalSustracciones= declaredChanges.filter(c=>c.valor<0).reduce((s,c)=>s+c.valor,0);
     const cambiosBlock = declaredChanges.length>0 ? `
     <div class="cop" style="border-color:#3b82f6;">
       <div class="cop-title" style="color:#3b82f6;">Cambios de alcance declarados en este documento</div>
@@ -6384,6 +6388,13 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
         return `<tr><td style="color:${color};font-weight:600">${lbl}</td><td>${c.descripcion}</td><td class="r">${c.valor>=0?"+":""}$${Math.round(c.valor).toLocaleString("es-CL")}</td></tr>`;
       }).join("")}
       </tbody></table>
+      <table style="width:100%;border-collapse:collapse;font-size:10px;margin-top:6px;">
+        <tr><td style="padding:3px 4px;color:#666">Valor original cotizado</td><td style="padding:3px 4px;text-align:right">$${valorOriginalCot.toLocaleString("es-CL")}</td></tr>
+        ${totalAdiciones>0?`<tr><td style="padding:3px 4px;color:#1a8a1a">(+) Adición</td><td style="padding:3px 4px;text-align:right;color:#1a8a1a">+$${Math.round(totalAdiciones).toLocaleString("es-CL")}</td></tr>`:""}
+        ${totalSustracciones<0?`<tr><td style="padding:3px 4px;color:#c0392b">(−) Sustracción</td><td style="padding:3px 4px;text-align:right;color:#c0392b">-$${Math.abs(Math.round(totalSustracciones)).toLocaleString("es-CL")}</td></tr>`:""}
+        <tr style="border-top:1px solid #ccc"><td style="padding:3px 4px;color:#666">Diferencia neta</td><td style="padding:3px 4px;text-align:right;font-weight:600">${totalCambios>=0?"+":""}$${Math.round(totalCambios).toLocaleString("es-CL")}</td></tr>
+        <tr style="border-top:1px solid #1a1a1a"><td style="padding:5px 4px;font-weight:bold;font-size:11px">Valor total actualizado</td><td style="padding:5px 4px;text-align:right;font-weight:bold;font-size:11px">$${Math.round(cotTotal).toLocaleString("es-CL")}</td></tr>
+      </table>
     </div>` : "";
 
     const pfWarning  = isPF ? `
