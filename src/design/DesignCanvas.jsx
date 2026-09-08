@@ -71,7 +71,7 @@ function FaultConeViz({ cam, selected }) {
 function DeviceViz({ cam, selected }) {
   if (cam.viz === "wireless_beam") return <WirelessBeamViz cam={cam} selected={selected} />;
   if (cam.viz === "wireless_rings") return <WirelessRingsViz cam={cam} selected={selected} />;
-  if (cam.viz === "fault_cone" || cam.viz === "proposal_cone") return <FaultConeViz cam={cam} selected={selected} />;
+  if (cam.viz === "fault_cone" || cam.viz === "proposal_cone" || cam.viz === "existing_cone") return <FaultConeViz cam={cam} selected={selected} />;
   return <FovConeViz cam={cam} selected={selected} />;
 }
 
@@ -146,6 +146,7 @@ export function DesignCanvas({
   svgRef, devices, selectedId, onSelectDevice, onDeviceChange, onDeviceSettled,
   bgImage, bgNaturalSize, bgScaleX, bgScaleY, bgOffset, locked,
   onBgOffsetChange, onBgScaleChange, mppX, mppY, plotWidthM, plotLengthM,
+  onDropDevice,
 }) {
   const dragRef = useRef(null);
   const panRef = useRef(null);
@@ -169,6 +170,19 @@ export function DesignCanvas({
     if (bgImage && !locked) {
       panRef.current = { startClientX: e.clientX, startClientY: e.clientY, startOffset: { ...bgOffset } };
     }
+  };
+
+  const onSvgDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  };
+
+  const onSvgDrop = (e) => {
+    e.preventDefault();
+    const presetId = e.dataTransfer.getData("text/plain");
+    if (!presetId || !onDropDevice) return;
+    const p = getSvgPoint(e);
+    onDropDevice(presetId, p);
   };
 
   const onDragStart = (id, mode, e) => {
@@ -290,6 +304,8 @@ export function DesignCanvas({
       onPointerUp={onPointerUp}
       onPointerLeave={onPointerUp}
       onPointerDown={onSvgPointerDown}
+      onDragOver={onSvgDragOver}
+      onDrop={onSvgDrop}
     >
       <defs>
         <clipPath id="canvasClip">

@@ -130,12 +130,14 @@ export function DesignView({ designProjectId, onBack }) {
     }
   };
 
-  const addDevice = async () => {
+  const handleDropDevice = async (presetId, point) => {
+    const preset = CAMERA_PRESETS.find((p) => p.id === presetId);
+    if (!preset) return;
     const n = devices.length;
     const draft = {
-      presetId: "bullet", label: "CAM-0" + (n + 1),
-      x: 220 + ((n * 90) % 400), y: 180 + ((n * 65) % 220),
-      heading: 0, fov: 78, range: 190,
+      presetId, label: "CAM-0" + (n + 1),
+      x: point.x, y: point.y,
+      heading: 0, fov: preset.fov, range: preset.range,
     };
     const created = await insertDevice(draft, project.id);
     setDevices((prev) => [...prev, created]);
@@ -143,7 +145,7 @@ export function DesignView({ designProjectId, onBack }) {
   };
 
   const removeSelectedDevice = async () => {
-    if (devices.length <= 1 || !selectedId) return;
+    if (!selectedId) return;
     await deleteDevice(selectedId);
     setDevices((prev) => {
       const remaining = prev.filter((d) => d.id !== selectedId);
@@ -254,6 +256,7 @@ export function DesignView({ designProjectId, onBack }) {
             mppY={mppY}
             plotWidthM={wNum}
             plotLengthM={lNum}
+            onDropDevice={handleDropDevice}
           />
 
           {bgImageUrl && (
@@ -328,11 +331,11 @@ export function DesignView({ designProjectId, onBack }) {
             mppY={mppY}
           />
 
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={addDevice} style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", background: COLORS.accent, color: COLORS.bg, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
-              + Agregar dispositivo
-            </button>
-            <button onClick={removeSelectedDevice} disabled={devices.length <= 1} style={{ flex: 1, padding: "10px", borderRadius: 8, border: `1px solid ${COLORS.border}`, background: "transparent", color: devices.length <= 1 ? COLORS.textDim : COLORS.text, fontSize: 13, cursor: "pointer" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div style={{ flex: 1, fontSize: 11, color: COLORS.textMuted, fontFamily: FONT }}>
+              Arrastra un dispositivo del catálogo hacia el plano para agregarlo.
+            </div>
+            <button onClick={removeSelectedDevice} disabled={!selectedId} style={{ padding: "10px 16px", borderRadius: 8, border: `1px solid ${COLORS.border}`, background: "transparent", color: !selectedId ? COLORS.textDim : COLORS.text, fontSize: 13, cursor: "pointer" }}>
               Eliminar
             </button>
           </div>

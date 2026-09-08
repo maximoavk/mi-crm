@@ -1,6 +1,66 @@
 import { NAVY_DEEP, CYAN, FAULT_RED, DEFICIENT_ORANGE, PROPOSED_GREEN } from "./canvasTheme.js";
 import { VIEW_W, VIEW_H } from "./DesignCanvas.jsx";
 import { pickNiceStep } from "./geometry.js";
+import { CAMERA_PRESETS } from "./DeviceIconRail.jsx";
+
+const DEVICE_TYPE_ICONS = ["dome", "bullet", "varifocal", "ptz", "beam", "omni"];
+
+function drawDeviceGlyph(ctx, type, cx, cy, u) {
+  ctx.save();
+  ctx.strokeStyle = "rgba(255,255,255,0.85)";
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.lineWidth = Math.max(1, u * 0.08);
+  if (type === "dome") {
+    ctx.beginPath();
+    ctx.arc(cx, cy - u * 0.1, u * 0.75, Math.PI, 0, false);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx - u * 0.75, cy - u * 0.1);
+    ctx.lineTo(cx + u * 0.75, cy - u * 0.1);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy - u * 0.32, u * 0.22, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (type === "bullet") {
+    ctx.strokeRect(cx - u * 0.75, cy - u * 0.35, u * 1.1, u * 0.7);
+    ctx.beginPath();
+    ctx.arc(cx + u * 0.55, cy, u * 0.32, 0, Math.PI * 2);
+    ctx.stroke();
+  } else if (type === "varifocal") {
+    ctx.strokeRect(cx - u * 0.7, cy - u * 0.3, u * 0.9, u * 0.6);
+    ctx.beginPath();
+    ctx.arc(cx + u * 0.45, cy, u * 0.42, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx + u * 0.45, cy, u * 0.16, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (type === "ptz") {
+    ctx.beginPath();
+    ctx.arc(cx, cy, u * 0.48, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, u * 0.78, -Math.PI * 0.35, Math.PI * 0.1);
+    ctx.stroke();
+  } else if (type === "beam") {
+    ctx.beginPath();
+    ctx.moveTo(cx - u * 0.7, cy + u * 0.25);
+    ctx.quadraticCurveTo(cx + u * 0.1, cy - u * 0.85, cx + u * 0.8, cy - u * 0.6);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx - u * 0.3, cy, u * 0.15, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (type === "omni") {
+    [0.28, 0.52, 0.76].forEach((f) => {
+      ctx.beginPath();
+      ctx.arc(cx, cy, u * f, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+    ctx.beginPath();
+    ctx.arc(cx, cy, u * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
 
 export function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -148,23 +208,39 @@ export async function exportComposite(svgEl, scale, meta) {
   ctx.beginPath(); ctx.moveTo(sideX + 10 * scale, cursorY); ctx.lineTo(sideX + sideW - 10 * scale, cursorY); ctx.stroke();
   cursorY += 16 * scale;
 
-  // --- Simbología ---
+  // --- Simbología: tipo de dispositivo ---
   ctx.fillStyle = CYAN;
   ctx.font = `${10 * scale}px monospace`;
-  ctx.fillText("SIMBOLOGÍA", sideX + 14 * scale, cursorY);
-  cursorY += 16 * scale;
+  ctx.fillText("TIPO DE DISPOSITIVO", sideX + 14 * scale, cursorY);
+  cursorY += 14 * scale;
 
-  const legendItems = [
-    { color: "#E23B3B", text: "DORI rojo — identificar" },
-    { color: "#F0A22E", text: "DORI ámbar — reconocer" },
-    { color: CYAN, text: "DORI celeste — observar" },
-    { color: "#297FB8", text: "DORI azul — detectar" },
-    { color: CYAN, text: "Rombo — antena (haz / anillos)" },
-    { color: FAULT_RED, text: "Triángulo rojo — punto averiado" },
-    { color: DEFICIENT_ORANGE, text: "Triángulo naranja — deficiente" },
-    { color: PROPOSED_GREEN, text: "Círculo verde (+) — propuesta" },
+  DEVICE_TYPE_ICONS.forEach((icon) => {
+    const preset = CAMERA_PRESETS.find((p) => p.icon === icon);
+    if (!preset) return;
+    drawDeviceGlyph(ctx, icon, sideX + 19 * scale, cursorY - 3 * scale, 8 * scale);
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.font = `${9 * scale}px monospace`;
+    ctx.fillText(preset.label, sideX + 32 * scale, cursorY);
+    cursorY += 13.5 * scale;
+  });
+
+  cursorY += 6 * scale;
+  ctx.strokeStyle = "rgba(255,255,255,0.15)";
+  ctx.beginPath(); ctx.moveTo(sideX + 10 * scale, cursorY - 4 * scale); ctx.lineTo(sideX + sideW - 10 * scale, cursorY - 4 * scale); ctx.stroke();
+
+  // --- Simbología: estado ---
+  ctx.fillStyle = CYAN;
+  ctx.font = `${10 * scale}px monospace`;
+  ctx.fillText("ESTADO", sideX + 14 * scale, cursorY);
+  cursorY += 14 * scale;
+
+  const statusItems = [
+    { color: CYAN, text: "Cámara existente" },
+    { color: DEFICIENT_ORANGE, text: "Punto deficiente" },
+    { color: FAULT_RED, text: "Punto averiado" },
+    { color: PROPOSED_GREEN, text: "Cámara propuesta" },
   ];
-  legendItems.forEach((item) => {
+  statusItems.forEach((item) => {
     ctx.beginPath();
     ctx.arc(sideX + 18 * scale, cursorY - 3 * scale, 3.6 * scale, 0, Math.PI * 2);
     ctx.fillStyle = item.color;
@@ -172,7 +248,7 @@ export async function exportComposite(svgEl, scale, meta) {
     ctx.fillStyle = "rgba(255,255,255,0.85)";
     ctx.font = `${9 * scale}px monospace`;
     ctx.fillText(item.text, sideX + 28 * scale, cursorY);
-    cursorY += 15.5 * scale;
+    cursorY += 13.5 * scale;
   });
 
   // --- Cajetín (título) al pie del sidebar ---

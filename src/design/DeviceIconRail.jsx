@@ -8,6 +8,7 @@ export const CAMERA_PRESETS = [
   { id: "ptz", label: "PTZ zoom", fov: 24, range: 340, viz: "fov_cone", icon: "ptz" },
   { id: "antenna_p2p", label: "Antena PtP", fov: 14, range: 320, viz: "wireless_beam", icon: "beam" },
   { id: "antenna_omni", label: "Antena Omni", fov: 360, range: 150, viz: "wireless_rings", icon: "omni" },
+  { id: "existing", label: "Cámara existente", fov: 78, range: 190, viz: "existing_cone", icon: "existing", statusColor: CYAN },
   { id: "fault", label: "Punto averiado", fov: 70, range: 160, viz: "fault_cone", icon: "fault", statusColor: FAULT_RED },
   { id: "deficient", label: "Punto deficiente", fov: 70, range: 160, viz: "fault_cone", icon: "deficient", statusColor: DEFICIENT_ORANGE },
   { id: "proposed", label: "Cámara propuesta", fov: 78, range: 190, viz: "proposal_cone", icon: "proposed", statusColor: PROPOSED_GREEN },
@@ -20,16 +21,20 @@ function PresetIcon({ type, active }) {
   if (type === "dome") {
     return (
       <svg {...common}>
-        <circle cx="14" cy="14" r="10" fill={fill} stroke={stroke} strokeWidth="2" />
-        <circle cx="14" cy="14" r="3.5" fill={stroke} />
+        <rect x="9" y="2.5" width="10" height="3" rx="1.2" fill={stroke} />
+        <path d="M6 8.5 A8 6.5 0 0 1 22 8.5 L22 12.5 A8 5.5 0 0 1 6 12.5 Z" fill={fill} stroke={stroke} strokeWidth="1.8" strokeLinejoin="round" />
+        <ellipse cx="14" cy="10.5" rx="3.4" ry="2.6" fill={stroke} opacity="0.85" />
+        <path d="M4 15 L24 15 L21 24 L7 24 Z" fill="none" stroke={stroke} strokeWidth="1.6" strokeLinejoin="round" />
       </svg>
     );
   }
   if (type === "bullet") {
     return (
       <svg {...common}>
-        <rect x="3" y="10" width="14" height="8" rx="3" fill={fill} stroke={stroke} strokeWidth="2" />
-        <circle cx="20" cy="14" r="4.5" fill={stroke} />
+        <path d="M3 6 L3 22 L7 24 L7 4 Z" fill={stroke} />
+        <rect x="6" y="9" width="15" height="10" rx="4" fill={fill} stroke={stroke} strokeWidth="1.8" />
+        <circle cx="21.5" cy="14" r="4.5" fill={stroke} />
+        <circle cx="21.5" cy="14" r="2" fill={active ? NAVY : "#0e1b30"} />
       </svg>
     );
   }
@@ -54,8 +59,10 @@ function PresetIcon({ type, active }) {
   if (type === "beam") {
     return (
       <svg {...common}>
-        <path d="M4 14 L21 5 L21 23 Z" fill={fill} stroke={stroke} strokeWidth="2" strokeLinejoin="round" />
-        <circle cx="6" cy="14" r="2" fill={stroke} />
+        <path d="M5 12 A13 9 0 0 1 24 4 L22 9 A8 6 0 0 0 9 15 Z" fill={fill} stroke={stroke} strokeWidth="1.8" strokeLinejoin="round" />
+        <circle cx="11" cy="13.5" r="2.2" fill={stroke} />
+        <line x1="11" y1="13.5" x2="21" y2="6" stroke={stroke} strokeWidth="1.4" />
+        <path d="M4 20 L9 24 M6 17 L13 22" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" opacity="0.7" />
       </svg>
     );
   }
@@ -65,6 +72,16 @@ function PresetIcon({ type, active }) {
         <circle cx="14" cy="14" r="2.6" fill={stroke} />
         <circle cx="14" cy="14" r="7" fill="none" stroke={stroke} strokeWidth="1.6" />
         <circle cx="14" cy="14" r="11" fill="none" stroke={stroke} strokeWidth="1.4" opacity="0.6" />
+      </svg>
+    );
+  }
+  if (type === "existing") {
+    return (
+      <svg {...common}>
+        <rect x="3" y="10" width="13" height="8" rx="3" fill={CYAN} stroke="white" strokeWidth="1.2" />
+        <circle cx="19" cy="14" r="4.2" fill={CYAN} stroke="white" strokeWidth="1.2" />
+        <circle cx="21" cy="7" r="6" fill={NAVY} stroke={CYAN} strokeWidth="1.6" />
+        <path d="M18.3 7 L20.2 8.9 L23.7 5.2" fill="none" stroke={CYAN} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
   }
@@ -112,11 +129,13 @@ export function DeviceIconRail({ activePresetId, onSelectPreset }) {
           <button
             key={p.id}
             title={p.label}
+            draggable
+            onDragStart={(e) => { e.dataTransfer.effectAllowed = "copy"; e.dataTransfer.setData("text/plain", p.id); }}
             onClick={() => onSelectPreset(p.id)}
             style={{
               display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "8px 4px",
               borderRadius: 9, border: active ? `1px solid ${CYAN}` : "1px solid rgba(255,255,255,0.12)",
-              background: active ? "rgba(37,182,239,0.15)" : "transparent", cursor: "pointer",
+              background: active ? "rgba(37,182,239,0.15)" : "transparent", cursor: "grab",
             }}
           >
             <PresetIcon type={p.icon} active={active} />
