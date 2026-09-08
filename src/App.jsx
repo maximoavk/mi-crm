@@ -1,15 +1,12 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calculator, GanttChartSquare, CheckSquare, BarChart2, LogOut, Receipt, Wrench, Scale, AlertTriangle, TrendingUp, Wallet } from "lucide-react";
 import { pdf } from "@react-pdf/renderer";
 import { CosteoInternoDoc, CosteoClienteDoc, fetchImageAsDataUri } from "./CosteoPdfDocs.jsx";
 import { GanttDoc } from "./GanttPdfDoc.jsx";
-
-// ── SUPABASE ────────────────────────────────────────────────────────────────
-const supabase = createClient(
-  "https://gvwytgmldfwmdhlnfttz.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd2d3l0Z21sZGZ3bWRobG5mdHR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NjU4MjksImV4cCI6MjA4ODM0MTgyOX0.M_Sul9b-Q60vHzNd2vRqsfgx7VPk59WzwIzzpRi2bL8"
-);
+import { COLORS, FONT, FONT_DISPLAY } from "./theme.js";
+import { supabase } from "./supabaseClient.js";
+import { DesignProjectsPanel } from "./design/DesignProjectsPanel.jsx";
+import { DesignView } from "./design/DesignView.jsx";
 
 // ── LOGO ────────────────────────────────────────────────────────────────────
 const LOGO_B64 = "https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69b784045e7a002f4a490938_Recurso%2013.png"; // Logo blanco para fondo oscuro
@@ -84,17 +81,6 @@ const mapTaskToDb = (f) => ({
   deal_id: f.dealId || null,
   deal_stage_snapshot: f.dealStageSnapshot || "",
 });
-
-// ── CONSTANTS ───────────────────────────────────────────────────────────────
-const COLORS_DARK = {
-  bg: "#0A0C10", surface: "#111318", card: "#161A22", border: "#1E2530",
-  accent: "#00C2FF", accentDim: "#00C2FF22", accentGlow: "#00C2FF44",
-  green: "#00E5A0", yellow: "#FFB800", red: "#FF4D6A", purple: "#A855F7",
-  text: "#E8ECF4", textMuted: "#9BAAC4", textDim: "#4A5778",
-};
-const COLORS = { ...COLORS_DARK };
-const FONT = "'DM Mono', 'Courier New', monospace";
-const FONT_DISPLAY = "'Space Grotesk', sans-serif";
 
 // ── CHILE REGIONES Y COMUNAS ─────────────────────────────────────────────────
 const CHILE = {
@@ -7813,7 +7799,7 @@ const mapCosteoToDb = (p) => ({
   updated_at: new Date().toISOString(),
 });
 
-function CosteoView({ contacts, openId, onOpenIdHandled }) {
+function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
   const [proyectos, setProyectos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
@@ -8417,9 +8403,9 @@ function CosteoView({ contacts, openId, onOpenIdHandled }) {
 
       {/* Tabs */}
       <div style={{ display:"flex", gap:4, marginBottom:20, borderBottom:`1px solid ${COLORS.border}` }}>
-        {["costeo","partidas"].map(t=>(
+        {["costeo","partidas","diseno"].map(t=>(
           <button key={t} onClick={()=>setPage(t)} style={{ padding:"8px 20px", background:"none", border:"none", borderBottom:page===t?`2px solid ${COLORS.accent}`:"2px solid transparent", color:page===t?COLORS.accent:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:page===t?700:400, cursor:"pointer", marginBottom:-1 }}>
-            {t==="costeo"?"📊 Control de Costos":"💳 Partidas de Pago"}
+            {t==="costeo"?"📊 Control de Costos":t==="partidas"?"💳 Partidas de Pago":"🎥 Planos de Diseño"}
           </button>
         ))}
       </div>
@@ -8514,6 +8500,9 @@ function CosteoView({ contacts, openId, onOpenIdHandled }) {
             + Agregar Hito
           </button>
         </>
+      )}
+      {page==="diseno" && (
+        <DesignProjectsPanel costeoId={proyecto.id} onOpenDesign={onOpenDesign} />
       )}
       <PdfPreviewModal url={pdfPreviewUrl} onClose={() => { URL.revokeObjectURL(pdfPreviewUrl); setPdfPreviewUrl(null); }} />
     </div>
@@ -19986,6 +19975,7 @@ function ColaboradorView({ session }) {
 export default function CRM() {
   const [view, setView] = useState("dashboard");
   const [openCosteoId, setOpenCosteoId] = useState(null);
+  const [openDesignProjectId, setOpenDesignProjectId] = useState(null);
   const [contacts, setContacts] = useState([]);
   const [deals, setDeals] = useState([]);
   const [tasks, setTasks] = useState([]);
@@ -20183,7 +20173,8 @@ export default function CRM() {
           {view==="purchase"     && <PurchaseView isMobile={isMobile} />}
           {view==="guias"        && <GuiasView isMobile={isMobile} />}
           {view==="control_proyectos" && <ControlProyectosView contacts={contacts} />}
-          {view==="costeo"    && <CosteoView contacts={contacts} isMobile={isMobile} openId={openCosteoId} onOpenIdHandled={()=>setOpenCosteoId(null)} />}
+          {view==="costeo"    && <CosteoView contacts={contacts} isMobile={isMobile} openId={openCosteoId} onOpenIdHandled={()=>setOpenCosteoId(null)} onOpenDesign={(id)=>{ setOpenDesignProjectId(id); setView("design"); }} />}
+          {view==="design"    && <DesignView designProjectId={openDesignProjectId} onBack={(costeoId)=>{ setOpenCosteoId(costeoId); setOpenDesignProjectId(null); setView("costeo"); }} />}
           {view==="gantt"     && <GanttView isMobile={isMobile} />}
           {view==="operaciones" && <OperacionesView isMobile={isMobile} />}
           {view==="analisis"    && <AnalisisPreciosView isMobile={isMobile} />}

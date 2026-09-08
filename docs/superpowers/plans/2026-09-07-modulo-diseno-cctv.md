@@ -19,6 +19,7 @@
 - RLS de las tablas nuevas replica exactamente el patrón ya usado en `costeos` (`for all to authenticated using (true) with check (true)`), confirmado en la base real del proyecto (`gvwytgmldfwmdhlnfttz`).
 - Proyecto Supabase objetivo: `gvwytgmldfwmdhlnfttz` ("Polygonos 360 Project").
 - El archivo de referencia `/home/maximo/Descargas/cctv-fov-demo.html` es una ruta absoluta fuera del repo (Descargas del usuario) — debe seguir existiendo ahí durante toda la ejecución de este plan; si no está, pedir al usuario que lo vuelva a dejar en esa ruta antes de continuar con las tareas de port (6, 8, 9, 10).
+- Los números de línea de `src/App.jsx` citados en este plan (Tasks 2, 3, 15) son referencias al archivo tal como estaba al escribir el plan; cada task que edita `App.jsx` corre después de las anteriores y puede haber desplazado esos números. Ubicar cada punto de edición por el contenido literal citado (firma de función, string único), no por el número de línea — Task 3 ya deja explícito cómo queda el archivo después del Task 2.
 
 ---
 
@@ -167,7 +168,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 - [ ] **Step 2: Actualizar `App.jsx` para usar ese cliente**
 
-En `src/App.jsx`, reemplazar las líneas 1-12:
+**Nota:** este step corre después del Task 2, que ya agregó `import { COLORS, FONT, FONT_DISPLAY } from "./theme.js";` al bloque de imports y borró el bloque `COLORS_DARK`/`COLORS`/`FONT`/`FONT_DISPLAY` más abajo en el archivo. El "antes" de abajo ya refleja ese estado — no el archivo original pristino.
+
+En `src/App.jsx`, reemplazar el bloque de imports + creación del cliente (tal como queda después del Task 2):
 
 ```js
 import React, { useState, useMemo, useEffect, useCallback } from "react";
@@ -176,6 +179,7 @@ import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calcul
 import { pdf } from "@react-pdf/renderer";
 import { CosteoInternoDoc, CosteoClienteDoc, fetchImageAsDataUri } from "./CosteoPdfDocs.jsx";
 import { GanttDoc } from "./GanttPdfDoc.jsx";
+import { COLORS, FONT, FONT_DISPLAY } from "./theme.js";
 
 // ── SUPABASE ────────────────────────────────────────────────────────────────
 const supabase = createClient(
@@ -192,8 +196,11 @@ import { LayoutDashboard, Users, Kanban, FileText, Package, ShoppingCart, Calcul
 import { pdf } from "@react-pdf/renderer";
 import { CosteoInternoDoc, CosteoClienteDoc, fetchImageAsDataUri } from "./CosteoPdfDocs.jsx";
 import { GanttDoc } from "./GanttPdfDoc.jsx";
+import { COLORS, FONT, FONT_DISPLAY } from "./theme.js";
 import { supabase } from "./supabaseClient.js";
 ```
+
+Si el archivo no calza exactamente con el "antes" de arriba (por ejemplo, el import de `theme.js` quedó en otro orden), localizar el bloque por contenido — la línea `const supabase = createClient(` y el import `"@supabase/supabase-js"` son únicos en el archivo — en vez de asumir número de línea exacto.
 
 - [ ] **Step 3: Verificar que compila y conecta**
 
