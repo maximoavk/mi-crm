@@ -7720,6 +7720,10 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
 
 function PartidaRow({ partida, fases, onChange, onDelete }) {
   const inp = (k,v) => onChange({...partida,[k]:v});
+  // Mientras se escribe el monto "Cobrado", se guarda el texto tal cual acá
+  // (no lo que devuelve el round-trip $ → % → $, que redondea y "se come"
+  // lo que se está tipeando). Se confirma a pctAvance recién al salir del campo.
+  const [cobradoInput, setCobradoInput] = useState(null);
   const handleFaseChange = (faseId) => {
     const fase = fases.find(f=>String(f.id)===String(faseId));
     const updates = { faseId };
@@ -7801,8 +7805,22 @@ function PartidaRow({ partida, fases, onChange, onDelete }) {
           <span style={{ fontFamily:FONT, fontSize:10, color:"#22d3ee" }}>%</span>
         </div>
       </td>
-      <td style={{ padding:"8px 6px", width:110, fontFamily:FONT, fontSize:11, fontWeight:700, color:"#22d3ee", textAlign:"right" }}>
-        {cobrado > 0 ? `$${Math.round(cobrado).toLocaleString("es-CL")}` : "-"}
+      <td style={{ padding:"8px 6px", width:110 }}>
+        <input
+          style={{...style, width:"100%", boxSizing:"border-box", color:"#22d3ee", fontWeight:700, textAlign:"right"}}
+          type="number" min={0}
+          value={cobradoInput !== null ? cobradoInput : (cobrado>0 ? Math.round(cobrado) : "")}
+          onChange={e=>setCobradoInput(e.target.value)}
+          onBlur={()=>{
+            if(cobradoInput===null) return;
+            const dolares = Number(cobradoInput)||0;
+            const nuevoPct = monto>0 ? Math.min(100, Math.round((dolares/monto)*1000)/10) : 0;
+            inp("pctAvance", nuevoPct);
+            setCobradoInput(null);
+          }}
+          placeholder="$"
+          title="Monto ya cobrado — editar acá recalcula el % Avance solo"
+        />
       </td>
       <td style={{ padding:"8px 6px", textAlign:"center" }}>
         <button onClick={onDelete} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>×</button>
