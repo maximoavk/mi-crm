@@ -7732,6 +7732,8 @@ function PartidaRow({ partida, fases, onChange, onDelete }) {
   // lo que se está tipeando). Se confirma a pctAvance recién al salir del campo.
   const [cobradoInput, setCobradoInput] = useState(null);
   const [anticipoInput, setAnticipoInput] = useState(null);
+  const [parcialInput, setParcialInput] = useState(null);
+  const [finalizarInput, setFinalizarInput] = useState(null);
   const handleFaseChange = (faseId) => {
     const fase = fases.find(f=>String(f.id)===String(faseId));
     const updates = { faseId };
@@ -7802,8 +7804,21 @@ function PartidaRow({ partida, fases, onChange, onDelete }) {
           <span style={{ color:COLORS.textMuted, fontSize:9 }}>d</span>
         </div>
       </td>
-      <td style={{ padding:"8px 6px", width:100, fontFamily:FONT, fontSize:11, color:COLORS.green, textAlign:"right" }}>
-        {parcial > 0 ? `$${parcial.toLocaleString("es-CL")}` : "-"}
+      <td style={{ padding:"8px 6px", width:100 }}>
+        <input
+          style={{ background:"transparent", border:"none", color:COLORS.green, fontFamily:FONT, fontSize:11, padding:"5px 4px", width:"100%", boxSizing:"border-box", textAlign:"right" }}
+          type="number" min={0}
+          value={parcialInput !== null ? parcialInput : (parcial>0 ? Math.round(parcial) : "")}
+          onChange={e=>setParcialInput(e.target.value)}
+          onBlur={()=>{
+            if(parcialInput===null) return;
+            const dolares = Number(parcialInput)||0;
+            inp("pctParcial", monto>0 ? (dolares/monto)*100 : 0);
+            setParcialInput(null);
+          }}
+          placeholder="$"
+          title="Editar acá recalcula el % Parcial solo"
+        />
       </td>
       {/* FINALIZAR */}
       <td style={{ padding:"8px 6px", width:100 }}>
@@ -7814,8 +7829,21 @@ function PartidaRow({ partida, fases, onChange, onDelete }) {
           <span style={{ color:COLORS.textMuted, fontSize:9 }}>d</span>
         </div>
       </td>
-      <td style={{ padding:"8px 6px", width:100, fontFamily:FONT, fontSize:11, color:"#f59e0b", textAlign:"right" }}>
-        {finalizar > 0 ? `$${finalizar.toLocaleString("es-CL")}` : "-"}
+      <td style={{ padding:"8px 6px", width:100 }}>
+        <input
+          style={{ background:"transparent", border:"none", color:"#f59e0b", fontFamily:FONT, fontSize:11, padding:"5px 4px", width:"100%", boxSizing:"border-box", textAlign:"right" }}
+          type="number" min={0}
+          value={finalizarInput !== null ? finalizarInput : (finalizar>0 ? Math.round(finalizar) : "")}
+          onChange={e=>setFinalizarInput(e.target.value)}
+          onBlur={()=>{
+            if(finalizarInput===null) return;
+            const dolares = Number(finalizarInput)||0;
+            inp("pctFinalizar", monto>0 ? (dolares/monto)*100 : 0);
+            setFinalizarInput(null);
+          }}
+          placeholder="$"
+          title="Editar acá recalcula el % Finalizar solo"
+        />
       </td>
       <td style={{ padding:"8px 6px", width:110, fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.text, textAlign:"right" }}>
         ${monto.toLocaleString("es-CL")}
