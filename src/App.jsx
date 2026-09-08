@@ -7727,13 +7727,21 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
 
 function PartidaRow({ partida, fases, onChange, onDelete, cobradoAuto }) {
   const inp = (k,v) => onChange({...partida,[k]:v});
+  // Anticipo y Parcial se editan libres; Finalizar ya no se edita directo —
+  // se recalcula solo para que los 3 siempre sumen 100% ("Finalizar" = el
+  // saldo restante), así nunca queda una combinación que no cuadre.
+  const inpSplit = (k,v) => {
+    const pctAnticipo = k==="pctAnticipo" ? Number(v)||0 : Number(partida.pctAnticipo)||0;
+    const pctParcial = k==="pctParcial" ? Number(v)||0 : Number(partida.pctParcial)||0;
+    const pctFinalizar = Math.max(0, 100 - pctAnticipo - pctParcial);
+    onChange({...partida, [k]:v, pctFinalizar});
+  };
   // Mientras se escribe el monto "Cobrado", se guarda el texto tal cual acá
   // (no lo que devuelve el round-trip $ → % → $, que redondea y "se come"
   // lo que se está tipeando). Se confirma a pctAvance recién al salir del campo.
   const [cobradoInput, setCobradoInput] = useState(null);
   const [anticipoInput, setAnticipoInput] = useState(null);
   const [parcialInput, setParcialInput] = useState(null);
-  const [finalizarInput, setFinalizarInput] = useState(null);
   const handleFaseChange = (faseId) => {
     const fase = fases.find(f=>String(f.id)===String(faseId));
     const updates = { faseId };
@@ -7772,7 +7780,7 @@ function PartidaRow({ partida, fases, onChange, onDelete, cobradoAuto }) {
       {/* ANTICIPO */}
       <td style={{ padding:"8px 6px", width:100 }}>
         <div style={{ display:"flex", gap:3, alignItems:"center" }}>
-          <input style={{...styleSmall, color:COLORS.accent}} type="number" value={partida.pctAnticipo} onChange={e=>inp("pctAnticipo",e.target.value)} placeholder="%" />
+          <input style={{...styleSmall, color:COLORS.accent}} type="number" value={partida.pctAnticipo} onChange={e=>inpSplit("pctAnticipo",e.target.value)} placeholder="%" />
           <span style={{ color:COLORS.textMuted, fontSize:10 }}>%</span>
           <input style={{...styleSmall, color:COLORS.textMuted}} type="number" value={partida.diasAnticipo||0} onChange={e=>inp("diasAnticipo",e.target.value)} placeholder="d" title="Días plazo" />
           <span style={{ color:COLORS.textMuted, fontSize:9 }}>d</span>
@@ -7789,17 +7797,17 @@ function PartidaRow({ partida, fases, onChange, onDelete, cobradoAuto }) {
             const dolares = Number(anticipoInput)||0;
             // Sin redondear a pocos decimales (a diferencia de pctAvance) — así
             // el $ que se escribe acá vuelve exacto, no se pierde precisión.
-            inp("pctAnticipo", monto>0 ? (dolares/monto)*100 : 0);
+            inpSplit("pctAnticipo", monto>0 ? (dolares/monto)*100 : 0);
             setAnticipoInput(null);
           }}
           placeholder="$"
-          title="Editar acá recalcula el % Anticipo solo"
+          title="Editar acá recalcula el % Anticipo (y Finalizar, para que sigan sumando 100%)"
         />
       </td>
       {/* PARCIAL */}
       <td style={{ padding:"8px 6px", width:100 }}>
         <div style={{ display:"flex", gap:3, alignItems:"center" }}>
-          <input style={{...styleSmall, color:COLORS.green}} type="number" value={partida.pctParcial} onChange={e=>inp("pctParcial",e.target.value)} placeholder="%" />
+          <input style={{...styleSmall, color:COLORS.green}} type="number" value={partida.pctParcial} onChange={e=>inpSplit("pctParcial",e.target.value)} placeholder="%" />
           <span style={{ color:COLORS.textMuted, fontSize:10 }}>%</span>
           <input style={{...styleSmall, color:COLORS.textMuted}} type="number" value={partida.diasParcial||0} onChange={e=>inp("diasParcial",e.target.value)} placeholder="d" title="Días plazo" />
           <span style={{ color:COLORS.textMuted, fontSize:9 }}>d</span>
@@ -7814,37 +7822,24 @@ function PartidaRow({ partida, fases, onChange, onDelete, cobradoAuto }) {
           onBlur={()=>{
             if(parcialInput===null) return;
             const dolares = Number(parcialInput)||0;
-            inp("pctParcial", monto>0 ? (dolares/monto)*100 : 0);
+            inpSplit("pctParcial", monto>0 ? (dolares/monto)*100 : 0);
             setParcialInput(null);
           }}
           placeholder="$"
-          title="Editar acá recalcula el % Parcial solo"
+          title="Editar acá recalcula el % Parcial (y Finalizar, para que sigan sumando 100%)"
         />
       </td>
-      {/* FINALIZAR */}
+      {/* FINALIZAR — el saldo: se calcula solo para que Anticipo+Parcial+Finalizar=100% */}
       <td style={{ padding:"8px 6px", width:100 }}>
         <div style={{ display:"flex", gap:3, alignItems:"center" }}>
-          <input style={{...styleSmall, color:"#f59e0b"}} type="number" value={partida.pctFinalizar} onChange={e=>inp("pctFinalizar",e.target.value)} placeholder="%" />
+          <div style={{...styleSmall, color:"#f59e0b", cursor:"default"}} title="El saldo — se calcula solo (100% − Anticipo − Parcial)">{(Number(partida.pctFinalizar)||0).toFixed(1)}</div>
           <span style={{ color:COLORS.textMuted, fontSize:10 }}>%</span>
           <input style={{...styleSmall, color:COLORS.textMuted}} type="number" value={partida.diasFinalizar||0} onChange={e=>inp("diasFinalizar",e.target.value)} placeholder="d" title="Días plazo" />
           <span style={{ color:COLORS.textMuted, fontSize:9 }}>d</span>
         </div>
       </td>
-      <td style={{ padding:"8px 6px", width:100 }}>
-        <input
-          style={{ background:"transparent", border:"none", color:"#f59e0b", fontFamily:FONT, fontSize:11, padding:"5px 4px", width:"100%", boxSizing:"border-box", textAlign:"right" }}
-          type="number" min={0}
-          value={finalizarInput !== null ? finalizarInput : (finalizar>0 ? Math.round(finalizar) : "")}
-          onChange={e=>setFinalizarInput(e.target.value)}
-          onBlur={()=>{
-            if(finalizarInput===null) return;
-            const dolares = Number(finalizarInput)||0;
-            inp("pctFinalizar", monto>0 ? (dolares/monto)*100 : 0);
-            setFinalizarInput(null);
-          }}
-          placeholder="$"
-          title="Editar acá recalcula el % Finalizar solo"
-        />
+      <td style={{ padding:"8px 6px", width:100, fontFamily:FONT, fontSize:11, color:"#f59e0b", textAlign:"right" }} title="El saldo — se calcula solo para que Anticipo+Parcial+Finalizar sumen 100%">
+        {finalizar > 0 ? `$${Math.round(finalizar).toLocaleString("es-CL")}` : "-"}
       </td>
       <td style={{ padding:"8px 6px", width:110, fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.text, textAlign:"right" }}>
         ${monto.toLocaleString("es-CL")}
