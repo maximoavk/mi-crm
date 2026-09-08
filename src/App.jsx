@@ -5961,6 +5961,15 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
   const lineTotal = selectedLineKeys===null
     ? cotTotal
     : allLines.reduce((s,l)=>s+lsub(l),0);
+  // Saldo real pendiente: cotTotal ya viene en vivo desde `quotes` (refleja
+  // ajustes/descuentos aplicados en la cotización), pero este total por sí
+  // solo no descuenta lo ya cobrado en documentos ANTERIORES para la misma
+  // cotización — hay que sumarlo aparte desde `allDocs`. Se excluye el propio
+  // documento (`existing`) para no restarse a sí mismo al reimprimir/editar.
+  const totalPagadoPrevio = allDocs
+    .filter(d=>d.id!==existing?.id && (d.quote_ids||[]).some(qid=>selectedQuoteIds.includes(qid)))
+    .reduce((s,d)=>s+Number(d.monto_pagado||0),0);
+  const saldoRealPendiente = Math.max(cotTotal-totalPagadoPrevio,0);
   const txTotal    = transacciones.reduce((s,t)=>s+Number(t.monto||0),0);
   const totalMonto = txTotal>0?txTotal:lineTotal;
   const firstQ     = selQuotes[0]||quotes[0];
@@ -6158,6 +6167,24 @@ function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved
             </div>
           )}
         </div>
+
+        {/* Saldo real pendiente — descuenta lo ya cobrado en documentos anteriores de estas cotizaciones */}
+        {selQuotes.length>0 && (
+          <div style={{marginBottom:18,background:COLORS.bg,border:`1px solid ${COLORS.border}`,borderRadius:8,padding:"12px 14px",display:"flex",flexDirection:"column",gap:6}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontFamily:FONT,fontSize:10,color:COLORS.textMuted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Total cotización{selQuotes.length>1?"es":""}</span>
+              <span style={{fontFamily:FONT_DISPLAY,fontSize:12,color:COLORS.text}}>{fmt(cotTotal)}</span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontFamily:FONT,fontSize:10,color:COLORS.textMuted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Ya cobrado en documentos anteriores</span>
+              <span style={{fontFamily:FONT_DISPLAY,fontSize:12,color:totalPagadoPrevio>0?COLORS.yellow:COLORS.textMuted}}>{fmt(totalPagadoPrevio)}</span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:6,borderTop:`1px solid ${COLORS.border}`}}>
+              <span style={{fontFamily:FONT,fontSize:11,color:COLORS.text,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.08em"}}>Saldo real pendiente</span>
+              <span style={{fontFamily:FONT_DISPLAY,fontSize:15,fontWeight:700,color:saldoRealPendiente>0?COLORS.green:COLORS.textMuted}}>{fmt(saldoRealPendiente)}</span>
+            </div>
+          </div>
+        )}
 
         {/* Líneas */}
         {allLinesRaw.length>0&&(
@@ -7812,6 +7839,11 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
   const [genTipo, setGenTipo] = useState("fases");
   const [genSaving, setGenSaving] = useState(false);
   const [genDone, setGenDone] = useState(null);
+  const [syncModal, setSyncModal] = useState(false);
+  const [syncPreview, setSyncPreview] = useState(null);
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncSaving, setSyncSaving] = useState(false);
+  const [syncDone, setSyncDone] = useState(false);
   const [search, setSearch] = useState("");
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
   const [saveStatus, setSaveStatus] = useState("idle"); // idle | saving | saved
@@ -8256,6 +8288,66 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
     setGenDone(nextNum);
   };
 
+  // Recalcula los totales actuales de cada fase y arma una vista previa de lo
+  // que cambiaría en la cotización ya generada, SIN aplicar nada todavía.
+  // No toca líneas de hito (cronograma de pago ya acordado) ni crea líneas
+  // nuevas — si una fase no tiene línea correspondiente (código no encontrado),
+  // se marca como "no encontrada" y se omite al aplicar.
+  const openSyncPreview = async () => {
+    if(!proyecto.cotizacionId) return;
+    setSyncLoading(true);
+    setSyncDone(false);
+    const [{ data: cotRow }, { data: lineRows }] = await Promise.all([
+      supabase.from("cotizaciones").select("id,numero,total,aplica_iva").eq("id",proyecto.cotizacionId).single(),
+      supabase.from("quote_lines").select("*").eq("quote_id",proyecto.cotizacionId).order("orden"),
+    ]);
+    setSyncLoading(false);
+    if(!cotRow){ alert("No se pudo cargar la cotización enlazada — puede haber sido eliminada."); return; }
+    const sapBase = `POL-${String(cotRow.numero).padStart(4,"0")}`;
+    const itemLines = (lineRows||[]).filter(l=>l.tipo_linea!=="hito");
+    const isFaseMode = itemLines.some(l=>/-F\d+$/.test(l.codigo||""));
+    const fases = fasesCalc;
+    let rows;
+    if(isFaseMode) {
+      rows = fases.map((f,fi)=>{
+        const codigo = `${sapBase}-F${fi+1}`;
+        const linea = itemLines.find(l=>l.codigo===codigo);
+        return {
+          fase: f.nombre||`Fase ${fi+1}`, codigo,
+          actual: linea ? Number(linea.subtotal)||0 : null,
+          nuevo: Math.round(f.ventaConDesc),
+          precioNuevo: Math.round(f.ventaBruta), descNuevo: Number(f.descPct)||0,
+          lineaId: linea ? linea.id : null,
+        };
+      });
+    } else {
+      const totalNuevo = Math.round(fases.reduce((s,f)=>s+f.ventaConDesc,0));
+      const linea = itemLines[0]||null;
+      rows = [{
+        fase:"Proyecto total", codigo: linea?.codigo||sapBase,
+        actual: linea ? Number(linea.subtotal)||0 : null,
+        nuevo: totalNuevo, precioNuevo: totalNuevo, descNuevo: 0,
+        lineaId: linea ? linea.id : null,
+      }];
+    }
+    const netoNuevo = Math.round(rows.reduce((s,r)=>s+r.nuevo,0));
+    const totalNuevo = cotRow.aplica_iva ? Math.round((netoNuevo+Math.round(netoNuevo*0.19))/100)*100 : Math.round(netoNuevo/100)*100;
+    setSyncPreview({ rows, totalActual:Number(cotRow.total)||0, totalNuevo, cotId:cotRow.id });
+    setSyncModal(true);
+  };
+
+  const applySync = async () => {
+    if(!syncPreview) return;
+    setSyncSaving(true);
+    const updates = syncPreview.rows.filter(r=>r.lineaId);
+    await Promise.all(updates.map(r=>
+      supabase.from("quote_lines").update({ precio_unitario:r.precioNuevo, descuento:r.descNuevo, subtotal:r.nuevo }).eq("id",r.lineaId)
+    ));
+    await supabase.from("cotizaciones").update({ total:syncPreview.totalNuevo }).eq("id", syncPreview.cotId);
+    setSyncSaving(false);
+    setSyncDone(true);
+  };
+
   return (
     <div>
       {/* Modal generar cotización */}
@@ -8328,6 +8420,73 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
         </div>
       )}
 
+      {/* Modal sincronizar con cotización */}
+      {syncModal && syncPreview && (
+        <div style={{ position:"fixed", inset:0, background:"#000a", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:14, padding:28, width:520, maxWidth:"95vw", maxHeight:"85vh", overflowY:"auto" }}>
+            {syncDone ? (
+              <>
+                <div style={{ textAlign:"center", marginBottom:16 }}>
+                  <div style={{ fontSize:36 }}>✅</div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text, marginTop:8 }}>Cotización sincronizada</div>
+                  <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginTop:4 }}>El total y las líneas quedaron al día con el costeo actual.</div>
+                </div>
+                <button onClick={()=>{ setSyncModal(false); setSyncPreview(null); setSyncDone(false); }}
+                  style={{ width:"100%", padding:"10px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+                  Cerrar
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text, marginBottom:4 }}>Sincronizar con cotización</div>
+                <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:16 }}>
+                  Se actualiza el precio de cada línea al valor recalculado del costeo. No se tocan los hitos de pago ni se crean líneas nuevas.
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:16 }}>
+                  {syncPreview.rows.map((r,i)=>(
+                    <div key={i} style={{ background:COLORS.card, borderRadius:8, padding:"10px 12px", border:`1px solid ${r.lineaId?COLORS.border:COLORS.yellow+"66"}` }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8 }}>
+                        <div style={{ minWidth:0 }}>
+                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{r.fase}</div>
+                          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{r.codigo}</div>
+                        </div>
+                        {r.lineaId ? (
+                          <div style={{ textAlign:"right", flexShrink:0 }}>
+                            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textDecoration: r.actual!==r.nuevo?"line-through":"none" }}>{fmt(r.actual)}</div>
+                            <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color: r.actual!==r.nuevo?COLORS.accent:COLORS.text }}>{fmt(r.nuevo)}</div>
+                          </div>
+                        ) : (
+                          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.yellow, flexShrink:0 }}>⚠ No encontrada — se omite</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ background:COLORS.card, borderRadius:8, padding:"10px 14px", marginBottom:20, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Total cotización</span>
+                  <div style={{ textAlign:"right" }}>
+                    {syncPreview.totalActual!==syncPreview.totalNuevo && (
+                      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textDecoration:"line-through" }}>{fmt(syncPreview.totalActual)}</div>
+                    )}
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.accent }}>{fmt(syncPreview.totalNuevo)}</div>
+                  </div>
+                </div>
+                <div style={{ display:"flex", gap:10 }}>
+                  <button onClick={()=>{ setSyncModal(false); setSyncPreview(null); }}
+                    style={{ flex:1, padding:"10px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
+                    Cancelar
+                  </button>
+                  <button onClick={applySync} disabled={syncSaving}
+                    style={{ flex:2, padding:"10px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer", opacity:syncSaving?0.6:1 }}>
+                    {syncSaving?"Aplicando...":"🔄 Aplicar sincronización"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16, flexWrap:"wrap" }}>
         <button onClick={()=>{ flushPending(selected); setSelected(null); }} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>← Proyectos</button>
@@ -8350,6 +8509,12 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
           style={{ padding:"8px 16px", background:"#7c3aed", border:"none", borderRadius:7, color:"white", fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer" }}>
           ✦ Generar Cotización
         </button>
+        {proyecto.cotizacionId && (
+          <button onClick={openSyncPreview} disabled={syncLoading}
+            style={{ padding:"8px 16px", background:"transparent", border:`1px solid ${COLORS.accent}`, borderRadius:7, color:COLORS.accent, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer", opacity:syncLoading?0.6:1 }}>
+            {syncLoading?"Cargando…":"🔄 Sincronizar con cotización"}
+          </button>
+        )}
       </div>
 
       {/* Rubro / Tipo de trabajo */}
