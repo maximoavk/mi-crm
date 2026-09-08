@@ -2057,7 +2057,7 @@ function ControlProyectosView({ contacts }) {
       const totalVenta = fases.reduce((s,fa)=>s+fa.ventaTotal,0);
       const partidas   = costeo ? (costeo.partidas||[]) : [];
       const totalPartidas = partidas.reduce((s,pa)=>s+Number(pa.monto||0),0);
-      const totalCobrado  = partidas.reduce((s,pa)=>s+(Number(pa.monto||0)*(Number(pa.pctAvance||0)/100)),0);
+      const totalCobrado  = partidas.reduce((s,pa)=>s+partidaCobrado(pa),0);
       return {
         ...p, cot, gantt, tareas, totalT, pctGantt,
         fases, totalVenta, partidas, totalPartidas, totalCobrado,
@@ -7264,12 +7264,21 @@ function calcFase(fase) {
   };
 }
 
+// Plata ya cobrada de una partida, en pesos exactos. `montoCobrado` es el dato
+// real (lo que se escribe directo en la columna "Cobrado"); `pctAvance` es
+// solo una vista de respaldo para partidas antiguas que no tengan
+// `montoCobrado` guardado todavía — nunca se recalculan pesos desde ahí para
+// no perder precisión (pctAvance solo guarda 1 decimal).
+function partidaCobrado(p) {
+  if(p.montoCobrado !== undefined && p.montoCobrado !== null && p.montoCobrado !== "") return Number(p.montoCobrado)||0;
+  return Number(p.monto||0) * (Number(p.pctAvance)||0) / 100;
+}
+
 // Mantiene el monto de cada partida vinculada a una fase igual al total actual
 // de esa fase, para que un cambio en el costeo no deje avances/cobertura desfasados.
-// Cuando el monto cambia (ej. se agregó o sacó un ítem de la fase), el %
-// Avance NO se deja fijo — se recalcula para que siga representando la misma
-// plata YA cobrada (un hecho que no cambia retroactivamente), en vez de
-// quedar aplicado sobre un monto distinto y ensuciar el Saldo por Cobrar.
+// La plata YA cobrada (montoCobrado) es un hecho que no cambia retroactivamente
+// — se preserva tal cual cuando el monto de la fase cambia (ej. se saca o
+// agrega un ítem); solo se recalcula pctAvance como referencia visual.
 function syncPartidasConFases(partidas, fases) {
   let changed = false;
   const next = (partidas||[]).map(p => {
@@ -7279,10 +7288,8 @@ function syncPartidasConFases(partidas, fases) {
     const montoActual = Math.round(calcFase(fase).ventaConDesc);
     if(Number(p.monto)===montoActual) return p;
     changed = true;
-    const montoAnterior = Number(p.monto)||0;
-    const pctAvanceAnterior = Number(p.pctAvance)||0;
-    const dolaresCobrados = montoAnterior * (pctAvanceAnterior/100);
-    const pctAvanceNuevo = montoActual>0 ? Math.min(100, Math.round((dolaresCobrados/montoActual)*1000)/10) : 0;
+    const cobrado = partidaCobrado(p);
+    const pctAvanceNuevo = montoActual>0 ? Math.min(100, Math.round((cobrado/montoActual)*1000)/10) : 0;
     return { ...p, monto: montoActual, pctAvance: pctAvanceNuevo };
   });
   return changed ? next : partidas;
@@ -7545,7 +7552,7 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
   // Barra de progreso: partidas vinculadas a esta fase
   const partidasFase = (partidas||[]).filter(p=>String(p.faseId)===String(fase.id));
   const totalCubierto = partidasFase.reduce((s,p)=>s+Number(p.monto),0);
-  const totalCobrado  = partidasFase.reduce((s,p)=>s+(Number(p.monto)*(Math.min(Number(p.pctAvance)||0,100)/100)),0);
+  const totalCobrado  = partidasFase.reduce((s,p)=>s+partidaCobrado(p),0);
   const ventaRef = calc.descPct > 0 ? calc.ventaConDesc : calc.ventaBruta;
   const pctCubierto = ventaRef > 0 ? Math.min((totalCubierto/ventaRef)*100, 100) : 0;
   const pctCobrado  = ventaRef > 0 ? Math.min((totalCobrado/ventaRef)*100, 100) : 0;
@@ -7736,8 +7743,8 @@ function PartidaRow({ partida, fases, onChange, onDelete }) {
   const anticipo = monto*(Number(partida.pctAnticipo)||0)/100;
   const parcial = monto*(Number(partida.pctParcial)||0)/100;
   const finalizar = monto*(Number(partida.pctFinalizar)||0)/100;
-  const avance = Math.min(Math.max(Number(partida.pctAvance)||0, 0), 100);
-  const cobrado = monto * avance / 100;
+  const cobrado = partidaCobrado(partida);
+  const avance = monto>0 ? Math.min((cobrado/monto)*100, 100) : 0;
   return (
     <tr style={{ borderBottom:`1px solid ${COLORS.border}22` }}>
       <td style={{ padding:"8px 6px" }}>
@@ -7797,13 +7804,9 @@ function PartidaRow({ partida, fases, onChange, onDelete }) {
       <td style={{ padding:"8px 6px", width:110, fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.text, textAlign:"right" }}>
         ${monto.toLocaleString("es-CL")}
       </td>
-      {/* % Avance cobrado */}
-      <td style={{ padding:"8px 6px", width:80 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-          <input style={{...style, width:52, color:"#22d3ee", fontWeight:700}} type="number" min={0} max={100}
-            value={partida.pctAvance||0} onChange={e=>inp("pctAvance",e.target.value)} placeholder="%" />
-          <span style={{ fontFamily:FONT, fontSize:10, color:"#22d3ee" }}>%</span>
-        </div>
+      {/* % Avance cobrado — solo de referencia, calculado desde el monto Cobrado exacto */}
+      <td style={{ padding:"8px 6px", width:80, fontFamily:FONT, fontSize:11, color:"#22d3ee", textAlign:"center" }} title="Calculado desde el monto Cobrado — no se edita directo, para no perder precisión">
+        {avance.toFixed(1)}%
       </td>
       <td style={{ padding:"8px 6px", width:110 }}>
         <input
@@ -7813,13 +7816,11 @@ function PartidaRow({ partida, fases, onChange, onDelete }) {
           onChange={e=>setCobradoInput(e.target.value)}
           onBlur={()=>{
             if(cobradoInput===null) return;
-            const dolares = Number(cobradoInput)||0;
-            const nuevoPct = monto>0 ? Math.min(100, Math.round((dolares/monto)*1000)/10) : 0;
-            inp("pctAvance", nuevoPct);
+            inp("montoCobrado", Number(cobradoInput)||0);
             setCobradoInput(null);
           }}
           placeholder="$"
-          title="Monto ya cobrado — editar acá recalcula el % Avance solo"
+          title="Monto ya cobrado, en pesos exactos"
         />
       </td>
       <td style={{ padding:"8px 6px", textAlign:"center" }}>
@@ -8025,7 +8026,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
   };
 
   const addPartida = () => {
-    const p = { id: Date.now(), concepto:"", faseId:"", monto:0, pctAnticipo:50, pctParcial:0, pctFinalizar:50, pctAvance:0 };
+    const p = { id: Date.now(), concepto:"", faseId:"", monto:0, pctAnticipo:50, pctParcial:0, pctFinalizar:50, pctAvance:0, montoCobrado:0 };
     updateProyecto({ ...proyecto, partidas:[...(proyecto.partidas||[]),p] });
   };
   const updatePartida = (p) => updateProyecto({ ...proyecto, partidas: proyecto.partidas.map(x=>x.id===p.id?p:x) });
@@ -8056,7 +8057,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
   const totalAnticipo = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctAnticipo)||0)/100),0);
   const totalParcial = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctParcial)||0)/100),0);
   const totalFinalizar = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctFinalizar)||0)/100),0);
-  const totalCobrado = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctAvance)||0)/100),0);
+  const totalCobrado = partidas.reduce((s,p)=>s+partidaCobrado(p),0);
   const totalSaldo = totalPartidas - totalCobrado;
   const saldoPct = totalPartidas > 0 ? Math.round((totalSaldo/totalPartidas)*100) : 0;
 
@@ -8681,7 +8682,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
                   <td style={{ padding:"10px 8px", fontFamily:FONT, fontSize:12, fontWeight:700, color:"#f59e0b", textAlign:"right" }}>${totalFinalizar.toLocaleString("es-CL")}</td>
                   <td style={{ padding:"10px 8px", fontFamily:FONT, fontSize:13, fontWeight:700, color:COLORS.accent, textAlign:"right" }}>${totalPartidas.toLocaleString("es-CL")}</td>
                   <td></td>
-                  <td style={{ padding:"10px 8px", fontFamily:FONT, fontSize:13, fontWeight:700, color:"#22d3ee", textAlign:"right" }}>${Math.round(partidas.reduce((s,p)=>s+(Number(p.monto)||0)*(Number(p.pctAvance)||0)/100,0)).toLocaleString("es-CL")}</td>
+                  <td style={{ padding:"10px 8px", fontFamily:FONT, fontSize:13, fontWeight:700, color:"#22d3ee", textAlign:"right" }}>${Math.round(partidas.reduce((s,p)=>s+partidaCobrado(p),0)).toLocaleString("es-CL")}</td>
                   <td></td>
                 </tr>
               </tfoot>
