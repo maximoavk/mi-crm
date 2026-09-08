@@ -7266,6 +7266,10 @@ function calcFase(fase) {
 
 // Mantiene el monto de cada partida vinculada a una fase igual al total actual
 // de esa fase, para que un cambio en el costeo no deje avances/cobertura desfasados.
+// Cuando el monto cambia (ej. se agregó o sacó un ítem de la fase), el %
+// Avance NO se deja fijo — se recalcula para que siga representando la misma
+// plata YA cobrada (un hecho que no cambia retroactivamente), en vez de
+// quedar aplicado sobre un monto distinto y ensuciar el Saldo por Cobrar.
 function syncPartidasConFases(partidas, fases) {
   let changed = false;
   const next = (partidas||[]).map(p => {
@@ -7275,7 +7279,11 @@ function syncPartidasConFases(partidas, fases) {
     const montoActual = Math.round(calcFase(fase).ventaConDesc);
     if(Number(p.monto)===montoActual) return p;
     changed = true;
-    return { ...p, monto: montoActual };
+    const montoAnterior = Number(p.monto)||0;
+    const pctAvanceAnterior = Number(p.pctAvance)||0;
+    const dolaresCobrados = montoAnterior * (pctAvanceAnterior/100);
+    const pctAvanceNuevo = montoActual>0 ? Math.min(100, Math.round((dolaresCobrados/montoActual)*1000)/10) : 0;
+    return { ...p, monto: montoActual, pctAvance: pctAvanceNuevo };
   });
   return changed ? next : partidas;
 }
