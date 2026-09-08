@@ -5909,6 +5909,9 @@ function DeclararCambioPanel({ quote, onClose, onApplied }) {
   const [pending, setPending]         = useState([]);
   const [openFaseIdx, setOpenFaseIdx] = useState(null);
   const [addingFaseIdx, setAddingFaseIdx] = useState(null);
+  const [addingProduct, setAddingProduct] = useState(null); // producto elegido, pendiente de declarar venta
+  const [addQty, setAddQty]           = useState(1);
+  const [addVenta, setAddVenta]       = useState(0);
   const [busqueda, setBusqueda]       = useState("");
   const [productos, setProductos]     = useState([]);
   const [saving, setSaving]           = useState(false);
@@ -5982,19 +5985,33 @@ function DeclararCambioPanel({ quote, onClose, onApplied }) {
       valor: Math.round(after-before), productId: item.productId||null, itemsAntes });
   };
 
-  const agregarItem = (fi, producto) => {
+  // El maestro de productos guarda el COSTO (con IVA) en `price` — no el valor
+  // de venta que se cotiza al cliente. Por eso elegir un producto no lo agrega
+  // directo: abre un paso de confirmación donde el costo del catálogo queda
+  // solo como referencia y el usuario declara la Venta Neta real.
+  const elegirProducto = (producto) => {
+    setAddingProduct(producto);
+    setAddQty(1);
+    setAddVenta(producto.priceNeto||0);
+    setBusqueda("");
+  };
+
+  const confirmarAgregarItem = (fi) => {
+    if(!addingProduct) return;
+    const qty = Math.max(1, Number(addQty)||1);
+    const ventaUnitNeta = Number(addVenta)||0;
     const fase = fases[fi];
     const itemsAntes = fase.items||[];
     const before = calcFase(fase).ventaConDesc;
-    const nuevo = { ...newItem("Equipos"), descripcion:producto.name, modelo:producto.description||"",
-      costoUnitNeto: producto.priceNeto, qty:1, productId: producto.id };
+    const nuevo = { ...newItem("Equipos"), descripcion:addingProduct.name, modelo:addingProduct.description||"",
+      costoUnitNeto: addingProduct.priceNeto, qty, ventaUnitNeta, productId: addingProduct.id };
     const nextItems = [...itemsAntes, nuevo];
     const after = calcFase({ ...fase, items: nextItems }).ventaConDesc;
     setFases(prev=>prev.map((f,i)=>i===fi?{...f,items:nextItems}:f));
     pushPending({ tipo:"agregado", faseIdx:fi, faseId:fase.id, faseNombre:fase.nombre,
-      descripcion:producto.name, qtyAntes:0, qtyDespues:1,
-      valor: Math.round(after-before), productId: producto.id, itemsAntes });
-    setAddingFaseIdx(null); setBusqueda("");
+      descripcion:addingProduct.name, qtyAntes:0, qtyDespues:qty,
+      valor: Math.round(after-before), productId: addingProduct.id, itemsAntes });
+    setAddingFaseIdx(null); setAddingProduct(null); setBusqueda("");
   };
 
   const agregarLineaFlat = () => {
@@ -6124,23 +6141,46 @@ function DeclararCambioPanel({ quote, onClose, onApplied }) {
                             </div>
                           ))}
                           {addingFaseIdx===fi ? (
-                            <div style={{ marginTop:8, position:"relative" }}>
-                              <input autoFocus value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar en el maestro de productos..."
-                                style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.text, fontFamily:FONT, fontSize:12, padding:"7px 10px", boxSizing:"border-box" }} />
-                              {busqueda.length>=2 && (
-                                <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:7, marginTop:4, maxHeight:180, overflowY:"auto" }}>
-                                  {resultados.length===0 && <div style={{ padding:"8px 12px", fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Sin resultados</div>}
-                                  {resultados.map(p=>(
-                                    <div key={p.id} onClick={()=>agregarItem(fi,p)} style={{ padding:"7px 10px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}11`, display:"flex", justifyContent:"space-between" }}
-                                      onMouseEnter={e=>e.currentTarget.style.background=COLORS.card} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                                      <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{p.name}</span>
-                                      <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{fmt(p.price)}</span>
-                                    </div>
-                                  ))}
+                            addingProduct ? (
+                              <div style={{ marginTop:8, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:7, padding:10 }}>
+                                <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text, marginBottom:2 }}>{addingProduct.name}</div>
+                                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:10 }}>Costo neto catálogo (referencia): {fmt(addingProduct.priceNeto||0)}</div>
+                                <div style={{ display:"grid", gridTemplateColumns:"70px 1fr", gap:8, marginBottom:10 }}>
+                                  <div>
+                                    <label style={{ display:"block", fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", marginBottom:3 }}>Cant.</label>
+                                    <input type="number" min={1} value={addQty} onChange={e=>setAddQty(e.target.value)}
+                                      style={{ width:"100%", background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.text, fontFamily:FONT, fontSize:12, padding:"7px 8px", boxSizing:"border-box" }} />
+                                  </div>
+                                  <div>
+                                    <label style={{ display:"block", fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", marginBottom:3 }}>Valor venta neto (lo cotizado al cliente, por unidad)</label>
+                                    <input type="number" min={0} value={addVenta} onChange={e=>setAddVenta(e.target.value)} autoFocus
+                                      style={{ width:"100%", background:COLORS.surface, border:`1px solid ${COLORS.accent}66`, borderRadius:6, color:COLORS.text, fontFamily:FONT, fontSize:12, padding:"7px 8px", boxSizing:"border-box" }} />
+                                  </div>
                                 </div>
-                              )}
-                              <button onClick={()=>{setAddingFaseIdx(null);setBusqueda("");}} style={{ marginTop:6, background:"transparent", border:"none", color:COLORS.textMuted, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>Cancelar</button>
-                            </div>
+                                <div style={{ display:"flex", gap:8 }}>
+                                  <button onClick={()=>setAddingProduct(null)} style={{ flex:1, padding:"7px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>← Elegir otro</button>
+                                  <button onClick={()=>confirmarAgregarItem(fi)} style={{ flex:1, padding:"7px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer" }}>+ Agregar</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{ marginTop:8, position:"relative" }}>
+                                <input autoFocus value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar en el maestro de productos..."
+                                  style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.text, fontFamily:FONT, fontSize:12, padding:"7px 10px", boxSizing:"border-box" }} />
+                                {busqueda.length>=2 && (
+                                  <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:7, marginTop:4, maxHeight:180, overflowY:"auto" }}>
+                                    {resultados.length===0 && <div style={{ padding:"8px 12px", fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Sin resultados</div>}
+                                    {resultados.map(p=>(
+                                      <div key={p.id} onClick={()=>elegirProducto(p)} style={{ padding:"7px 10px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}11`, display:"flex", justifyContent:"space-between" }}
+                                        onMouseEnter={e=>e.currentTarget.style.background=COLORS.card} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                                        <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{p.name}</span>
+                                        <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Costo: {fmt(p.priceNeto)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                <button onClick={()=>{setAddingFaseIdx(null);setBusqueda("");}} style={{ marginTop:6, background:"transparent", border:"none", color:COLORS.textMuted, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>Cancelar</button>
+                              </div>
+                            )
                           ) : (
                             <button onClick={()=>setAddingFaseIdx(fi)} style={{ marginTop:8, width:"100%", padding:"7px", background:"transparent", border:`1px dashed ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Agregar ítem del maestro de productos</button>
                           )}
