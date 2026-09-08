@@ -7725,7 +7725,7 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
   );
 }
 
-function PartidaRow({ partida, fases, onChange, onDelete, cobradoAuto }) {
+function PartidaRow({ partida, fases, onChange, onDelete }) {
   // onChange manda solo el parche (los campos que cambiaron), nunca el objeto
   // `partida` completo — si se mandara completo, un input editado justo antes
   // de que este componente reciba el re-render con los datos frescos pisaría
@@ -7759,9 +7759,17 @@ function PartidaRow({ partida, fases, onChange, onDelete, cobradoAuto }) {
   const anticipo = monto*(Number(partida.pctAnticipo)||0)/100;
   const parcial = monto*(Number(partida.pctParcial)||0)/100;
   const finalizar = monto*(Number(partida.pctFinalizar)||0)/100;
-  const isAuto = cobradoAuto !== null && cobradoAuto !== undefined;
-  const cobrado = isAuto ? cobradoAuto : partidaCobrado(partida);
+  const cobrado = partidaCobrado(partida);
   const avance = monto>0 ? Math.min((cobrado/monto)*100, 100) : 0;
+  // Escribir "Cobrado" también traspasa el mismo monto a Anticipo (y de ahí,
+  // Finalizar se ajusta solo) — cobrar y anticipar son, en la práctica, el
+  // mismo evento para este proyecto.
+  const inpCobrado = (dolares) => {
+    const pctAnticipo = monto>0 ? (dolares/monto)*100 : 0;
+    const pctParcial = Number(partida.pctParcial)||0;
+    const pctFinalizar = Math.max(0, 100 - pctAnticipo - pctParcial);
+    onChange(partida.id, { montoCobrado: dolares, pctAnticipo, pctFinalizar });
+  };
   return (
     <tr style={{ borderBottom:`1px solid ${COLORS.border}22` }}>
       <td style={{ padding:"8px 6px" }}>
@@ -7854,27 +7862,19 @@ function PartidaRow({ partida, fases, onChange, onDelete, cobradoAuto }) {
         {avance.toFixed(1)}%
       </td>
       <td style={{ padding:"8px 6px", width:110 }}>
-        {isAuto ? (
-          <div style={{...style, width:"100%", boxSizing:"border-box", color:"#22d3ee", fontWeight:700, textAlign:"right", cursor:"default", display:"flex", alignItems:"center", justifyContent:"flex-end", gap:4 }}
-            title="Automático — suma los documentos reales emitidos en Prestaciones para la cotización de este proyecto">
-            <span>${Math.round(cobrado).toLocaleString("es-CL")}</span>
-            <span style={{ fontSize:9 }}>🔒</span>
-          </div>
-        ) : (
-          <input
-            style={{...style, width:"100%", boxSizing:"border-box", color:"#22d3ee", fontWeight:700, textAlign:"right"}}
-            type="number" min={0}
-            value={cobradoInput !== null ? cobradoInput : (cobrado>0 ? Math.round(cobrado) : "")}
-            onChange={e=>setCobradoInput(e.target.value)}
-            onBlur={()=>{
-              if(cobradoInput===null) return;
-              inp("montoCobrado", Number(cobradoInput)||0);
-              setCobradoInput(null);
-            }}
-            placeholder="$"
-            title="Monto ya cobrado, en pesos exactos"
-          />
-        )}
+        <input
+          style={{...style, width:"100%", boxSizing:"border-box", color:"#22d3ee", fontWeight:700, textAlign:"right"}}
+          type="number" min={0}
+          value={cobradoInput !== null ? cobradoInput : (cobrado>0 ? Math.round(cobrado) : "")}
+          onChange={e=>setCobradoInput(e.target.value)}
+          onBlur={()=>{
+            if(cobradoInput===null) return;
+            inpCobrado(Number(cobradoInput)||0);
+            setCobradoInput(null);
+          }}
+          placeholder="$"
+          title="Monto ya cobrado, en pesos exactos — se traspasa también a Anticipo"
+        />
       </td>
       <td style={{ padding:"8px 6px", textAlign:"center" }}>
         <button onClick={onDelete} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>×</button>
@@ -8061,39 +8061,6 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
     if(synced !== proyecto.partidas) updateProyecto({ ...proyecto, partidas: synced });
   }, [proyecto?.fases, proyecto?.partidas]);
 
-  // Si el proyecto ya tiene una cotización enlazada, el "Cobrado" de las
-  // partidas deja de ser un campo manual y pasa a sumar los documentos
-  // REALES emitidos en Prestaciones para esa cotización — un solo número,
-  // sin mantener dos copias que se puedan desincronizar.
-  const [cobradoRealTotal, setCobradoRealTotal] = useState(null);
-  useEffect(() => {
-    let cancelled = false;
-    if(!proyecto?.cotizacionId){ setCobradoRealTotal(null); return; }
-    supabase.from("comprobantes_pago").select("monto_pagado,quote_ids")
-      .contains("quote_ids",[proyecto.cotizacionId])
-      .then(({ data }) => {
-        if(cancelled) return;
-        setCobradoRealTotal((data||[]).reduce((s,d)=>s+Number(d.monto_pagado||0),0));
-      });
-    return () => { cancelled = true; };
-  }, [proyecto?.cotizacionId]);
-
-  // Reparte el total real cobrado entre las partidas en orden (anticipo primero,
-  // luego las siguientes), tipo cascada — cada partida se llena hasta su monto
-  // antes de pasar a la siguiente. Es un arreglo paralelo a proyecto.partidas
-  // (por índice), solo para mostrar — nunca se mezcla con el objeto partida
-  // real, para no persistir por accidente un número derivado en la base.
-  const cobradoRealPorPartida = (() => {
-    if(cobradoRealTotal===null) return null;
-    let restante = cobradoRealTotal;
-    return (proyecto?.partidas||[]).map(p=>{
-      const monto = Number(p.monto)||0;
-      const asignado = Math.min(monto, Math.max(restante,0));
-      restante -= asignado;
-      return asignado;
-    });
-  })();
-
   const addFase = () => {
     const f = { id: Date.now(), nombre:`Fase ${(proyecto.fases||[]).length+1}`, items:[] };
     updateProyecto({ ...proyecto, fases:[...(proyecto.fases||[]),f] });
@@ -8148,7 +8115,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
   const totalAnticipo = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctAnticipo)||0)/100),0);
   const totalParcial = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctParcial)||0)/100),0);
   const totalFinalizar = partidas.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctFinalizar)||0)/100),0);
-  const totalCobrado = cobradoRealPorPartida!==null ? cobradoRealPorPartida.reduce((s,v)=>s+v,0) : partidas.reduce((s,p)=>s+partidaCobrado(p),0);
+  const totalCobrado = partidas.reduce((s,p)=>s+partidaCobrado(p),0);
   const totalSaldo = totalPartidas - totalCobrado;
   const saldoPct = totalPartidas > 0 ? Math.round((totalSaldo/totalPartidas)*100) : 0;
 
@@ -8758,8 +8725,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
               </thead>
               <tbody>
                 {partidas.map((p,i)=>(
-                  <PartidaRow key={p.id} partida={p} fases={proyecto.fases||[]} onChange={updatePartida} onDelete={()=>deletePartida(p.id)}
-                    cobradoAuto={cobradoRealPorPartida!==null ? cobradoRealPorPartida[i] : null} />
+                  <PartidaRow key={p.id} partida={p} fases={proyecto.fases||[]} onChange={updatePartida} onDelete={()=>deletePartida(p.id)} />
                 ))}
               </tbody>
               <tfoot>
