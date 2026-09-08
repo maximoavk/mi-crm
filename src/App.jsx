@@ -7731,6 +7731,7 @@ function PartidaRow({ partida, fases, onChange, onDelete }) {
   // (no lo que devuelve el round-trip $ → % → $, que redondea y "se come"
   // lo que se está tipeando). Se confirma a pctAvance recién al salir del campo.
   const [cobradoInput, setCobradoInput] = useState(null);
+  const [anticipoInput, setAnticipoInput] = useState(null);
   const handleFaseChange = (faseId) => {
     const fase = fases.find(f=>String(f.id)===String(faseId));
     const updates = { faseId };
@@ -7774,8 +7775,23 @@ function PartidaRow({ partida, fases, onChange, onDelete }) {
           <span style={{ color:COLORS.textMuted, fontSize:9 }}>d</span>
         </div>
       </td>
-      <td style={{ padding:"8px 6px", width:100, fontFamily:FONT, fontSize:11, color:COLORS.accent, textAlign:"right" }}>
-        {anticipo > 0 ? `$${anticipo.toLocaleString("es-CL")}` : "-"}
+      <td style={{ padding:"8px 6px", width:100 }}>
+        <input
+          style={{ background:"transparent", border:"none", color:COLORS.accent, fontFamily:FONT, fontSize:11, padding:"5px 4px", width:"100%", boxSizing:"border-box", textAlign:"right" }}
+          type="number" min={0}
+          value={anticipoInput !== null ? anticipoInput : (anticipo>0 ? Math.round(anticipo) : "")}
+          onChange={e=>setAnticipoInput(e.target.value)}
+          onBlur={()=>{
+            if(anticipoInput===null) return;
+            const dolares = Number(anticipoInput)||0;
+            // Sin redondear a pocos decimales (a diferencia de pctAvance) — así
+            // el $ que se escribe acá vuelve exacto, no se pierde precisión.
+            inp("pctAnticipo", monto>0 ? (dolares/monto)*100 : 0);
+            setAnticipoInput(null);
+          }}
+          placeholder="$"
+          title="Editar acá recalcula el % Anticipo solo"
+        />
       </td>
       {/* PARCIAL */}
       <td style={{ padding:"8px 6px", width:100 }}>
