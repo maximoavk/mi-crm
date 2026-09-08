@@ -12,6 +12,8 @@ import {
   uploadBgImage, getBgImageUrl,
 } from "./designSupabase.js";
 
+const CATEGORY_PREFIX = { camera: "CAM", wireless_beam: "Antena", wireless_rings: "Antena", point: "Estación" };
+
 export function DesignView({ designProjectId, onBack }) {
   const svgRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -141,9 +143,18 @@ export function DesignView({ designProjectId, onBack }) {
   const handleDropDevice = async (presetId, point) => {
     const preset = CAMERA_PRESETS.find((p) => p.id === presetId);
     if (!preset) return;
-    const n = devices.length;
+    // Cada categoría (cámaras / antenas / estaciones) numera sus propias
+    // etiquetas por separado — agregar una Estación no salta la numeración
+    // de las cámaras ni viceversa.
+    const prefix = CATEGORY_PREFIX[preset.baseViz] || "DISP";
+    const sameCategoryCount = devices.filter((d) => {
+      const dp = CAMERA_PRESETS.find((p) => p.id === d.presetId);
+      return dp && (CATEGORY_PREFIX[dp.baseViz] || "DISP") === prefix;
+    }).length;
+    const n = sameCategoryCount + 1;
+    const label = prefix === "CAM" ? `CAM-${String(n).padStart(2, "0")}` : `${prefix} ${n}`;
     const draft = {
-      presetId, status: "existente", label: "CAM-0" + (n + 1),
+      presetId, status: "existente", label,
       x: point.x, y: point.y,
       heading: 0, fov: preset.fov, range: preset.range,
     };
@@ -297,6 +308,12 @@ export function DesignView({ designProjectId, onBack }) {
             const status = selectedDevice.status || "existente";
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: 10, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <div style={{ fontFamily: FONT_DISPLAY, fontSize: 13, fontWeight: 700, color: COLORS.text }}>{selectedDevice.label}</div>
+                  <button onClick={removeSelectedDevice} style={{ padding: "5px 12px", borderRadius: 6, border: `1px solid ${COLORS.red}`, background: "transparent", color: COLORS.red, fontSize: 11, fontFamily: FONT, cursor: "pointer" }}>
+                    🗑 Eliminar
+                  </button>
+                </div>
                 <div>
                   <div style={{ fontSize: 11, color: COLORS.textMuted, fontFamily: FONT, marginBottom: 6 }}>ESTADO</div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -367,13 +384,8 @@ export function DesignView({ designProjectId, onBack }) {
             mppY={mppY}
           />
 
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <div style={{ flex: 1, fontSize: 11, color: COLORS.textMuted, fontFamily: FONT }}>
-              Arrastra un dispositivo del catálogo hacia el plano para agregarlo.
-            </div>
-            <button onClick={removeSelectedDevice} disabled={!selectedId} style={{ padding: "10px 16px", borderRadius: 8, border: `1px solid ${COLORS.border}`, background: "transparent", color: !selectedId ? COLORS.textDim : COLORS.text, fontSize: 13, cursor: "pointer" }}>
-              Eliminar
-            </button>
+          <div style={{ fontSize: 11, color: COLORS.textMuted, fontFamily: FONT }}>
+            Arrastra un dispositivo del catálogo hacia el plano para agregarlo.
           </div>
 
           <ExportPanel
