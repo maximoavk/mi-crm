@@ -26,11 +26,17 @@ describe("mapDesignProjectToDb", () => {
 });
 
 describe("mapDesignDevice / mapDesignDeviceToDb", () => {
-  it("hace roundtrip de los campos numéricos y de preset", () => {
-    const row = { id: "d1", design_project_id: "p1", preset_id: "bullet", label: "CAM-01", x: 10, y: 20, heading: 45, fov: 78, range: 190 };
+  it("hace roundtrip de los campos numéricos, de preset y de estado", () => {
+    const row = { id: "d1", design_project_id: "p1", preset_id: "bullet", status: "deficiente", label: "CAM-01", x: 10, y: 20, heading: 45, fov: 78, range: 190 };
     const d = mapDesignDevice(row);
-    expect(d).toEqual({ id: "d1", designProjectId: "p1", presetId: "bullet", label: "CAM-01", x: 10, y: 20, heading: 45, fov: 78, range: 190 });
+    expect(d).toEqual({ id: "d1", designProjectId: "p1", presetId: "bullet", status: "deficiente", label: "CAM-01", x: 10, y: 20, heading: 45, fov: 78, range: 190 });
     const back = mapDesignDeviceToDb(d, "p1");
-    expect(back).toEqual({ design_project_id: "p1", preset_id: "bullet", label: "CAM-01", x: 10, y: 20, heading: 45, fov: 78, range: 190 });
+    expect(back).toEqual({ design_project_id: "p1", preset_id: "bullet", status: "deficiente", label: "CAM-01", x: 10, y: 20, heading: 45, fov: 78, range: 190 });
+  });
+
+  it("usa 'existente' como estado por defecto cuando la fila no trae status", () => {
+    const row = { id: "d2", design_project_id: "p1", preset_id: "dome", label: "CAM-02", x: 0, y: 0, heading: 0, fov: 100, range: 140 };
+    const d = mapDesignDevice(row);
+    expect(d.status).toBe("existente");
   });
 });

@@ -1,18 +1,6 @@
 import React from "react";
-import { NAVY, CYAN, FAULT_RED, DEFICIENT_ORANGE, PROPOSED_GREEN } from "./canvasTheme.js";
-
-export const CAMERA_PRESETS = [
-  { id: "dome", label: "Domo 2.8mm", fov: 100, range: 140, viz: "fov_cone", icon: "dome" },
-  { id: "bullet", label: "Bullet 4mm", fov: 78, range: 190, viz: "fov_cone", icon: "bullet" },
-  { id: "varifocal", label: "Varifocal 8mm", fov: 42, range: 260, viz: "fov_cone", icon: "varifocal" },
-  { id: "ptz", label: "PTZ zoom", fov: 24, range: 340, viz: "fov_cone", icon: "ptz" },
-  { id: "antenna_p2p", label: "Antena PtP", fov: 14, range: 320, viz: "wireless_beam", icon: "beam" },
-  { id: "antenna_omni", label: "Antena Omni", fov: 360, range: 150, viz: "wireless_rings", icon: "omni" },
-  { id: "existing", label: "Cámara existente", fov: 78, range: 190, viz: "existing_cone", icon: "existing", statusColor: CYAN },
-  { id: "fault", label: "Punto averiado", fov: 70, range: 160, viz: "fault_cone", icon: "fault", statusColor: FAULT_RED },
-  { id: "deficient", label: "Punto deficiente", fov: 70, range: 160, viz: "fault_cone", icon: "deficient", statusColor: DEFICIENT_ORANGE },
-  { id: "proposed", label: "Cámara propuesta", fov: 78, range: 190, viz: "proposal_cone", icon: "proposed", statusColor: PROPOSED_GREEN },
-];
+import { NAVY, CYAN } from "./canvasTheme.js";
+import { CAMERA_PRESETS } from "./devicePresets.js";
 
 function PresetIcon({ type, active }) {
   const stroke = active ? NAVY : "#dff4ff";
@@ -75,42 +63,16 @@ function PresetIcon({ type, active }) {
       </svg>
     );
   }
-  if (type === "existing") {
+  if (type === "station") {
+    // Placeholder temporal — se reemplaza por el ícono real (imagen) cuando
+    // esté disponible en src/design/assets/.
     return (
       <svg {...common}>
-        <rect x="3" y="10" width="13" height="8" rx="3" fill={CYAN} stroke="white" strokeWidth="1.2" />
-        <circle cx="19" cy="14" r="4.2" fill={CYAN} stroke="white" strokeWidth="1.2" />
-        <circle cx="21" cy="7" r="6" fill={NAVY} stroke={CYAN} strokeWidth="1.6" />
-        <path d="M18.3 7 L20.2 8.9 L23.7 5.2" fill="none" stroke={CYAN} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  }
-  if (type === "fault") {
-    return (
-      <svg {...common}>
-        <path d="M14 3 L25 23 L3 23 Z" fill={FAULT_RED} stroke="white" strokeWidth="1.2" strokeLinejoin="round" />
-        <line x1="14" y1="10.5" x2="14" y2="16.5" stroke="white" strokeWidth="2" strokeLinecap="round" />
-        <circle cx="14" cy="19.5" r="1.4" fill="white" />
-      </svg>
-    );
-  }
-  if (type === "deficient") {
-    return (
-      <svg {...common}>
-        <path d="M14 3 L25 23 L3 23 Z" fill={DEFICIENT_ORANGE} stroke="white" strokeWidth="1.2" strokeLinejoin="round" />
-        <line x1="14" y1="10.5" x2="14" y2="16.5" stroke="white" strokeWidth="2" strokeLinecap="round" />
-        <circle cx="14" cy="19.5" r="1.4" fill="white" />
-      </svg>
-    );
-  }
-  if (type === "proposed") {
-    return (
-      <svg {...common}>
-        <rect x="3" y="10" width="13" height="8" rx="3" fill={PROPOSED_GREEN} stroke="white" strokeWidth="1.2" />
-        <circle cx="19" cy="14" r="4.2" fill={PROPOSED_GREEN} stroke="white" strokeWidth="1.2" />
-        <circle cx="21" cy="7" r="6" fill={NAVY} stroke={PROPOSED_GREEN} strokeWidth="1.6" />
-        <line x1="21" y1="4.2" x2="21" y2="9.8" stroke={PROPOSED_GREEN} strokeWidth="1.6" strokeLinecap="round" />
-        <line x1="18.2" y1="7" x2="23.8" y2="7" stroke={PROPOSED_GREEN} strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M4 12 L14 6 L24 12 L14 18 Z" fill={fill} stroke={stroke} strokeWidth="1.8" strokeLinejoin="round" />
+        <rect x="6" y="14" width="16" height="9" rx="1.5" fill={fill} stroke={stroke} strokeWidth="1.6" />
+        <rect x="8.5" y="17.5" width="2.6" height="3" fill={stroke} />
+        <rect x="12.7" y="17.5" width="2.6" height="3" fill={stroke} />
+        <rect x="16.9" y="17.5" width="2.6" height="3" fill={stroke} />
       </svg>
     );
   }

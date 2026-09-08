@@ -41,6 +41,7 @@ export const mapDesignDevice = (r) => ({
   id: r.id,
   designProjectId: r.design_project_id,
   presetId: r.preset_id,
+  status: r.status || "existente",
   label: r.label || "",
   x: r.x,
   y: r.y,
@@ -52,6 +53,7 @@ export const mapDesignDevice = (r) => ({
 export const mapDesignDeviceToDb = (d, designProjectId) => ({
   design_project_id: designProjectId,
   preset_id: d.presetId,
+  status: d.status || "existente",
   label: d.label || "",
   x: d.x,
   y: d.y,
@@ -110,7 +112,7 @@ export async function upsertDevice(device) {
   const { error } = await supabase
     .from("design_devices")
     .update({
-      preset_id: device.presetId, label: device.label, x: device.x, y: device.y,
+      preset_id: device.presetId, status: device.status || "existente", label: device.label, x: device.x, y: device.y,
       heading: device.heading, fov: device.fov, range: device.range,
     })
     .eq("id", device.id);

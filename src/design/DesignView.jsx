@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
 import { fetchImageAsDataUri } from "../CosteoPdfDocs.jsx";
-import { DeviceIconRail, CAMERA_PRESETS } from "./DeviceIconRail.jsx";
+import { DeviceIconRail } from "./DeviceIconRail.jsx";
+import { CAMERA_PRESETS, STATUS_COLORS, STATUS_LABELS, STATUS_ORDER } from "./devicePresets.js";
 import { DesignCanvas, VIEW_W, VIEW_H } from "./DesignCanvas.jsx";
 import { TitleBlockForm } from "./TitleBlockForm.jsx";
 import { ExportPanel } from "./ExportPanel.jsx";
@@ -120,6 +121,13 @@ export function DesignView({ designProjectId, onBack }) {
     if (device) upsertDevice(device);
   };
 
+  const handleSetStatus = (status) => {
+    if (!selectedId) return;
+    handleDeviceChange(selectedId, { status });
+    const updated = { ...devices.find((d) => d.id === selectedId), status };
+    upsertDevice(updated);
+  };
+
   const handleSelectPreset = async (presetId) => {
     const preset = CAMERA_PRESETS.find((p) => p.id === presetId);
     if (selectedId) {
@@ -135,7 +143,7 @@ export function DesignView({ designProjectId, onBack }) {
     if (!preset) return;
     const n = devices.length;
     const draft = {
-      presetId, label: "CAM-0" + (n + 1),
+      presetId, status: "existente", label: "CAM-0" + (n + 1),
       x: point.x, y: point.y,
       heading: 0, fov: preset.fov, range: preset.range,
     };
@@ -284,36 +292,64 @@ export function DesignView({ designProjectId, onBack }) {
 
           {selectedId && devices.find((d) => d.id === selectedId) && (() => {
             const selectedDevice = devices.find((d) => d.id === selectedId);
+            const selectedPreset = CAMERA_PRESETS.find((p) => p.id === selectedDevice.presetId);
+            const hasCone = selectedPreset && selectedPreset.baseViz !== "point";
+            const status = selectedDevice.status || "existente";
             return (
-              <div style={{ display: "flex", gap: 16, flexWrap: "wrap", background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 10 }}>
-                <div style={{ flex: "1 1 240px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: COLORS.textMuted, fontFamily: FONT }}>
-                    <span>ÁNGULO FOV</span><span>{Math.round(selectedDevice.fov)}°</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 10 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: COLORS.textMuted, fontFamily: FONT, marginBottom: 6 }}>ESTADO</div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {STATUS_ORDER.map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => handleSetStatus(s)}
+                        style={{
+                          padding: "5px 12px", borderRadius: 999, fontSize: 11, fontFamily: FONT, cursor: "pointer",
+                          border: `1.5px solid ${STATUS_COLORS[s]}`,
+                          background: status === s ? STATUS_COLORS[s] : "transparent",
+                          color: status === s ? COLORS.bg : STATUS_COLORS[s],
+                          fontWeight: status === s ? 700 : 400,
+                        }}
+                      >
+                        {STATUS_LABELS[s]}
+                      </button>
+                    ))}
                   </div>
-                  <input
-                    type="range" min="10" max="180" value={selectedDevice.fov}
-                    onChange={(e) => handleDeviceChange(selectedId, { fov: Number(e.target.value) })}
-                    onMouseUp={() => handleDeviceSettled(selectedId)}
-                    onTouchEnd={() => handleDeviceSettled(selectedId)}
-                    style={{ width: "100%", accentColor: COLORS.accent }}
-                  />
                 </div>
-                <div style={{ flex: "1 1 240px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: COLORS.textMuted, fontFamily: FONT }}>
-                    <span>ALCANCE</span>
-                    <span>
-                      {Math.round(selectedDevice.range)} px
-                      {mppX ? ` (${(selectedDevice.range * mppX).toFixed(1)} m)` : ""}
-                    </span>
+
+                {hasCone && (
+                  <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                    <div style={{ flex: "1 1 240px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: COLORS.textMuted, fontFamily: FONT }}>
+                        <span>ÁNGULO FOV</span><span>{Math.round(selectedDevice.fov)}°</span>
+                      </div>
+                      <input
+                        type="range" min="10" max="180" value={selectedDevice.fov}
+                        onChange={(e) => handleDeviceChange(selectedId, { fov: Number(e.target.value) })}
+                        onMouseUp={() => handleDeviceSettled(selectedId)}
+                        onTouchEnd={() => handleDeviceSettled(selectedId)}
+                        style={{ width: "100%", accentColor: COLORS.accent }}
+                      />
+                    </div>
+                    <div style={{ flex: "1 1 240px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: COLORS.textMuted, fontFamily: FONT }}>
+                        <span>ALCANCE</span>
+                        <span>
+                          {Math.round(selectedDevice.range)} px
+                          {mppX ? ` (${(selectedDevice.range * mppX).toFixed(1)} m)` : ""}
+                        </span>
+                      </div>
+                      <input
+                        type="range" min="60" max="500" value={selectedDevice.range}
+                        onChange={(e) => handleDeviceChange(selectedId, { range: Number(e.target.value) })}
+                        onMouseUp={() => handleDeviceSettled(selectedId)}
+                        onTouchEnd={() => handleDeviceSettled(selectedId)}
+                        style={{ width: "100%", accentColor: COLORS.accent }}
+                      />
+                    </div>
                   </div>
-                  <input
-                    type="range" min="60" max="500" value={selectedDevice.range}
-                    onChange={(e) => handleDeviceChange(selectedId, { range: Number(e.target.value) })}
-                    onMouseUp={() => handleDeviceSettled(selectedId)}
-                    onTouchEnd={() => handleDeviceSettled(selectedId)}
-                    style={{ width: "100%", accentColor: COLORS.accent }}
-                  />
-                </div>
+                )}
               </div>
             );
           })()}
@@ -345,7 +381,7 @@ export function DesignView({ designProjectId, onBack }) {
             exportMeta={{
               projectName: project.projectName, clientName: project.clientName,
               preparedBy: project.preparedBy, visitDate: project.visitDate,
-              planNumber: project.planNumber, mppX,
+              planNumber: project.planNumber, mppX, devices,
             }}
           />
         </div>

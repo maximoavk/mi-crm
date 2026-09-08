@@ -1,14 +1,19 @@
 import React, { useRef, useCallback } from "react";
-import { CAMERA_PRESETS } from "./DeviceIconRail.jsx";
-import { NAVY, NAVY_DEEP, CYAN, FAULT_RED, DEFICIENT_ORANGE, PROPOSED_GREEN } from "./canvasTheme.js";
+import { CAMERA_PRESETS, STATUS_COLORS } from "./devicePresets.js";
+import { NAVY_DEEP, CYAN } from "./canvasTheme.js";
 import { polarToXY, fovConePath, angleDiff, clamp, pickNiceStep } from "./geometry.js";
 
 export const VIEW_W = 800;
 export const VIEW_H = 500;
 
+// Tipo (presetId → forma/isotipo) y estado (status → color) son independientes:
+// un mismo tipo de dispositivo puede estar en cualquier estado. "existente" es
+// el único que conserva el degradado DORI en cámaras; el resto tiñe el cono
+// sólido con el color de su estado.
 function resolveDeviceViz(device) {
   const preset = CAMERA_PRESETS.find((p) => p.id === device.presetId) || CAMERA_PRESETS[0];
-  return { ...device, viz: preset.viz, statusColor: preset.statusColor || null };
+  const status = device.status || "existente";
+  return { ...device, type: preset.icon, baseViz: preset.baseViz, status, statusColor: STATUS_COLORS[status] || CYAN };
 }
 
 /* ---------- Visualizaciones sobre el plano ---------- */
@@ -30,29 +35,31 @@ function FovConeViz({ cam, selected }) {
 }
 
 function WirelessBeamViz({ cam, selected }) {
+  const color = cam.statusColor || CYAN;
   const [tx, ty] = polarToXY(cam.x, cam.y, cam.range, cam.heading);
   return (
     <>
-      <path d={fovConePath(cam.x, cam.y, cam.range, cam.heading, cam.fov)} fill="rgba(37,182,239,0.18)" stroke={selected ? CYAN : "rgba(37,182,239,0.7)"} strokeWidth={selected ? 2 : 1} />
-      <line x1={cam.x} y1={cam.y} x2={tx} y2={ty} stroke={CYAN} strokeWidth="1" strokeDasharray="1 4" opacity={0.8} />
-      <circle cx={tx} cy={ty} r={4} fill="none" stroke={CYAN} strokeWidth="1.5" />
+      <path d={fovConePath(cam.x, cam.y, cam.range, cam.heading, cam.fov)} fill={color} fillOpacity={0.18} stroke={selected ? color : color} strokeOpacity={selected ? 1 : 0.7} strokeWidth={selected ? 2 : 1} />
+      <line x1={cam.x} y1={cam.y} x2={tx} y2={ty} stroke={color} strokeWidth="1" strokeDasharray="1 4" opacity={0.8} />
+      <circle cx={tx} cy={ty} r={4} fill="none" stroke={color} strokeWidth="1.5" />
     </>
   );
 }
 
 function WirelessRingsViz({ cam, selected }) {
+  const color = cam.statusColor || CYAN;
   const rings = [0.35, 0.65, 1.0];
   return (
     <>
       {rings.map((frac, i) => (
-        <circle key={i} cx={cam.x} cy={cam.y} r={cam.range * frac} fill="none" stroke={selected ? CYAN : "rgba(37,182,239,0.5)"} strokeWidth={i === rings.length - 1 ? 1.5 : 1} strokeDasharray={i === rings.length - 1 ? "4 3" : "2 3"} opacity={1 - i * 0.15} />
+        <circle key={i} cx={cam.x} cy={cam.y} r={cam.range * frac} fill="none" stroke={color} strokeOpacity={selected ? 1 : 0.5} strokeWidth={i === rings.length - 1 ? 1.5 : 1} strokeDasharray={i === rings.length - 1 ? "4 3" : "2 3"} opacity={1 - i * 0.15} />
       ))}
     </>
   );
 }
 
-function FaultConeViz({ cam, selected }) {
-  const color = cam.statusColor || FAULT_RED;
+function StatusConeViz({ cam, selected }) {
+  const color = cam.statusColor;
   const shades = [
     { frac: 0.45, opacity: 0.55 },
     { frac: 0.75, opacity: 0.38 },
@@ -69,37 +76,96 @@ function FaultConeViz({ cam, selected }) {
 }
 
 function DeviceViz({ cam, selected }) {
-  if (cam.viz === "wireless_beam") return <WirelessBeamViz cam={cam} selected={selected} />;
-  if (cam.viz === "wireless_rings") return <WirelessRingsViz cam={cam} selected={selected} />;
-  if (cam.viz === "fault_cone" || cam.viz === "proposal_cone" || cam.viz === "existing_cone") return <FaultConeViz cam={cam} selected={selected} />;
+  if (cam.baseViz === "point") return null;
+  if (cam.baseViz === "wireless_beam") return <WirelessBeamViz cam={cam} selected={selected} />;
+  if (cam.baseViz === "wireless_rings") return <WirelessRingsViz cam={cam} selected={selected} />;
+  if (cam.status !== "existente") return <StatusConeViz cam={cam} selected={selected} />;
   return <FovConeViz cam={cam} selected={selected} />;
+}
+
+// Isotipo del marcador — siempre representa el TIPO de dispositivo (domo,
+// bullet, antena, estación...), coloreado según su ESTADO. Formas
+// simplificadas para verse claras a tamaño de marcador (~20-26px).
+function DeviceMarkerIcon({ type, color, selected }) {
+  const r = selected ? 13 : 10;
+  const s = r / 10;
+  const sw = selected ? 2 : 1.4;
+  const t = `scale(${s})`;
+  if (type === "dome") {
+    return (
+      <g transform={t}>
+        <path d="M-9 2 A9 7 0 0 1 9 2 Z" fill={color} stroke="white" strokeWidth={sw} strokeLinejoin="round" />
+        <line x1="-9" y1="2" x2="9" y2="2" stroke="white" strokeWidth={sw} />
+        <circle cx="0" cy="-1.2" r="2.4" fill="white" opacity="0.9" />
+      </g>
+    );
+  }
+  if (type === "bullet") {
+    return (
+      <g transform={t}>
+        <rect x="-9" y="-5" width="14" height="10" rx="4" fill={color} stroke="white" strokeWidth={sw} />
+        <circle cx="7" cy="0" r="4" fill="white" />
+      </g>
+    );
+  }
+  if (type === "varifocal") {
+    return (
+      <g transform={t}>
+        <rect x="-9" y="-4.5" width="11" height="9" rx="2.5" fill={color} stroke="white" strokeWidth={sw} />
+        <circle cx="5" cy="0" r="5.5" fill="none" stroke="white" strokeWidth={sw} />
+        <circle cx="5" cy="0" r="2.2" fill="white" />
+      </g>
+    );
+  }
+  if (type === "ptz") {
+    return (
+      <g transform={t}>
+        <circle cx="0" cy="0" r="8" fill={color} stroke="white" strokeWidth={sw} />
+        <path d="M0 -9 A11 11 0 0 1 9.5 -3" fill="none" stroke="white" strokeWidth={sw} />
+      </g>
+    );
+  }
+  if (type === "beam") {
+    return (
+      <g transform={t}>
+        <path d="M-8 4 A11 8 0 0 1 8 -6 L6 -2 A7 5 0 0 0 -4 6 Z" fill={color} stroke="white" strokeWidth={sw} strokeLinejoin="round" />
+        <circle cx="-4" cy="3" r="2" fill="white" />
+      </g>
+    );
+  }
+  if (type === "omni") {
+    return (
+      <g transform={t}>
+        <circle cx="0" cy="0" r="2.4" fill={color} stroke="white" strokeWidth="1" />
+        <circle cx="0" cy="0" r="6.5" fill="none" stroke={color} strokeWidth={sw} />
+        <circle cx="0" cy="0" r="10" fill="none" stroke={color} strokeWidth={sw} opacity="0.6" />
+      </g>
+    );
+  }
+  if (type === "station") {
+    return (
+      <g transform={t}>
+        <rect x="-10" y="-6" width="20" height="12" rx="2" fill={color} stroke="white" strokeWidth={sw} />
+        <rect x="-7" y="-1" width="4" height="4" fill="white" />
+        <rect x="-1" y="-1" width="4" height="4" fill="white" />
+        <rect x="5" y="-1" width="4" height="4" fill="white" />
+      </g>
+    );
+  }
+  return <circle cx="0" cy="0" r={r} fill={color} stroke="white" strokeWidth={sw} />;
 }
 
 function CameraNode({ cam, onSelect, selected, onDragStart }) {
   return (
     <g onPointerDown={(e) => { e.stopPropagation(); onSelect(cam.id); }} style={{ cursor: "pointer" }}>
       <DeviceViz cam={cam} selected={selected} />
-      <g onPointerDown={(e) => { e.stopPropagation(); onDragStart(cam.id, "move", e); }}>
-        {cam.viz === "fault_cone" ? (
-          <>
-            <path d={`M${cam.x} ${cam.y - 12} L${cam.x + 11} ${cam.y + 9} L${cam.x - 11} ${cam.y + 9} Z`} fill={cam.statusColor || FAULT_RED} stroke="white" strokeWidth={selected ? 2 : 1.4} strokeLinejoin="round" />
-            <line x1={cam.x} y1={cam.y - 4} x2={cam.x} y2={cam.y + 2} stroke="white" strokeWidth="2" strokeLinecap="round" />
-            <circle cx={cam.x} cy={cam.y + 5.5} r="1.3" fill="white" />
-          </>
-        ) : cam.viz === "proposal_cone" ? (
-          <>
-            <circle cx={cam.x} cy={cam.y} r={selected ? 13 : 10} fill={cam.statusColor || PROPOSED_GREEN} stroke="white" strokeWidth={selected ? 2 : 1.4} />
-            <line x1={cam.x - 4.5} y1={cam.y} x2={cam.x + 4.5} y2={cam.y} stroke="white" strokeWidth="2" strokeLinecap="round" />
-            <line x1={cam.x} y1={cam.y - 4.5} x2={cam.x} y2={cam.y + 4.5} stroke="white" strokeWidth="2" strokeLinecap="round" />
-          </>
-        ) : cam.viz === "wireless_rings" || cam.viz === "wireless_beam" ? (
-          <polygon points={`${cam.x},${cam.y - 12} ${cam.x + 10},${cam.y} ${cam.x},${cam.y + 12} ${cam.x - 10},${cam.y}`} fill={selected ? CYAN : "#dff4ff"} stroke={NAVY} strokeWidth="2" />
-        ) : (
-          <circle cx={cam.x} cy={cam.y} r={selected ? 13 : 10} fill={selected ? CYAN : "white"} stroke={NAVY} strokeWidth="2" />
-        )}
-        {cam.viz !== "fault_cone" && cam.viz !== "proposal_cone" && <circle cx={cam.x} cy={cam.y} r={3} fill={NAVY} />}
+      <g
+        transform={`translate(${cam.x} ${cam.y})`}
+        onPointerDown={(e) => { e.stopPropagation(); onDragStart(cam.id, "move", e); }}
+      >
+        <DeviceMarkerIcon type={cam.type} color={cam.statusColor} selected={selected} />
       </g>
-      {selected && cam.viz !== "wireless_rings" && (() => {
+      {selected && cam.baseViz !== "wireless_rings" && cam.baseViz !== "point" && (() => {
         const [tx, ty] = polarToXY(cam.x, cam.y, cam.range, cam.heading);
         const [lx, ly] = polarToXY(cam.x, cam.y, cam.range, cam.heading - cam.fov / 2);
         const [rx, ry] = polarToXY(cam.x, cam.y, cam.range, cam.heading + cam.fov / 2);
@@ -124,7 +190,7 @@ function CameraNode({ cam, onSelect, selected, onDragStart }) {
           </>
         );
       })()}
-      {selected && cam.viz === "wireless_rings" && (() => {
+      {selected && cam.baseViz === "wireless_rings" && (() => {
         const [tx, ty] = polarToXY(cam.x, cam.y, cam.range, -90);
         return (
           <circle

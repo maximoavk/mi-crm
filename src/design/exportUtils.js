@@ -1,9 +1,9 @@
 import { NAVY_DEEP, CYAN, FAULT_RED, DEFICIENT_ORANGE, PROPOSED_GREEN } from "./canvasTheme.js";
 import { VIEW_W, VIEW_H } from "./DesignCanvas.jsx";
 import { pickNiceStep } from "./geometry.js";
-import { CAMERA_PRESETS } from "./DeviceIconRail.jsx";
+import { CAMERA_PRESETS } from "./devicePresets.js";
 
-const DEVICE_TYPE_ICONS = ["dome", "bullet", "varifocal", "ptz", "beam", "omni"];
+const DEVICE_TYPE_ICONS = ["dome", "bullet", "varifocal", "ptz", "beam", "omni", "station"];
 
 function drawDeviceGlyph(ctx, type, cx, cy, u) {
   ctx.save();
@@ -58,6 +58,11 @@ function drawDeviceGlyph(ctx, type, cx, cy, u) {
     ctx.beginPath();
     ctx.arc(cx, cy, u * 0.1, 0, Math.PI * 2);
     ctx.fill();
+  } else if (type === "station") {
+    ctx.strokeRect(cx - u * 0.8, cy - u * 0.5, u * 1.6, u * 1.0);
+    ctx.fillRect(cx - u * 0.55, cy - u * 0.05, u * 0.3, u * 0.35);
+    ctx.fillRect(cx - u * 0.1, cy - u * 0.05, u * 0.3, u * 0.35);
+    ctx.fillRect(cx + u * 0.35, cy - u * 0.05, u * 0.3, u * 0.35);
   }
   ctx.restore();
 }
@@ -98,14 +103,43 @@ export async function svgToCanvas(svgEl, scale) {
   return canvas;
 }
 
+// Constantes de layout de la simbología — compartidas entre el cálculo del
+// alto de hoja necesario y el dibujo real, para que nunca queden
+// desincronizados (la hoja crece si la simbología no entra en VIEW_H).
+const SECTION_HEADER_H = 14;
+const LEGEND_ROW_H = 13.5;
+const SECTION_GAP = 6;
+const NORTH_BLOCK_H = 86;
+const SCALE_BLOCK_H = 62;
+const TITLE_BLOCK_H = 172;
+
+function groupProposedDevices(devices) {
+  const counts = {};
+  (devices || []).forEach((d) => {
+    if ((d.status || "existente") !== "propuesta") return;
+    const preset = CAMERA_PRESETS.find((p) => p.id === d.presetId);
+    const key = preset ? preset.label : d.presetId;
+    counts[key] = (counts[key] || 0) + 1;
+  });
+  return Object.entries(counts);
+}
+
 export async function exportComposite(svgEl, scale, meta) {
-  const { projectName, clientName, preparedBy, visitDate, planNumber, mppX } = meta;
+  const { projectName, clientName, preparedBy, visitDate, planNumber, mppX, devices } = meta;
   const planCanvas = await svgToCanvas(svgEl, scale);
   const MARGIN = 16;
   const SIDE_W = 230;
   const GAP = 14;
+
+  const proposedRows = groupProposedDevices(devices);
+  const typeBlockH = SECTION_HEADER_H + DEVICE_TYPE_ICONS.length * LEGEND_ROW_H + SECTION_GAP;
+  const statusBlockH = SECTION_HEADER_H + 3 * LEGEND_ROW_H + SECTION_GAP;
+  const proposedBlockH = proposedRows.length > 0 ? SECTION_HEADER_H + proposedRows.length * LEGEND_ROW_H + SECTION_GAP : 0;
+  const sidebarContentH = MARGIN + NORTH_BLOCK_H + SCALE_BLOCK_H + typeBlockH + statusBlockH + proposedBlockH + TITLE_BLOCK_H;
+  const sidebarH = Math.max(VIEW_H, sidebarContentH);
+
   const totalW = VIEW_W + GAP + SIDE_W + MARGIN * 2;
-  const totalH = VIEW_H + MARGIN * 2;
+  const totalH = sidebarH + MARGIN * 2;
 
   const canvas = document.createElement("canvas");
   canvas.width = totalW * scale;
@@ -139,7 +173,7 @@ export async function exportComposite(svgEl, scale, meta) {
 
   ctx.strokeStyle = "rgba(255,255,255,0.3)";
   ctx.lineWidth = 1 * scale;
-  ctx.strokeRect(sideX, planY, sideW, VIEW_H * scale);
+  ctx.strokeRect(sideX, planY, sideW, sidebarH * scale);
 
   // --- Norte ---
   cursorY += 14 * scale;
@@ -212,7 +246,7 @@ export async function exportComposite(svgEl, scale, meta) {
   ctx.fillStyle = CYAN;
   ctx.font = `${10 * scale}px monospace`;
   ctx.fillText("TIPO DE DISPOSITIVO", sideX + 14 * scale, cursorY);
-  cursorY += 14 * scale;
+  cursorY += SECTION_HEADER_H * scale;
 
   DEVICE_TYPE_ICONS.forEach((icon) => {
     const preset = CAMERA_PRESETS.find((p) => p.icon === icon);
@@ -221,24 +255,23 @@ export async function exportComposite(svgEl, scale, meta) {
     ctx.fillStyle = "rgba(255,255,255,0.85)";
     ctx.font = `${9 * scale}px monospace`;
     ctx.fillText(preset.label, sideX + 32 * scale, cursorY);
-    cursorY += 13.5 * scale;
+    cursorY += LEGEND_ROW_H * scale;
   });
 
-  cursorY += 6 * scale;
+  cursorY += SECTION_GAP * scale;
   ctx.strokeStyle = "rgba(255,255,255,0.15)";
   ctx.beginPath(); ctx.moveTo(sideX + 10 * scale, cursorY - 4 * scale); ctx.lineTo(sideX + sideW - 10 * scale, cursorY - 4 * scale); ctx.stroke();
 
-  // --- Simbología: estado ---
+  // --- Simbología: estado (color, independiente del tipo de dispositivo) ---
   ctx.fillStyle = CYAN;
   ctx.font = `${10 * scale}px monospace`;
   ctx.fillText("ESTADO", sideX + 14 * scale, cursorY);
-  cursorY += 14 * scale;
+  cursorY += SECTION_HEADER_H * scale;
 
   const statusItems = [
-    { color: CYAN, text: "Cámara existente" },
-    { color: DEFICIENT_ORANGE, text: "Punto deficiente" },
-    { color: FAULT_RED, text: "Punto averiado" },
-    { color: PROPOSED_GREEN, text: "Cámara propuesta" },
+    { color: CYAN, text: "Existente" },
+    { color: DEFICIENT_ORANGE, text: "Deficiente" },
+    { color: FAULT_RED, text: "Averiada" },
   ];
   statusItems.forEach((item) => {
     ctx.beginPath();
@@ -248,12 +281,35 @@ export async function exportComposite(svgEl, scale, meta) {
     ctx.fillStyle = "rgba(255,255,255,0.85)";
     ctx.font = `${9 * scale}px monospace`;
     ctx.fillText(item.text, sideX + 28 * scale, cursorY);
-    cursorY += 13.5 * scale;
+    cursorY += LEGEND_ROW_H * scale;
   });
 
+  // --- Cámaras a proponer (dinámico, solo si hay dispositivos con estado "propuesta") ---
+  if (proposedRows.length > 0) {
+    cursorY += SECTION_GAP * scale;
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    ctx.beginPath(); ctx.moveTo(sideX + 10 * scale, cursorY - 4 * scale); ctx.lineTo(sideX + sideW - 10 * scale, cursorY - 4 * scale); ctx.stroke();
+
+    ctx.fillStyle = PROPOSED_GREEN;
+    ctx.font = `${10 * scale}px monospace`;
+    ctx.fillText("CÁMARAS A PROPONER", sideX + 14 * scale, cursorY);
+    cursorY += SECTION_HEADER_H * scale;
+
+    proposedRows.forEach(([label, count]) => {
+      ctx.beginPath();
+      ctx.arc(sideX + 18 * scale, cursorY - 3 * scale, 3.6 * scale, 0, Math.PI * 2);
+      ctx.fillStyle = PROPOSED_GREEN;
+      ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.font = `${9 * scale}px monospace`;
+      ctx.fillText(`${count}x ${label}`, sideX + 28 * scale, cursorY);
+      cursorY += LEGEND_ROW_H * scale;
+    });
+  }
+
   // --- Cajetín (título) al pie del sidebar ---
-  const titleBlockH = 172 * scale;
-  const titleBlockY = (MARGIN + VIEW_H) * scale - titleBlockH;
+  const titleBlockH = TITLE_BLOCK_H * scale;
+  const titleBlockY = (MARGIN + sidebarH) * scale - titleBlockH;
   ctx.strokeStyle = "rgba(255,255,255,0.35)";
   ctx.lineWidth = 1 * scale;
   ctx.strokeRect(sideX, titleBlockY, sideW, titleBlockH);
