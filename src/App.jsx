@@ -7726,7 +7726,12 @@ function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, 
 }
 
 function PartidaRow({ partida, fases, onChange, onDelete, cobradoAuto }) {
-  const inp = (k,v) => onChange({...partida,[k]:v});
+  // onChange manda solo el parche (los campos que cambiaron), nunca el objeto
+  // `partida` completo — si se mandara completo, un input editado justo antes
+  // de que este componente reciba el re-render con los datos frescos pisaría
+  // de vuelta ese cambio anterior con una copia vieja (por eso "Finalizar" se
+  // quedaba pegado en el valor por defecto al editar Anticipo justo después).
+  const inp = (k,v) => onChange(partida.id, {[k]:v});
   // Anticipo y Parcial se editan libres; Finalizar ya no se edita directo —
   // se recalcula solo para que los 3 siempre sumen 100% ("Finalizar" = el
   // saldo restante), así nunca queda una combinación que no cuadre.
@@ -7734,7 +7739,7 @@ function PartidaRow({ partida, fases, onChange, onDelete, cobradoAuto }) {
     const pctAnticipo = k==="pctAnticipo" ? Number(v)||0 : Number(partida.pctAnticipo)||0;
     const pctParcial = k==="pctParcial" ? Number(v)||0 : Number(partida.pctParcial)||0;
     const pctFinalizar = Math.max(0, 100 - pctAnticipo - pctParcial);
-    onChange({...partida, [k]:v, pctFinalizar});
+    onChange(partida.id, { [k]:v, pctFinalizar });
   };
   // Mientras se escribe el monto "Cobrado", se guarda el texto tal cual acá
   // (no lo que devuelve el round-trip $ → % → $, que redondea y "se come"
@@ -7746,7 +7751,7 @@ function PartidaRow({ partida, fases, onChange, onDelete, cobradoAuto }) {
     const fase = fases.find(f=>String(f.id)===String(faseId));
     const updates = { faseId };
     if(fase) updates.monto = Math.round(calcFase(fase).ventaConDesc);
-    onChange({...partida, ...updates});
+    onChange(partida.id, updates);
   };
   const style = { background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"5px 8px" };
   const styleSmall = { ...style, width:44, padding:"5px 4px", textAlign:"center" };
@@ -8110,7 +8115,12 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
     const p = { id: Date.now(), concepto:"", faseId:"", monto:0, pctAnticipo:50, pctParcial:0, pctFinalizar:50, pctAvance:0, montoCobrado:0 };
     updateProyecto({ ...proyecto, partidas:[...(proyecto.partidas||[]),p] });
   };
-  const updatePartida = (p) => updateProyecto({ ...proyecto, partidas: proyecto.partidas.map(x=>x.id===p.id?p:x) });
+  // Recibe un parche (solo los campos que cambiaron), no el objeto completo —
+  // así se aplica siempre sobre el estado más fresco de proyecto.partidas, sin
+  // riesgo de que un PartidaRow con un `partida` prop un frame viejo pise de
+  // vuelta un campo que otro input acababa de actualizar (carrera clásica de
+  // "spread del objeto completo desde un closure obsoleto").
+  const updatePartida = (id, patch) => updateProyecto({ ...proyecto, partidas: proyecto.partidas.map(x=>x.id===id?{...x,...patch}:x) });
   const deletePartida = (id) => updateProyecto({ ...proyecto, partidas: proyecto.partidas.filter(x=>x.id!==id) });
 
   // Totales globales
