@@ -48,6 +48,7 @@ export const mapDesignDevice = (r) => ({
   heading: r.heading,
   fov: r.fov,
   range: r.range,
+  faseId: r.fase_id || null,
 });
 
 export const mapDesignDeviceToDb = (d, designProjectId) => ({
@@ -60,6 +61,7 @@ export const mapDesignDeviceToDb = (d, designProjectId) => ({
   heading: d.heading,
   fov: d.fov,
   range: d.range,
+  fase_id: d.faseId || null,
 });
 
 export async function listDesignProjects(costeoId) {
@@ -113,7 +115,7 @@ export async function upsertDevice(device) {
     .from("design_devices")
     .update({
       preset_id: device.presetId, status: device.status || "existente", label: device.label, x: device.x, y: device.y,
-      heading: device.heading, fov: device.fov, range: device.range,
+      heading: device.heading, fov: device.fov, range: device.range, fase_id: device.faseId || null,
     })
     .eq("id", device.id);
   if (error) throw error;
@@ -122,6 +124,17 @@ export async function upsertDevice(device) {
 export async function deleteDevice(id) {
   const { error } = await supabase.from("design_devices").delete().eq("id", id);
   if (error) throw error;
+}
+
+// Fases del Costeo dueño de este plano — para el desplegable "Fase" del panel
+// de dispositivo (ver DesignView.jsx). Consulta directa por costeo_id en vez
+// de recibir `fases` como prop desde más arriba, así DesignView no depende de
+// que quien lo invoque ya las tenga cargadas.
+export async function getCosteoFases(costeoId) {
+  if (!costeoId) return [];
+  const { data, error } = await supabase.from("costeos").select("fases").eq("id", costeoId).single();
+  if (error) throw error;
+  return data?.fases || [];
 }
 
 export async function deleteDesignProject(project) {

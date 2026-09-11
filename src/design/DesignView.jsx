@@ -2,17 +2,15 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
 import { fetchImageAsDataUri } from "../CosteoPdfDocs.jsx";
 import { DeviceIconRail } from "./DeviceIconRail.jsx";
-import { CAMERA_PRESETS, STATUS_COLORS, STATUS_LABELS, STATUS_ORDER } from "./devicePresets.js";
+import { CAMERA_PRESETS, STATUS_COLORS, STATUS_LABELS, STATUS_ORDER, LABEL_PREFIX, FASE_COLORS } from "./devicePresets.js";
 import { DesignCanvas, VIEW_W, VIEW_H } from "./DesignCanvas.jsx";
 import { TitleBlockForm } from "./TitleBlockForm.jsx";
 import { ExportPanel } from "./ExportPanel.jsx";
 import { clamp } from "./geometry.js";
 import {
   loadDesignProject, saveProjectMeta, insertDevice, upsertDevice, deleteDevice,
-  uploadBgImage, getBgImageUrl,
+  uploadBgImage, getBgImageUrl, getCosteoFases,
 } from "./designSupabase.js";
-
-const CATEGORY_PREFIX = { camera: "CAM", wireless_beam: "Antena", wireless_rings: "Antena", point: "Estación" };
 
 export function DesignView({ designProjectId, onBack }) {
   const svgRef = useRef(null);
@@ -35,6 +33,7 @@ export function DesignView({ designProjectId, onBack }) {
   const [plotWidthM, setPlotWidthM] = useState("");
   const [plotLengthM, setPlotLengthM] = useState("");
   const [dimsApplied, setDimsApplied] = useState(false);
+  const [fases, setFases] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +78,16 @@ export function DesignView({ designProjectId, onBack }) {
     })();
     return () => { cancelled = true; };
   }, [designProjectId, reloadKey]);
+
+  // Fases del Costeo dueño de este plano — para el desplegable "Fase" del
+  // panel de dispositivo. Se busca aparte porque `loadDesignProject` no trae
+  // el costeo completo, solo el plano.
+  useEffect(() => {
+    if (!project?.costeoId) return;
+    let cancelled = false;
+    getCosteoFases(project.costeoId).then((fs) => { if (!cancelled) setFases(fs || []); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [project?.costeoId]);
 
   const scheduleSaveProject = useCallback((p) => {
     pendingProjectRef.current = p;
@@ -130,6 +139,13 @@ export function DesignView({ designProjectId, onBack }) {
     upsertDevice(updated);
   };
 
+  const handleSetFase = (faseId) => {
+    if (!selectedId) return;
+    handleDeviceChange(selectedId, { faseId: faseId || null });
+    const updated = { ...devices.find((d) => d.id === selectedId), faseId: faseId || null };
+    upsertDevice(updated);
+  };
+
   const handleSelectPreset = async (presetId) => {
     const preset = CAMERA_PRESETS.find((p) => p.id === presetId);
     if (selectedId) {
@@ -143,14 +159,11 @@ export function DesignView({ designProjectId, onBack }) {
   const handleDropDevice = async (presetId, point) => {
     const preset = CAMERA_PRESETS.find((p) => p.id === presetId);
     if (!preset) return;
-    // Cada categoría (cámaras / antenas / estaciones) numera sus propias
-    // etiquetas por separado — agregar una Estación no salta la numeración
-    // de las cámaras ni viceversa.
-    const prefix = CATEGORY_PREFIX[preset.baseViz] || "DISP";
-    const sameCategoryCount = devices.filter((d) => {
-      const dp = CAMERA_PRESETS.find((p) => p.id === d.presetId);
-      return dp && (CATEGORY_PREFIX[dp.baseViz] || "DISP") === prefix;
-    }).length;
+    // Cada tipo (cámaras / antenas / NVR / switch / estación) numera su propia
+    // etiqueta por separado — agregar un NVR no salta la numeración de los
+    // switch ni viceversa, aunque ambos compartan baseViz "point".
+    const prefix = LABEL_PREFIX[preset.id] || "DISP";
+    const sameCategoryCount = devices.filter((d) => (LABEL_PREFIX[d.presetId] || "DISP") === prefix).length;
     const n = sameCategoryCount + 1;
     const label = prefix === "CAM" ? `CAM-${String(n).padStart(2, "0")}` : `${prefix} ${n}`;
     const draft = {
@@ -276,6 +289,7 @@ export function DesignView({ designProjectId, onBack }) {
             plotWidthM={wNum}
             plotLengthM={lNum}
             onDropDevice={handleDropDevice}
+            fases={fases}
           />
 
           {bgImageUrl && (
@@ -306,10 +320,13 @@ export function DesignView({ designProjectId, onBack }) {
             const selectedPreset = CAMERA_PRESETS.find((p) => p.id === selectedDevice.presetId);
             const hasCone = selectedPreset && selectedPreset.baseViz !== "point";
             const status = selectedDevice.status || "existente";
+            const selectedFaseIdx = selectedDevice.faseId ? fases.findIndex((f) => String(f.id) === String(selectedDevice.faseId)) : -1;
+            const selectedFaseColor = selectedFaseIdx >= 0 ? FASE_COLORS[selectedFaseIdx % FASE_COLORS.length] : null;
+            const selectedFaseSuffix = selectedFaseIdx >= 0 ? ` -F${String(selectedFaseIdx + 1).padStart(2, "0")}` : "";
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: 10, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                  <div style={{ fontFamily: FONT_DISPLAY, fontSize: 13, fontWeight: 700, color: COLORS.text }}>{selectedDevice.label}</div>
+                  <div style={{ fontFamily: FONT_DISPLAY, fontSize: 13, fontWeight: 700, color: selectedFaseColor || COLORS.text }}>{selectedDevice.label}{selectedFaseSuffix}</div>
                   <button onClick={removeSelectedDevice} style={{ padding: "5px 12px", borderRadius: 6, border: `1px solid ${COLORS.red}`, background: "transparent", color: COLORS.red, fontSize: 11, fontFamily: FONT, cursor: "pointer" }}>
                     🗑 Eliminar
                   </button>
@@ -333,6 +350,24 @@ export function DesignView({ designProjectId, onBack }) {
                       </button>
                     ))}
                   </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 11, color: COLORS.textMuted, fontFamily: FONT, marginBottom: 6 }}>FASE</div>
+                  <select
+                    value={selectedDevice.faseId || ""}
+                    onChange={(e) => handleSetFase(e.target.value || null)}
+                    style={{
+                      width: "100%", padding: "7px 10px", borderRadius: 7, fontSize: 12, fontFamily: FONT, cursor: "pointer",
+                      background: COLORS.bg, border: `1px solid ${selectedFaseColor || COLORS.border}`,
+                      color: COLORS.text,
+                    }}
+                  >
+                    <option value="">Sin fase</option>
+                    {fases.map((f, i) => (
+                      <option key={f.id} value={f.id}>{`${f.nombre || `Fase ${i + 1}`} (F${String(i + 1).padStart(2, "0")})`}</option>
+                    ))}
+                  </select>
                 </div>
 
                 {hasCone && (

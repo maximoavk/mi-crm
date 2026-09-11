@@ -1,5 +1,5 @@
 import React, { useRef, useCallback } from "react";
-import { CAMERA_PRESETS, STATUS_COLORS } from "./devicePresets.js";
+import { CAMERA_PRESETS, STATUS_COLORS, FASE_COLORS } from "./devicePresets.js";
 import { NAVY_DEEP, CYAN } from "./canvasTheme.js";
 import { polarToXY, fovConePath, angleDiff, clamp, pickNiceStep } from "./geometry.js";
 
@@ -10,10 +10,16 @@ export const VIEW_H = 500;
 // un mismo tipo de dispositivo puede estar en cualquier estado. "existente" es
 // el único que conserva el degradado DORI en cámaras; el resto tiñe el cono
 // sólido con el color de su estado.
-function resolveDeviceViz(device) {
+function resolveDeviceViz(device, fases) {
   const preset = CAMERA_PRESETS.find((p) => p.id === device.presetId) || CAMERA_PRESETS[0];
   const status = device.status || "existente";
-  return { ...device, type: preset.icon, baseViz: preset.baseViz, status, statusColor: STATUS_COLORS[status] || CYAN };
+  // faseSuffix se calcula al vuelo desde la posición de la fase en `fases`
+  // (nunca se guarda en `label`) — así reordenar/renombrar fases en el Costeo
+  // no deja etiquetas viejas desactualizadas en el plano.
+  const faseIdx = device.faseId ? (fases || []).findIndex((f) => String(f.id) === String(device.faseId)) : -1;
+  const faseColor = faseIdx >= 0 ? FASE_COLORS[faseIdx % FASE_COLORS.length] : null;
+  const faseSuffix = faseIdx >= 0 ? ` -F${String(faseIdx + 1).padStart(2, "0")}` : "";
+  return { ...device, type: preset.icon, baseViz: preset.baseViz, status, statusColor: STATUS_COLORS[status] || CYAN, faseColor, faseSuffix };
 }
 
 /* ---------- Visualizaciones sobre el plano ---------- */
@@ -86,73 +92,91 @@ function DeviceViz({ cam, selected }) {
 // Isotipo del marcador — siempre representa el TIPO de dispositivo (domo,
 // bullet, antena, estación...), coloreado según su ESTADO. Formas
 // simplificadas para verse claras a tamaño de marcador (~20-26px).
-function DeviceMarkerIcon({ type, color, selected }) {
+function DeviceMarkerIcon({ type, color, selected, faseColor }) {
   const r = selected ? 13 : 10;
   const s = r / 10;
   const sw = selected ? 2 : 1.4;
   const t = `scale(${s})`;
+  // Anillo de FASE — señal aparte del color de ESTADO (que sigue coloreando
+  // el ícono/cono como siempre): un borde delgado alrededor del marcador, en
+  // el mismo espacio de coordenadas "unidad 10" que las formas de abajo, para
+  // que escale junto con ellas.
+  const ring = faseColor ? <circle cx="0" cy="0" r="13.5" fill="none" stroke={faseColor} strokeWidth="2.2" /> : null;
+  let inner = null;
   if (type === "dome") {
-    return (
-      <g transform={t}>
+    inner = (
+      <>
         <path d="M-9 2 A9 7 0 0 1 9 2 Z" fill={color} stroke="white" strokeWidth={sw} strokeLinejoin="round" />
         <line x1="-9" y1="2" x2="9" y2="2" stroke="white" strokeWidth={sw} />
         <circle cx="0" cy="-1.2" r="2.4" fill="white" opacity="0.9" />
-      </g>
+      </>
     );
-  }
-  if (type === "bullet") {
-    return (
-      <g transform={t}>
+  } else if (type === "bullet") {
+    inner = (
+      <>
         <rect x="-9" y="-5" width="14" height="10" rx="4" fill={color} stroke="white" strokeWidth={sw} />
         <circle cx="7" cy="0" r="4" fill="white" />
-      </g>
+      </>
     );
-  }
-  if (type === "varifocal") {
-    return (
-      <g transform={t}>
+  } else if (type === "varifocal") {
+    inner = (
+      <>
         <rect x="-9" y="-4.5" width="11" height="9" rx="2.5" fill={color} stroke="white" strokeWidth={sw} />
         <circle cx="5" cy="0" r="5.5" fill="none" stroke="white" strokeWidth={sw} />
         <circle cx="5" cy="0" r="2.2" fill="white" />
-      </g>
+      </>
     );
-  }
-  if (type === "ptz") {
-    return (
-      <g transform={t}>
+  } else if (type === "ptz") {
+    inner = (
+      <>
         <circle cx="0" cy="0" r="8" fill={color} stroke="white" strokeWidth={sw} />
         <path d="M0 -9 A11 11 0 0 1 9.5 -3" fill="none" stroke="white" strokeWidth={sw} />
-      </g>
+      </>
     );
-  }
-  if (type === "beam") {
-    return (
-      <g transform={t}>
+  } else if (type === "beam") {
+    inner = (
+      <>
         <path d="M-8 4 A11 8 0 0 1 8 -6 L6 -2 A7 5 0 0 0 -4 6 Z" fill={color} stroke="white" strokeWidth={sw} strokeLinejoin="round" />
         <circle cx="-4" cy="3" r="2" fill="white" />
-      </g>
+      </>
     );
-  }
-  if (type === "omni") {
-    return (
-      <g transform={t}>
+  } else if (type === "omni") {
+    inner = (
+      <>
         <circle cx="0" cy="0" r="2.4" fill={color} stroke="white" strokeWidth="1" />
         <circle cx="0" cy="0" r="6.5" fill="none" stroke={color} strokeWidth={sw} />
         <circle cx="0" cy="0" r="10" fill="none" stroke={color} strokeWidth={sw} opacity="0.6" />
-      </g>
+      </>
     );
-  }
-  if (type === "station") {
-    return (
-      <g transform={t}>
+  } else if (type === "switch") {
+    inner = (
+      <>
         <rect x="-10" y="-6" width="20" height="12" rx="2" fill={color} stroke="white" strokeWidth={sw} />
         <rect x="-7" y="-1" width="4" height="4" fill="white" />
         <rect x="-1" y="-1" width="4" height="4" fill="white" />
         <rect x="5" y="-1" width="4" height="4" fill="white" />
-      </g>
+      </>
     );
+  } else if (type === "nvr") {
+    inner = (
+      <>
+        <rect x="-10" y="-6" width="20" height="12" rx="2" fill={color} stroke="white" strokeWidth={sw} />
+        <circle cx="-6" cy="-2.2" r="1.7" fill="white" />
+        <line x1="-2" y1="0.5" x2="8" y2="0.5" stroke="white" strokeWidth={sw} />
+        <line x1="-2" y1="3.2" x2="8" y2="3.2" stroke="white" strokeWidth={sw} />
+      </>
+    );
+  } else if (type === "station") {
+    inner = (
+      <>
+        <rect x="-8" y="-8" width="16" height="16" rx="3" fill={color} stroke="white" strokeWidth={sw} />
+        <circle cx="0" cy="0" r="2.4" fill="white" />
+      </>
+    );
+  } else {
+    inner = <circle cx="0" cy="0" r={r} fill={color} stroke="white" strokeWidth={sw} />;
   }
-  return <circle cx="0" cy="0" r={r} fill={color} stroke="white" strokeWidth={sw} />;
+  return <g transform={t}>{ring}{inner}</g>;
 }
 
 function CameraNode({ cam, onSelect, selected, onDragStart }) {
@@ -163,7 +187,7 @@ function CameraNode({ cam, onSelect, selected, onDragStart }) {
         transform={`translate(${cam.x} ${cam.y})`}
         onPointerDown={(e) => { e.stopPropagation(); onDragStart(cam.id, "move", e); }}
       >
-        <DeviceMarkerIcon type={cam.type} color={cam.statusColor} selected={selected} />
+        <DeviceMarkerIcon type={cam.type} color={cam.statusColor} selected={selected} faseColor={cam.faseColor} />
       </g>
       {selected && cam.baseViz !== "wireless_rings" && cam.baseViz !== "point" && (() => {
         const [tx, ty] = polarToXY(cam.x, cam.y, cam.range, cam.heading);
@@ -200,8 +224,8 @@ function CameraNode({ cam, onSelect, selected, onDragStart }) {
           />
         );
       })()}
-      <text x={cam.x} y={cam.y - 18} textAnchor="middle" fill="white" fontSize="11" fontFamily="'DM Mono', monospace" opacity={0.85}>
-        {cam.label}
+      <text x={cam.x} y={cam.y - 18} textAnchor="middle" fill={cam.faseColor || "white"} fontSize="11" fontFamily="'DM Mono', monospace" opacity={0.85}>
+        {cam.label}{cam.faseSuffix || ""}
       </text>
     </g>
   );
@@ -212,7 +236,7 @@ export function DesignCanvas({
   svgRef, devices, selectedId, onSelectDevice, onDeviceChange, onDeviceSettled,
   bgImage, bgNaturalSize, bgScaleX, bgScaleY, bgOffset, locked,
   onBgOffsetChange, onBgScaleChange, mppX, mppY, plotWidthM, plotLengthM,
-  onDropDevice,
+  onDropDevice, fases,
 }) {
   const dragRef = useRef(null);
   const panRef = useRef(null);
@@ -409,7 +433,7 @@ export function DesignCanvas({
       ))}
 
       {devices.map((d) => (
-        <CameraNode key={d.id} cam={resolveDeviceViz(d)} selected={d.id === selectedId} onSelect={onSelectDevice} onDragStart={onDragStart} />
+        <CameraNode key={d.id} cam={resolveDeviceViz(d, fases)} selected={d.id === selectedId} onSelect={onSelectDevice} onDragStart={onDragStart} />
       ))}
 
       {corners.map((c) => (

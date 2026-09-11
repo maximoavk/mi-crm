@@ -76,6 +76,26 @@ function PresetIcon({ type, active }) {
       </svg>
     );
   }
+  if (type === "switch") {
+    return (
+      <svg {...common}>
+        <rect x="4" y="9" width="20" height="10" rx="2" fill={fill} stroke={stroke} strokeWidth="1.8" />
+        <rect x="7" y="12.5" width="3" height="3.5" fill={stroke} />
+        <rect x="12.5" y="12.5" width="3" height="3.5" fill={stroke} />
+        <rect x="18" y="12.5" width="3" height="3.5" fill={stroke} />
+      </svg>
+    );
+  }
+  if (type === "nvr") {
+    return (
+      <svg {...common}>
+        <rect x="4" y="8" width="20" height="12" rx="2" fill={fill} stroke={stroke} strokeWidth="1.8" />
+        <circle cx="8" cy="12" r="1.8" fill={stroke} />
+        <line x1="12" y1="12" x2="21" y2="12" stroke={stroke} strokeWidth="1.6" />
+        <line x1="12" y1="16" x2="21" y2="16" stroke={stroke} strokeWidth="1.6" />
+      </svg>
+    );
+  }
   return null;
 }
 
