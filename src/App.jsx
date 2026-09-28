@@ -9290,7 +9290,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
         </>
       )}
       {page==="historial" && (
-        <HistorialCambiosTab costeoId={proyecto.id} />
+        <HistorialCambiosTab costeoId={proyecto.id} proyecto={proyecto} />
       )}
 
       {page==="diseno" && (
@@ -9441,12 +9441,14 @@ function VersionDetailModal({ version, onClose }) {
   );
 }
 
-function HistorialCambiosTab({ costeoId }) {
+function HistorialCambiosTab({ costeoId, proyecto }) {
   const [cambios, setCambios]     = useState(null);
   const [versiones, setVersiones] = useState([]);
   const [docsMap, setDocsMap]     = useState({});
   const [diffPair, setDiffPair]   = useState(null);
   const [viewVersion, setViewVersion] = useState(null);
+  const [pdfFromId, setPdfFromId] = useState("");
+  const [pdfToId, setPdfToId]     = useState("");
 
   useEffect(()=>{
     (async () => {
@@ -9466,6 +9468,63 @@ function HistorialCambiosTab({ costeoId }) {
     })();
   }, [costeoId]);
 
+  // PDF comparativo entre dos versiones cualesquiera (no necesariamente
+  // consecutivas) — pensado para mostrarle al cliente por qué cambió el
+  // valor de la propuesta entre la versión original y una posterior.
+  const printVersionComparativo = (fromV, toV) => {
+    const fmtDL = (d) => d ? new Date(d).toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"}) : "—";
+    const diff = buildVersionDiff(fromV.fases, toV.fases);
+    const delta = diff.totalNew - diff.totalOld;
+    const rowsHtml = diff.rows.length===0 ? `<tr><td colspan="4" style="text-align:center;color:#888;padding:10px">Sin diferencias entre estas dos versiones.</td></tr>` :
+      diff.rows.flatMap(r => r.itemDiffs.map(it => {
+        const lbl = it.tipo==="agregado"?"+ Agregado":it.tipo==="removido"?"− Quitado":"~ Modificado";
+        const color = it.tipo==="agregado"?"#1a8a1a":it.tipo==="removido"?"#c0392b":"#b85c00";
+        const valor = it.tipo==="modificado" ? `${it.ventaOld.toLocaleString("es-CL")} → ${it.ventaNew.toLocaleString("es-CL")}` : `${it.ventaNew-it.ventaOld>=0?"+":""}$${(it.ventaNew-it.ventaOld).toLocaleString("es-CL")}`;
+        return `<tr><td>${r.faseNombre}</td><td style="color:${color};font-weight:600">${lbl}</td><td>${it.descripcion}${it.qtyOld!==it.qtyNew?` (${it.qtyOld}→${it.qtyNew})`:""}</td><td style="text-align:right">${valor}</td></tr>`;
+      })).join("");
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    @page{size:A4 portrait;margin:14mm 16mm;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+    *{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Courier New',monospace;color:#1a1a1a;font-size:11px;}
+    .hdr{border-bottom:2px solid #1a1a1a;padding-bottom:8px;margin-bottom:10px;}
+    .hdr .ttl{font-size:15px;font-weight:bold;}
+    .hdr .sub{font-size:10px;color:#666;margin-top:2px;}
+    .vbox{display:flex;justify-content:space-between;gap:10px;margin-bottom:14px;}
+    .vcard{flex:1;border:1px solid #aaa;border-radius:4px;padding:8px 10px;}
+    .vcard .lbl{font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:3px;}
+    .vcard .num{font-size:13px;font-weight:bold;}
+    .vcard .meta{font-size:9px;color:#666;margin-top:3px;}
+    table.it{width:100%;border-collapse:collapse;margin-bottom:5mm;}
+    table.it thead tr{background:#1a1a1a;color:#fff;}
+    table.it th{padding:5px 6px;font-size:9px;text-transform:uppercase;letter-spacing:.06em;text-align:left;}
+    table.it td{padding:6px 6px;font-size:10px;border-bottom:1px solid #ddd;}
+    table.it tbody tr:nth-child(even) td{background:#f9f9f9;}
+    .sum{border:1.5px solid #1a1a1a;border-radius:4px;padding:10px 14px;}
+    .sum table{width:100%;border-collapse:collapse;font-size:11px;}
+    .sum td{padding:4px 4px;}
+    .foot{margin-top:8mm;border-top:1px solid #ccc;padding-top:4mm;font-size:9px;color:#888;text-align:center;}
+    </style></head><body>
+    <div class="hdr">
+      <div class="ttl">Comparativo de versiones — ${proyecto?.nombre||""}</div>
+      <div class="sub">${proyecto?.clienteEmpresa||proyecto?.clienteNombre||""}${proyecto?.clienteRut?` · RUT: ${proyecto.clienteRut}`:""} · Generado el ${fmtDL(new Date())}</div>
+    </div>
+    <div class="vbox">
+      <div class="vcard"><div class="lbl">Versión original</div><div class="num">Versión ${fromV.version_num}${fromV.cotizacion_ref?` — ${fromV.cotizacion_ref}`:""}</div><div class="meta">${fmtDL(fromV.created_at)}${fromV.nota?` · ${fromV.nota}`:""}</div></div>
+      <div class="vcard"><div class="lbl">Versión comparada</div><div class="num">Versión ${toV.version_num}${toV.cotizacion_ref?` — ${toV.cotizacion_ref}`:""}</div><div class="meta">${fmtDL(toV.created_at)}${toV.nota?` · ${toV.nota}`:""}</div></div>
+    </div>
+    <table class="it"><thead><tr><th>Fase</th><th>Tipo</th><th>Descripción</th><th style="text-align:right">Valor</th></tr></thead>
+    <tbody>${rowsHtml}</tbody></table>
+    <div class="sum"><table>
+      <tr><td>Valor versión ${fromV.version_num}</td><td style="text-align:right">$${diff.totalOld.toLocaleString("es-CL")}</td></tr>
+      <tr style="border-top:1px solid #ccc"><td>Diferencia</td><td style="text-align:right;font-weight:600">${delta>=0?"+":""}$${delta.toLocaleString("es-CL")}</td></tr>
+      <tr style="border-top:1px solid #1a1a1a;font-weight:bold;font-size:13px"><td>Valor versión ${toV.version_num}</td><td style="text-align:right">$${diff.totalNew.toLocaleString("es-CL")}</td></tr>
+    </table></div>
+    <div class="foot">Polygonos SpA · RUT 77.180.437-3 · Documento interno de gestión · Comparativo generado el ${fmtDL(new Date())}</div>
+    <script>window.onload=()=>window.print();</script></body></html>`;
+    const w = window.open("", "_blank");
+    w.document.title = `Comparativo v${fromV.version_num}-v${toV.version_num} ${proyecto?.nombre||""}`;
+    w.document.write(html); w.document.close();
+  };
+
   if(cambios===null) return <Loader />;
 
   const merged = [
@@ -9479,8 +9538,29 @@ function HistorialCambiosTab({ costeoId }) {
     </div>
   );
 
+  const fromV = versiones.find(v=>v.id===pdfFromId) || versiones[0];
+  const toV   = versiones.find(v=>v.id===pdfToId) || versiones[versiones.length-1];
+
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+      {versiones.length>=2 && (
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:9, padding:"12px 14px", display:"flex", gap:10, alignItems:"center", flexWrap:"wrap", marginBottom:6 }}>
+          <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>PDF comparativo</span>
+          <select value={fromV?.id||""} onChange={e=>setPdfFromId(e.target.value)}
+            style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"6px 8px" }}>
+            {versiones.map(v=><option key={v.id} value={v.id}>Versión {v.version_num}{v.cotizacion_ref?` (${v.cotizacion_ref})`:""}</option>)}
+          </select>
+          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>→</span>
+          <select value={toV?.id||""} onChange={e=>setPdfToId(e.target.value)}
+            style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"6px 8px" }}>
+            {versiones.map(v=><option key={v.id} value={v.id}>Versión {v.version_num}{v.cotizacion_ref?` (${v.cotizacion_ref})`:""}</option>)}
+          </select>
+          <button onClick={()=>printVersionComparativo(fromV, toV)} disabled={!fromV||!toV||fromV.id===toV.id}
+            style={{ padding:"7px 14px", background:COLORS.accent, border:"none", borderRadius:7, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer", opacity:(!fromV||!toV||fromV.id===toV.id)?0.5:1 }}>
+            📄 Generar PDF comparativo
+          </button>
+        </div>
+      )}
       {merged.map(m => m.kind==="version" ? (
         <div key={"v"+m.data.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.accent}44`, borderRadius:9, padding:"12px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
           <div style={{ minWidth:0 }}>
