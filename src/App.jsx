@@ -3031,10 +3031,29 @@ function GanttView({ isMobile }) {
               <button onClick={async () => {
                 const ts2 = tasks.filter(t => t.tipo !== "H");
                 const avancePromedio = ts2.length ? Math.round(ts2.reduce((s, t) => s + Number(t.pctAvance || 0), 0) / ts2.length) : 0;
+                // El PDF cubre TODO el rango del proyecto (no solo lo que está
+                // visible en pantalla) — una página A4 apaisada por mes, para
+                // que ninguna fase quede fuera solo por estar fuera de la
+                // ventana de 5d/15d/30d/mes que se esté viendo en ese momento.
+                const allDates = tasks.flatMap(t=>[t.inicio,t.fin]).filter(Boolean);
+                const minDate = allDates.length ? allDates.reduce((a,b)=>a<b?a:b) : viewStart;
+                const maxDate = allDates.length ? allDates.reduce((a,b)=>a>b?a:b) : viewStart;
+                const monthPages = [];
+                let cursor = `${minDate.slice(0,7)}-01`;
+                while(cursor <= maxDate) {
+                  const [y,m] = cursor.split("-").map(Number);
+                  const diasDelMes = new Date(y, m, 0).getDate();
+                  monthPages.push({
+                    label: new Date(cursor+"T00:00:00Z").toLocaleDateString("es-CL",{month:"long",year:"numeric",timeZone:"UTC"}),
+                    calCols: buildCalHeader(cursor, diasDelMes),
+                  });
+                  cursor = m===12 ? `${y+1}-01-01` : `${y}-${String(m+1).padStart(2,"0")}-01`;
+                }
+                const diasHabilesTotal = monthPages.reduce((s,p)=>s+p.calCols.filter(c=>!c.isWeekend).length, 0);
                 const totales = {
                   hhPresup: tasks.reduce((s, t) => s + Number(t.hhPresup || 0), 0),
                   hhTerceros: tasks.reduce((s, t) => s + Number(t.hhTerceros || 0), 0),
-                  diasHabiles: calCols.filter(c => !c.isWeekend).length,
+                  diasHabiles: diasHabilesTotal,
                   avancePromedio,
                 };
                 const phasePresupById = {};
@@ -3044,7 +3063,7 @@ function GanttView({ isMobile }) {
                 });
                 let logoDataUri = null;
                 try { logoDataUri = await fetchImageAsDataUri(LOGO_PRINT); } catch { /* el documento se genera igual, sin logo */ }
-                const blob = await pdf(<GanttDoc proyecto={proyecto} headerData={headerData} tasks={tasks} calCols={calCols} numbersById={ganttMeta.numbers} phasePresupById={phasePresupById} totales={totales} logoDataUri={logoDataUri} />).toBlob();
+                const blob = await pdf(<GanttDoc proyecto={proyecto} headerData={headerData} tasks={tasks} monthPages={monthPages} numbersById={ganttMeta.numbers} phasePresupById={phasePresupById} totales={totales} logoDataUri={logoDataUri} />).toBlob();
                 const url = URL.createObjectURL(blob);
                 setPdfPreviewUrl(url);
               }} style={{ padding:"4px 14px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:5, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>🖨 PDF</button>

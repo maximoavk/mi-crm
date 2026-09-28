@@ -153,7 +153,7 @@ export const ganttPdfStyles = StyleSheet.create({
   barFill: { height: "100%", borderRadius: 1 },
 });
 
-export function GanttPdfHeader({ proyecto, headerData, totales, calCols, weeks, granularity, timeColPct, logoDataUri }) {
+export function GanttPdfHeader({ proyecto, headerData, totales, calCols, weeks, granularity, timeColPct, logoDataUri, monthLabel }) {
   const months = granularity === "day" ? groupColsIntoMonths(calCols) : [];
   return (
     <View style={ganttPdfStyles.headerFixed} fixed>
@@ -163,7 +163,7 @@ export function GanttPdfHeader({ proyecto, headerData, totales, calCols, weeks, 
           <Text style={ganttPdfStyles.headerSub}>Polygonos SpA · RUT 77.180.437-3</Text>
         </View>
         <View style={{ alignItems: "flex-end" }}>
-          <Text style={ganttPdfStyles.titleText}>Carta Gantt · COT-{proyecto?.cotNum || ""}</Text>
+          <Text style={ganttPdfStyles.titleText}>Carta Gantt · COT-{proyecto?.cotNum || ""}{monthLabel ? ` · ${monthLabel}` : ""}</Text>
           <Text style={ganttPdfStyles.projectName}>{proyecto?.nombre || ""}</Text>
           {headerData?.cliente ? <Text style={ganttPdfStyles.headerSub}>Cliente: {headerData.cliente}</Text> : null}
           <Text style={ganttPdfStyles.headerSub}>Elaborado por: {headerData?.elaboradoPor || ""}</Text>
@@ -295,40 +295,55 @@ export function GanttTaskRow({ task, numberLabel, calCols, weeks, granularity, t
   );
 }
 
-export function GanttDoc({ proyecto, headerData, tasks, calCols, numbersById, phasePresupById, totales, logoDataUri }) {
-  const granularity = calCols.length > 15 ? "week" : "day";
-  const weeks = granularity === "week" ? groupColsIntoWeeks(calCols) : [];
-  const timeUnitsCount = granularity === "week" ? weeks.length : calCols.length;
-  const timeColPct = (100 - FIXED_COLS_PCT) / Math.max(1, timeUnitsCount);
+// Una página A4 apaisada POR MES, cada una con su propia grilla de días y
+// barras de consumo de HH — en vez de una sola página cuyas columnas de
+// fecha quedaban acotadas a lo que estuviera visible en pantalla al
+// momento de imprimir (dejando fases enteras sin columnas donde dibujarse
+// si caían fuera de esa ventana). `monthPages` es `[{ label, calCols }]`,
+// una entrada por cada mes que cubre el proyecto completo (ver App.jsx).
+export function GanttDoc({ proyecto, headerData, tasks, monthPages, numbersById, phasePresupById, totales, logoDataUri }) {
   const today = new Date().toISOString().slice(0, 10);
+  const pages = (monthPages && monthPages.length > 0) ? monthPages : [{ label: "", calCols: [] }];
 
   return (
     <Document>
-      <Page size="A4" orientation="landscape" style={[ganttPdfStyles.page, { paddingTop: granularity === "day" ? 128 : 116 }]} wrap>
-        <GanttPdfHeader
-          proyecto={proyecto}
-          headerData={headerData}
-          totales={totales}
-          calCols={calCols}
-          weeks={weeks}
-          granularity={granularity}
-          timeColPct={timeColPct}
-          logoDataUri={logoDataUri}
-        />
-        {tasks.map((t, i) => (
-          <GanttTaskRow
-            key={t.id}
-            task={t}
-            numberLabel={numbersById[t.id] || String(i + 1)}
-            calCols={calCols}
-            weeks={weeks}
-            granularity={granularity}
-            timeColPct={timeColPct}
-            today={today}
-            phasePresupById={phasePresupById}
-          />
-        ))}
-      </Page>
+      {pages.map((page, pi) => {
+        const granularity = "day"; // por mes siempre en detalle diario, para ver las barras de HH
+        const timeColPct = (100 - FIXED_COLS_PCT) / Math.max(1, page.calCols.length);
+        const monthStart = page.calCols[0]?.date;
+        const monthEnd = page.calCols[page.calCols.length - 1]?.date;
+        const tasksDelMes = tasks.filter(t => t.inicio && t.fin && t.fin >= monthStart && t.inicio <= monthEnd);
+        return (
+          <Page key={pi} size="A4" orientation="landscape" style={[ganttPdfStyles.page, { paddingTop: 128 }]} wrap>
+            <GanttPdfHeader
+              proyecto={proyecto}
+              headerData={headerData}
+              totales={totales}
+              calCols={page.calCols}
+              weeks={[]}
+              granularity={granularity}
+              timeColPct={timeColPct}
+              logoDataUri={logoDataUri}
+              monthLabel={page.label}
+            />
+            {tasksDelMes.length === 0 ? (
+              <Text style={{ fontSize: 7, color: "#94a3b8", padding: 6 }}>Sin actividades este mes.</Text>
+            ) : tasksDelMes.map((t, i) => (
+              <GanttTaskRow
+                key={t.id}
+                task={t}
+                numberLabel={numbersById[t.id] || String(i + 1)}
+                calCols={page.calCols}
+                weeks={[]}
+                granularity={granularity}
+                timeColPct={timeColPct}
+                today={today}
+                phasePresupById={phasePresupById}
+              />
+            ))}
+          </Page>
+        );
+      })}
     </Document>
   );
 }
