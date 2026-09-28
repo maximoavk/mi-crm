@@ -3043,10 +3043,16 @@ function GanttView({ isMobile }) {
                 while(cursor <= maxDate) {
                   const [y,m] = cursor.split("-").map(Number);
                   const diasDelMes = new Date(y, m, 0).getDate();
-                  monthPages.push({
-                    label: new Date(cursor+"T00:00:00Z").toLocaleDateString("es-CL",{month:"long",year:"numeric",timeZone:"UTC"}),
-                    calCols: buildCalHeader(cursor, diasDelMes),
-                  });
+                  const monthEnd = `${y}-${String(m).padStart(2,"0")}-${String(diasDelMes).padStart(2,"0")}`;
+                  // Se omite el mes si ninguna tarea/hito/fase lo toca — un PDF
+                  // más corto en vez de páginas vacías con solo "Sin actividades".
+                  const tieneActividad = tasks.some(t=>t.inicio && t.fin && t.fin>=cursor && t.inicio<=monthEnd);
+                  if(tieneActividad) {
+                    monthPages.push({
+                      label: new Date(cursor+"T00:00:00Z").toLocaleDateString("es-CL",{month:"long",year:"numeric",timeZone:"UTC"}),
+                      calCols: buildCalHeader(cursor, diasDelMes),
+                    });
+                  }
                   cursor = m===12 ? `${y+1}-01-01` : `${y}-${String(m+1).padStart(2,"0")}-01`;
                 }
                 const diasHabilesTotal = monthPages.reduce((s,p)=>s+p.calCols.filter(c=>!c.isWeekend).length, 0);
