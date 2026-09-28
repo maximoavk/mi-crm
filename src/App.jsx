@@ -8567,6 +8567,11 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
   const margenPct = totalCosto > 0 ? (totalMargen/totalCosto*100).toFixed(1) : 0;
   const margenFinalBruto  = totalVentaFinal - totalCostoBruto; // margen post-descuento (venta final - costo bruto)
   const margenFinalPct    = totalCostoBruto > 0 ? (margenFinalBruto/totalCostoBruto*100).toFixed(1) : 0;
+  // Margen neto post-descuento (venta neta con descuento - costo neto), misma base
+  // "neto sobre costo neto" que totalMargen/margenPct — para que la tarjeta
+  // "Margen Total" se actualice sola al aplicar un descuento de fase.
+  const totalMargenConDesc = totalVentaNetaConDesc - totalCosto;
+  const margenConDescPct   = totalCosto > 0 ? (totalMargenConDesc/totalCosto*100).toFixed(1) : 0;
 
   // Totales partidas
   const partidas = proyecto?.partidas||[];
@@ -9199,7 +9204,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
           <div style={{ display:"flex", gap:10, marginBottom:24, flexWrap:"wrap" }}>
             <TotBox label="Costo Neto Total" value={totalCosto}      color={COLORS.textMuted} sub="Sin IVA" />
             <TotBox label="Costo Bruto"      value={totalCostoBruto} color={COLORS.text}      sub="Neto + IVA compra" />
-            <TotBox label="Margen Total"     value={totalMargen}     color={COLORS.green}     sub={`${margenPct}% sobre costo`} />
+            <TotBox label="Margen Total"     value={hayDescuento?totalMargenConDesc:totalMargen}     color={COLORS.green}     sub={hayDescuento?`${margenConDescPct}% sobre costo (con desc.)`:`${margenPct}% sobre costo`} />
             <TotBox label="Venta Neta"       value={totalVentaNeta}  color={COLORS.text}      sub="Costo + Margen" />
             <TotBox label="IVA Compra"       value={totalIvaCompra}  color="#06b6d4"          sub="Crédito fiscal" />
             <TotBox label="IVA Venta"        value={totalIVA}        color="#ef4444"          sub="Débito fiscal" />
