@@ -8810,9 +8810,12 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
           return (b.fecha||"").localeCompare(a.fecha||""); // entre iguales, fecha más reciente primero
         }).map(p=>{
           const fc = (p.fases||[]).map(calcFase);
-          const tv = fc.reduce((s,f)=>s+f.ventaTotal,0);
+          // ventaConDesc/ventaNetaConDesc ya incluyen el descuento de fase aplicado
+          // (y colapsan al valor sin descuento cuando descPct=0), a diferencia de
+          // ventaTotal/margenTotal que siempre muestran el valor previo al descuento.
           const tc = fc.reduce((s,f)=>s+f.costoTotal,0);
-          const tm = fc.reduce((s,f)=>s+f.margenTotal,0);
+          const tv = Math.round(fc.reduce((s,f)=>s+f.ventaConDesc,0));
+          const tm = Math.round(fc.reduce((s,f)=>s+f.ventaNetaConDesc,0) - tc);
           const qInfo = p.cotizacionId ? quoteMap[p.cotizacionId] : null;
           const codigoCot = qInfo ? `${qInfo.serie}-${String(qInfo.numero).padStart(3,"0")}`
             : (p.cotizacion ? `COT-${String(p.cotizacion).padStart(3,"0")}` : null); // fallback proyectos legacy sin cotizacion_id
