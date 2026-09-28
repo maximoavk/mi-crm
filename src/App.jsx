@@ -2469,6 +2469,7 @@ function GanttView({ isMobile }) {
     return next;
   });
   const [allGantts, setAllGantts] = useState([]);
+  const [versionPicker, setVersionPicker] = useState(null); // { cot, versions }
   const [headerData, setHeaderData] = useState({ elaboradoPor:"Maximo Hudson", cliente:"", fechaEmision: new Date().toISOString().slice(0,10) });
   const [headerEdit, setHeaderEdit] = useState(false);
   const cellW = 28;
@@ -2490,13 +2491,23 @@ function GanttView({ isMobile }) {
     else months[months.length-1].count++;
   });
 
-  // Importa fases + hitos automáticos + HH desde el costeo vinculado a una cotización
-  const importarFasesDesdeCosteo = async (cot) => {
-    const { data: costeo } = await supabase.from("costeos").select("fases").eq("cotizacion_id", cot.id).maybeSingle();
+  // Importa fases + hitos automáticos + HH desde el costeo vinculado a una cotización.
+  // `versionId` (opcional) trae las fases desde una foto guardada en
+  // costeo_versiones en vez del costeo en vivo — así el Gantt puede reflejar
+  // el alcance tal como estaba en una versión anterior, no solo el actual.
+  const importarFasesDesdeCosteo = async (cot, versionId) => {
+    let fasesFuente = [];
+    if(versionId) {
+      const { data: version } = await supabase.from("costeo_versiones").select("fases").eq("id", versionId).single();
+      fasesFuente = version?.fases || [];
+    } else {
+      const { data: costeo } = await supabase.from("costeos").select("fases").eq("cotizacion_id", cot.id).maybeSingle();
+      fasesFuente = costeo?.fases || [];
+    }
     let imported = [];
-    if(costeo && (costeo.fases||[]).length > 0) {
+    if(fasesFuente.length > 0) {
       let orden = 0;
-      (costeo.fases||[]).forEach((f, fi) => {
+      fasesFuente.forEach((f, fi) => {
         const faseId = `new_${Date.now()}_${fi}`;
         const faseInicio = today;
         const faseIdx = imported.length;
@@ -2539,7 +2550,7 @@ function GanttView({ isMobile }) {
         });
         // Hito de cierre automático, el día hábil siguiente a Documentación.
         // La última fase del proyecto cierra con "Cierre de proyecto" en vez de "Cierre de fase".
-        const esUltimaFase = fi === (costeo.fases||[]).length - 1;
+        const esUltimaFase = fi === fasesFuente.length - 1;
         const fechaCierre = nextBusinessDay(fechaDocumentacion);
         imported.push({
           id: `new_${Date.now()}_${fi}_cierre`, tipo:"H", nombre: esUltimaFase?"Cierre de proyecto":"Cierre de fase",
@@ -2561,6 +2572,48 @@ function GanttView({ isMobile }) {
     return imported;
   };
 
+  // Busca el costeo vinculado a una cotización y sus versiones guardadas
+  // (costeo_versiones) — para ofrecer el picker de "desde qué versión importar".
+  const fetchVersionesDisponibles = async (cotId) => {
+    const { data: costeo } = await supabase.from("costeos").select("id").eq("cotizacion_id", cotId).maybeSingle();
+    if(!costeo) return [];
+    const { data: versiones } = await supabase.from("costeo_versiones")
+      .select("id,version_num,cotizacion_ref,nota,created_at").eq("costeo_id", costeo.id)
+      .order("version_num", { ascending:false });
+    return versiones || [];
+  };
+
+  // Si el costeo tiene versiones guardadas, pregunta desde cuál importar antes
+  // de tocar las tareas — así el usuario elige el alcance (actual o uno
+  // anterior) en vez de traer siempre el estado más reciente sin darse cuenta.
+  const offerVersionImport = async (cot) => {
+    const versiones = await fetchVersionesDisponibles(cot.id);
+    if(versiones.length > 0) {
+      setSearching(false);
+      setVersionPicker({ cot, versiones });
+    } else {
+      setTasks(await importarFasesDesdeCosteo(cot, null));
+    }
+  };
+
+  const confirmVersionImport = async (versionId) => {
+    const cot = versionPicker.cot;
+    setVersionPicker(null);
+    setSearching(true);
+    setTasks(await importarFasesDesdeCosteo(cot, versionId));
+    setSearching(false);
+  };
+
+  // Reimportar manualmente en un Gantt ya cargado — reemplaza TODAS las
+  // fases/tareas actuales, así que pide confirmación antes de ofrecer el picker.
+  const reimportarDesdeVersion = async () => {
+    if(!proyecto) return;
+    if(!window.confirm("Esto reemplaza todas las fases y tareas actuales del Gantt por las de la versión que elijas. ¿Continuar?")) return;
+    const { data: cot } = await supabase.from("cotizaciones").select("*").eq("numero", Number(proyecto.cotNum)).single();
+    if(cot) await offerVersionImport(cot);
+    else alert(`No se encontró la cotización N° ${proyecto.cotNum}`);
+  };
+
   // Cargar Gantt existente desde Supabase
   const cargarGantt = async (num) => {
     setSearching(true);
@@ -2578,23 +2631,26 @@ function GanttView({ isMobile }) {
           hhPresup: r.hh_presup||0, hhReal: r.hh_real||0, hhTerceros: r.hh_terceros||0,
           depende: r.depende_de||"", orden: r.orden||0, parentId: r.parent_id||null,
         })));
+        setSearching(false);
       } else {
         // Gantt guardado pero sin tareas (huérfano): reimportar fases/hitos desde el costeo vinculado
         const { data: cot } = await supabase.from("cotizaciones").select("*").eq("numero", Number(num)).single();
-        setTasks(cot ? await importarFasesDesdeCosteo(cot) : []);
+        if(cot) await offerVersionImport(cot); else setTasks([]);
+        setSearching(false);
       }
     } else {
       // Nueva: buscar cotización para obtener nombre e importar fases del costeo
       const { data: cot } = await supabase.from("cotizaciones").select("*").eq("numero", Number(num)).single();
       if(cot) {
         setProyecto({ nombre: cot.comentarios||cot.razon_social||`Proyecto Cot. ${num}`, cotNum: num });
-        setTasks(await importarFasesDesdeCosteo(cot));
         setGanttId(null);
+        await offerVersionImport(cot);
+        setSearching(false);
       } else {
         alert(`No se encontró la cotización N° ${num}`);
+        setSearching(false);
       }
     }
-    setSearching(false);
   };
 
   const eliminarGantt = async (g) => {
@@ -2748,12 +2804,47 @@ function GanttView({ isMobile }) {
             <button onClick={()=>addTask("F")} style={{ padding:"5px 10px", background:`${GANTT_COLORS.fase}22`, border:`1px solid ${GANTT_COLORS.fase}44`, borderRadius:6, color:GANTT_COLORS.fase, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Fase</button>
             <button onClick={()=>addTask("T")} style={{ padding:"5px 10px", background:`${GANTT_COLORS.tarea}22`, border:`1px solid ${GANTT_COLORS.tarea}44`, borderRadius:6, color:GANTT_COLORS.tarea, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Tarea</button>
             <button onClick={()=>addTask("H")} style={{ padding:"5px 10px", background:`${GANTT_COLORS.hito}22`, border:`1px solid ${GANTT_COLORS.hito}44`, borderRadius:6, color:GANTT_COLORS.hito, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Hito</button>
+            <button onClick={reimportarDesdeVersion} title="Reemplaza las fases/tareas actuales por las de una versión del Costeo"
+              style={{ padding:"5px 10px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+              🔄 Reimportar versión
+            </button>
             <button onClick={saveGantt} disabled={saving} style={{ padding:"5px 14px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer", opacity:saving?0.6:1 }}>
               {saving?"Guardando...":"💾 Guardar"}
             </button>
           </div>
         </>}
       </div>
+
+      {/* Modal: elegir desde qué versión del Costeo importar las fases */}
+      {versionPicker && (
+        <div style={{ position:"fixed", inset:0, background:"#000a", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:14, padding:28, width:440, maxWidth:"95vw" }}>
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text, marginBottom:4 }}>¿Desde qué versión importar las fases?</div>
+            <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:16 }}>
+              Este proyecto tiene {versionPicker.versiones.length} versión(es) guardada(s) en Costeo — el alcance puede haber cambiado entre una y otra.
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20, maxHeight:300, overflowY:"auto" }}>
+              <button onClick={()=>confirmVersionImport(null)}
+                style={{ textAlign:"left", padding:"10px 12px", background:`${COLORS.accent}11`, border:`1px solid ${COLORS.accent}`, borderRadius:8, color:COLORS.text, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
+                <div style={{ fontFamily:FONT_DISPLAY, fontWeight:700, color:COLORS.accent }}>Actual (en vivo)</div>
+                <div style={{ fontSize:10, color:COLORS.textMuted, marginTop:2 }}>El estado más reciente del costeo, sin importar si está o no guardado como versión</div>
+              </button>
+              {versionPicker.versiones.map(v=>(
+                <button key={v.id} onClick={()=>confirmVersionImport(v.id)}
+                  style={{ textAlign:"left", padding:"10px 12px", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.text, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontWeight:700 }}>Versión {v.version_num}{v.cotizacion_ref?` — ${v.cotizacion_ref}`:""}</div>
+                  <div style={{ fontSize:10, color:COLORS.textMuted, marginTop:2 }}>
+                    {new Date(v.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"})}{v.nota?` · ${v.nota}`:""}
+                  </div>
+                </button>
+              ))}
+            </div>
+            <button onClick={()=>setVersionPicker(null)} style={{ width:"100%", padding:"10px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
       {!proyecto && (
         <div>
