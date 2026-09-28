@@ -7537,16 +7537,17 @@ function QuotePDF({ quote, onBack }) {
     supabase.from("quote_lines").select("*").eq("quote_id", quote.id).order("orden").then(({data})=>setLines((data||[]).map(mapQuoteLine)));
   },[]);
 
-  const neto = Math.round(lines.filter(l=>l.lineType!=="hito").reduce((s,l)=>s+Number(l.subtotal),0));
   // fromCosteo: aplica_iva=false pero ivaMode=empresa → valores ya incluyen IVA por línea
   const fromCosteo  = !quote.hasIva && quote.ivaMode === "empresa";
-  // Con IVA normal: desglosar neto + IVA(19%) + total
-  // Sin IVA (personal): mostrar SOLO total neto, sin desglose
-  // Desde costeo: extraer neto e IVA implícitos
-  const netoDisplay = fromCosteo ? Math.round(neto / 1.19) : neto;
-  const ivaDisplay  = fromCosteo ? neto - Math.round(neto / 1.19) : Math.round(neto * 0.19);
-  const total       = fromCosteo ? neto : quote.hasIva ? Math.round((neto + Math.round(neto * 0.19)) / 100) * 100 : neto;
   const showIva     = quote.hasIva || fromCosteo; // true → mostrar desglose neto+IVA+total
+  // El total SIEMPRE se ancla a quote.total (la cotización, fuente de verdad —
+  // la actualizan tanto "Sincronizar con cotización" en Costeo como guardar en
+  // el Cotizador) en vez de recalcularse sumando `lines`: si por cualquier
+  // motivo las líneas quedaron desactualizadas respecto al total ya
+  // sincronizado, este PDF no debe mostrar un valor viejo.
+  const total       = Math.round(Number(quote.total) || 0);
+  const netoDisplay = showIva ? Math.round(total / 1.19) : total;
+  const ivaDisplay  = showIva ? total - netoDisplay : 0;
 
   // ── Forma de pago: calcular tramos con montos reales ──
   const pm       = quote.paymentMethod || "Al finalizar";
