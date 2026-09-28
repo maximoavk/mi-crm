@@ -8379,6 +8379,10 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
   const [syncLoading, setSyncLoading] = useState(false);
   const [syncSaving, setSyncSaving] = useState(false);
   const [syncDone, setSyncDone] = useState(false);
+  const [versionModal, setVersionModal] = useState(false);
+  const [versionNota, setVersionNota] = useState("");
+  const [versionSaving, setVersionSaving] = useState(false);
+  const [versionSavedNum, setVersionSavedNum] = useState(null);
   const [search, setSearch] = useState("");
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
   const [saveStatus, setSaveStatus] = useState("idle"); // idle | saving | saved
@@ -8719,6 +8723,33 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
   };
 
   // ── GENERAR COTIZACIÓN ──────────────────────────────────────────────────────
+  // Guarda una foto del costeo actual (fases/partidas) en costeo_versiones,
+  // con un correlativo autoincremental POR PROYECTO (no global). Se dispara
+  // automático al generar la primera cotización y al sincronizar cambios con
+  // una ya existente (ver generarCotizacion/applySync), y también a mano vía
+  // el botón "📌 Guardar versión" — así queda historial aunque el usuario no
+  // haya sincronizado todavía.
+  const saveVersion = async (cotizacionRef, nota) => {
+    const { data: existing } = await supabase.from("costeo_versiones")
+      .select("version_num").eq("costeo_id", proyecto.id)
+      .order("version_num", { ascending: false }).limit(1);
+    const nextVersion = existing && existing[0] ? existing[0].version_num + 1 : 1;
+    await supabase.from("costeo_versiones").insert({
+      costeo_id: proyecto.id, version_num: nextVersion,
+      fases: proyecto.fases || [], partidas: proyecto.partidas || [],
+      cotizacion_ref: cotizacionRef || null, nota: nota || null,
+    });
+    return nextVersion;
+  };
+
+  const guardarVersionManual = async () => {
+    setVersionSaving(true);
+    const cotRef = proyecto.cotizacionId ? `COT-${String(proyecto.cotizacion).padStart(3,"0")}` : null;
+    const n = await saveVersion(cotRef, versionNota.trim() || null);
+    setVersionSaving(false);
+    setVersionSavedNum(n);
+  };
+
   const generarCotizacion = async () => {
     setGenSaving(true);
     const fases = (proyecto.fases||[]).map(calcFase);
@@ -8824,6 +8855,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
     if(lineas.length>0) await supabase.from("quote_lines").insert(lineas);
     setQuoteMap(prev=>({ ...prev, [savedQuote.id]: { numero:savedQuote.numero, serie:savedQuote.serie||"COT" } }));
     updateProyecto({ ...proyecto, cotizacion: String(nextNum), cotizacionId: savedQuote.id });
+    await saveVersion(`COT-${String(nextNum).padStart(3,"0")}`, "Cotización generada");
     setGenSaving(false);
     setGenDone(nextNum);
   };
@@ -8884,6 +8916,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
       supabase.from("quote_lines").update({ precio_unitario:r.precioNuevo, descuento:r.descNuevo, subtotal:r.nuevo }).eq("id",r.lineaId)
     ));
     await supabase.from("cotizaciones").update({ total:syncPreview.totalNuevo }).eq("id", syncPreview.cotId);
+    await saveVersion(`COT-${String(proyecto.cotizacion).padStart(3,"0")}`, "Sincronizado con cotización");
     setSyncSaving(false);
     setSyncDone(true);
   };
@@ -9055,7 +9088,52 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
             {syncLoading?"Cargando…":"🔄 Sincronizar con cotización"}
           </button>
         )}
+        <button onClick={()=>{ setVersionModal(true); setVersionNota(""); setVersionSavedNum(null); }}
+          style={{ padding:"8px 16px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:7, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer" }}>
+          📌 Guardar versión
+        </button>
       </div>
+
+      {/* Modal guardar versión manual */}
+      {versionModal && (
+        <div style={{ position:"fixed", inset:0, background:"#000a", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:14, padding:28, width:420, maxWidth:"95vw" }}>
+            {versionSavedNum ? (
+              <>
+                <div style={{ textAlign:"center", marginBottom:16 }}>
+                  <div style={{ fontSize:36 }}>📌</div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text, marginTop:8 }}>Versión {versionSavedNum} guardada</div>
+                  <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginTop:4 }}>Ya aparece en "Historial de Cambios"</div>
+                </div>
+                <button onClick={()=>setVersionModal(false)}
+                  style={{ width:"100%", padding:"10px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+                  Cerrar
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text, marginBottom:4 }}>Guardar versión</div>
+                <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:16 }}>
+                  Guarda una foto del costeo tal como está ahora — queda disponible para comparar contra versiones futuras.
+                </div>
+                <textarea value={versionNota} onChange={e=>setVersionNota(e.target.value)} placeholder="Nota (opcional) — ej: se sacó switch PoE, se agregó pantalla VTH"
+                  rows={3}
+                  style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:7, color:COLORS.text, fontFamily:FONT, fontSize:12, padding:"9px 12px", boxSizing:"border-box", marginBottom:20, resize:"vertical" }} />
+                <div style={{ display:"flex", gap:10 }}>
+                  <button onClick={()=>setVersionModal(false)}
+                    style={{ flex:1, padding:"10px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
+                    Cancelar
+                  </button>
+                  <button onClick={guardarVersionManual} disabled={versionSaving}
+                    style={{ flex:2, padding:"10px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer", opacity:versionSaving?0.6:1 }}>
+                    {versionSaving?"Guardando...":"📌 Guardar versión"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Rubro / Tipo de trabajo */}
       <div style={{ display:"flex", gap:10, marginBottom:16 }}>
@@ -9222,15 +9300,112 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
 // Costeo: todos los agregados/quitados/modificados de todas las prefacturas que
 // se han emitido para este proyecto, en orden cronológico, con qué documento
 // declaró cada uno — trazabilidad completa para el cliente.
+function tipoBadge(tipo) {
+  const m = { agregado:{c:COLORS.green,s:"+ AGREGADO"}, removido:{c:COLORS.red,s:"− QUITADO"}, modificado:{c:"#f59e0b",s:"~ MODIFICADO"} }[tipo] || { c:COLORS.textMuted, s:tipo };
+  return <span style={{ fontFamily:FONT_DISPLAY, fontSize:9, fontWeight:700, color:m.c, background:`${m.c}18`, border:`1px solid ${m.c}44`, borderRadius:5, padding:"2px 6px" }}>{m.s}</span>;
+}
+
+// Compara los `fases` de dos versiones guardadas (costeo_versiones), fase por
+// fase e ítem por ítem (matcheando por `id`, estable entre autosaves). No
+// muta nada — es solo lectura para mostrar la comparativa.
+function buildVersionDiff(oldFases, newFases) {
+  const oldF = oldFases||[], newF = newFases||[];
+  const faseIds = [];
+  [...oldF, ...newF].forEach(f=>{ if(!faseIds.includes(f.id)) faseIds.push(f.id); });
+  const rows = faseIds.map(fid=>{
+    const fOld = oldF.find(f=>f.id===fid);
+    const fNew = newF.find(f=>f.id===fid);
+    const ventaOld = fOld ? Math.round(calcFase(fOld).ventaConDesc) : 0;
+    const ventaNew = fNew ? Math.round(calcFase(fNew).ventaConDesc) : 0;
+    const itemsOld = fOld?.items||[], itemsNew = fNew?.items||[];
+    const itemIds = [];
+    [...itemsOld, ...itemsNew].forEach(i=>{ if(!itemIds.includes(i.id)) itemIds.push(i.id); });
+    const itemDiffs = [];
+    itemIds.forEach(iid=>{
+      const iOld = itemsOld.find(i=>i.id===iid);
+      const iNew = itemsNew.find(i=>i.id===iid);
+      if(iOld && !iNew){
+        itemDiffs.push({ tipo:"removido", descripcion:iOld.descripcion||"(sin descripción)", qtyOld:Number(iOld.qty)||0, qtyNew:0, ventaOld:Math.round(calcItem(iOld).ventaBruta), ventaNew:0 });
+      } else if(!iOld && iNew){
+        itemDiffs.push({ tipo:"agregado", descripcion:iNew.descripcion||"(sin descripción)", qtyOld:0, qtyNew:Number(iNew.qty)||0, ventaOld:0, ventaNew:Math.round(calcItem(iNew).ventaBruta) });
+      } else if(iOld && iNew){
+        const vOld = Math.round(calcItem(iOld).ventaBruta), vNew = Math.round(calcItem(iNew).ventaBruta);
+        if(vOld!==vNew || Number(iOld.qty)!==Number(iNew.qty)){
+          itemDiffs.push({ tipo:"modificado", descripcion:iNew.descripcion||iOld.descripcion||"(sin descripción)", qtyOld:Number(iOld.qty)||0, qtyNew:Number(iNew.qty)||0, ventaOld:vOld, ventaNew:vNew });
+        }
+      }
+    });
+    return { faseId:fid, faseNombre:(fNew||fOld)?.nombre||"Fase", ventaOld, ventaNew, itemDiffs };
+  }).filter(r=>r.itemDiffs.length>0 || r.ventaOld!==r.ventaNew);
+  const totalOld = Math.round(oldF.reduce((s,f)=>s+calcFase(f).ventaConDesc,0));
+  const totalNew = Math.round(newF.reduce((s,f)=>s+calcFase(f).ventaConDesc,0));
+  return { rows, totalOld, totalNew };
+}
+
+function VersionDiffModal({ versionOld, versionNew, onClose }) {
+  const diff = buildVersionDiff(versionOld.fases, versionNew.fases);
+  return (
+    <div style={{ position:"fixed", inset:0, background:"#000c", zIndex:500, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+      <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:14, width:"100%", maxWidth:640, maxHeight:"88vh", overflowY:"auto", padding:26 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text }}>Versión {versionOld.version_num} → {versionNew.version_num}</div>
+          <button onClick={onClose} style={{ background:"transparent", border:"none", color:COLORS.textMuted, fontSize:20, cursor:"pointer" }}>✕</button>
+        </div>
+        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:16 }}>
+          {new Date(versionOld.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"})} → {new Date(versionNew.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"})}
+        </div>
+
+        {diff.rows.length===0 ? (
+          <div style={{ padding:"20px 0", textAlign:"center", fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin diferencias entre estas dos versiones.</div>
+        ) : diff.rows.map(r=>(
+          <div key={r.faseId} style={{ marginBottom:14 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+              <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text }}>{r.faseNombre}</span>
+              {r.ventaOld!==r.ventaNew && <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:r.ventaNew>r.ventaOld?COLORS.green:COLORS.red }}>{fmt(r.ventaOld)} → {fmt(r.ventaNew)}</span>}
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+              {r.itemDiffs.map((it,i)=>(
+                <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 10px", background:COLORS.card, borderRadius:7 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0 }}>
+                    {tipoBadge(it.tipo)}
+                    <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{it.descripcion}{it.qtyOld!==it.qtyNew ? ` (${it.qtyOld}→${it.qtyNew})` : ""}</span>
+                  </div>
+                  <span style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:(it.ventaNew-it.ventaOld)>=0?COLORS.green:COLORS.red, flexShrink:0 }}>
+                    {it.tipo==="modificado" ? `${fmt(it.ventaOld)} → ${fmt(it.ventaNew)}` : `${it.ventaNew-it.ventaOld>=0?"+":""}${fmt(it.ventaNew-it.ventaOld)}`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        <div style={{ background:COLORS.card, borderRadius:8, padding:"10px 14px", marginTop:10, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Total</span>
+          <div style={{ textAlign:"right" }}>
+            {diff.totalOld!==diff.totalNew && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textDecoration:"line-through" }}>{fmt(diff.totalOld)}</div>}
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.accent }}>{fmt(diff.totalNew)}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function HistorialCambiosTab({ costeoId }) {
-  const [items, setItems]     = useState(null);
-  const [docsMap, setDocsMap] = useState({});
+  const [cambios, setCambios]     = useState(null);
+  const [versiones, setVersiones] = useState([]);
+  const [docsMap, setDocsMap]     = useState({});
+  const [diffPair, setDiffPair]   = useState(null);
 
   useEffect(()=>{
     (async () => {
-      const { data } = await supabase.from("cambios_alcance").select("*").eq("costeo_id", costeoId).order("created_at",{ascending:false});
-      setItems(data||[]);
-      const compIds = [...new Set((data||[]).map(d=>d.comprobante_pago_id).filter(Boolean))];
+      const [{ data: cambiosData }, { data: versionesData }] = await Promise.all([
+        supabase.from("cambios_alcance").select("*").eq("costeo_id", costeoId).order("created_at",{ascending:false}),
+        supabase.from("costeo_versiones").select("*").eq("costeo_id", costeoId).order("version_num",{ascending:true}),
+      ]);
+      setCambios(cambiosData||[]);
+      setVersiones(versionesData||[]);
+      const compIds = [...new Set((cambiosData||[]).map(d=>d.comprobante_pago_id).filter(Boolean))];
       if(compIds.length>0){
         const { data: comps } = await supabase.from("comprobantes_pago").select("id,numero").in("id",compIds);
         const map = {};
@@ -9240,36 +9415,62 @@ function HistorialCambiosTab({ costeoId }) {
     })();
   }, [costeoId]);
 
-  const badge = (tipo) => {
-    const m = { agregado:{c:COLORS.green,s:"+ AGREGADO"}, removido:{c:COLORS.red,s:"− QUITADO"}, modificado:{c:"#f59e0b",s:"~ MODIFICADO"} }[tipo] || { c:COLORS.textMuted, s:tipo };
-    return <span style={{ fontFamily:FONT_DISPLAY, fontSize:9, fontWeight:700, color:m.c, background:`${m.c}18`, border:`1px solid ${m.c}44`, borderRadius:5, padding:"2px 6px" }}>{m.s}</span>;
-  };
+  if(cambios===null) return <Loader />;
 
-  if(items===null) return <Loader />;
-  if(items.length===0) return (
+  const merged = [
+    ...cambios.map(c=>({ kind:"cambio", ts:c.created_at, data:c })),
+    ...versiones.map(v=>({ kind:"version", ts:v.created_at, data:v })),
+  ].sort((a,b)=> new Date(b.ts) - new Date(a.ts));
+
+  if(merged.length===0) return (
     <div style={{ padding:"30px 14px", textAlign:"center", fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>
-      Sin cambios de alcance declarados todavía. Se registran desde el módulo de Prestaciones / Pre-Facturación al emitir un documento con "🌳 Declarar cambio de alcance".
+      Sin historial todavía. Las versiones se guardan al generar/sincronizar la cotización o con "📌 Guardar versión"; los cambios de alcance se declaran desde Prestaciones / Pre-Facturación con "🌳 Declarar cambio de alcance".
     </div>
   );
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-      {items.map(it=>(
-        <div key={it.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:9, padding:"12px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
+      {merged.map(m => m.kind==="version" ? (
+        <div key={"v"+m.data.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.accent}44`, borderRadius:9, padding:"12px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
           <div style={{ minWidth:0 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
-              {badge(it.tipo)}
-              <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text }}>{it.descripcion}</span>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4, flexWrap:"wrap" }}>
+              <span style={{ fontFamily:FONT_DISPLAY, fontSize:9, fontWeight:700, color:COLORS.accent, background:`${COLORS.accent}18`, border:`1px solid ${COLORS.accent}44`, borderRadius:5, padding:"2px 6px" }}>📌 VERSIÓN {m.data.version_num}</span>
+              {m.data.cotizacion_ref && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{m.data.cotizacion_ref}</span>}
             </div>
             <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
-              {new Date(it.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"})}
-              {it.qty_antes!==it.qty_despues && ` · Cant. ${it.qty_antes ?? 0} → ${it.qty_despues ?? 0}`}
-              {it.comprobante_pago_id && ` · Declarado en ${docsMap[it.comprobante_pago_id]||"documento"}`}
+              {new Date(m.data.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"})}
+              {m.data.nota && ` · ${m.data.nota}`}
             </div>
           </div>
-          <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color: it.valor>=0?COLORS.green:COLORS.red, flexShrink:0 }}>{it.valor>=0?"+":""}{fmt(it.valor)}</span>
+          {(() => {
+            const idx = versiones.findIndex(v=>v.id===m.data.id);
+            const prev = idx>0 ? versiones[idx-1] : null;
+            return prev ? (
+              <button onClick={()=>setDiffPair({ old:prev, new:m.data })}
+                style={{ padding:"6px 12px", background:"transparent", border:`1px solid ${COLORS.accent}`, borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer", flexShrink:0 }}>
+                🔍 Comparar con anterior
+              </button>
+            ) : null;
+          })()}
+        </div>
+      ) : (
+        <div key={"c"+m.data.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:9, padding:"12px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
+          <div style={{ minWidth:0 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
+              {tipoBadge(m.data.tipo)}
+              <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text }}>{m.data.descripcion}</span>
+            </div>
+            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
+              {new Date(m.data.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"})}
+              {m.data.qty_antes!==m.data.qty_despues && ` · Cant. ${m.data.qty_antes ?? 0} → ${m.data.qty_despues ?? 0}`}
+              {m.data.comprobante_pago_id && ` · Declarado en ${docsMap[m.data.comprobante_pago_id]||"documento"}`}
+            </div>
+          </div>
+          <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color: m.data.valor>=0?COLORS.green:COLORS.red, flexShrink:0 }}>{m.data.valor>=0?"+":""}{fmt(m.data.valor)}</span>
         </div>
       ))}
+
+      {diffPair && <VersionDiffModal versionOld={diffPair.old} versionNew={diffPair.new} onClose={()=>setDiffPair(null)} />}
     </div>
   );
 }
