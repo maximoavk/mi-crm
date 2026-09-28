@@ -2458,6 +2458,12 @@ function GanttView({ isMobile }) {
   const [saving, setSaving]       = useState(false);
   const [ganttId, setGanttId]     = useState(null);
   const [calStart, setCalStart]   = useState(new Date().toISOString().slice(0,10));
+  // `viewStart` es el borde izquierdo de lo que se VE en pantalla — separado
+  // de `calStart` (la fecha de inicio OFICIAL del proyecto, la que se guarda
+  // en gantt_proyectos.fecha_inicio) para poder paginar por mes sin correr el
+  // riesgo de guardar una fecha de inicio de proyecto equivocada al navegar.
+  const [viewStart, setViewStart] = useState(calStart);
+  const [monthMode, setMonthMode] = useState(false);
   const [calDays, setCalDays]     = useState(15);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
   const [editRow, setEditRow]     = useState(null); // id de fila en edición inline
@@ -2482,7 +2488,23 @@ function GanttView({ isMobile }) {
   const [headerEdit, setHeaderEdit] = useState(false);
   const cellW = 28;
   const today = new Date().toISOString().slice(0,10);
-  const calCols = buildCalHeader(calStart, calDays);
+  const calCols = buildCalHeader(viewStart, calDays);
+
+  // Vista por mes: pagina la ventana visible mes a mes (sin tocar la fecha
+  // oficial de inicio del proyecto), para no tener que scrollear tanto hacia
+  // la derecha en proyectos largos.
+  const setMonthView = (baseDateStr) => {
+    const d = new Date(baseDateStr+"T00:00");
+    const y = d.getFullYear(), m = d.getMonth();
+    setViewStart(`${y}-${String(m+1).padStart(2,"0")}-01`);
+    setCalDays(new Date(y, m+1, 0).getDate());
+    setMonthMode(true);
+  };
+  const shiftMonthView = (delta) => {
+    const d = new Date(viewStart+"T00:00");
+    d.setMonth(d.getMonth()+delta);
+    setMonthView(d.toISOString().slice(0,10));
+  };
 
   useEffect(() => {
     supabase.from("gantt_proyectos").select("id,nombre,numero_cotizacion,fecha_inicio,fecha_fin")
@@ -2515,9 +2537,14 @@ function GanttView({ isMobile }) {
     let imported = [];
     if(fasesFuente.length > 0) {
       let orden = 0;
+      // Las fases se encadenan: cada una empieza el día hábil siguiente al
+      // cierre de la anterior (no todas el mismo día), para que el cierre de
+      // cada fase quede realmente contenido dentro de su propio rango y la
+      // fase 2/3... pueda caer naturalmente en otro mes.
+      let proximoInicioFase = today;
       fasesFuente.forEach((f, fi) => {
         const faseId = `new_${Date.now()}_${fi}`;
-        const faseInicio = today;
+        const faseInicio = proximoInicioFase;
         const faseIdx = imported.length;
         imported.push({
           id: faseId, tipo:"F", nombre: f.nombre||`Fase ${fi+1}`,
@@ -2567,6 +2594,7 @@ function GanttView({ isMobile }) {
         });
         // La barra de la fase cubre desde su inicio hasta el cierre real (duración dinámica según HH)
         imported[faseIdx].fin = fechaCierre;
+        proximoInicioFase = nextBusinessDay(fechaCierre);
       });
     } else {
       // Sin costeo vinculado: fallback a importar fases desde las líneas de la cotización
@@ -2630,6 +2658,8 @@ function GanttView({ isMobile }) {
       setGanttId(gantt.id);
       setProyecto({ nombre: gantt.nombre, cotNum: num });
       setCalStart(gantt.fecha_inicio || today);
+      setViewStart(gantt.fecha_inicio || today);
+      setMonthMode(false);
       const { data: rows } = await supabase.from("gantt_tareas").select("*").eq("gantt_id", gantt.id).order("orden");
       if((rows||[]).length > 0) {
         setTasks(rows.map(r=>({
@@ -2707,7 +2737,22 @@ function GanttView({ isMobile }) {
     }]);
   };
 
-  const updateTask = (id, field, val) => setTasks(t=>t.map(r=>r.id===id?{...r,[field]:val}:r));
+  // Editar el "Inicio" de una FASE mueve, con ella, a todos sus hijos (hitos y
+  // tareas) por la misma diferencia de días — para que mover una fase en el
+  // tiempo no la deje "descontenida" de sus propios hitos, como pasaba antes.
+  const updateTask = (id, field, val) => setTasks(prev => {
+    const row = prev.find(r=>r.id===id);
+    if(row && row.tipo==="F" && field==="inicio" && row.inicio) {
+      const delta = diffDays(row.inicio, val);
+      if(delta===0) return prev.map(r=>r.id===id?{...r,inicio:val}:r);
+      return prev.map(r => {
+        if(r.id===id) return { ...r, inicio:val, fin: r.fin?shiftDateBusinessDay(r.fin,delta):r.fin };
+        if(r.parentId===id) return { ...r, inicio: r.inicio?shiftDateBusinessDay(r.inicio,delta):r.inicio, fin: r.fin?shiftDateBusinessDay(r.fin,delta):r.fin };
+        return r;
+      });
+    }
+    return prev.map(r=>r.id===id?{...r,[field]:val}:r);
+  });
   const deleteTask = (id) => setTasks(t=>t.filter(r=>r.id!==id));
   const reorderTask = (fromId, toId) => {
     if(fromId===toId) return;
@@ -2957,11 +3002,27 @@ function GanttView({ isMobile }) {
                 })));
               }
               setCalStart(v);
+              setViewStart(v);
+              setMonthMode(false);
             }} />
-            <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Días vista:</span>
+            <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Vista:</span>
             {[{d:5,l:"5d"},{d:7,l:"7d"},{d:15,l:"15d"},{d:30,l:"30d"},{d:60,l:"60d"}].map(({d,l})=>(
-              <button key={d} onClick={()=>setCalDays(d)} style={{ padding:"3px 10px", background: calDays===d?COLORS.accent:"transparent", border:`1px solid ${calDays===d?COLORS.accent:COLORS.border}`, borderRadius:5, color: calDays===d?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>{l}</button>
+              <button key={d} onClick={()=>{ setMonthMode(false); setCalDays(d); }}
+                style={{ padding:"3px 10px", background: (!monthMode&&calDays===d)?COLORS.accent:"transparent", border:`1px solid ${(!monthMode&&calDays===d)?COLORS.accent:COLORS.border}`, borderRadius:5, color: (!monthMode&&calDays===d)?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>{l}</button>
             ))}
+            <button onClick={()=>setMonthView(viewStart)}
+              style={{ padding:"3px 10px", background: monthMode?COLORS.accent:"transparent", border:`1px solid ${monthMode?COLORS.accent:COLORS.border}`, borderRadius:5, color: monthMode?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+              Mes
+            </button>
+            {monthMode && (
+              <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                <button onClick={()=>shiftMonthView(-1)} title="Mes anterior" style={{ background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.textMuted, cursor:"pointer", padding:"3px 8px", fontSize:11 }}>◀</button>
+                <span style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:COLORS.text, textTransform:"capitalize", minWidth:110, textAlign:"center" }}>
+                  {new Date(viewStart+"T00:00").toLocaleDateString("es-CL",{month:"long",year:"numeric"})}
+                </span>
+                <button onClick={()=>shiftMonthView(1)} title="Mes siguiente" style={{ background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.textMuted, cursor:"pointer", padding:"3px 8px", fontSize:11 }}>▶</button>
+              </div>
+            )}
             {/* Leyenda + PDF */}
             <div style={{ display:"flex", gap:10, marginLeft:"auto", flexWrap:"wrap", alignItems:"center" }}>
               {[["Fase","#3b82f6"],["Tarea","#6366f1"],["Hito","#f59e0b"],["Completado","#22c55e"],["Atrasado","#ef4444"]].map(([l,c])=>(
@@ -3235,7 +3296,7 @@ function GanttView({ isMobile }) {
                         <td key={ci} style={{ width:cellW, minWidth:cellW, maxWidth:cellW, padding:0, position:"relative", height:32,
                           background: c.date===today?`${COLORS.accent}18`:c.isWeekend?`${COLORS.border}22`:"transparent",
                           borderRight:`1px solid ${COLORS.border}11` }}>
-                          {ci===0 && <GanttBar task={t} calStart={calStart} calDays={calDays} cellW={cellW} today={today} />}
+                          {ci===0 && <GanttBar task={t} calStart={viewStart} calDays={calDays} cellW={cellW} today={today} />}
                         </td>
                       ))}
                     </tr>
