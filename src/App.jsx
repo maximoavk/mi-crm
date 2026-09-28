@@ -1843,6 +1843,14 @@ function nextBusinessDay(dateStr) {
   if(isSunday(d)) d = addDays(d, 1);
   return d;
 }
+// Desplaza una fecha `delta` días (puede ser negativo) y, si el resultado cae
+// domingo, la corre al lunes siguiente — para que auto-ajustar el Gantt al
+// cambiar la fecha de inicio del proyecto no deje tareas agendadas en domingo.
+function shiftDateBusinessDay(dateStr, delta) {
+  if(!dateStr) return dateStr;
+  const shifted = addDays(dateStr, delta);
+  return isSunday(shifted) ? addDays(shifted, 1) : shifted;
+}
 // Fecha de fin dado un inicio (día hábil) y una cantidad de días hábiles, contando el inicio como día 1
 function endOfBusinessSpan(startDateStr, days) {
   let d = isSunday(startDateStr) ? addDays(startDateStr, 1) : startDateStr;
@@ -2944,8 +2952,8 @@ function GanttView({ isMobile }) {
               if(delta !== 0) {
                 setTasks(prev => prev.map(t => ({
                   ...t,
-                  inicio: t.inicio ? addDays(t.inicio, delta) : t.inicio,
-                  fin: t.fin ? addDays(t.fin, delta) : t.fin,
+                  inicio: t.inicio ? shiftDateBusinessDay(t.inicio, delta) : t.inicio,
+                  fin: t.fin ? shiftDateBusinessDay(t.fin, delta) : t.fin,
                 })));
               }
               setCalStart(v);
@@ -3117,13 +3125,13 @@ function GanttView({ isMobile }) {
                       {/* Inicio */}
                       <td style={{ padding:"4px 4px", borderRight:`1px solid ${COLORS.border}` }}>
                         {editing ? (
-                          <input type="date" value={t.inicio} onChange={e=>updateTask(t.id,"inicio",e.target.value)} style={{...s,width:82}} />
+                          <CalendarPicker value={t.inicio} onChange={v=>updateTask(t.id,"inicio",v)} />
                         ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.text }}>{fmtShort(t.inicio)}</span>}
                       </td>
                       {/* Fin */}
                       <td style={{ padding:"4px 4px", borderRight:`1px solid ${COLORS.border}` }}>
                         {editing ? (
-                          <input type="date" value={t.fin} onChange={e=>updateTask(t.id,"fin",e.target.value)} style={{...s,width:82}} />
+                          <CalendarPicker value={t.fin} onChange={v=>updateTask(t.id,"fin",v)} />
                         ) : <span style={{ fontFamily:"monospace", fontSize:10, color:isLate?GANTT_COLORS.late:COLORS.text }}>{fmtShort(t.fin)}{isLate&&" ⚠"}</span>}
                       </td>
                       {/* Plan % */}
