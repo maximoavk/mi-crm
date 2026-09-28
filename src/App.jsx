@@ -9396,11 +9396,57 @@ function VersionDiffModal({ versionOld, versionNew, onClose }) {
   );
 }
 
+// Muestra el contenido completo de UNA versión guardada (fase por fase, ítem
+// por ítem) — a diferencia de VersionDiffModal, que compara dos versiones,
+// esto es solo lectura de la foto tal cual quedó guardada.
+function VersionDetailModal({ version, onClose }) {
+  const fases = (version.fases||[]).map(calcFase);
+  const total = Math.round(fases.reduce((s,f)=>s+f.ventaConDesc,0));
+  return (
+    <div style={{ position:"fixed", inset:0, background:"#000c", zIndex:500, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+      <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:14, width:"100%", maxWidth:640, maxHeight:"88vh", overflowY:"auto", padding:26 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text }}>Versión {version.version_num}{version.cotizacion_ref?` — ${version.cotizacion_ref}`:""}</div>
+          <button onClick={onClose} style={{ background:"transparent", border:"none", color:COLORS.textMuted, fontSize:20, cursor:"pointer" }}>✕</button>
+        </div>
+        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:16 }}>
+          {new Date(version.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"})}{version.nota?` · ${version.nota}`:""}
+        </div>
+
+        {fases.length===0 && <div style={{ padding:"20px 0", textAlign:"center", fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin fases guardadas en esta versión.</div>}
+        {fases.map(f=>(
+          <div key={f.id} style={{ marginBottom:14 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+              <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text }}>{f.nombre||"Fase"}</span>
+              <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.accent }}>{fmt(Math.round(f.ventaConDesc))}</span>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+              {(f.items||[]).length===0 && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textDim, fontStyle:"italic" }}>Sin ítems</div>}
+              {(f.items||[]).map(item=>(
+                <div key={item.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 10px", background:COLORS.card, borderRadius:7 }}>
+                  <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{item.descripcion||"(sin descripción)"}{Number(item.qty)>1?` × ${item.qty}`:""}</span>
+                  <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{fmt(Math.round(calcItem(item).ventaBruta))}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        <div style={{ background:COLORS.card, borderRadius:8, padding:"10px 14px", marginTop:10, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Total</span>
+          <span style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.accent }}>{fmt(total)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function HistorialCambiosTab({ costeoId }) {
   const [cambios, setCambios]     = useState(null);
   const [versiones, setVersiones] = useState([]);
   const [docsMap, setDocsMap]     = useState({});
   const [diffPair, setDiffPair]   = useState(null);
+  const [viewVersion, setViewVersion] = useState(null);
 
   useEffect(()=>{
     (async () => {
@@ -9447,16 +9493,22 @@ function HistorialCambiosTab({ costeoId }) {
               {m.data.nota && ` · ${m.data.nota}`}
             </div>
           </div>
-          {(() => {
-            const idx = versiones.findIndex(v=>v.id===m.data.id);
-            const prev = idx>0 ? versiones[idx-1] : null;
-            return prev ? (
-              <button onClick={()=>setDiffPair({ old:prev, new:m.data })}
-                style={{ padding:"6px 12px", background:"transparent", border:`1px solid ${COLORS.accent}`, borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer", flexShrink:0 }}>
-                🔍 Comparar con anterior
-              </button>
-            ) : null;
-          })()}
+          <div style={{ display:"flex", gap:8, flexShrink:0 }}>
+            <button onClick={()=>setViewVersion(m.data)}
+              style={{ padding:"6px 12px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+              👁 Ver detalle
+            </button>
+            {(() => {
+              const idx = versiones.findIndex(v=>v.id===m.data.id);
+              const prev = idx>0 ? versiones[idx-1] : null;
+              return prev ? (
+                <button onClick={()=>setDiffPair({ old:prev, new:m.data })}
+                  style={{ padding:"6px 12px", background:"transparent", border:`1px solid ${COLORS.accent}`, borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+                  🔍 Comparar con anterior
+                </button>
+              ) : null;
+            })()}
+          </div>
         </div>
       ) : (
         <div key={"c"+m.data.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:9, padding:"12px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
@@ -9476,6 +9528,7 @@ function HistorialCambiosTab({ costeoId }) {
       ))}
 
       {diffPair && <VersionDiffModal versionOld={diffPair.old} versionNew={diffPair.new} onClose={()=>setDiffPair(null)} />}
+      {viewVersion && <VersionDetailModal version={viewVersion} onClose={()=>setViewVersion(null)} />}
     </div>
   );
 }
