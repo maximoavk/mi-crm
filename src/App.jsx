@@ -47,6 +47,9 @@ export default function CRM() {
   const [view, setView] = useState("dashboard");
   const [openCosteoId, setOpenCosteoId] = useState(null);
   const [openDesignProjectId, setOpenDesignProjectId] = useState(null);
+  // "Ver en maestro" desde un ítem del Costeo: producto a abrir y costeo al que volver
+  const [openProductId, setOpenProductId] = useState(null);
+  const [volverACosteo, setVolverACosteo] = useState(null);
   const [contacts, setContacts] = useState([]);
   const [deals, setDeals] = useState([]);
   const [tasks, setTasks] = useState([]);
@@ -112,7 +115,7 @@ export default function CRM() {
     return () => { cancelled = true; };
   },[userId]);
 
-  const navigate = (key) => { setView(key); setMenuOpen(false); };
+  const navigate = (key) => { setView(key); setMenuOpen(false); setVolverACosteo(null); };
   const logout = () => supabase.auth.signOut();
 
   // Nav items visible por rol
@@ -258,12 +261,13 @@ export default function CRM() {
           {view==="pipeline"  && <PipelineView deals={deals} setDeals={setDeals} contacts={contacts} tasks={tasks} setTasks={setTasks} isMobile={isMobile} userRole={userRole} session={session} />}
           {view==="quotes"       && <QuotesView contacts={contacts} isMobile={isMobile} setDeals={setDeals} onOpenCosteo={(id)=>{ setOpenCosteoId(id); setView("costeo"); }} />}
           {view==="prestaciones" && <PrestacionesView isMobile={isMobile} />}
-          {view==="products"     && <ProductsDB isMobile={isMobile} />}
+          {view==="products"     && <ProductsDB isMobile={isMobile} openProductId={openProductId} onOpenHandled={()=>setOpenProductId(null)}
+            onVolver={volverACosteo ? ()=>{ setOpenCosteoId(volverACosteo); setVolverACosteo(null); setView("costeo"); } : undefined} />}
           {view==="proveedores"  && <ProveedoresView isMobile={isMobile} />}
           {view==="purchase"     && <PurchaseView isMobile={isMobile} />}
           {view==="guias"        && <GuiasView isMobile={isMobile} />}
           {view==="control_proyectos" && <ControlProyectosView contacts={contacts} />}
-          {view==="costeo"    && <CosteoView contacts={contacts} isMobile={isMobile} openId={openCosteoId} onOpenIdHandled={()=>setOpenCosteoId(null)} onOpenDesign={(id)=>{ setOpenDesignProjectId(id); setView("design"); }} />}
+          {view==="costeo"    && <CosteoView contacts={contacts} isMobile={isMobile} openId={openCosteoId} onOpenIdHandled={()=>setOpenCosteoId(null)} onOpenProducto={(productId, costeoId)=>{ setOpenProductId(productId); setVolverACosteo(costeoId); setView("products"); }} onOpenDesign={(id)=>{ setOpenDesignProjectId(id); setView("design"); }} />}
           {view==="design"    && <DesignView designProjectId={openDesignProjectId} onBack={(costeoId)=>{ setOpenCosteoId(costeoId); setOpenDesignProjectId(null); setView("costeo"); }} />}
           {view==="gantt"     && <GanttView isMobile={isMobile} />}
           {view==="operaciones" && <OperacionesView isMobile={isMobile} />}

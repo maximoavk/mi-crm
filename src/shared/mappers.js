@@ -85,6 +85,7 @@ export const mapProduct = (r) => ({
   url: r.url_proveedor || "",
   updatedAt: r.precio_actualizado || "",
   skuProveedor: r.sku_proveedor || "",
+  fichaUrl: r.ficha_tecnica_url || "",
 });
 
 export const mapProductToDb = (f) => ({
@@ -94,6 +95,7 @@ export const mapProductToDb = (f) => ({
   url_proveedor: f.url||"",
   precio_actualizado: f.updatedAt || hoyISO(),
   sku_proveedor: f.skuProveedor||"",
+  ficha_tecnica_url: f.fichaUrl||null,
 });
 
 export const mapQuote = (r) => ({
