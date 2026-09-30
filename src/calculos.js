@@ -136,3 +136,30 @@ export function syncPartidasConFases(partidas, fases) {
   });
   return changed ? next : partidas;
 }
+
+// Desglose de totales para el PDF de una cotización. El total manda (viene
+// de la cotización guardada/sincronizada); las líneas solo se usan si cuadran
+// con él, para mostrar el neto real y la diferencia por redondeo en una fila
+// aparte en vez de esconderla dentro del neto.
+//   conIva:       cotización con IVA (líneas netas).
+//   lineasConIva: cotización generada desde el Costeo (líneas ya con IVA).
+// Si las líneas no cuadran con el total (quedaron desactualizadas), se vuelve
+// al cálculo desde el total: neto = total / 1,19, sin fila de redondeo.
+export function desgloseTotal(total, sumaLineas, { conIva = false, lineasConIva = false } = {}) {
+  const t = Math.round(Number(total)||0);
+  const suma = Math.round(Number(sumaLineas)||0);
+  if (conIva) {
+    const calc = totalCotizacion(suma, true);
+    if (suma > 0 && calc.total === t) return { neto: calc.neto, iva: calc.iva, redondeo: t - calc.neto - calc.iva };
+  } else if (lineasConIva) {
+    if (suma > 0 && redondearTotal(suma) === t) {
+      const neto = Math.round(suma / IVA);
+      return { neto, iva: suma - neto, redondeo: t - suma };
+    }
+  } else {
+    if (suma > 0 && redondearTotal(suma) === t) return { neto: suma, iva: 0, redondeo: t - suma };
+    return { neto: t, iva: 0, redondeo: 0 };
+  }
+  const neto = Math.round(t / IVA);
+  return { neto, iva: t - neto, redondeo: 0 };
+}
