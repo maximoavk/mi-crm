@@ -7,6 +7,7 @@ import { GANTT_COLORS, TIPO_LABEL, ROL_OPTS } from "./constants.js";
 import { LOGO_B64, LOGO_PRINT } from "../shared/assets.js";
 import { CalendarPicker } from "./CalendarPicker.jsx";
 import { GanttBar } from "./GanttBar.jsx";
+import { TreeNodeCell } from "./TreeNodeCell.jsx";
 import { PdfPreviewModal } from "../shared/ui.jsx";
 import { fechaLocal, hoyISO } from "../shared/format.js";
 import { EMPRESA_RUT, TITULAR } from "../shared/empresa.js";
@@ -31,6 +32,7 @@ export function GanttView({ isMobile }) {
   const [draggedId, setDraggedId] = useState(null);
   const [dragOverId, setDragOverId] = useState(null);
   const [collapsedPhases, setCollapsedPhases] = useState(new Set());
+  const [selectedId, setSelectedId] = useState(null); // fila seleccionada (árbol)
   const dragFromHandle = React.useRef(false);
   // Limpiar estado drag si termina fuera de la tabla
   useEffect(() => {
@@ -307,6 +309,28 @@ export function GanttView({ isMobile }) {
     }]);
   };
 
+  // "+" de una fase seleccionada: agrega una tarea al final de esa fase, el
+  // día hábil siguiente a su último hijo (o al inicio de la fase si no tiene).
+  const addChildToFase = (faseId) => {
+    const childIds = ganttMeta.phaseChildren[faseId] || [];
+    const lastChild = tasks.find(r => r.id === childIds[childIds.length - 1]);
+    const fase = tasks.find(r => r.id === faseId);
+    const start = lastChild?.fin ? nextBusinessDay(lastChild.fin) : (fase?.inicio || today);
+    const nueva = {
+      id:`new_${Date.now()}`, tipo:"T", nombre:"Nueva Tarea", rol:"EXC", responsable:"",
+      inicio:start, fin:endOfBusinessSpan(start, 5),
+      pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, hhTerceros:0, depende:"", orden:0, parentId:faseId,
+    };
+    setTasks(prev => {
+      const anchorId = lastChild?.id || faseId;
+      const idx = prev.findIndex(r => r.id === anchorId);
+      const next = [...prev.slice(0, idx + 1), nueva, ...prev.slice(idx + 1)];
+      return next.map((r, i) => ({ ...r, orden: i }));
+    });
+    setCollapsedPhases(prev => { const n = new Set(prev); n.delete(faseId); return n; });
+    setSelectedId(nueva.id);
+  };
+
   // Editar el "Inicio" de una FASE mueve, con ella, a todos sus hijos (hitos y
   // tareas) por la misma diferencia de días — para que mover una fase en el
   // tiempo no la deje "descontenida" de sus propios hitos, como pasaba antes.
@@ -370,7 +394,7 @@ export function GanttView({ isMobile }) {
       };
       childIds.forEach(id => { childPhaseId[id] = faseId; });
     });
-    return { numbers, phaseHH, childPhaseId };
+    return { numbers, phaseHH, childPhaseId, phaseChildren: phaseChildrenMap };
   }, [tasks]);
   const duplicateTask = (id) => {
     setTasks(prev => {
@@ -711,6 +735,8 @@ export function GanttView({ isMobile }) {
                         opacity: draggedId===t.id?0.4:1,
                         borderTop: isDragOver?`2px solid ${COLORS.accent}`:"",
                         cursor: "default" }}
+                      className={isFase ? undefined : "gantt-row-in"}
+                      onClick={()=>setSelectedId(t.id)}
                       onDoubleClick={()=>setEditRow(editing?null:t.id)}>
                       {/* Nro */}
                       <td style={{ padding:"4px 4px", textAlign:"center", color:COLORS.textMuted, fontSize:10, borderRight:`1px solid ${COLORS.border}` }}>
@@ -723,14 +749,6 @@ export function GanttView({ isMobile }) {
                               onMouseDown={()=>{ dragFromHandle.current=true; }}
                               onMouseUp={()=>{ dragFromHandle.current=false; }}
                               style={{ cursor:"grab", color:"#6b7280", fontSize:14, lineHeight:1, userSelect:"none", flexShrink:0, padding:"0 2px" }}>⠿</span>
-                            {isFase && (
-                              <button
-                                onClick={e=>{e.stopPropagation();toggleCollapse(t.id);}}
-                                title={isCollapsed?"Expandir fase":"Colapsar fase"}
-                                style={{ background:"none", border:"none", color:GANTT_COLORS.fase, cursor:"pointer", fontSize:9, padding:0, lineHeight:1, flexShrink:0 }}>
-                                {isCollapsed?"▶":"▼"}
-                              </button>
-                            )}
                             <span style={{ fontWeight:isFase?700:400, color:isFase?GANTT_COLORS.fase:COLORS.textMuted }}>{ganttMeta.numbers[t.id]||idx+1}</span>
                           </div>
                           <button onClick={()=>moveTask(t.id,1)} style={{ background:"none",border:"none",color:COLORS.textMuted,cursor:"pointer",fontSize:8,padding:0,lineHeight:1 }}>▼</button>
@@ -758,15 +776,18 @@ export function GanttView({ isMobile }) {
                         )}
                       </td>
                       {/* Descripción */}
-                      <td style={{ padding:"4px 6px", borderRight:`1px solid ${COLORS.border}`, maxWidth:180 }}>
-                        {editing ? (
-                          <input value={t.nombre} onChange={e=>updateTask(t.id,"nombre",e.target.value)} style={{...s,width:170}} />
-                        ) : (
-                          <span style={{ fontWeight:isFase?700:400, color:isFase?COLORS.text:COLORS.textMuted,
-                            paddingLeft: isFase?0:10, fontSize: isFase?12:11, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", display:"block", maxWidth:175 }}>
-                            {!isFase && <span style={{color:COLORS.border,marginRight:4}}>└</span>}{t.nombre}
-                          </span>
-                        )}
+                      <td style={{ padding:"4px 6px", borderRight:`1px solid ${COLORS.border}`, maxWidth:200, position:"relative" }}>
+                        <TreeNodeCell
+                          task={t} isFase={isFase} editing={editing}
+                          selected={selectedId===t.id}
+                          collapsed={isCollapsed}
+                          hasChildren={(ganttMeta.phaseChildren[t.id]||[]).length>0}
+                          inPhase={!!parentFaseId}
+                          isLastChild={!!parentFaseId && (ganttMeta.phaseChildren[parentFaseId]||[]).slice(-1)[0]===t.id}
+                          onToggle={()=>toggleCollapse(t.id)}
+                          onAddChild={()=>addChildToFase(t.id)}
+                          renderEditor={()=><input value={t.nombre} onChange={e=>updateTask(t.id,"nombre",e.target.value)} style={{...s,width:170}} />}
+                        />
                       </td>
                       {/* Rol */}
                       <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
