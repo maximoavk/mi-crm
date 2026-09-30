@@ -12,3 +12,13 @@ export const formatRut = (raw) => {
   const num = clean.slice(0, -1);
   return `${num.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}-${dv}`;
 };
+
+// Formateo seguro de moneda CLP
+export const fmtClp = (n) =>
+  new Intl.NumberFormat("es-CL", {
+    style: "currency", currency: "CLP", maximumFractionDigits: 0,
+  }).format(n || 0);
+
+// Formateo de fecha corta
+export const fmtFecha = (d) =>
+  d ? new Date(d + "T00:00").toLocaleDateString("es-CL", { day:"2-digit", month:"short", year:"2-digit" }) : "—";
