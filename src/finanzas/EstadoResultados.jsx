@@ -2,10 +2,37 @@
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
 import { KpiCard } from "./ui.jsx";
 
+const fmtClp = n => "$" + Math.round(n||0).toLocaleString("es-CL");
+
+// Filas del estado de resultados (fuera del componente para que React no
+// los recree en cada render).
+const Section   = ({ label }) => (
+  <div style={{ padding:"7px 18px", background:COLORS.surface, borderTop:`1px solid ${COLORS.border}`, borderBottom:`1px solid ${COLORS.border}` }}>
+    <span style={{ fontFamily:FONT, fontSize:9, fontWeight:700, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.12em" }}>{label}</span>
+  </div>
+);
+const Row = ({ label, valor, indent=0, muted=false, note="" }) => (
+  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:`6px ${18+indent*16}px`, borderBottom:`1px solid ${COLORS.border}11` }}>
+    <div>
+      <span style={{ fontFamily:FONT, fontSize:11, color:muted?COLORS.textMuted:COLORS.text }}>{label}</span>
+      {note && <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginLeft:6 }}>{note}</span>}
+    </div>
+    <span style={{ fontFamily:FONT, fontSize:11, color:muted?COLORS.textMuted:COLORS.text }}>{fmtClp(valor)}</span>
+  </div>
+);
+const Total = ({ label, valor, color, pctLabel="" }) => (
+  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 18px", background:`${color}11`, borderTop:`2px solid ${color}44` }}>
+    <div>
+      <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color }}>{label}</span>
+      {pctLabel && <span style={{ fontFamily:FONT, fontSize:10, color, marginLeft:8, opacity:0.85 }}>{pctLabel}</span>}
+    </div>
+    <span style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color }}>{fmtClp(valor)}</span>
+  </div>
+);
+
 export function EstadoResultados({ emitidas, recibidas, mes, anio, loading, isMobile }) {
   const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio",
                  "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-  const fmtClp = n => "$" + Math.round(n||0).toLocaleString("es-CL");
 
   // ── Ingresos: facturas_emitidas del mes ──────────────────────────────────
   const ingresoNeto   = emitidas.reduce((s,f) => s + (f.monto_neto||0), 0);
@@ -37,33 +64,12 @@ export function EstadoResultados({ emitidas, recibidas, mes, anio, loading, isMo
   const creditoFiscal  = recibidas.reduce((s,f) => s + (f.monto_iva||0), 0);
   const ivaAPagar      = Math.max(0, debitoFiscal - creditoFiscal);
   const ppm            = Math.round(ingresoNeto * 0.01);
-  const resultadoNeto  = resultadoOp - ivaAPagar - ppm;
+  // El IVA no es un gasto de la empresa (se cobra en las ventas y se traspasa
+  // al SII) y los ingresos/gastos ya están en neto: no se resta del
+  // resultado. El PPM sí, como anticipo del impuesto a la renta.
+  const resultadoNeto  = resultadoOp - ppm;
 
-  // ── Helpers de render ────────────────────────────────────────────────────
   const colorPos  = v => v >= 0 ? COLORS.green : COLORS.red;
-  const Section   = ({ label }) => (
-    <div style={{ padding:"7px 18px", background:COLORS.surface, borderTop:`1px solid ${COLORS.border}`, borderBottom:`1px solid ${COLORS.border}` }}>
-      <span style={{ fontFamily:FONT, fontSize:9, fontWeight:700, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.12em" }}>{label}</span>
-    </div>
-  );
-  const Row = ({ label, valor, indent=0, muted=false, note="" }) => (
-    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:`6px ${18+indent*16}px`, borderBottom:`1px solid ${COLORS.border}11` }}>
-      <div>
-        <span style={{ fontFamily:FONT, fontSize:11, color:muted?COLORS.textMuted:COLORS.text }}>{label}</span>
-        {note && <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginLeft:6 }}>{note}</span>}
-      </div>
-      <span style={{ fontFamily:FONT, fontSize:11, color:muted?COLORS.textMuted:COLORS.text }}>{fmtClp(valor)}</span>
-    </div>
-  );
-  const Total = ({ label, valor, color, pctLabel="" }) => (
-    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 18px", background:`${color}11`, borderTop:`2px solid ${color}44` }}>
-      <div>
-        <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color }}>{label}</span>
-        {pctLabel && <span style={{ fontFamily:FONT, fontSize:10, color, marginLeft:8, opacity:0.85 }}>{pctLabel}</span>}
-      </div>
-      <span style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color }}>{fmtClp(valor)}</span>
-    </div>
-  );
 
   const gridCols = isMobile ? "1fr" : "repeat(3,1fr)";
 
@@ -116,17 +122,20 @@ export function EstadoResultados({ emitidas, recibidas, mes, anio, loading, isMo
           color={colorPos(resultadoOp)}
           pctLabel={`${pctResultado.toFixed(1)}% sobre ingresos`} />
 
-        {/* IVA / PPM — informativo */}
-        <Section label="Obligaciones Tributarias (informativo)" />
-        <Row label="IVA Débito Fiscal" valor={debitoFiscal} indent={1} muted note="ventas" />
-        <Row label="IVA Crédito Fiscal" valor={creditoFiscal} indent={1} muted note="compras" />
-        <Row label="IVA Neto a Pagar (F29)" valor={ivaAPagar} indent={1} />
-        <Row label="PPM estimado" valor={ppm} indent={1} muted note="1% ventas netas" />
+        {/* IMPUESTO A LA RENTA — se resta del resultado */}
+        <Section label="Impuesto a la renta" />
+        <Row label="PPM estimado (anticipo)" valor={ppm} indent={1} muted note="1% ventas netas" />
 
         {/* RESULTADO NETO */}
         <Total label="Resultado Neto estimado"
           valor={resultadoNeto}
           color={colorPos(resultadoNeto)} />
+
+        {/* IVA — solo informativo, no afecta el resultado */}
+        <Section label="IVA del mes (informativo · no afecta el resultado)" />
+        <Row label="IVA Débito Fiscal" valor={debitoFiscal} indent={1} muted note="ventas" />
+        <Row label="IVA Crédito Fiscal" valor={creditoFiscal} indent={1} muted note="compras" />
+        <Row label="IVA Neto a Pagar (F29)" valor={ivaAPagar} indent={1} />
       </div>
 
       {/* Nota pie */}
