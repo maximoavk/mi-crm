@@ -1,4 +1,5 @@
 // Fechas del Gantt: días hábiles (lunes a sábado), desplazamientos y formatos. Tests en fechas.test.js.
+import { fechaLocal } from "../shared/format.js";
 export function addDays(dateStr, days) {
   const d = new Date(dateStr + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0,10);
 }
@@ -36,7 +37,9 @@ export function endOfBusinessSpan(startDateStr, days) {
 
 export function fmtShort(dateStr) {
   if(!dateStr) return "";
-  const d = new Date(dateStr);
+  // Fecha local: new Date("YYYY-MM-DD") se interpreta en UTC y en Chile
+  // mostraba el día anterior (05-oct aparecía como 04-oct).
+  const d = fechaLocal(String(dateStr).slice(0,10));
   return d.toLocaleDateString("es-CL",{day:"2-digit",month:"short"});
 }
 

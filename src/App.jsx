@@ -5,7 +5,7 @@ import { supabase } from "./supabaseClient.js";
 import { totalCotizacion } from "./calculos.js";
 import { DesignView } from "./design/DesignView.jsx";
 import { LOGO_B64, LOGO_PRINT } from "./shared/assets.js";
-import { isOverdue, fmt, fmtDate, formatRut, fmtFecha } from "./shared/format.js";
+import { isOverdue, fmt, fmtDate, formatRut, fmtFecha, fechaLocal } from "./shared/format.js";
 import { useIsMobile } from "./shared/useIsMobile.js";
 import { STAGES, STATUS_CONFIG, REJECT_REASONS, CATALOG_CATS } from "./shared/constants.js";
 import { mapContactToDb, mapContact, mapDealToDb, mapDeal, mapTaskToDb, mapTask, mapProduct, mapProductToDb } from "./shared/mappers.js";
@@ -2840,7 +2840,7 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
                   <div key={i} style={{ display:"flex", alignItems:"center", gap:12, padding:"9px 14px", background:COLORS.bg, borderRadius:8, border:`1px solid ${COLORS.border}` }}>
                     <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.accent, fontWeight:700, minWidth:50 }}>Rev. {h.revision}</div>
                     <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, flex:1 }}>
-                      {h.fecha ? new Date(h.fecha).toLocaleDateString("es-CL", { day:"2-digit", month:"short", year:"numeric" }) : "—"} · {h.elaborado_por}
+                      {h.fecha ? fechaLocal(h.fecha).toLocaleDateString("es-CL", { day:"2-digit", month:"short", year:"numeric" }) : "—"} · {h.elaborado_por}
                     </div>
                     <Badge color={{ borrador:COLORS.textMuted, enviada:COLORS.accent, aprobada:COLORS.green, rechazada:COLORS.red }[h.estado] || COLORS.textMuted}>{h.estado}</Badge>
                     <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{fmt(h.total || 0)}</div>

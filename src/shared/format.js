@@ -3,6 +3,16 @@ export const fmt = (n) => new Intl.NumberFormat("es-CL", { style: "currency", cu
 
 export const fmtDate = (d) => d ? new Date(d + "T00:00").toLocaleDateString("es-CL", { day: "2-digit", month: "short" }) : "—";
 
+// Convierte una fecha de Supabase en Date local. new Date("YYYY-MM-DD") la
+// interpreta como medianoche UTC, que en Chile es el día anterior; aquí una
+// fecha sin hora se toma como medianoche local. Timestamps completos
+// ("2026-10-05T14:30:00Z") se respetan tal cual.
+export const fechaLocal = (s) => {
+  if (!s) return null;
+  const str = String(s);
+  return /^\d{4}-\d{2}-\d{2}$/.test(str) ? new Date(str + "T00:00") : new Date(str);
+};
+
 // Fecha de hoy (hora local) como "YYYY-MM-DD", comparable con las fechas de Supabase.
 export const hoyISO = () => {
   const d = new Date();

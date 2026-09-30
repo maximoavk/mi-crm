@@ -1,10 +1,12 @@
+import { fechaLocal } from "../shared/format.js";
+
 // ─── PDF renderer ─────────────────────────────────────────────────────────────
 export function printOp(op, quote) {
   const isCom  = op.tipo==="comisionamiento";
   const fecha  = op.fecha_visita ? new Date(op.fecha_visita+"T00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"}) : "—";
   const checklist = op.checklist||[];
   const garantiaVence = op.garantia_meses && op.fecha_visita
-    ? new Date(new Date(op.fecha_visita).setMonth(new Date(op.fecha_visita).getMonth()+Number(op.garantia_meses))).toLocaleDateString("es-CL")
+    ? new Date(fechaLocal(op.fecha_visita).setMonth(fechaLocal(op.fecha_visita).getMonth()+Number(op.garantia_meses))).toLocaleDateString("es-CL")
     : null;
 
   const checklistHtml = checklist.map(sec=>`

@@ -11,6 +11,7 @@ import { fetchImageAsDataUri } from "../CosteoPdfDocs.jsx";
 import { GanttDoc } from "../GanttPdfDoc.jsx";
 import { GanttBar } from "./GanttBar.jsx";
 import { PdfPreviewModal } from "../shared/ui.jsx";
+import { fechaLocal } from "../shared/format.js";
 
 export function GanttView({ isMobile }) {
   const [cotNum, setCotNum]       = useState("");
@@ -77,7 +78,7 @@ export function GanttView({ isMobile }) {
   // Agrupar meses para header
   const months = [];
   calCols.forEach((c,i) => {
-    const mName = new Date(c.date).toLocaleDateString("es-CL",{month:"short",year:"2-digit"});
+    const mName = fechaLocal(c.date).toLocaleDateString("es-CL",{month:"short",year:"2-digit"});
     if(months.length===0 || months[months.length-1].name!==mName)
       months.push({ name:mName, start:i, count:1 });
     else months[months.length-1].count++;
