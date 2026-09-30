@@ -3,6 +3,8 @@ import React, { useState } from "react";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
 import { calcItem, IVA, calcFase, codigosPorFase, CAT_TIPOS, partidaCobrado } from "../calculos.js";
 import { newItem, CON_IVA, CAT_COLOR } from "./items.js";
+import { treeLine, TREE_ELBOW } from "../shared/tree.js";
+import { TreeCaret } from "../shared/TreeCaret.jsx";
 
 export function TotBox({ label, value, color, sub }) {
   return (
@@ -14,7 +16,25 @@ export function TotBox({ label, value, color, sub }) {
   );
 }
 
-function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, productos }) {
+// Geometría del árbol del costeo (px). La línea de la fase corre a TREE_X
+// del borde de cada sección; la de cada categoría, a TREE_X de la primera
+// columna de su tabla (que empieza en SEC_PAD), justo bajo su triángulo.
+const TREE_X  = 7;
+const SEC_PAD = TREE_X + TREE_ELBOW + 3;
+
+// Líneas de un ítem dentro de su categoría: vertical que sigue hacia el
+// siguiente ítem (salvo el último) y "L" hacia el ítem.
+function ItemTreeLines({ isLast, onlyVertical }) {
+  return (
+    <>
+      {!isLast && <div style={treeLine({ left:TREE_X, top:-1, bottom:-1, borderLeftWidth:1 })} />}
+      {!onlyVertical && <div style={treeLine({ left:TREE_X, top:-1, height:"calc(50% + 1px)", width:TREE_ELBOW,
+        borderLeftWidth:1, borderBottomWidth:1, borderBottomLeftRadius:6 })} />}
+    </>
+  );
+}
+
+function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, productos, isLast }) {
   const [busqueda, setBusqueda] = useState("");
   const [showCat, setShowCat] = useState(false);
   const dragFromHandle = React.useRef(false);
@@ -57,15 +77,16 @@ function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, pro
       onDragOver={e=>{ e.preventDefault(); e.currentTarget.style.borderTop=`2px solid ${COLORS.accent}`; }}
       onDragLeave={e=>{ e.currentTarget.style.borderTop=""; }}
       onDrop={e=>{ e.preventDefault(); e.currentTarget.style.borderTop=""; const fromId=e.dataTransfer.getData("text/plain"); if(onReorder) onReorder(fromId, String(item.id)); }}
+      className="tree-row-in"
       style={{ cursor:"default" }}
     >
-      {/* Drag handle */}
+      {/* Drag handle (+ líneas del árbol) */}
       <td
-        style={{ padding:"6px 2px", width:14, textAlign:"center", color:"#6b7280", fontSize:14, userSelect:"none", cursor:"grab", lineHeight:1 }}
+        style={{ padding:"6px 2px 6px 20px", width:14, textAlign:"center", color:"#6b7280", fontSize:14, userSelect:"none", cursor:"grab", lineHeight:1, position:"relative" }}
         title="Arrastrar para reordenar"
         onMouseDown={()=>{ dragFromHandle.current=true; }}
         onMouseUp={()=>{ dragFromHandle.current=false; }}
-      >⠿</td>
+      ><ItemTreeLines isLast={isLast} />⠿</td>
       {/* COD — calculado según posición, se recalcula solo al reordenar/duplicar */}
       <td style={{ padding:"6px 4px", width:55 }}>
         <div style={{ textAlign:"center", color:COLORS.accent, fontWeight:600, fontFamily:FONT, fontSize:11, padding:"4px 2px" }} title={`Código SAP: POL-XXXX-${codigo||""} (se completa al generar cotización)`}>
@@ -193,8 +214,8 @@ function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, pro
     </tr>
     {/* Datasheet URL row */}
     {item.tipo==="Equipos" && (
-      <tr style={{ borderBottom:`1px solid ${COLORS.border}22`, background:`${COLORS.accent}05` }}>
-        <td />
+      <tr className="tree-row-in" style={{ borderBottom:`1px solid ${COLORS.border}22`, background:`${COLORS.accent}05` }}>
+        <td style={{ position:"relative" }}><ItemTreeLines isLast={isLast} onlyVertical /></td>
         <td colSpan={colCount-2} style={{ padding:"2px 4px 5px 4px" }}>
           <div style={{ display:"flex", alignItems:"center", gap:6 }}>
             <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, whiteSpace:"nowrap" }}>🔗 Datasheet:</span>
@@ -271,8 +292,10 @@ export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, prod
   return (
     <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, marginBottom:16 }}>
       {/* Header fase */}
-      <div style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 18px", borderBottom:`1px solid ${COLORS.border}` }}>
-        <button onClick={()=>setCollapsed(p=>!p)} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:14 }}>{collapsed?"▶":"▼"}</button>
+      <div style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 18px", borderBottom:`1px solid ${COLORS.border}`, position:"relative" }}>
+        {/* Línea que baja desde el triángulo de la fase hacia sus categorías */}
+        {!collapsed && <div style={treeLine({ left:18 + TREE_X, top:"calc(50% + 7px)", bottom:-1, borderLeftWidth:1 })} />}
+        <TreeCaret collapsed={collapsed} onToggle={()=>setCollapsed(p=>!p)} size={12} title={collapsed ? "Desplegar fase" : "Contraer fase"} />
         <input value={fase.nombre} onChange={e=>onChange({...fase,nombre:e.target.value})}
           style={{ background:"transparent", border:"none", color:COLORS.text, fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, flex:1, outline:"none" }}
           placeholder="Nombre de la fase..." />
@@ -306,16 +329,22 @@ export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, prod
       </div>
 
       {!collapsed && (
-        <div style={{ padding:"16px 18px" }}>
-          {CAT_TIPOS.map(tipo=>{
+        <div className="tree-row-in" style={{ padding:"16px 18px" }}>
+          {CAT_TIPOS.map((tipo, tipoIdx)=>{
+            const isLastSec = tipoIdx === CAT_TIPOS.length - 1;
             const tieneIVA = CON_IVA.includes(tipo);
             const esMO = tipo==="Mano de Obra / HH";
             const calcItems = grouped[tipo].map(it => esMO ? calcItem({...it, moConIVA: fase.moConIVA}) : calcItem(it));
             const secCollapsed = !!collapsedSections[tipo];
             return (
-              <div key={tipo} style={{ marginBottom:16 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom: secCollapsed ? 0 : 8 }}>
-                  <button onClick={()=>setCollapsedSections(p=>({...p,[tipo]:!p[tipo]}))} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:12, padding:"0 2px", lineHeight:1 }}>{secCollapsed?"▶":"▼"}</button>
+              <div key={tipo} style={{ marginBottom:16, position:"relative", paddingLeft:SEC_PAD }}>
+                {/* Línea de la fase: sigue hacia la próxima categoría (salvo la última) y dobla en "L" hacia esta */}
+                {!isLastSec && <div style={treeLine({ left:TREE_X, top:-16, bottom:0, borderLeftWidth:1 })} />}
+                <div style={treeLine({ left:TREE_X, top:-16, height:28, width:TREE_ELBOW, borderLeftWidth:1, borderBottomWidth:1, borderBottomLeftRadius:6 })} />
+                {/* Línea que baja desde el triángulo de la categoría hasta sus ítems */}
+                {!secCollapsed && grouped[tipo].length > 0 && <div style={treeLine({ left:SEC_PAD + TREE_X, top:19, height:13, borderLeftWidth:1 })} />}
+                <div style={{ display:"flex", alignItems:"center", gap:8, minHeight:24, marginBottom: secCollapsed ? 0 : 8 }}>
+                  <TreeCaret collapsed={secCollapsed} onToggle={()=>setCollapsedSections(p=>({...p,[tipo]:!p[tipo]}))} title={secCollapsed ? "Desplegar categoría" : "Contraer categoría"} />
                   <div style={{ width:3, height:16, background:CAT_COLOR[tipo], borderRadius:2 }} />
                   <span style={{ fontFamily:FONT, fontSize:11, fontWeight:600, color:CAT_COLOR[tipo], letterSpacing:"0.08em", textTransform:"uppercase" }}>{tipo}</span>
                   <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>({grouped[tipo].length})</span>
@@ -334,7 +363,7 @@ export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, prod
                     <table style={{ width:"100%", borderCollapse:"collapse", minWidth:700 }}>
                       <thead>
                         <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
-                          <th style={{ width:14, padding:"4px" }} />
+                          <th style={{ width:14, padding:"4px 4px 4px 20px", position:"relative" }}><ItemTreeLines isLast={false} onlyVertical /></th>
                           <th style={{ textAlign:"center", fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", width:55 }}>COD</th>
                           <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px" }}>DESCRIPCIÓN</th>
                           <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:100 }}>MODELO</th>
@@ -365,8 +394,8 @@ export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, prod
                         </tr>
                       </thead>
                       <tbody>
-                        {grouped[tipo].map(it=>(
-                          <ItemRow key={it.id} item={esMO ? {...it, moConIVA: fase.moConIVA} : it} codigo={codigoPorId[it.id]} onChange={item=>updateItem(it.id, esMO ? {...item, moConIVA: undefined} : item)} onDelete={()=>deleteItem(it.id)} onDuplicate={()=>duplicateItem(it.id)} onReorder={reorderItem} productos={productos} />
+                        {grouped[tipo].map((it, itIdx)=>(
+                          <ItemRow key={it.id} isLast={itIdx === grouped[tipo].length - 1} item={esMO ? {...it, moConIVA: fase.moConIVA} : it} codigo={codigoPorId[it.id]} onChange={item=>updateItem(it.id, esMO ? {...item, moConIVA: undefined} : item)} onDelete={()=>deleteItem(it.id)} onDuplicate={()=>duplicateItem(it.id)} onReorder={reorderItem} productos={productos} />
                         ))}
                       </tbody>
                         <tfoot>
