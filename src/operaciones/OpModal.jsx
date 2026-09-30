@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { CHECKLIST_COMISIONAMIENTO, CHECKLIST_TEMPLATES, buildChecklist } from "./checklists.js";
 import { supabase } from "../supabaseClient.js";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
+import { fechaLocal } from "../shared/format.js";
 
 // ─── Modal Operación ──────────────────────────────────────────────────────────
 export function OpModal({ op, defaultTipo, quotes, contacts, onClose, onSaved, onPrint }) {
@@ -199,7 +200,7 @@ export function OpModal({ op, defaultTipo, quotes, contacts, onClose, onSaved, o
                     <div><label style={lbl}>Garantía (meses)</label>
                       <input type="number" min="0" value={form.garantia_meses} onChange={e=>ff("garantia_meses",e.target.value)} placeholder="Ej: 12" style={inp} />
                       {form.garantia_meses&&form.fecha_visita&&<div style={{fontFamily:FONT,fontSize:10,color:COLORS.green,marginTop:3}}>
-                        Vence: {new Date(new Date(form.fecha_visita).setMonth(new Date(form.fecha_visita).getMonth()+Number(form.garantia_meses))).toLocaleDateString("es-CL")}
+                        Vence: {new Date(fechaLocal(form.fecha_visita).setMonth(fechaLocal(form.fecha_visita).getMonth()+Number(form.garantia_meses))).toLocaleDateString("es-CL")}
                       </div>}
                     </div>
                   )}

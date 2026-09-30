@@ -7,6 +7,7 @@ import { printOT } from "./printOT.js";
 import { OTModal } from "./OTModal.jsx";
 import { printOp } from "./printOp.js";
 import { OpModal } from "./OpModal.jsx";
+import { fechaLocal } from "../shared/format.js";
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export function OperacionesView({ isMobile }) {
@@ -226,7 +227,7 @@ export function OperacionesView({ isMobile }) {
             const doneItems  = checklist.reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado==="ok"||it.estado==="obs").length,0);
             const pct = totalItems>0?Math.round(doneItems/totalItems*100):0;
             const garantiaVence = op.garantia_meses && op.fecha_visita
-              ? new Date(new Date(op.fecha_visita).setMonth(new Date(op.fecha_visita).getMonth()+Number(op.garantia_meses))).toLocaleDateString("es-CL")
+              ? new Date(fechaLocal(op.fecha_visita).setMonth(fechaLocal(op.fecha_visita).getMonth()+Number(op.garantia_meses))).toLocaleDateString("es-CL")
               : null;
             return (
               <div key={op.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:"14px 18px" }}>
