@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { jsPDF } from "jspdf";
 import { exportPNGBlob, exportPDFBlob, downloadBlob } from "./exportUtils.js";
 import { COLORS, FONT } from "../theme.js";
 
@@ -20,6 +19,7 @@ export function ExportPanel({ svgRef, exportMeta }) {
   const handleExportPDF = async () => {
     setStatus("Generando PDF…");
     try {
+      const { jsPDF } = await import("jspdf"); // se carga solo al exportar
       const blob = await exportPDFBlob(svgRef.current, 2, jsPDF, exportMeta);
       downloadBlob(blob, "plano-cctv.pdf");
       setStatus("PDF descargado ✓");

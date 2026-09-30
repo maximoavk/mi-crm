@@ -1,14 +1,11 @@
 // ── CARTA GANTT: planificación por cotización, días hábiles y PDF ──────────
 import React, { useState, useEffect, useMemo } from "react";
-import { pdf } from "@react-pdf/renderer";
 import { buildCalHeader, addDays, nextBusinessDay, endOfBusinessSpan, diffDays, shiftDateBusinessDay, fmtShort } from "./fechas.js";
 import { supabase, must, replaceRows } from "../supabaseClient.js";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
 import { GANTT_COLORS, TIPO_LABEL, ROL_OPTS } from "./constants.js";
 import { LOGO_B64, LOGO_PRINT } from "../shared/assets.js";
 import { CalendarPicker } from "./CalendarPicker.jsx";
-import { fetchImageAsDataUri } from "../CosteoPdfDocs.jsx";
-import { GanttDoc } from "../GanttPdfDoc.jsx";
 import { GanttBar } from "./GanttBar.jsx";
 import { PdfPreviewModal } from "../shared/ui.jsx";
 import { fechaLocal, hoyISO } from "../shared/format.js";
@@ -640,6 +637,10 @@ export function GanttView({ isMobile }) {
                   const faseId = ganttMeta.childPhaseId[t.id];
                   if (faseId) phasePresupById[faseId] = (phasePresupById[faseId] || 0) + (Number(t.hhPresup) || 0);
                 });
+                // La librería de PDF se carga recién al generar el PDF (~1,5 MB)
+                const [{ pdf }, { fetchImageAsDataUri }, { GanttDoc }] = await Promise.all([
+                  import("@react-pdf/renderer"), import("../CosteoPdfDocs.jsx"), import("../GanttPdfDoc.jsx"),
+                ]);
                 let logoDataUri = null;
                 try { logoDataUri = await fetchImageAsDataUri(LOGO_PRINT); } catch { /* el documento se genera igual, sin logo */ }
                 const blob = await pdf(<GanttDoc proyecto={proyecto} headerData={headerData} tasks={tasks} monthPages={monthPages} numbersById={ganttMeta.numbers} phasePresupById={phasePresupById} totales={totales} logoDataUri={logoDataUri} />).toBlob();
