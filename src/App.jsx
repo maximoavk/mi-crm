@@ -13428,7 +13428,7 @@ function CuentasPorCobrar({ isMobile }) {
       metodo:     formPago.metodo,
       referencia: formPago.referencia.trim() || null,
     });
-    await loadFacturas();
+    await loadAll();
     setFormPago(emptyPago);
     setPagoModal(null);
     setSaving(false);
