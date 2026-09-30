@@ -5,7 +5,7 @@ import { CosteoInternoDoc, CosteoClienteDoc, fetchImageAsDataUri } from "./Coste
 import { GanttDoc } from "./GanttPdfDoc.jsx";
 import { COLORS, FONT, FONT_DISPLAY } from "./theme.js";
 import { supabase, must, replaceRows } from "./supabaseClient.js";
-import { IVA, CAT_TIPOS, codigosPorFase, calcItem, calcFase, partidaCobrado, syncPartidasConFases, subtotalLinea, totalCotizacion, redondearCentena } from "./calculos.js";
+import { IVA, CAT_TIPOS, codigosPorFase, calcItem, calcFase, partidaCobrado, syncPartidasConFases, subtotalLinea, totalCotizacion, redondearTotal } from "./calculos.js";
 import { DesignProjectsPanel } from "./design/DesignProjectsPanel.jsx";
 import { DesignView } from "./design/DesignView.jsx";
 
@@ -6263,7 +6263,7 @@ function DeclararCambioPanel({ quote, onClose, onApplied }) {
             await must(supabase.from("quote_lines").delete().eq("id", p.lineaId));
           }
         }
-        newTotal = redondearCentena((quote.total||0) + pending.reduce((s,p)=>s+p.valor,0));
+        newTotal = redondearTotal((quote.total||0) + pending.reduce((s,p)=>s+p.valor,0));
         await must(supabase.from("cotizaciones").update({ total:newTotal }).eq("id", quote.id));
       }
       const rows = pending.map(p=>({
@@ -8655,7 +8655,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
   const totalDescuento    = fasesCalc.reduce((s,f)=>s+(f.descMonto||0),0);
   const totalVentaNetaConDesc = fasesCalc.reduce((s,f)=>s+f.ventaNetaConDesc,0); // neto ya con descuento aplicado
   const totalIvaConDesc   = fasesCalc.reduce((s,f)=>s+f.ivaConDesc,0); // IVA calculado sobre ese neto con descuento
-  const totalVentaFinal   = Math.round(fasesCalc.reduce((s,f)=>s+f.ventaConDesc,0) / 100) * 100; // con descuento aplicado, redondeado al 100 más cercano
+  const totalVentaFinal   = redondearTotal(fasesCalc.reduce((s,f)=>s+f.ventaConDesc,0)); // con descuento aplicado, redondeo chileno (Ley 20.956)
   const hayDescuento      = totalDescuento > 0;
   const margenPct = totalCosto > 0 ? (totalMargen/totalCosto*100).toFixed(1) : 0;
   const margenFinalBruto  = totalVentaFinal - totalCostoBruto; // margen post-descuento (venta final - costo bruto)
@@ -8795,7 +8795,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
       descuento: fases.reduce((s, f) => s + (f.descMonto || 0), 0),
       ventaNetaConDesc: fases.reduce((s, f) => s + f.ventaNetaConDesc, 0),
       ivaConDesc: fases.reduce((s, f) => s + f.ivaConDesc, 0),
-      ventaFinal: Math.round(fases.reduce((s, f) => s + f.ventaConDesc, 0) / 100) * 100,
+      ventaFinal: redondearTotal(fases.reduce((s, f) => s + f.ventaConDesc, 0)),
     };
     let logoDataUri = null;
     try { logoDataUri = await fetchImageAsDataUri(LOGO_PRINT); } catch { /* el documento se genera igual, sin logo */ }
@@ -8814,7 +8814,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
       descuento: fases.reduce((s, f) => s + (f.descMonto || 0), 0),
       ventaNetaConDesc: fases.reduce((s, f) => s + f.ventaNetaConDesc, 0),
       ivaConDesc: fases.reduce((s, f) => s + f.ivaConDesc, 0),
-      ventaFinal: Math.round(fases.reduce((s, f) => s + f.ventaConDesc, 0) / 100) * 100,
+      ventaFinal: redondearTotal(fases.reduce((s, f) => s + f.ventaConDesc, 0)),
     };
     let logoDataUri = null;
     try { logoDataUri = await fetchImageAsDataUri(LOGO_PRINT); } catch { /* el documento se genera igual, sin logo */ }
@@ -8909,7 +8909,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
       direccion:proyecto.clienteDireccion||"", telefono:proyecto.clienteTelefono||"",
       forma_pago:formaPago, pct_anticipo:pctAnt, aplica_iva:false, iva_modo:"empresa",
       comentarios:`${proyecto.nombre}`,
-      terminos:"", estado:"borrador", tipo:"productos", total:redondearCentena(totalBrutoFinal),
+      terminos:"", estado:"borrador", tipo:"productos", total:redondearTotal(totalBrutoFinal),
       rubro: proyecto.rubro || null, tipo_trabajo: proyecto.tipoTrabajo || null,
     };
     const { data: savedQuote } = await supabase.from("cotizaciones").insert(quoteData).select().single();
@@ -11475,8 +11475,7 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
 
   // ── Calcular totales partidas ──
   const subtotal = Math.round(form.partidas.reduce((s, p) => s + (Number(p.total) || 0), 0));
-  const iva      = Math.round(subtotal * 0.19);
-  const total    = Math.round((subtotal + iva) / 100) * 100;
+  const { iva, total } = totalCotizacion(subtotal, true);
 
   const updatePartida = (id, key, val) => {
     setForm(prev => ({

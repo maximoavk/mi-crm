@@ -18,18 +18,23 @@ export function subtotalLinea(precio, cantidad, descuentoPct) {
   return Math.round(price * qty * (1 - disc/100));
 }
 
-// El total de toda cotización se guarda redondeado a la centena, venga del
-// editor, del costeo, de una sincronización o de un cambio de alcance.
-export function redondearCentena(monto) {
-  return Math.round((Number(monto)||0) / 100) * 100;
+// Regla de redondeo de Chile (Ley 20.956): el monto final se redondea a la
+// decena; si termina en 1 a 5 baja a la decena inferior y si termina en 6 a 9
+// sube a la superior. Se aplica a todo total de cotización, propuesta y
+// costeo, venga del editor, del costeo, de una sincronización o de un cambio
+// de alcance, para que todos muestren el mismo monto.
+export function redondearTotal(monto) {
+  const n = Math.round(Number(monto)||0);
+  const ultimo = ((n % 10) + 10) % 10;
+  return ultimo <= 5 ? n - ultimo : n + (10 - ultimo);
 }
 
 // Totales de una cotización a partir del neto: IVA 19% redondeado al peso y
-// total redondeado a la centena (sin IVA también se redondea a la centena).
+// total con la regla de redondeo chilena (con o sin IVA).
 export function totalCotizacion(neto, conIva) {
   const n   = Math.round(Number(neto)||0);
   const iva = conIva ? Math.round(n * TASA_IVA) : 0;
-  return { neto: n, iva, total: redondearCentena(n + iva) };
+  return { neto: n, iva, total: redondearTotal(n + iva) };
 }
 
 // ── Costeo de proyectos ──────────────────────────────────────────────────────

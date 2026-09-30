@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  subtotalLinea, totalCotizacion, redondearCentena, calcItem, calcFase,
+  subtotalLinea, totalCotizacion, redondearTotal, calcItem, calcFase,
   partidaCobrado, syncPartidasConFases, codigosPorFase,
 } from "./calculos.js";
 
@@ -20,34 +20,43 @@ describe("subtotalLinea", () => {
   });
 });
 
-describe("redondearCentena", () => {
-  it("redondea a la centena más cercana (50 sube)", () => {
-    expect(redondearCentena(1234567)).toBe(1234600);
-    expect(redondearCentena(1234549)).toBe(1234500);
-    expect(redondearCentena(1234550)).toBe(1234600);
-    expect(redondearCentena(1234500)).toBe(1234500);
+describe("redondearTotal (Ley 20.956)", () => {
+  it("termina en 1 a 5: baja a la decena inferior", () => {
+    expect(redondearTotal(1234561)).toBe(1234560);
+    expect(redondearTotal(1234563)).toBe(1234560);
+    expect(redondearTotal(1234565)).toBe(1234560);   // el 5 baja
   });
-  it("acepta decimales y valores vacíos", () => {
-    expect(redondearCentena(157446.4)).toBe(157400);
-    expect(redondearCentena("")).toBe(0);
+  it("termina en 6 a 9: sube a la decena superior", () => {
+    expect(redondearTotal(1234566)).toBe(1234570);
+    expect(redondearTotal(1234569)).toBe(1234570);
+    expect(redondearTotal(1234599)).toBe(1234600);   // puede subir de centena
+  });
+  it("termina en 0: queda igual", () => {
+    expect(redondearTotal(1234570)).toBe(1234570);
+    expect(redondearTotal(0)).toBe(0);
+  });
+  it("redondea primero al peso y acepta valores vacíos", () => {
+    expect(redondearTotal(157445.4)).toBe(157440);   // 157.445 → baja
+    expect(redondearTotal(157445.6)).toBe(157450);   // 157.446 → sube
+    expect(redondearTotal("")).toBe(0);
   });
   it("un total generado desde el costeo coincide con el de una sincronización sin cambios", () => {
     // Antes: generar guardaba 1.234.567 y sincronizar lo cambiaba a 1.234.600
     const ventaConDesc = 1234567;
-    expect(redondearCentena(ventaConDesc)).toBe(totalCotizacion(ventaConDesc, false).total);
+    expect(redondearTotal(ventaConDesc)).toBe(totalCotizacion(ventaConDesc, false).total);
   });
 });
 
 describe("totalCotizacion", () => {
-  it("con IVA: 19% sobre el neto y total a la centena", () => {
+  it("con IVA: 19% sobre el neto y total con redondeo chileno", () => {
     expect(totalCotizacion(100000, true)).toEqual({ neto: 100000, iva: 19000, total: 119000 });
-    // 123.456 × 0,19 = 23.456,64 → 23.457; 146.913 → 146.900
-    expect(totalCotizacion(123456, true)).toEqual({ neto: 123456, iva: 23457, total: 146900 });
+    // 123.456 × 0,19 = 23.456,64 → 23.457; 146.913 termina en 3 → 146.910
+    expect(totalCotizacion(123456, true)).toEqual({ neto: 123456, iva: 23457, total: 146910 });
   });
-  it("sin IVA: el total igual se redondea a la centena", () => {
-    expect(totalCotizacion(123456, false)).toEqual({ neto: 123456, iva: 0, total: 123500 });
-    expect(totalCotizacion(123449, false).total).toBe(123400);
-    expect(totalCotizacion(150, false).total).toBe(200);
+  it("sin IVA: el total igual se redondea", () => {
+    expect(totalCotizacion(123456, false)).toEqual({ neto: 123456, iva: 0, total: 123460 });
+    expect(totalCotizacion(123455, false).total).toBe(123450);
+    expect(totalCotizacion(150, false).total).toBe(150);
   });
   it("redondea el neto antes de calcular el IVA", () => {
     expect(totalCotizacion(99999.6, true)).toEqual({ neto: 100000, iva: 19000, total: 119000 });
