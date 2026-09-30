@@ -5,7 +5,7 @@ import { CosteoInternoDoc, CosteoClienteDoc, fetchImageAsDataUri } from "./Coste
 import { GanttDoc } from "./GanttPdfDoc.jsx";
 import { COLORS, FONT, FONT_DISPLAY } from "./theme.js";
 import { supabase, must, replaceRows } from "./supabaseClient.js";
-import { IVA, CAT_TIPOS, codigosPorFase, calcItem, calcFase, partidaCobrado, syncPartidasConFases, subtotalLinea, totalCotizacion } from "./calculos.js";
+import { IVA, CAT_TIPOS, codigosPorFase, calcItem, calcFase, partidaCobrado, syncPartidasConFases, subtotalLinea, totalCotizacion, redondearCentena } from "./calculos.js";
 import { DesignProjectsPanel } from "./design/DesignProjectsPanel.jsx";
 import { DesignView } from "./design/DesignView.jsx";
 
@@ -6263,7 +6263,7 @@ function DeclararCambioPanel({ quote, onClose, onApplied }) {
             await must(supabase.from("quote_lines").delete().eq("id", p.lineaId));
           }
         }
-        newTotal = Math.round((quote.total||0) + pending.reduce((s,p)=>s+p.valor,0));
+        newTotal = redondearCentena((quote.total||0) + pending.reduce((s,p)=>s+p.valor,0));
         await must(supabase.from("cotizaciones").update({ total:newTotal }).eq("id", quote.id));
       }
       const rows = pending.map(p=>({
@@ -8909,7 +8909,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
       direccion:proyecto.clienteDireccion||"", telefono:proyecto.clienteTelefono||"",
       forma_pago:formaPago, pct_anticipo:pctAnt, aplica_iva:false, iva_modo:"empresa",
       comentarios:`${proyecto.nombre}`,
-      terminos:"", estado:"borrador", tipo:"productos", total:Math.round(totalBrutoFinal),
+      terminos:"", estado:"borrador", tipo:"productos", total:redondearCentena(totalBrutoFinal),
       rubro: proyecto.rubro || null, tipo_trabajo: proyecto.tipoTrabajo || null,
     };
     const { data: savedQuote } = await supabase.from("cotizaciones").insert(quoteData).select().single();

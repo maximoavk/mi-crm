@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  subtotalLinea, totalCotizacion, calcItem, calcFase,
+  subtotalLinea, totalCotizacion, redondearCentena, calcItem, calcFase,
   partidaCobrado, syncPartidasConFases, codigosPorFase,
 } from "./calculos.js";
 
@@ -17,6 +17,24 @@ describe("subtotalLinea", () => {
     expect(subtotalLinea("1000", "2", "")).toBe(2000);
     expect(subtotalLinea(1000, "", 0)).toBe(1000);  // cantidad vacía = 1
     expect(subtotalLinea("", 5, 0)).toBe(0);
+  });
+});
+
+describe("redondearCentena", () => {
+  it("redondea a la centena más cercana (50 sube)", () => {
+    expect(redondearCentena(1234567)).toBe(1234600);
+    expect(redondearCentena(1234549)).toBe(1234500);
+    expect(redondearCentena(1234550)).toBe(1234600);
+    expect(redondearCentena(1234500)).toBe(1234500);
+  });
+  it("acepta decimales y valores vacíos", () => {
+    expect(redondearCentena(157446.4)).toBe(157400);
+    expect(redondearCentena("")).toBe(0);
+  });
+  it("un total generado desde el costeo coincide con el de una sincronización sin cambios", () => {
+    // Antes: generar guardaba 1.234.567 y sincronizar lo cambiaba a 1.234.600
+    const ventaConDesc = 1234567;
+    expect(redondearCentena(ventaConDesc)).toBe(totalCotizacion(ventaConDesc, false).total);
   });
 });
 

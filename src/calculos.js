@@ -18,12 +18,18 @@ export function subtotalLinea(precio, cantidad, descuentoPct) {
   return Math.round(price * qty * (1 - disc/100));
 }
 
+// El total de toda cotización se guarda redondeado a la centena, venga del
+// editor, del costeo, de una sincronización o de un cambio de alcance.
+export function redondearCentena(monto) {
+  return Math.round((Number(monto)||0) / 100) * 100;
+}
+
 // Totales de una cotización a partir del neto: IVA 19% redondeado al peso y
 // total redondeado a la centena (sin IVA también se redondea a la centena).
 export function totalCotizacion(neto, conIva) {
   const n   = Math.round(Number(neto)||0);
   const iva = conIva ? Math.round(n * TASA_IVA) : 0;
-  return { neto: n, iva, total: Math.round((n + iva) / 100) * 100 };
+  return { neto: n, iva, total: redondearCentena(n + iva) };
 }
 
 // ── Costeo de proyectos ──────────────────────────────────────────────────────
