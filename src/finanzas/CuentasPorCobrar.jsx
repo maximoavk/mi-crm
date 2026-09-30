@@ -14,6 +14,7 @@ import { badgePago } from "./badgePago.jsx";
 export function CuentasPorCobrar({ isMobile }) {
   const [facturas, setFacturas]   = useState([]);
   const [clientes, setClientes]   = useState([]);
+  const [cotizaciones, setCotizaciones] = useState([]);
   const [loading, setLoading]     = useState(true);
   const [modal, setModal]         = useState(null);
   const [saving, setSaving]       = useState(false);
@@ -28,7 +29,7 @@ export function CuentasPorCobrar({ isMobile }) {
     numero_documento:"", tipo_documento:"Factura", fecha_emision:"",
     razon_social_cliente:"", rut_cliente:"",
     monto_neto:"", aplica_iva:true, vencimiento:"",
-    referencia_cotizacion:"", notas:"",
+    cotizacion_id:"", referencia_cotizacion:"", notas:"",
   };
   const [form, setForm] = useState(emptyForm);
   const setF = (k,v) => setForm(p=>({...p,[k]:v}));
@@ -41,14 +42,17 @@ export function CuentasPorCobrar({ isMobile }) {
 
   const loadAll = async () => {
     setLoading(true);
-    const [{ data: facts }, { data: cons }] = await Promise.all([
+    const [{ data: facts }, { data: cons }, { data: cots }] = await Promise.all([
       supabase.from("facturas_emitidas")
         .select("*, pagos_recibidos(*)").order("fecha_emision", { ascending:false }),
       supabase.from("contactos")
         .select("id, nombre, empresa, rut, email, telefono").order("nombre"),
+      supabase.from("cotizaciones")
+        .select("id, numero, serie, estado, nombre_cliente, razon_social").order("numero", { ascending:false }),
     ]);
     setFacturas(facts || []);
     setClientes(cons || []);
+    setCotizaciones(cots || []);
     setLoading(false);
   };
 
@@ -100,6 +104,7 @@ export function CuentasPorCobrar({ isMobile }) {
       monto_iva:        ivaCalc,
       monto_total:      totalCalc,
       vencimiento:      form.vencimiento || null,
+      cotizacion_id:    form.cotizacion_id || null,
       referencia_cotizacion: form.referencia_cotizacion.trim() || null,
       notas:            form.notas.trim() || null,
     });
@@ -378,8 +383,21 @@ export function CuentasPorCobrar({ isMobile }) {
                 ))}
               </div>
             </div>
-            <LabelInput label="Ref. Cotización (opcional)" value={form.referencia_cotizacion}
-              onChange={e=>setF("referencia_cotizacion",e.target.value)} placeholder="COT-001" />
+            {/* Vincular la factura a su cotización: sus pagos entran al saldo
+                del proyecto en Compras → Por proyecto. */}
+            <LabelSelect label="Cotización (opcional)" value={form.cotizacion_id}
+              onChange={e=>{
+                const q = cotizaciones.find(c => String(c.id) === e.target.value);
+                setForm(p=>({ ...p, cotizacion_id: e.target.value,
+                  referencia_cotizacion: q ? `${q.serie||"COT"}-${String(q.numero).padStart(3,"0")}` : "" }));
+              }}>
+              <option value="">— Sin cotización —</option>
+              {cotizaciones.map(q => (
+                <option key={q.id} value={String(q.id)}>
+                  {q.serie||"COT"}-{String(q.numero).padStart(3,"0")} · {q.razon_social||q.nombre_cliente||"—"}{q.estado==="aprobada" ? " · aprobada" : ""}
+                </option>
+              ))}
+            </LabelSelect>
           </div>
 
           {/* Preview cálculo */}
