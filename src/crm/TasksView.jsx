@@ -6,6 +6,7 @@ import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
 import { AddBtn } from "../shared/ui.jsx";
 import { fmtDate, hoyISO } from "../shared/format.js";
 import { STAGES } from "../shared/constants.js";
+import { diasSemana, diasMes } from "./calendario.js";
 
 // ── TASKS ────────────────────────────────────────────────────────────────────
 export function TasksView({ tasks, setTasks, contacts, deals, isMobile }) {
@@ -106,20 +107,13 @@ export function TasksView({ tasks, setTasks, contacts, deals, isMobile }) {
 
   // ── Vista día: tareas del día seleccionado, agrupadas por hora ──
   const HOURS = Array.from({length:14}, (_,i)=>i+7); // 7am-20pm
-  const tasksDay = tasks.filter(t => (t.startDate||t.dueDate)===calDate);
-  const tasksWeek = (() => {
-    const d = new Date(calDate+"T12:00"); d.setDate(d.getDate() - d.getDay() + 1);
-    const week = Array.from({length:7}, (_,i)=>{ const dd=new Date(d); dd.setDate(d.getDate()+i); return dd.toISOString().slice(0,10); });
-    return week.map(date=>({ date, tasks: tasks.filter(t=>(t.startDate||t.dueDate)===date) }));
-  })();
+  // Los calendarios usan la misma lista filtrada que la vista Lista, así los
+  // filtros de estado y categoría funcionan en todas las vistas.
+  const delDia = (date) => filtered.filter(t => (t.startDate||t.dueDate)===date);
+  const tasksDay = delDia(calDate);
+  const tasksWeek = diasSemana(calDate).map(date=>({ date, tasks: delDia(date) }));
   // Vista mes: cuadrícula completa (semanas de lunes a domingo) cubriendo el mes de calDate
-  const tasksMonth = (() => {
-    const ref = new Date(calDate+"T12:00");
-    const firstOfMonth = new Date(ref.getFullYear(), ref.getMonth(), 1);
-    const start = new Date(firstOfMonth); start.setDate(start.getDate() - ((start.getDay()+6)%7)); // lunes anterior/actual
-    const days = Array.from({length:42}, (_,i)=>{ const d=new Date(start); d.setDate(start.getDate()+i); return d.toISOString().slice(0,10); });
-    return days.map(date=>({ date, inMonth: new Date(date+"T12:00").getMonth()===ref.getMonth(), tasks: tasks.filter(t=>(t.startDate||t.dueDate)===date) }));
-  })();
+  const tasksMonth = diasMes(calDate).map(({ date, inMonth })=>({ date, inMonth, tasks: delDia(date) }));
 
   return (
     <div>
