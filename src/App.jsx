@@ -21265,6 +21265,8 @@ function ColaboradorView({ session }) {
 }
 
 
+const VALID_ROLES = ["admin", "colaborador", "prueba"];
+
 export default function CRM() {
   const [view, setView] = useState("dashboard");
   const [openCosteoId, setOpenCosteoId] = useState(null);
@@ -21276,7 +21278,7 @@ export default function CRM() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [userRole, setUserRole] = useState(null); // "admin" | "colaborador" | "prueba"
+  const [userRole, setUserRole] = useState(null); // "admin" | "colaborador" | "prueba" | "sin_acceso"
   const [profileError, setProfileError] = useState(null);
   const isMobile = useIsMobile();
 
@@ -21303,16 +21305,24 @@ export default function CRM() {
       setProfileError(null);
       try {
         const email = session.user?.email || "";
-        // Rol y datos son independientes entre sí: se piden en paralelo
-        // en vez de esperar el rol antes de pedir el resto (menos round-trips)
-        const [{ data: roleData }, { data: c }, { data: d }, { data: t }] = await Promise.all([
-          supabase.from("usuarios_roles").select("rol").eq("email", email).single(),
+        // El rol se pide primero: sin un rol válido en usuarios_roles no se
+        // carga ningún dato (antes se asumía "admin" por defecto)
+        const { data: roleData, error: roleError } = await supabase
+          .from("usuarios_roles").select("rol").eq("email", email).maybeSingle();
+        if(cancelled) return;
+        if(roleError) throw roleError;
+        if(!VALID_ROLES.includes(roleData?.rol)) {
+          setUserRole("sin_acceso");
+          setLoading(false);
+          return;
+        }
+        const [{ data: c }, { data: d }, { data: t }] = await Promise.all([
           supabase.from("contactos").select("*"),
           supabase.from("deals").select("*"),
           supabase.from("task").select("*"),
         ]);
         if(cancelled) return;
-        setUserRole(roleData?.rol || "admin"); // default admin si no está en tabla
+        setUserRole(roleData.rol);
         setContacts((c||[]).map(mapContact));
         setDeals((d||[]).map(mapDeal));
         setTasks((t||[]).map(mapTask));
@@ -21352,6 +21362,16 @@ export default function CRM() {
   if(userRole === null) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#0A0C10" }}>
       <div style={{ fontFamily:FONT, color:"#00C2FF", fontSize:14, letterSpacing:"0.1em" }}>Cargando perfil…</div>
+    </div>
+  );
+
+  // Usuario autenticado pero sin rol en usuarios_roles → sin acceso
+  if(userRole === "sin_acceso") return (
+    <div style={{ display:"flex", flexDirection:"column", gap:12, alignItems:"center", justifyContent:"center", height:"100vh", background:"#0A0C10" }}>
+      <div style={{ fontFamily:FONT, color:COLORS.red, fontSize:14, letterSpacing:"0.05em", textAlign:"center", maxWidth:320 }}>
+        La cuenta {session.user?.email} no tiene acceso a este sistema.
+      </div>
+      <button onClick={logout} style={{ fontFamily:FONT, color:"#00C2FF", fontSize:13, background:"transparent", border:"1px solid #00C2FF", borderRadius:6, padding:"8px 16px", cursor:"pointer" }}>Cerrar sesión</button>
     </div>
   );
 
