@@ -6,6 +6,7 @@ import { desgloseTotal } from "../calculos.js";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
 import { LOGO_PRINT } from "../shared/assets.js";
 import { fmtDate, fmt } from "../shared/format.js";
+import { EMPRESA, TITULAR, datosPago } from "../shared/empresa.js";
 
 // ── PDF VIEW ─────────────────────────────────────────────────────────────────
 export function QuotePDF({ quote, onBack }) {
@@ -63,17 +64,17 @@ export function QuotePDF({ quote, onBack }) {
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:24, borderBottom:"2px solid #e0e0e0", paddingBottom:16 }}>
           <div>
             <img src={LOGO_PRINT} alt="Polygonos" style={{ height:60, marginBottom:8, display:"block" }} />
-            <div style={{ fontSize:11, color:"#555" }}>Sucursales: Marco Gallo Vergara 536 B, Dpto 411 Torre D</div>
-            <div style={{ fontSize:11, color:"#555" }}>Casa Matriz: Huérfanos, 1055 Oficina 603</div>
-            <div style={{ fontSize:11, color:"#555" }}>Giro: Servicios de Seguridad y Cerrajería</div>
-            <div style={{ fontSize:11, color:"#555" }}>Fono: 9-81334980</div>
-            <div style={{ fontSize:11, color:"#555" }}>eMail: ventas@polygonos.cl</div>
-            <div style={{ fontSize:11, color:"#555" }}>Vendedor: Maximo Hudson / maximo.hudson.blanco@gmail.com</div>
+            <div style={{ fontSize:11, color:"#555" }}>Sucursales: {EMPRESA.sucursal}</div>
+            <div style={{ fontSize:11, color:"#555" }}>Casa Matriz: {EMPRESA.casaMatriz}</div>
+            <div style={{ fontSize:11, color:"#555" }}>Giro: {EMPRESA.giro}</div>
+            <div style={{ fontSize:11, color:"#555" }}>Fono: {TITULAR.telefono}</div>
+            <div style={{ fontSize:11, color:"#555" }}>eMail: {EMPRESA.email}</div>
+            <div style={{ fontSize:11, color:"#555" }}>Vendedor: {TITULAR.nombre} / {TITULAR.email}</div>
           </div>
           <div style={{ textAlign:"center" }}>
             {/* RUT solo si es Con IVA */}
             {quote.ivaMode==="empresa" && (
-              <div className="rut-label" style={{ color:"#cc0000", fontWeight:700, fontSize:13, marginBottom:6 }}>R.U.T.: 77.180.437-3</div>
+              <div className="rut-label" style={{ color:"#cc0000", fontWeight:700, fontSize:13, marginBottom:6 }}>R.U.T.: {EMPRESA.rut}</div>
             )}
             <div className="quote-box" style={{ border:"2px solid #cc0000", textAlign:"center", minWidth:160, padding:"10px 20px" }}>
               <div className="quote-number-label" style={{ fontSize:11, fontWeight:700, letterSpacing:"0.05em", color:"#cc0000", marginBottom:4 }}>N° Cotización:</div>
@@ -262,8 +263,8 @@ export function QuotePDF({ quote, onBack }) {
         <div style={{ borderTop:"1px solid #e0e0e0", marginTop:12, paddingTop:12, fontSize:10, color:"#555" }}>
             <div style={{ fontWeight:700, marginBottom:4 }}>Datos de Pago:</div>
             <div style={{ whiteSpace:"pre-wrap" }}>{quote.ivaMode==="personal"
-              ? "Maximo Hudson\nRUT: 26074100-4\nBanco Santander\nCta. Cte.: 75 36164 5\nCorreo: maximo.hudson.blanco@gmail.com"
-              : "Polygonos SPA\nRUT: 77.180.437-3\nBanco Santander\nCta. Cte. 99128755\nCorreo: maximo.hudson.blanco@gmail.com"
+              ? datosPago("personal")
+              : datosPago("empresa")
             }</div>
           </div>
           <div style={{ marginTop:12, paddingTop:8, borderTop:"1px solid #e0e0e0", display:"flex", alignItems:"center" }}>

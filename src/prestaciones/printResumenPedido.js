@@ -1,4 +1,6 @@
 // ── PRINT RESUMEN PEDIDO ─────────────────────────────────────────────────────
+import { EMPRESA_RUT, TITULAR } from "../shared/empresa.js";
+
 export function printResumenPedido({ ped, cotCompensated, pedidoTotal, pedidoPagado, pedidoSaldo, pedidoPct, isPaid }, allDocs, isPF) {
   const fechaHoy  = new Date().toLocaleDateString("es-CL", {day:"2-digit",month:"2-digit",year:"numeric"});
   const serieLabel= isPF ? "COT" : "SIN";
@@ -111,7 +113,7 @@ export function printResumenPedido({ ped, cotCompensated, pedidoTotal, pedidoPag
   <div class="header">
     <div>
       <div class="logo">Polygonos <span>360</span></div>
-      <div style="font-size:8.5px;color:#888;margin-top:2px;">${isPF?"Polygonos SpA · RUT 77.180.437-3":"Máximo Hudson · Especialista en Seguridad Electrónica"}</div>
+      <div style="font-size:8.5px;color:#888;margin-top:2px;">${isPF?EMPRESA_RUT:`${TITULAR.nombre} · ${TITULAR.cargo}`}</div>
     </div>
     <div class="doc-title">
       <div class="tipo">Resumen de ${isPF?"Pre-Factura":"Pedido"}</div>
@@ -177,7 +179,7 @@ export function printResumenPedido({ ped, cotCompensated, pedidoTotal, pedidoPag
 
   ${ped.notas?`<div style="margin-bottom:5mm;padding:6px 10px;border-left:3px solid #ddd;font-size:9.5px;color:#555"><strong style="font-size:8px;text-transform:uppercase;letter-spacing:.07em;color:#888;display:block;margin-bottom:2px;">Notas</strong>${ped.notas}</div>`:""}
 
-  <div class="foot">${isPF?"Polygonos SpA · RUT 77.180.437-3 · Documento interno de gestión":"Máximo Hudson · Especialista en Seguridad Electrónica · Polygonos 360"} · Generado el ${fechaHoy} · ${ped.nombre}</div>
+  <div class="foot">${isPF?`${EMPRESA_RUT} · Documento interno de gestión`:`${TITULAR.nombre} · ${TITULAR.cargo} · Polygonos 360`} · Generado el ${fechaHoy} · ${ped.nombre}</div>
   <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;background:#fff;z-index:9999"><div style="display:flex;flex-direction:column;line-height:1.15"><span style="font-size:6px;font-weight:700;color:#0ea5e9;letter-spacing:0.18em;text-transform:uppercase;font-family:Arial,sans-serif">CLAUDE ERP</span><span style="font-size:11px;font-weight:900;color:#0f172a;font-family:Arial,sans-serif;letter-spacing:-0.01em">Polygonos 360</span></div></div>
   <script>window.onload=()=>window.print();</script>
   </body></html>`;

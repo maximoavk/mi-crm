@@ -4,6 +4,7 @@ import { CHECKLIST_COMISIONAMIENTO, CHECKLIST_TEMPLATES, buildChecklist } from "
 import { supabase } from "../supabaseClient.js";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
 import { fechaLocal, hoyISO } from "../shared/format.js";
+import { TITULAR } from "../shared/empresa.js";
 
 // ─── Modal Operación ──────────────────────────────────────────────────────────
 export function OpModal({ op, defaultTipo, quotes, contacts, onClose, onSaved, onPrint }) {
@@ -11,7 +12,7 @@ export function OpModal({ op, defaultTipo, quotes, contacts, onClose, onSaved, o
   const [tipo,   setTipo]   = useState(op?.tipo||defaultTipo||"comisionamiento");
   const [form,   setForm]   = useState({
     quote_id:             op?.quote_id||"",
-    tecnico:              op?.tecnico||"Maximo Hudson",
+    tecnico:              op?.tecnico||TITULAR.nombre,
     fecha_visita:         op?.fecha_visita||hoyISO(),
     lugar:                op?.lugar||"",
     cliente_nombre:       op?.cliente_nombre||"",

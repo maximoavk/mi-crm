@@ -4,6 +4,7 @@ import { hoyISO } from "../shared/format.js";
 import { supabase } from "../supabaseClient.js";
 import { printResumenPedido } from "../prestaciones/printResumenPedido.js";
 import { FONT, COLORS, FONT_DISPLAY } from "../theme.js";
+import { EMPRESA_RUT } from "../shared/empresa.js";
 
 // ── VISTA COLABORADOR — Por Facturar ─────────────────────────────────────────
 export function ColaboradorView({ session }) {
@@ -163,7 +164,7 @@ export function ColaboradorView({ session }) {
         <img src="https://cdn.prod.website-files.com/696fa5e2a1636324a9a4a146/69ab26415799a62e62fbc137_Recurso%207.png" class="hdr-logo"/>
         <div>
           <div class="hdr-title">Pre-Factura · Documento Interno</div>
-          <div class="hdr-sub">Polygonos SpA · RUT 77.180.437-3</div>
+          <div class="hdr-sub">${EMPRESA_RUT}</div>
           <div class="hdr-sub">NO VÁLIDO COMO DOCUMENTO LEGAL TRIBUTARIO</div>
         </div>
       </div>
@@ -196,7 +197,7 @@ export function ColaboradorView({ session }) {
         <div style="font-weight:700;color:#1e293b;font-size:11px">Firmado digitalmente por</div>
         <div style="font-weight:700;color:#1e293b;font-size:11px">MAXIMO MANUEL HUDSON BLANCO</div>
         <div style="margin-top:3px">Fecha: ${new Date().toLocaleDateString("es-CL")} ${new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"})}</div>
-        <div>Polygonos SpA · RUT 77.180.437-3</div>
+        <div>${EMPRESA_RUT}</div>
       </div>
     </div>
     <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;background:#fff;z-index:9999"><div style="display:flex;flex-direction:column;line-height:1.15"><span style="font-size:6px;font-weight:700;color:#0ea5e9;letter-spacing:0.18em;text-transform:uppercase;font-family:Arial,sans-serif">CLAUDE ERP</span><span style="font-size:11px;font-weight:900;color:#0f172a;font-family:Arial,sans-serif;letter-spacing:-0.01em">Polygonos 360</span></div></div>

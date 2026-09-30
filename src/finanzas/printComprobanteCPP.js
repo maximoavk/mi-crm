@@ -1,4 +1,6 @@
 // ─── Comprobante de Prestación de Servicio (CuentasPorPagar) ─────────────────
+import { EMPRESA, EMPRESA_RUT } from "../shared/empresa.js";
+
 export function printComprobanteCPP(f) {
   const fechaHoy  = new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"});
   const fmtCLP    = v => "$"+Math.round(v||0).toLocaleString("es-CL");
@@ -130,7 +132,7 @@ export function printComprobanteCPP(f) {
 
   <div class="firma-row">
     <div class="firma-box">
-      <div class="firma-lbl">Elaborado por — Polygonos SpA</div>
+      <div class="firma-lbl">Elaborado por — ${EMPRESA.razonSocial}</div>
       <div class="firma-line"></div>
       <div style="font-size:9px;color:#555">${fechaHoy}</div>
     </div>
@@ -141,7 +143,7 @@ export function printComprobanteCPP(f) {
     </div>
   </div>
 
-  <div class="foot">Polygonos SpA · RUT 77.180.437-3 · ventas@polygonos.cl · +56 9 6426 6356 · Documento interno de gestión · ${fechaHoy}</div>
+  <div class="foot">${EMPRESA_RUT} · ${EMPRESA.email} · ${EMPRESA.telefono} · Documento interno de gestión · ${fechaHoy}</div>
   <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;background:#fff;z-index:9999"><div style="display:flex;flex-direction:column;line-height:1.15"><span style="font-size:6px;font-weight:700;color:#0ea5e9;letter-spacing:0.18em;text-transform:uppercase;font-family:Arial,sans-serif">CLAUDE ERP</span><span style="font-size:11px;font-weight:900;color:#0f172a;font-family:Arial,sans-serif;letter-spacing:-0.01em">Polygonos 360</span></div></div>
   <script>window.onload=()=>window.print();</script>
   </body></html>`;

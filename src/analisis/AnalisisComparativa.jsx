@@ -1,6 +1,7 @@
 // Vista comparativa (ficha técnica) de un análisis de precios.
 import { fmt } from "../shared/format.js";
 import { FONT, COLORS, FONT_DISPLAY } from "../theme.js";
+import { EMPRESA, EMPRESA_RUT } from "../shared/empresa.js";
 
 // ── Comparativa visual (segunda hoja / vista de ficha técnica) ────────────────
 export function AnalisisComparativa({ analysis, onBack, onEdit }) {
@@ -94,7 +95,7 @@ export function AnalisisComparativa({ analysis, onBack, onEdit }) {
       </tbody>
     </table>
 
-    <div class="foot">Polygonos SpA · RUT 77.180.437-3 · Documento interno de evaluación técnica · ventas@polygonos.cl · ${new Date().toLocaleDateString("es-CL")}</div>
+    <div class="foot">${EMPRESA_RUT} · Documento interno de evaluación técnica · ${EMPRESA.email} · ${new Date().toLocaleDateString("es-CL")}</div>
     <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;background:#fff;z-index:9999"><div style="display:flex;flex-direction:column;line-height:1.15"><span style="font-size:6px;font-weight:700;color:#0ea5e9;letter-spacing:0.18em;text-transform:uppercase;font-family:Arial,sans-serif">CLAUDE ERP</span><span style="font-size:11px;font-weight:900;color:#0f172a;font-family:Arial,sans-serif;letter-spacing:-0.01em">Polygonos 360</span></div></div>
     <script>window.onload=()=>window.print();</script>
     </body></html>`;

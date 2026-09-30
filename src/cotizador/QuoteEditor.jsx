@@ -7,6 +7,7 @@ import { subtotalLinea, totalCotizacion } from "../calculos.js";
 import { Input, Select } from "../shared/ui.jsx";
 import { RUBRO_OPTIONS, TIPO_TRABAJO_OPTIONS } from "../shared/constants.js";
 import { formatRut, fmt, hoyISO } from "../shared/format.js";
+import { EMPRESA, TITULAR, datosPago } from "../shared/empresa.js";
 
 // ── QUOTE EDITOR ─────────────────────────────────────────────────────────────
 function ContactSearchBox({ contacts, onSelect }) {
@@ -54,8 +55,8 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
   const TERMS_DEFAULT = "1- El trabajo se ejecuta posterior a la aceptación de la cotización y coordinación de fecha.\n2- No refiere stock ni fecha de instalación.\n3- Cotización válida por 15 días.";
 
   const BANK_DATA = {
-    empresa: "Polygonos SPA\nRUT: 77.180.437-3\nBanco Santander\nCta. Cte. 99128755\nCorreo: maximo.hudson.blanco@gmail.com",
-    personal: "Maximo Hudson\nRUT: 26074100-4\nBanco Santander\nCta. Cte.: 75 36164 5\nCorreo: maximo.hudson.blanco@gmail.com",
+    empresa: datosPago("empresa"),
+    personal: datosPago("personal"),
   };
 
   const [header, setHeader] = useState(isEdit ? {
@@ -251,8 +252,8 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
             <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>Serie de Cotización</div>
             <div style={{ display:"flex", gap:10 }}>
               {[
-                { k:"COT", label:"COT · Con IVA", sub:"Polygonos SPA · Factura", color:"#06b6d4", ivaMode:"empresa", hasIva:true,  num: nextCOT },
-                { k:"SIN", label:"SIN · Sin IVA",  sub:"Maximo Hudson · Sin factura", color:"#f59e0b", ivaMode:"personal", hasIva:false, num: nextSIN },
+                { k:"COT", label:"COT · Con IVA", sub:`${EMPRESA.razonSocial} · Factura`, color:"#06b6d4", ivaMode:"empresa", hasIva:true,  num: nextCOT },
+                { k:"SIN", label:"SIN · Sin IVA",  sub:`${TITULAR.nombre} · Sin factura`, color:"#f59e0b", ivaMode:"personal", hasIva:false, num: nextSIN },
               ].map(opt=>{
                 const active = header.serie===opt.k;
                 return (
@@ -377,8 +378,8 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
           <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>IVA y Cuenta de Pago</div>
           <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
             {[
-              { value:"empresa",  label:"Con IVA",  sub:"Polygonos SPA · RUT: 77.180.437-3" },
-              { value:"personal", label:"Sin IVA",  sub:"Maximo Hudson · RUT: 26074100-4" },
+              { value:"empresa",  label:"Con IVA",  sub:`${EMPRESA.razonSocial} · RUT: ${EMPRESA.rut}` },
+              { value:"personal", label:"Sin IVA",  sub:`${TITULAR.nombre} · RUT: ${TITULAR.rut}` },
             ].map(opt=>{
               const active = header.ivaMode===opt.value;
               return (

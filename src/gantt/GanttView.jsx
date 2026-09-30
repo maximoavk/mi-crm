@@ -12,6 +12,7 @@ import { GanttDoc } from "../GanttPdfDoc.jsx";
 import { GanttBar } from "./GanttBar.jsx";
 import { PdfPreviewModal } from "../shared/ui.jsx";
 import { fechaLocal, hoyISO } from "../shared/format.js";
+import { EMPRESA_RUT, TITULAR } from "../shared/empresa.js";
 
 export function GanttView({ isMobile }) {
   const [cotNum, setCotNum]       = useState("");
@@ -47,7 +48,7 @@ export function GanttView({ isMobile }) {
   });
   const [allGantts, setAllGantts] = useState([]);
   const [versionPicker, setVersionPicker] = useState(null); // { cot, versions }
-  const [headerData, setHeaderData] = useState({ elaboradoPor:"Maximo Hudson", cliente:"", fechaEmision: hoyISO() });
+  const [headerData, setHeaderData] = useState({ elaboradoPor:TITULAR.nombre, cliente:"", fechaEmision: hoyISO() });
   const [headerEdit, setHeaderEdit] = useState(false);
   const cellW = 28;
   const today = hoyISO();
@@ -533,7 +534,7 @@ export function GanttView({ isMobile }) {
                 <div style={{ display:"flex", gap:12, alignItems:"center" }}>
                   <img src={LOGO_B64} alt="Polygonos" style={{ height:34 }} />
                   <div>
-                    <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.1em" }}>Polygonos SpA · RUT 77.180.437-3</div>
+                    <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.1em" }}>{EMPRESA_RUT}</div>
                     <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text }}>Carta Gantt · COT-{proyecto.cotNum}</div>
                   </div>
                 </div>

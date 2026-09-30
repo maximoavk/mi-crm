@@ -9,6 +9,7 @@ import { PedidoModal } from "./PedidoModal.jsx";
 import { EditTxModal } from "./EditTxModal.jsx";
 import { NuevoPrestacionModal } from "./NuevoPrestacionModal.jsx";
 import { hoyISO } from "../shared/format.js";
+import { EMPRESA } from "../shared/empresa.js";
 
 export function PrestacionesView({ isMobile }) {
   const [tab, setTab]             = useState("cp"); // "cp" | "pf"
@@ -196,7 +197,7 @@ export function PrestacionesView({ isMobile }) {
       {!isCP && (
         <div style={{ marginBottom:16, padding:"7px 14px", borderLeft:`3px solid ${COLORS.secondary}`, background:`${COLORS.secondary}08` }}>
           <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
-            Sistema de Pre-Facturación · Polygonos SpA · Documento interno de gestión, no válido como documento legal ni tributariamente ante el SII.
+            Sistema de Pre-Facturación · {EMPRESA.razonSocial} · Documento interno de gestión, no válido como documento legal ni tributariamente ante el SII.
           </span>
         </div>
       )}
