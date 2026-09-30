@@ -5,6 +5,7 @@ import { calcItem, IVA, calcFase, codigosPorFase, CAT_TIPOS, partidaCobrado } fr
 import { newItem, CON_IVA, CAT_COLOR } from "./items.js";
 import { treeLine, TREE_ELBOW } from "../shared/tree.js";
 import { TreeCaret } from "../shared/TreeCaret.jsx";
+import { GuardarFichaBtn } from "../productos/GuardarFichaBtn.jsx";
 
 export function TotBox({ label, value, color, sub }) {
   return (
@@ -34,7 +35,7 @@ function ItemTreeLines({ isLast, onlyVertical }) {
   );
 }
 
-function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, productos, isLast }) {
+function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, productos, isLast, onFichaGuardada }) {
   const [busqueda, setBusqueda] = useState("");
   const [showCat, setShowCat] = useState(false);
   const dragFromHandle = React.useRef(false);
@@ -63,7 +64,8 @@ function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, pro
   const seleccionarProducto = (p) => {
     // Precio catálogo viene con IVA → guardamos neto
     const netoUnit = (p.price||0) / IVA;
-    onChange({ ...item, descripcion: p.name||"", modelo: p.description||"", costoUnitNeto: Math.round(netoUnit), productId: p.id });
+    onChange({ ...item, descripcion: p.name||"", modelo: p.description||"", costoUnitNeto: Math.round(netoUnit), productId: p.id,
+      datasheet_url: p.fichaUrl || item.datasheet_url || "" });
     setBusqueda(""); setShowCat(false);
   };
 
@@ -229,6 +231,7 @@ function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, pro
               <a href={item.datasheet_url} target="_blank" rel="noopener noreferrer"
                 style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, whiteSpace:"nowrap" }}>Ver ↗</a>
             )}
+            <GuardarFichaBtn productId={item.productId} url={item.datasheet_url} productos={productos} onSaved={onFichaGuardada} />
           </div>
         </td>
         <td />
@@ -238,7 +241,7 @@ function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, pro
   );
 }
 
-export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, partidas }) {
+export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, partidas, onFichaGuardada }) {
   const [collapsed, setCollapsed] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState({});
   const calc = calcFase(fase);
@@ -395,7 +398,7 @@ export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, prod
                       </thead>
                       <tbody>
                         {grouped[tipo].map((it, itIdx)=>(
-                          <ItemRow key={it.id} isLast={itIdx === grouped[tipo].length - 1} item={esMO ? {...it, moConIVA: fase.moConIVA} : it} codigo={codigoPorId[it.id]} onChange={item=>updateItem(it.id, esMO ? {...item, moConIVA: undefined} : item)} onDelete={()=>deleteItem(it.id)} onDuplicate={()=>duplicateItem(it.id)} onReorder={reorderItem} productos={productos} />
+                          <ItemRow key={it.id} isLast={itIdx === grouped[tipo].length - 1} onFichaGuardada={onFichaGuardada} item={esMO ? {...it, moConIVA: fase.moConIVA} : it} codigo={codigoPorId[it.id]} onChange={item=>updateItem(it.id, esMO ? {...item, moConIVA: undefined} : item)} onDelete={()=>deleteItem(it.id)} onDuplicate={()=>duplicateItem(it.id)} onReorder={reorderItem} productos={productos} />
                         ))}
                       </tbody>
                         <tfoot>

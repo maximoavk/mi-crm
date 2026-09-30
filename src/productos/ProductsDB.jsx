@@ -60,12 +60,12 @@ export function ProductsDB({ isMobile }) {
 
   const openNew = () => {
     setEditingId(null); setProductPrices([]); setShowPriceForm(false);
-    setForm({ code:"", name:"", description:"", price:"", unit:"un", category:"", provider:"", type:"producto", url:"", updatedAt:hoyISO(), skuProveedor:"" });
+    setForm({ code:"", name:"", description:"", price:"", unit:"un", category:"", provider:"", type:"producto", url:"", updatedAt:hoyISO(), skuProveedor:"", fichaUrl:"" });
     setShowModal(true);
   };
   const openEdit = (p) => {
     setEditingId(p.id); setShowPriceForm(false);
-    setForm({ code:p.code, name:p.name, description:p.description||"", price:String(p.price), unit:p.unit, category:p.category, provider:p.provider, type:p.type, url:p.url||"", updatedAt:p.updatedAt||"", skuProveedor:p.skuProveedor||"" });
+    setForm({ code:p.code, name:p.name, description:p.description||"", price:String(p.price), unit:p.unit, category:p.category, provider:p.provider, type:p.type, url:p.url||"", updatedAt:p.updatedAt||"", skuProveedor:p.skuProveedor||"", fichaUrl:p.fichaUrl||"" });
     loadProductPrices(p.id);
     setShowModal(true);
   };
@@ -282,6 +282,10 @@ export function ProductsDB({ isMobile }) {
               <Input label="SKU Proveedor" value={form.skuProveedor} onChange={e=>f("skuProveedor",e.target.value)} placeholder="Ej: DH-IPC-HDW1230T1-0280B" />
               <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginTop:2, paddingLeft:2 }}>Ref. cruzada — no reemplaza tu código Polygonos</div>
             </div>
+          </div>
+          <div>
+            <Input label="Ficha técnica (URL)" value={form.fichaUrl} onChange={e=>f("fichaUrl",e.target.value)} placeholder="https://… (datasheet del fabricante)" />
+            <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginTop:2, paddingLeft:2 }}>Se precarga en el Costeo y el Cotizador al insertar este producto</div>
           </div>
 
           {/* Precio bruto con desglose automático */}

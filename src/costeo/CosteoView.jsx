@@ -883,7 +883,8 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) 
 
           {/* Fases */}
           {fasesCalc.map((f,fi)=>(
-            <FaseBlock key={f.id} fase={f} faseIdx={fi} onChange={updateFase} onDelete={()=>deleteFase(f.id)} onDuplicate={()=>duplicateFase(f)} productos={productos} partidas={partidas} />
+            <FaseBlock key={f.id} fase={f} faseIdx={fi} onChange={updateFase} onDelete={()=>deleteFase(f.id)} onDuplicate={()=>duplicateFase(f)} productos={productos} partidas={partidas}
+              onFichaGuardada={(id, url)=>setProductos(prev=>prev.map(p=>String(p.id)===String(id)?{...p, fichaUrl:url}:p))} />
           ))}
           <button onClick={addFase} style={{ width:"100%", padding:"12px", background:"transparent", border:`1px dashed ${COLORS.border}`, borderRadius:10, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer", marginBottom:16 }}>
             + Agregar Fase

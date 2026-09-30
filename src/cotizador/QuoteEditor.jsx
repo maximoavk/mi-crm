@@ -8,6 +8,7 @@ import { Input, Select } from "../shared/ui.jsx";
 import { RUBRO_OPTIONS, TIPO_TRABAJO_OPTIONS } from "../shared/constants.js";
 import { formatRut, fmt, hoyISO } from "../shared/format.js";
 import { EMPRESA, TITULAR, datosPago } from "../shared/empresa.js";
+import { GuardarFichaBtn } from "../productos/GuardarFichaBtn.jsx";
 
 // ── QUOTE EDITOR ─────────────────────────────────────────────────────────────
 function ContactSearchBox({ contacts, onSelect }) {
@@ -126,7 +127,8 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
     const descCatalogo = p.description && p.description.trim() ? p.description.trim() : p.name;
     setLines(l => l.map((line,i) => {
       if(i!==idx) return line;
-      const updated = {...line, productId:p.id, code:p.code, description:descCatalogo, unitPrice:precioConMargen};
+      const updated = {...line, productId:p.id, code:p.code, description:descCatalogo, unitPrice:precioConMargen,
+        fichaUrl: p.fichaUrl || line.fichaUrl || ""};
       updated.subtotal = subtotalLinea(precioConMargen, updated.qty, updated.discount);
       return updated;
     }));
@@ -461,6 +463,8 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
                           title="Abrir ficha técnica"
                           style={{ color:COLORS.accent, fontSize:12, textDecoration:"none", flexShrink:0 }}>↗</a>
                       )}
+                      <GuardarFichaBtn productId={line.productId} url={line.fichaUrl} productos={products}
+                        onSaved={(id, url)=>setProducts(prev=>prev.map(p=>String(p.id)===String(id)?{...p, fichaUrl:url}:p))} />
                     </div>
                     {/* Dropdown resultados */}
                     {lineDropOpen[idx] && resultados.length>0 && (
