@@ -35,7 +35,7 @@ function ItemTreeLines({ isLast, onlyVertical }) {
   );
 }
 
-function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, productos, isLast, onFichaGuardada }) {
+function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, productos, isLast, onFichaGuardada, onOpenProducto }) {
   const [busqueda, setBusqueda] = useState("");
   const [showCat, setShowCat] = useState(false);
   const dragFromHandle = React.useRef(false);
@@ -232,6 +232,12 @@ function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, pro
                 style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, whiteSpace:"nowrap" }}>Ver ↗</a>
             )}
             <GuardarFichaBtn productId={item.productId} url={item.datasheet_url} productos={productos} onSaved={onFichaGuardada} />
+            {/* Solo ítems que vienen del maestro; los nuevos se completan a mano */}
+            {item.productId && onOpenProducto && (
+              <button onClick={()=>onOpenProducto(item.productId)} title="Abrir la ficha de este producto en el Maestro de productos"
+                style={{ fontFamily:FONT, fontSize:10, whiteSpace:"nowrap", padding:"1px 7px", borderRadius:4, cursor:"pointer",
+                  background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>📦 Ver en maestro</button>
+            )}
           </div>
         </td>
         <td />
@@ -241,7 +247,7 @@ function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, pro
   );
 }
 
-export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, partidas, onFichaGuardada }) {
+export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, partidas, onFichaGuardada, onOpenProducto }) {
   const [collapsed, setCollapsed] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState({});
   const calc = calcFase(fase);
@@ -398,7 +404,7 @@ export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, prod
                       </thead>
                       <tbody>
                         {grouped[tipo].map((it, itIdx)=>(
-                          <ItemRow key={it.id} isLast={itIdx === grouped[tipo].length - 1} onFichaGuardada={onFichaGuardada} item={esMO ? {...it, moConIVA: fase.moConIVA} : it} codigo={codigoPorId[it.id]} onChange={item=>updateItem(it.id, esMO ? {...item, moConIVA: undefined} : item)} onDelete={()=>deleteItem(it.id)} onDuplicate={()=>duplicateItem(it.id)} onReorder={reorderItem} productos={productos} />
+                          <ItemRow key={it.id} isLast={itIdx === grouped[tipo].length - 1} onFichaGuardada={onFichaGuardada} onOpenProducto={onOpenProducto} item={esMO ? {...it, moConIVA: fase.moConIVA} : it} codigo={codigoPorId[it.id]} onChange={item=>updateItem(it.id, esMO ? {...item, moConIVA: undefined} : item)} onDelete={()=>deleteItem(it.id)} onDuplicate={()=>duplicateItem(it.id)} onReorder={reorderItem} productos={productos} />
                         ))}
                       </tbody>
                         <tfoot>

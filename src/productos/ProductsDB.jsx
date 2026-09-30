@@ -8,7 +8,9 @@ import { CATALOG_CATS } from "../shared/constants.js";
 import { fmt, hoyISO } from "../shared/format.js";
 
 // ── BASE DE DATOS DE PRODUCTOS ───────────────────────────────────────────────
-export function ProductsDB({ isMobile }) {
+// openProductId: abre directo la ficha de ese producto (desde "Ver en maestro"
+// en el Costeo); onVolver: al cerrarla, regresa a la pantalla de origen.
+export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -29,12 +31,20 @@ export function ProductsDB({ isMobile }) {
   const [editingPriceId, setEditingPriceId] = useState(null);
   const [savingPrice, setSavingPrice] = useState(false);
 
+  // Solo al entrar a la pantalla (incluye abrir el producto de openProductId)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(()=>{ loadProducts(); loadSuppliers(); },[]);
 
   const loadProducts = async () => {
     const { data } = await supabase.from("products").select("*").order("codigo");
-    setProducts((data||[]).map(mapProduct));
+    const lista = (data||[]).map(mapProduct);
+    setProducts(lista);
     setLoading(false);
+    if (openProductId) {
+      const p = lista.find(x => String(x.id) === String(openProductId));
+      if (p) openEdit(p);
+      onOpenHandled?.();
+    }
   };
 
   const loadSuppliers = async () => {
@@ -100,6 +110,7 @@ export function ProductsDB({ isMobile }) {
       }
     }
     setShowModal(false); setEditingId(null);
+    onVolver?.();
   };
 
   const del = async (id) => {
@@ -266,7 +277,7 @@ export function ProductsDB({ isMobile }) {
       )}
 
       {showModal && (
-        <Modal title={editingId?"Editar Ítem":"Nuevo Ítem"} onClose={()=>{ setShowModal(false); setEditingId(null); setProductPrices([]); setShowPriceForm(false); }} onSubmit={save}>
+        <Modal title={editingId?"Editar Ítem":"Nuevo Ítem"} onClose={()=>{ setShowModal(false); setEditingId(null); setProductPrices([]); setShowPriceForm(false); onVolver?.(); }} onSubmit={save}>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
             <Input label="Código *" value={form.code} onChange={e=>f("code",e.target.value)} placeholder="Ej: ECAM-001" />
             <Select label="Tipo" value={form.type} onChange={e=>f("type",e.target.value)}>
