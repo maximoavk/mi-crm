@@ -1,37 +1,45 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { LogOut } from "lucide-react";
 import { COLORS, FONT, FONT_DISPLAY } from "./theme.js";
 import { supabase } from "./supabaseClient.js";
-import { DesignView } from "./design/DesignView.jsx";
 import { LOGO_B64 } from "./shared/assets.js";
 import { useIsMobile } from "./shared/useIsMobile.js";
 import { mapContact, mapDeal, mapTask } from "./shared/mappers.js";
-import { CosteoView } from "./costeo/CosteoView.jsx";
-import { QuotesView } from "./cotizador/QuotesView.jsx";
-import { PurchaseView } from "./compras/PurchaseView.jsx";
-import { GuiasView } from "./compras/GuiasView.jsx";
-import { ProveedoresView } from "./compras/ProveedoresView.jsx";
-import { CuentasPorCobrar } from "./finanzas/CuentasPorCobrar.jsx";
-import { CuentasPorPagar } from "./finanzas/CuentasPorPagar.jsx";
-import { PresupuestoOperacional } from "./finanzas/PresupuestoOperacional.jsx";
-import { FinanzasDashboard } from "./finanzas/FinanzasDashboard.jsx";
-import { PrestacionesView } from "./prestaciones/PrestacionesView.jsx";
-import { OperacionesView } from "./operaciones/OperacionesView.jsx";
-import { GanttView } from "./gantt/GanttView.jsx";
-import { ControlProyectosView } from "./proyectos/ControlProyectosView.jsx";
-import { Dashboard } from "./crm/Dashboard.jsx";
-import { ContactsView } from "./crm/ContactsView.jsx";
-import { PipelineView } from "./crm/PipelineView.jsx";
-import { TasksView } from "./crm/TasksView.jsx";
-import { ReportsView } from "./crm/ReportsView.jsx";
-import { ProductsDB } from "./productos/ProductsDB.jsx";
 import { NAV_GROUPS, NAV } from "./layout/nav.js";
-import { ProposalsView } from "./propuestas/ProposalsView.jsx";
-import { AnalisisPreciosView } from "./analisis/AnalisisPreciosView.jsx";
-import { IncidenciasView } from "./incidencias/IncidenciasView.jsx";
-import { ColaboradorView } from "./colaborador/ColaboradorView.jsx";
 import { LoginScreen } from "./auth/LoginScreen.jsx";
 import { NavGroup } from "./layout/NavGroup.jsx";
+
+// Cada pantalla se descarga recién la primera vez que se abre (antes se
+// bajaba toda la app, ~3 MB, al entrar).
+const lazyView = (load, name) => lazy(() => load().then(m => ({ default: m[name] })));
+const DesignView = lazyView(() => import("./design/DesignView.jsx"), "DesignView");
+const CosteoView = lazyView(() => import("./costeo/CosteoView.jsx"), "CosteoView");
+const QuotesView = lazyView(() => import("./cotizador/QuotesView.jsx"), "QuotesView");
+const PurchaseView = lazyView(() => import("./compras/PurchaseView.jsx"), "PurchaseView");
+const GuiasView = lazyView(() => import("./compras/GuiasView.jsx"), "GuiasView");
+const ProveedoresView = lazyView(() => import("./compras/ProveedoresView.jsx"), "ProveedoresView");
+const CuentasPorCobrar = lazyView(() => import("./finanzas/CuentasPorCobrar.jsx"), "CuentasPorCobrar");
+const CuentasPorPagar = lazyView(() => import("./finanzas/CuentasPorPagar.jsx"), "CuentasPorPagar");
+const PresupuestoOperacional = lazyView(() => import("./finanzas/PresupuestoOperacional.jsx"), "PresupuestoOperacional");
+const FinanzasDashboard = lazyView(() => import("./finanzas/FinanzasDashboard.jsx"), "FinanzasDashboard");
+const PrestacionesView = lazyView(() => import("./prestaciones/PrestacionesView.jsx"), "PrestacionesView");
+const OperacionesView = lazyView(() => import("./operaciones/OperacionesView.jsx"), "OperacionesView");
+const GanttView = lazyView(() => import("./gantt/GanttView.jsx"), "GanttView");
+const ControlProyectosView = lazyView(() => import("./proyectos/ControlProyectosView.jsx"), "ControlProyectosView");
+const Dashboard = lazyView(() => import("./crm/Dashboard.jsx"), "Dashboard");
+const ContactsView = lazyView(() => import("./crm/ContactsView.jsx"), "ContactsView");
+const PipelineView = lazyView(() => import("./crm/PipelineView.jsx"), "PipelineView");
+const TasksView = lazyView(() => import("./crm/TasksView.jsx"), "TasksView");
+const ReportsView = lazyView(() => import("./crm/ReportsView.jsx"), "ReportsView");
+const ProductsDB = lazyView(() => import("./productos/ProductsDB.jsx"), "ProductsDB");
+const ProposalsView = lazyView(() => import("./propuestas/ProposalsView.jsx"), "ProposalsView");
+const AnalisisPreciosView = lazyView(() => import("./analisis/AnalisisPreciosView.jsx"), "AnalisisPreciosView");
+const IncidenciasView = lazyView(() => import("./incidencias/IncidenciasView.jsx"), "IncidenciasView");
+const ColaboradorView = lazyView(() => import("./colaborador/ColaboradorView.jsx"), "ColaboradorView");
+
+function Cargando() {
+  return <div style={{ padding:40, textAlign:"center", fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Cargando…</div>;
+}
 
 const VALID_ROLES = ["admin", "colaborador", "prueba"];
 
@@ -155,7 +163,7 @@ export default function CRM() {
             </div>
             <button onClick={logout} style={{ background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"6px 14px", color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>Cerrar sesión</button>
           </div>
-          <ColaboradorView session={session} />
+          <Suspense fallback={<Cargando />}><ColaboradorView session={session} /></Suspense>
         </div>
       </div>
     );
@@ -244,6 +252,7 @@ export default function CRM() {
 
       <main style={{ flex:1, overflowY:"auto", paddingBottom:isMobile?80:0, background:COLORS.bg }}>
         <div style={{ maxWidth:1400, margin:"0 auto", padding:isMobile?16:32 }}>
+          <Suspense fallback={<Cargando />}>
           {view==="dashboard" && <Dashboard contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} navigate={navigate} />}
           {view==="contacts"  && <ContactsView contacts={contacts} setContacts={setContacts} isMobile={isMobile} />}
           {view==="pipeline"  && <PipelineView deals={deals} setDeals={setDeals} contacts={contacts} tasks={tasks} setTasks={setTasks} isMobile={isMobile} userRole={userRole} session={session} />}
@@ -267,6 +276,7 @@ export default function CRM() {
           {view==="cxc"                && <CuentasPorCobrar  isMobile={isMobile} />}
           {view==="cxp"                && <CuentasPorPagar   isMobile={isMobile} />}
           {view==="presupuesto"        && <PresupuestoOperacional isMobile={isMobile} />}
+          </Suspense>
         </div>
       </main>
 

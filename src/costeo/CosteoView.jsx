@@ -1,12 +1,10 @@
 // ── COSTEO DE PROYECTOS ──────────────────────────────────────────────────────
 import React, { useState, useEffect } from "react";
-import { pdf } from "@react-pdf/renderer";
 import { supabase } from "../supabaseClient.js";
 import { mapCosteo, mapCosteoToDb } from "./mappers.js";
 import { mapProduct } from "../shared/mappers.js";
 import { syncPartidasConFases, calcFase, redondearTotal, partidaCobrado, codigosPorFase, IVA, totalCotizacion } from "../calculos.js";
 import { FONT_DISPLAY, COLORS, FONT } from "../theme.js";
-import { fetchImageAsDataUri, CosteoInternoDoc, CosteoClienteDoc } from "../CosteoPdfDocs.jsx";
 import { LOGO_PRINT } from "../shared/assets.js";
 import { fmt, hoyISO } from "../shared/format.js";
 import { RUBRO_OPTIONS, TIPO_TRABAJO_OPTIONS } from "../shared/constants.js";
@@ -14,6 +12,9 @@ import { TotBox, FaseBlock, PartidaRow } from "./FaseBlock.jsx";
 import { HistorialCambiosTab } from "./HistorialCambios.jsx";
 import { DesignProjectsPanel } from "../design/DesignProjectsPanel.jsx";
 import { PdfPreviewModal } from "../shared/ui.jsx";
+
+// La librería de PDF pesa ~1,5 MB: se carga recién al generar un PDF.
+const cargarPdfCosteo = () => Promise.all([import("@react-pdf/renderer"), import("../CosteoPdfDocs.jsx")]);
 
 export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
   const [proyectos, setProyectos] = useState([]);
@@ -358,6 +359,7 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) 
       ivaConDesc: fases.reduce((s, f) => s + f.ivaConDesc, 0),
       ventaFinal: redondearTotal(fases.reduce((s, f) => s + f.ventaConDesc, 0)),
     };
+    const [{ pdf }, { fetchImageAsDataUri, CosteoInternoDoc }] = await cargarPdfCosteo();
     let logoDataUri = null;
     try { logoDataUri = await fetchImageAsDataUri(LOGO_PRINT); } catch { /* el documento se genera igual, sin logo */ }
     const blob = await pdf(<CosteoInternoDoc proyecto={proyecto} fasesCalc={fases} codigosPorFaseArr={codigosPorFaseArr} totales={totales} logoDataUri={logoDataUri} />).toBlob();
@@ -377,6 +379,7 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) 
       ivaConDesc: fases.reduce((s, f) => s + f.ivaConDesc, 0),
       ventaFinal: redondearTotal(fases.reduce((s, f) => s + f.ventaConDesc, 0)),
     };
+    const [{ pdf }, { fetchImageAsDataUri, CosteoClienteDoc }] = await cargarPdfCosteo();
     let logoDataUri = null;
     try { logoDataUri = await fetchImageAsDataUri(LOGO_PRINT); } catch { /* el documento se genera igual, sin logo */ }
     const blob = await pdf(<CosteoClienteDoc proyecto={proyecto} fasesCalc={fases} codigosPorFaseArr={codigosPorFaseArr} totales={totales} partidas={proyecto.partidas || []} logoDataUri={logoDataUri} />).toBlob();
