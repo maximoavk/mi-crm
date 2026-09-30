@@ -16,6 +16,7 @@ const DesignView = lazyView(() => import("./design/DesignView.jsx"), "DesignView
 const CosteoView = lazyView(() => import("./costeo/CosteoView.jsx"), "CosteoView");
 const QuotesView = lazyView(() => import("./cotizador/QuotesView.jsx"), "QuotesView");
 const PurchaseView = lazyView(() => import("./compras/PurchaseView.jsx"), "PurchaseView");
+const ComprasProyectoView = lazyView(() => import("./compras/proyecto/ComprasProyectoView.jsx"), "ComprasProyectoView");
 const GuiasView = lazyView(() => import("./compras/GuiasView.jsx"), "GuiasView");
 const ProveedoresView = lazyView(() => import("./compras/ProveedoresView.jsx"), "ProveedoresView");
 const CuentasPorCobrar = lazyView(() => import("./finanzas/CuentasPorCobrar.jsx"), "CuentasPorCobrar");
@@ -264,6 +265,7 @@ export default function CRM() {
           {view==="products"     && <ProductsDB isMobile={isMobile} openProductId={openProductId} onOpenHandled={()=>setOpenProductId(null)}
             onVolver={volverACosteo ? ()=>{ setOpenCosteoId(volverACosteo); setVolverACosteo(null); setView("costeo"); } : undefined} />}
           {view==="proveedores"  && <ProveedoresView isMobile={isMobile} />}
+          {view==="compras_proyecto" && <ComprasProyectoView isMobile={isMobile} />}
           {view==="purchase"     && <PurchaseView isMobile={isMobile} />}
           {view==="guias"        && <GuiasView isMobile={isMobile} />}
           {view==="control_proyectos" && <ControlProyectosView contacts={contacts} />}

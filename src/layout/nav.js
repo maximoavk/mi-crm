@@ -1,5 +1,5 @@
 // Estructura del menú lateral (grupos, ítems e íconos).
-import { LayoutDashboard, Users, Kanban, FileText, Receipt, Scale, Package, ShoppingCart, GanttChartSquare, Calculator, Wrench, CheckSquare, AlertTriangle, TrendingUp, BarChart2 } from "lucide-react";
+import { LayoutDashboard, Users, Kanban, FileText, Receipt, Scale, Package, ShoppingCart, GanttChartSquare, Calculator, Wrench, CheckSquare, AlertTriangle, TrendingUp, BarChart2, Wallet } from "lucide-react";
 
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -29,6 +29,7 @@ export const NAV_GROUPS = [
   },
   {
     key: "compras_group", label: "Compras", Icon: ShoppingCart, children: [
+      { key:"compras_proyecto", label:"Por proyecto", Icon: Wallet },
       { key:"purchase", label:"Órdenes de Compra", Icon: ShoppingCart },
       { key:"guias",    label:"Guías de Despacho", Icon: Package      },
     ],

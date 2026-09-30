@@ -5,15 +5,9 @@ import { FONT_DISPLAY, COLORS, FONT } from "../theme.js";
 import { AddBtn, Loader } from "../shared/ui.jsx";
 import { fmt, fmtClp } from "../shared/format.js";
 import { EMPRESA, EMPRESA_RUT, TITULAR } from "../shared/empresa.js";
+import { OC_ESTADOS } from "./ocEstados.js";
 
 // ── MÓDULO DE COMPRAS ────────────────────────────────────────────────────────
-const OC_ESTADOS = [
-  { key:"PENDIENTE",  color:"#FFB800", icon:"⏳" },
-  { key:"CONFIRMADA", color:"#00C2FF", icon:"✅" },
-  { key:"ENVIADA",    color:"#A855F7", icon:"🚚" },
-  { key:"RECIBIDA",   color:"#00E5A0", icon:"📦" },
-  { key:"PAGADA",     color:"#10b981", icon:"💰" },
-];
 
 export function PurchaseView({ isMobile }) {
   const [ocs, setOcs]               = useState([]);
