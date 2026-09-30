@@ -4,7 +4,8 @@ import { pdf } from "@react-pdf/renderer";
 import { CosteoInternoDoc, CosteoClienteDoc, fetchImageAsDataUri } from "./CosteoPdfDocs.jsx";
 import { GanttDoc } from "./GanttPdfDoc.jsx";
 import { COLORS, FONT, FONT_DISPLAY } from "./theme.js";
-import { supabase } from "./supabaseClient.js";
+import { supabase, must, replaceRows } from "./supabaseClient.js";
+import { IVA, CAT_TIPOS, codigosPorFase, calcItem, calcFase, partidaCobrado, syncPartidasConFases, subtotalLinea, totalCotizacion, redondearTotal } from "./calculos.js";
 import { DesignProjectsPanel } from "./design/DesignProjectsPanel.jsx";
 import { DesignView } from "./design/DesignView.jsx";
 
@@ -588,20 +589,20 @@ function ContactsView({ contacts, setContacts, isMobile }) {
     setSaving(true);
     if (editingId) {
       const { data, error } = await supabase.from("contactos").update(mapContactToDb(form)).eq("id", editingId).select().single();
-      if (!error) {
-        const updated = contacts.map(c=>c.id===editingId?mapContact(data):c);
-        setContacts(updated);
-        if (selected?.id===editingId) setSelected(mapContact(data));
-      }
+      if (error) { setSaving(false); return; } // falló: el formulario queda abierto
+      const updated = contacts.map(c=>c.id===editingId?mapContact(data):c);
+      setContacts(updated);
+      if (selected?.id===editingId) setSelected(mapContact(data));
     } else {
       const { data, error } = await supabase.from("contactos").insert(mapContactToDb(form)).select().single();
-      if (!error) setContacts([...contacts, mapContact(data)]);
+      if (error) { setSaving(false); return; }
+      setContacts([...contacts, mapContact(data)]);
     }
     setSaving(false); setShowModal(false); setEditingId(null);
   };
 
   const del = async (id) => {
-    await supabase.from("contactos").delete().eq("id", id);
+    const { error } = await supabase.from("contactos").delete().eq("id", id); if(error) return;
     setContacts(contacts.filter(c=>c.id!==id)); setSelected(null);
   };
 
@@ -842,10 +843,12 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
     const dbData = { ...mapDealToDb(form), numero_cotizacion: form.quoteNumber ? Number(form.quoteNumber) : null };
     if (editingId) {
       const { data, error } = await supabase.from("deals").update(dbData).eq("id", editingId).select().single();
-      if (!error) setDeals(deals.map(d=>d.id===editingId?{...mapDeal(data), quoteNumber:form.quoteNumber}:d));
+      if (error) { setSaving(false); return; } // falló: el formulario queda abierto
+      setDeals(deals.map(d=>d.id===editingId?{...mapDeal(data), quoteNumber:form.quoteNumber}:d));
     } else {
       const { data, error } = await supabase.from("deals").insert(dbData).select().single();
-      if (!error) setDeals([...deals, {...mapDeal(data), quoteNumber:form.quoteNumber}]);
+      if (error) { setSaving(false); return; }
+      setDeals([...deals, {...mapDeal(data), quoteNumber:form.quoteNumber}]);
     }
     setSaving(false); setShowModal(false); setEditingId(null);
   };
@@ -872,7 +875,7 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
   };
 
   const del = async (id) => {
-    await supabase.from("deals").delete().eq("id", id);
+    const { error } = await supabase.from("deals").delete().eq("id", id); if(error) return;
     setDeals(deals.filter(d=>d.id!==id));
   };
 
@@ -1349,17 +1352,19 @@ function TasksView({ tasks, setTasks, contacts, deals, isMobile }) {
     const dbForm = { ...form, company: form.company||(contact?.company||""), done: form.status==="completada" };
     if (editTask) {
       const { data } = await supabase.from("task").update(mapTaskToDb(dbForm)).eq("id", editTask.id).select().single();
-      if (data) setTasks(tasks.map(t=>t.id===editTask.id ? mapTask(data) : t));
+      if (!data) { setSaving(false); return; } // falló: el formulario queda abierto
+      setTasks(tasks.map(t=>t.id===editTask.id ? mapTask(data) : t));
     } else {
       const { data } = await supabase.from("task").insert(mapTaskToDb(dbForm)).select().single();
-      if (data) setTasks([...tasks, mapTask(data)]);
+      if (!data) { setSaving(false); return; }
+      setTasks([...tasks, mapTask(data)]);
     }
     setSaving(false); setShowModal(false); setEditTask(null); setForm(emptyForm());
   };
 
   const del = async (id) => {
     if (!window.confirm("¿Eliminar esta tarea?")) return;
-    await supabase.from("task").delete().eq("id", id);
+    const { error } = await supabase.from("task").delete().eq("id", id); if(error) return;
     setTasks(tasks.filter(t=>t.id!==id));
   };
 
@@ -2693,8 +2698,8 @@ function GanttView({ isMobile }) {
 
   const eliminarGantt = async (g) => {
     if(!window.confirm(`¿Eliminar la carta Gantt de "${g.nombre}" (Cot. N° ${g.numero_cotizacion})? Esta acción no se puede deshacer.`)) return;
-    await supabase.from("gantt_tareas").delete().eq("gantt_id", g.id);
-    await supabase.from("gantt_proyectos").delete().eq("id", g.id);
+    const { error: errTareas } = await supabase.from("gantt_tareas").delete().eq("gantt_id", g.id); if(errTareas) return;
+    const { error: errGantt } = await supabase.from("gantt_proyectos").delete().eq("id", g.id); if(errGantt) return;
     setAllGantts(prev => prev.filter(x => x.id !== g.id));
   };
 
@@ -2702,19 +2707,22 @@ function GanttView({ isMobile }) {
     if(!proyecto) return;
     setSaving(true);
     let gId = ganttId;
-    if(!gId) {
-      const { data } = await supabase.from("gantt_proyectos").insert({
-        numero_cotizacion: Number(cotNum), nombre: proyecto.nombre,
-        fecha_inicio: calStart, fecha_fin: addDays(calStart, calDays),
-      }).select().single();
-      gId = data?.id;
-      setGanttId(gId);
-    } else {
-      await supabase.from("gantt_proyectos").update({ nombre: proyecto.nombre, fecha_inicio: calStart }).eq("id", gId);
+    try {
+      if(!gId) {
+        const data = await must(supabase.from("gantt_proyectos").insert({
+          numero_cotizacion: Number(cotNum), nombre: proyecto.nombre,
+          fecha_inicio: calStart, fecha_fin: addDays(calStart, calDays),
+        }).select().single());
+        gId = data.id;
+        setGanttId(gId);
+      } else {
+        await must(supabase.from("gantt_proyectos").update({ nombre: proyecto.nombre, fecha_inicio: calStart }).eq("id", gId));
+      }
+    } catch(e) {
+      setSaving(false);
+      alert("No se pudo guardar la Gantt: "+e.message);
+      return;
     }
-    if(!gId) { setSaving(false); return; }
-    // Borrar y reinsertar tareas
-    await supabase.from("gantt_tareas").delete().eq("gantt_id", gId);
     const rows = tasks.map((t,i)=>({
       gantt_id: gId, tipo: t.tipo, nombre: t.nombre, rol: t.rol,
       responsable: t.responsable, fecha_inicio: t.inicio, fecha_fin: t.fin,
@@ -2722,7 +2730,13 @@ function GanttView({ isMobile }) {
       hh_presup: Number(t.hhPresup)||0, hh_real: Number(t.hhReal)||0, hh_terceros: Number(t.hhTerceros)||0,
       depende_de: t.depende||"", orden: i, parent_id: t.parentId||null,
     }));
-    await supabase.from("gantt_tareas").insert(rows);
+    try {
+      await replaceRows(supabase, "gantt_tareas", "gantt_id", gId, rows);
+    } catch(e) {
+      setSaving(false);
+      alert("No se pudieron guardar las tareas de la Gantt (se mantienen las anteriores): "+e.message);
+      return;
+    }
     setSaving(false);
     alert("✅ Gantt guardada");
   };
@@ -3542,7 +3556,7 @@ function ProductsDB({ isMobile }) {
   };
 
   const del = async (id) => {
-    await supabase.from("products").delete().eq("id", id);
+    const { error } = await supabase.from("products").delete().eq("id", id); if(error) return;
     setProducts(products.filter(p=>p.id!==id));
   };
 
@@ -3582,7 +3596,7 @@ function ProductsDB({ isMobile }) {
   };
 
   const deletePrice = async (priceId) => {
-    await supabase.from("product_prices").delete().eq("id", priceId);
+    const { error } = await supabase.from("product_prices").delete().eq("id", priceId); if(error) return;
     await loadProductPrices(editingId);
   };
 
@@ -4069,7 +4083,7 @@ function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCosteo })
   };
 
   const del = async (id) => {
-    await supabase.from("cotizaciones").delete().eq("id", id);
+    const { error } = await supabase.from("cotizaciones").delete().eq("id", id); if(error) return;
     setQuotes(quotes.filter(q=>q.id!==id));
   };
 
@@ -5644,7 +5658,7 @@ function PrestacionesView({ isMobile }) {
 
   const deleteDoc = async (id) => {
     if(!window.confirm("¿Eliminar este documento?")) return;
-    await supabase.from("comprobantes_pago").delete().eq("id",id);
+    const { error } = await supabase.from("comprobantes_pago").delete().eq("id",id); if(error) return;
     setDocs(prev=>prev.filter(d=>d.id!==id));
     setPfDocs(prev=>prev.filter(d=>d.id!==id));
   };
@@ -5652,7 +5666,7 @@ function PrestacionesView({ isMobile }) {
   const deletePedido = async (id) => {
     const isCP = tab==="cp";
     if(!window.confirm(`¿Eliminar este ${isCP?"Pedido":"grupo Pre-Factura"}? Los documentos existentes no se eliminan.`)) return;
-    await supabase.from("pedidos").delete().eq("id",id);
+    const { error } = await supabase.from("pedidos").delete().eq("id",id); if(error) return;
     if(isCP) setPedidos(prev=>prev.filter(p=>p.id!==id));
     else     setPfPedidos(prev=>prev.filter(p=>p.id!==id));
   };
@@ -5662,16 +5676,14 @@ function PrestacionesView({ isMobile }) {
     const payload = { ...form, tipo: isCP ? "cp" : "pf" };
     if(editPedido?.id){
       const { data } = await supabase.from("pedidos").update({...payload, updated_at:new Date().toISOString()}).eq("id",editPedido.id).select().single();
-      if(data){
-        if(isCP) setPedidos(prev=>prev.map(p=>p.id===data.id?data:p));
-        else     setPfPedidos(prev=>prev.map(p=>p.id===data.id?data:p));
-      }
+      if(!data) return; // falló: el formulario queda abierto
+      if(isCP) setPedidos(prev=>prev.map(p=>p.id===data.id?data:p));
+      else     setPfPedidos(prev=>prev.map(p=>p.id===data.id?data:p));
     } else {
       const { data } = await supabase.from("pedidos").insert(payload).select().single();
-      if(data){
-        if(isCP) setPedidos(prev=>[data,...prev]);
-        else     setPfPedidos(prev=>[data,...prev]);
-      }
+      if(!data) return;
+      if(isCP) setPedidos(prev=>[data,...prev]);
+      else     setPfPedidos(prev=>[data,...prev]);
     }
     setShowPedidoModal(false); setEditPedido(null);
   };
@@ -6223,7 +6235,7 @@ function DeclararCambioPanel({ quote, onClose, onApplied }) {
       let quoteLinesPatch = [];
       let newTotal = quote.total||0;
       if(isFaseMode){
-        await supabase.from("costeos").update({ fases }).eq("id", costeo.id);
+        await must(supabase.from("costeos").update({ fases }).eq("id", costeo.id));
         const faseIdxsChanged = [...new Set(pending.filter(p=>p.faseIdx!==null).map(p=>p.faseIdx))];
         for(const fi of faseIdxsChanged){
           const codigo = `${sapBase}-F${fi+1}`;
@@ -6231,35 +6243,35 @@ function DeclararCambioPanel({ quote, onClose, onApplied }) {
           const calc = calcFase(fases[fi]);
           if(linea){
             const patch = { precio_unitario:Math.round(calc.ventaBruta), descuento:Number(calc.descPct)||0, subtotal:Math.round(calc.ventaConDesc) };
-            await supabase.from("quote_lines").update(patch).eq("id", linea.id);
+            await must(supabase.from("quote_lines").update(patch).eq("id", linea.id));
             quoteLinesPatch.push({ id: linea.id, ...patch });
           }
         }
         const netoNuevo = Math.round(fases.reduce((s,f)=>s+calcFase(f).ventaConDesc,0));
-        newTotal = quote.hasIva ? Math.round((netoNuevo+Math.round(netoNuevo*0.19))/100)*100 : Math.round(netoNuevo/100)*100;
-        await supabase.from("cotizaciones").update({ total:newTotal }).eq("id", quote.id);
+        newTotal = totalCotizacion(netoNuevo, quote.hasIva).total;
+        await must(supabase.from("cotizaciones").update({ total:newTotal }).eq("id", quote.id));
       } else {
         for(const p of pending){
           if(p.esNuevaLinea){
             const maxOrden = quoteLines.reduce((m,l)=>Math.max(m,l.orden||0),0);
-            await supabase.from("quote_lines").insert({
+            await must(supabase.from("quote_lines").insert({
               quote_id:quote.id, codigo:`${sapBase}-EXTRA${Date.now()%10000}`, descripcion:p.descripcion,
               cantidad:1, precio_unitario:p.valor, descuento:0, tipo_linea:"item", hito:"",
               subtotal:p.valor, orden:maxOrden+1,
-            });
+            }));
           } else if(p.lineaId){
-            await supabase.from("quote_lines").delete().eq("id", p.lineaId);
+            await must(supabase.from("quote_lines").delete().eq("id", p.lineaId));
           }
         }
-        newTotal = Math.round((quote.total||0) + pending.reduce((s,p)=>s+p.valor,0));
-        await supabase.from("cotizaciones").update({ total:newTotal }).eq("id", quote.id);
+        newTotal = redondearTotal((quote.total||0) + pending.reduce((s,p)=>s+p.valor,0));
+        await must(supabase.from("cotizaciones").update({ total:newTotal }).eq("id", quote.id));
       }
       const rows = pending.map(p=>({
         costeo_id: costeo?.id||null, cotizacion_id: quote.id, fase_id: p.faseId?String(p.faseId):null,
         tipo: p.tipo, descripcion: p.descripcion, product_id: p.productId?String(p.productId):null,
         qty_antes: p.qtyAntes, qty_despues: p.qtyDespues, valor: p.valor,
       }));
-      const { data: inserted } = await supabase.from("cambios_alcance").insert(rows).select("id");
+      const inserted = await must(supabase.from("cambios_alcance").insert(rows).select("id"));
       setSaving(false);
       onApplied({ total:newTotal, quoteLinesPatch, changeIds:(inserted||[]).map(r=>r.id), changes:pending });
     } catch(e){
@@ -7100,9 +7112,7 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
     setLines(l => l.map((line,i) => {
       if(i!==idx) return line;
       const updated = {...line, productId:p.id, code:p.code, description:descCatalogo, unitPrice:precioConMargen};
-      const qty = Number(updated.qty)||1;
-      const disc = Number(updated.discount)||0;
-      updated.subtotal = precioConMargen * qty * (1 - disc/100);
+      updated.subtotal = subtotalLinea(precioConMargen, updated.qty, updated.discount);
       return updated;
     }));
     setLineSearch(s=>({...s,[idx]:p.name}));
@@ -7124,34 +7134,30 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
         const p = products.find(x=>x.id===val);
         if (p) { updated.code=p.code; updated.description=p.name; updated.unitPrice=p.price; }
       }
-      const price = Number(key==="unitPrice"?val:updated.unitPrice)||0;
-      const qty = Number(key==="qty"?val:updated.qty)||1;
-      const disc = Number(key==="discount"?val:updated.discount)||0;
-      updated.subtotal = Math.round(price * qty * (1 - disc/100));
+      updated.subtotal = subtotalLinea(updated.unitPrice, updated.qty, updated.discount);
       return updated;
     }));
   };
 
   const removeLine = (idx) => setLines(l=>l.filter((_,i)=>i!==idx));
 
-  const neto  = Math.round(lines.filter(l=>l.lineType!=="hito").reduce((s,l)=>s+Number(l.subtotal),0));
-  const iva   = header.hasIva ? Math.round(neto * 0.19) : 0;
-  const total = Math.round((neto + iva) / 100) * 100;
+  const { neto, iva, total } = totalCotizacion(lines.filter(l=>l.lineType!=="hito").reduce((s,l)=>s+Number(l.subtotal),0), header.hasIva);
 
   const save = async () => {
     setSaving(true);
     const quoteData = mapQuoteToDb({...header, total});
     let savedQuote;
-    if (isEdit) {
-      const { data } = await supabase.from("cotizaciones").update(quoteData).eq("id", quote.id).select().single();
-      savedQuote = data;
-      await supabase.from("quote_lines").delete().eq("quote_id", quote.id);
-    } else {
-      const { data } = await supabase.from("cotizaciones").insert(quoteData).select().single();
-      savedQuote = data;
-    }
-    if (savedQuote && lines.length > 0) {
-      await supabase.from("quote_lines").insert(lines.map(l=>mapQuoteLineToDb(l, savedQuote.id)));
+    try {
+      if (isEdit) {
+        savedQuote = await must(supabase.from("cotizaciones").update(quoteData).eq("id", quote.id).select().single());
+      } else {
+        savedQuote = await must(supabase.from("cotizaciones").insert(quoteData).select().single());
+      }
+      await replaceRows(supabase, "quote_lines", "quote_id", savedQuote.id, lines.map(l=>mapQuoteLineToDb(l, savedQuote.id)));
+    } catch(e) {
+      setSaving(false);
+      alert("No se pudo guardar la cotización: "+e.message);
+      return;
     }
     // Auto-push a Pipeline si estado = "enviada" o "aprobada" (COT → Propuesta/Cierre, SIN → Cerrado 100%)
     if((quoteData.estado === "enviada" || quoteData.estado === "aprobada" || quoteData.serie === "SIN") && savedQuote){
@@ -7828,112 +7834,13 @@ function QuotePDF({ quote, onBack }) {
 // ── MAIN APP ─────────────────────────────────────────────────────────────────
 // ── COSTEO DE PROYECTOS ──────────────────────────────────────────────────────
 const CON_IVA = ["Equipos","Ferretería","Materiales"];
-const IVA = 1.19;
-const CAT_TIPOS = ["Equipos","Ferretería","Mano de Obra / HH"];
 const CAT_COLOR = { "Equipos":"#3b82f6","Mano de Obra / HH":"#10b981","Ferretería":"#f59e0b","Materiales":"#f59e0b" };
-
-// Códigos SAP de una fase: correlativo único (sin distinguir categoría) según el orden
-// visual de los ítems (mismo agrupamiento que se renderiza: Equipos, Ferretería, Mano de Obra).
-// Se recalcula siempre a partir de la posición real — así reordenar/duplicar ítems o fases
-// nunca puede dejar códigos repetidos o desalineados con la fase que los contiene.
-function codigosPorFase(items, faseIdx) {
-  const grouped = CAT_TIPOS.reduce((acc,t)=>{
-    acc[t] = t==="Ferretería" ? (items||[]).filter(i=>i.tipo==="Ferretería"||i.tipo==="Materiales") : (items||[]).filter(i=>i.tipo===t);
-    return acc;
-  },{});
-  const map = {};
-  let n = 0;
-  CAT_TIPOS.forEach(t => { grouped[t].forEach(it => { n++; map[it.id] = `F${faseIdx+1}-${String(n).padStart(3,"0")}`; }); });
-  return map;
-}
 
 function newItem(tipo) {
   const base = { id: Date.now()+Math.random(), tipo, cod:"", descripcion:"", modelo:"", qty:1, costoUnitNeto:0, margen:30, aplicaIVA: tipo!=="Costos Indirectos" };
   if(tipo==="Mano de Obra / HH") return { ...base, hh:1, valorHH:15000, aplicaIVA:false };
   if(tipo==="Costos Indirectos") return { ...base, costoUnit:0, aplicaIVA:false };
   return base;
-}
-
-function calcItem(it) {
-  const qty = Number(it.qty)||1;
-  const _costoUnit = it.tipo==="Mano de Obra / HH"
-    ? (Number(it.hh)||0)*(Number(it.valorHH)||0)
-    : it.tipo==="Costos Indirectos"
-      ? Number(it.costoUnit)||0
-      : Number(it.costoUnitNeto)||0;
-  const costoNeto = _costoUnit * qty;
-  let ventaNeta;
-  if(it.ventaUnitNeta !== undefined && it.ventaUnitNeta !== "" && it.ventaUnitNeta !== null) {
-    ventaNeta = Number(it.ventaUnitNeta) * qty;
-  } else {
-    ventaNeta = costoNeto * (1 + (Number(it.margen)||0)/100);
-  }
-  const margenVal  = ventaNeta - costoNeto;
-  const aplicaIVA  = !!it.aplicaIVA;
-  const ivaCompra  = aplicaIVA ? costoNeto*(IVA-1) : 0;
-  const ivaVenta   = aplicaIVA ? ventaNeta*(IVA-1) : 0;
-  const costoBruto = costoNeto + ivaCompra;
-  const ventaBruta = ventaNeta + ivaVenta;
-  return { ...it, _costoUnit, costoNeto, costoBruto, ivaCompra, margenTotal:margenVal, ventaNeta, ivaVenta, ventaBruta };
-}
-
-function calcFase(fase) {
-  const items = (fase.items||[]).map(calcItem);
-  const costoNeto   = items.reduce((s,i)=>s+i.costoNeto,0);
-  const costoBruto  = items.reduce((s,i)=>s+i.costoBruto,0);
-  const ivaCompra   = items.reduce((s,i)=>s+i.ivaCompra,0);
-  const margenTotal = items.reduce((s,i)=>s+i.margenTotal,0);
-  const ventaNeta   = items.reduce((s,i)=>s+i.ventaNeta,0);
-  const ivaTotal    = items.reduce((s,i)=>s+i.ivaVenta,0);
-  const ventaBruta  = items.reduce((s,i)=>s+i.ventaBruta,0);
-  // Descuento a nivel de fase, aplicado sobre el neto (antes de IVA); el IVA se recalcula
-  // sobre ese neto ya descontado, manteniendo la proporción IVA/neto real de la fase.
-  const descPct      = Number(fase.descuento)||0;
-  const descMonto    = Math.round(ventaNeta * (descPct/100));
-  const ventaNetaConDesc = ventaNeta - descMonto;
-  const ivaConDesc   = Math.round(ivaTotal * (1 - descPct/100));
-  const ventaConDesc = ventaNetaConDesc + ivaConDesc;
-  return {
-    ...fase, items,
-    costoNeto, costoTotal: costoNeto,
-    costoBruto, ivaCompra,
-    margenTotal,
-    ventaNeta,
-    ivaTotal,
-    ventaBruta, ventaTotal: ventaBruta,
-    descPct, descMonto, ventaNetaConDesc, ivaConDesc, ventaConDesc,
-  };
-}
-
-// Plata ya cobrada de una partida, en pesos exactos. `montoCobrado` es el dato
-// real (lo que se escribe directo en la columna "Cobrado"); `pctAvance` es
-// solo una vista de respaldo para partidas antiguas que no tengan
-// `montoCobrado` guardado todavía — nunca se recalculan pesos desde ahí para
-// no perder precisión (pctAvance solo guarda 1 decimal).
-function partidaCobrado(p) {
-  if(p.montoCobrado !== undefined && p.montoCobrado !== null && p.montoCobrado !== "") return Number(p.montoCobrado)||0;
-  return Number(p.monto||0) * (Number(p.pctAvance)||0) / 100;
-}
-
-// Mantiene el monto de cada partida vinculada a una fase igual al total actual
-// de esa fase, para que un cambio en el costeo no deje avances/cobertura desfasados.
-// La plata YA cobrada (montoCobrado) es un hecho que no cambia retroactivamente
-// — se preserva tal cual cuando el monto de la fase cambia (ej. se saca o
-// agrega un ítem); solo se recalcula pctAvance como referencia visual.
-function syncPartidasConFases(partidas, fases) {
-  let changed = false;
-  const next = (partidas||[]).map(p => {
-    if(!p.faseId) return p;
-    const fase = (fases||[]).find(f=>String(f.id)===String(p.faseId));
-    if(!fase) return p;
-    const montoActual = Math.round(calcFase(fase).ventaConDesc);
-    if(Number(p.monto)===montoActual) return p;
-    changed = true;
-    const cobrado = partidaCobrado(p);
-    const pctAvanceNuevo = montoActual>0 ? Math.min(100, Math.round((cobrado/montoActual)*1000)/10) : 0;
-    return { ...p, monto: montoActual, pctAvance: pctAvanceNuevo };
-  });
-  return changed ? next : partidas;
 }
 
 function TotBox({ label, value, color, sub }) {
@@ -8675,10 +8582,10 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
     scheduleSave(p);
   };
   const deleteProyecto = async (id) => {
+    const { error } = await supabase.from("costeos").delete().eq("id", id); if(error) return;
     clearTimeout(saveTimers.current[id]); delete saveTimers.current[id];
     setProyectos(prev => prev.filter(x=>x.id!==id));
     if(selected===id) setSelected(null);
-    await supabase.from("costeos").delete().eq("id", id);
   };
   const duplicateProyecto = async (p, e) => {
     e.stopPropagation();
@@ -8748,7 +8655,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
   const totalDescuento    = fasesCalc.reduce((s,f)=>s+(f.descMonto||0),0);
   const totalVentaNetaConDesc = fasesCalc.reduce((s,f)=>s+f.ventaNetaConDesc,0); // neto ya con descuento aplicado
   const totalIvaConDesc   = fasesCalc.reduce((s,f)=>s+f.ivaConDesc,0); // IVA calculado sobre ese neto con descuento
-  const totalVentaFinal   = Math.round(fasesCalc.reduce((s,f)=>s+f.ventaConDesc,0) / 100) * 100; // con descuento aplicado, redondeado al 100 más cercano
+  const totalVentaFinal   = redondearTotal(fasesCalc.reduce((s,f)=>s+f.ventaConDesc,0)); // con descuento aplicado, redondeo chileno (Ley 20.956)
   const hayDescuento      = totalDescuento > 0;
   const margenPct = totalCosto > 0 ? (totalMargen/totalCosto*100).toFixed(1) : 0;
   const margenFinalBruto  = totalVentaFinal - totalCostoBruto; // margen post-descuento (venta final - costo bruto)
@@ -8888,7 +8795,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
       descuento: fases.reduce((s, f) => s + (f.descMonto || 0), 0),
       ventaNetaConDesc: fases.reduce((s, f) => s + f.ventaNetaConDesc, 0),
       ivaConDesc: fases.reduce((s, f) => s + f.ivaConDesc, 0),
-      ventaFinal: Math.round(fases.reduce((s, f) => s + f.ventaConDesc, 0) / 100) * 100,
+      ventaFinal: redondearTotal(fases.reduce((s, f) => s + f.ventaConDesc, 0)),
     };
     let logoDataUri = null;
     try { logoDataUri = await fetchImageAsDataUri(LOGO_PRINT); } catch { /* el documento se genera igual, sin logo */ }
@@ -8907,7 +8814,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
       descuento: fases.reduce((s, f) => s + (f.descMonto || 0), 0),
       ventaNetaConDesc: fases.reduce((s, f) => s + f.ventaNetaConDesc, 0),
       ivaConDesc: fases.reduce((s, f) => s + f.ivaConDesc, 0),
-      ventaFinal: Math.round(fases.reduce((s, f) => s + f.ventaConDesc, 0) / 100) * 100,
+      ventaFinal: redondearTotal(fases.reduce((s, f) => s + f.ventaConDesc, 0)),
     };
     let logoDataUri = null;
     try { logoDataUri = await fetchImageAsDataUri(LOGO_PRINT); } catch { /* el documento se genera igual, sin logo */ }
@@ -9002,7 +8909,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
       direccion:proyecto.clienteDireccion||"", telefono:proyecto.clienteTelefono||"",
       forma_pago:formaPago, pct_anticipo:pctAnt, aplica_iva:false, iva_modo:"empresa",
       comentarios:`${proyecto.nombre}`,
-      terminos:"", estado:"borrador", tipo:"productos", total:Math.round(totalBrutoFinal),
+      terminos:"", estado:"borrador", tipo:"productos", total:redondearTotal(totalBrutoFinal),
       rubro: proyecto.rubro || null, tipo_trabajo: proyecto.tipoTrabajo || null,
     };
     const { data: savedQuote } = await supabase.from("cotizaciones").insert(quoteData).select().single();
@@ -9097,7 +9004,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
       }];
     }
     const netoNuevo = Math.round(rows.reduce((s,r)=>s+r.nuevo,0));
-    const totalNuevo = cotRow.aplica_iva ? Math.round((netoNuevo+Math.round(netoNuevo*0.19))/100)*100 : Math.round(netoNuevo/100)*100;
+    const totalNuevo = totalCotizacion(netoNuevo, cotRow.aplica_iva).total;
     setSyncPreview({ rows, totalActual:Number(cotRow.total)||0, totalNuevo, cotId:cotRow.id });
     setSyncModal(true);
   };
@@ -10035,10 +9942,9 @@ function PurchaseView({ isMobile }) {
         updated_at:     new Date().toISOString(),
       };
       if (editingOC) {
-        await supabase.from("purchase_orders").update(ocData).eq("id", ocId);
-        await supabase.from("purchase_order_lines").delete().eq("purchase_order_id", ocId);
+        await must(supabase.from("purchase_orders").update(ocData).eq("id", ocId));
       } else {
-        const { data } = await supabase.from("purchase_orders").insert({ ...ocData, numero_oc: getNextNumOC() }).select().single();
+        const data = await must(supabase.from("purchase_orders").insert({ ...ocData, numero_oc: getNextNumOC() }).select().single());
         ocId = data.id;
       }
       const linesDb = validLines.map(l=>({
@@ -10048,9 +9954,11 @@ function PurchaseView({ isMobile }) {
         cantidad:          Number(l.cantidad),
         precio_unitario:   Math.round(Number(l.precio_unitario) * 1.19), // guardar bruto en BD
       }));
-      await supabase.from("purchase_order_lines").insert(linesDb);
+      await replaceRows(supabase, "purchase_order_lines", "purchase_order_id", ocId, linesDb);
       setShowModal(false); setEditingOC(null);
       await loadAll();
+    } catch(e) {
+      alert("No se pudo guardar la orden de compra: "+e.message);
     } finally { setSavingOC(false); }
   };
 
@@ -10061,8 +9969,8 @@ function PurchaseView({ isMobile }) {
 
   const deleteOC = async (ocId) => {
     if (!confirm("¿Eliminar esta orden de compra?")) return;
-    await supabase.from("purchase_order_lines").delete().eq("purchase_order_id", ocId);
-    await supabase.from("purchase_orders").delete().eq("id", ocId);
+    const { error: errLineas } = await supabase.from("purchase_order_lines").delete().eq("purchase_order_id", ocId); if(errLineas) return;
+    const { error: errOC } = await supabase.from("purchase_orders").delete().eq("id", ocId); if(errOC) return;
     setOcs(p=>p.filter(o=>o.id!==ocId));
   };
 
@@ -10441,7 +10349,7 @@ function PurchaseView({ isMobile }) {
                                   </button>
                                   <button onClick={async()=>{
                                     if (!confirm(`¿Eliminar guía ${ship.numero_guia}?`)) return;
-                                    await supabase.from("shipments").delete().eq("id",ship.id);
+                                    const { error } = await supabase.from("shipments").delete().eq("id",ship.id); if(error) return;
                                     setShipments(prev=>prev.filter(s=>s.id!==ship.id));
                                   }}
                                     style={{ padding:"3px 8px", background:`${COLORS.red}22`, border:`1px solid ${COLORS.red}44`, borderRadius:5, color:COLORS.red, fontFamily:FONT, fontSize:12, cursor:"pointer", fontWeight:700, lineHeight:1 }}>
@@ -11567,8 +11475,7 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
 
   // ── Calcular totales partidas ──
   const subtotal = Math.round(form.partidas.reduce((s, p) => s + (Number(p.total) || 0), 0));
-  const iva      = Math.round(subtotal * 0.19);
-  const total    = Math.round((subtotal + iva) / 100) * 100;
+  const { iva, total } = totalCotizacion(subtotal, true);
 
   const updatePartida = (id, key, val) => {
     setForm(prev => ({
@@ -12518,7 +12425,7 @@ function GastosGenerales({ isMobile }) {
 
   const del = async (id) => {
     if (!window.confirm("¿Eliminar este gasto?")) return;
-    await supabase.from("facturas_recibidas").delete().eq("id", id);
+    const { error } = await supabase.from("facturas_recibidas").delete().eq("id", id); if(error) return;
     setGastos(p => p.filter(g => g.id !== id));
   };
 
@@ -12815,17 +12722,19 @@ function CajaView({ isMobile }) {
     const payload = { ...form, monto: Number(form.monto) };
     if (editMov) {
       const { data } = await supabase.from("movimientos_cuenta").update(payload).eq("id", editMov.id).select().single();
-      if (data) setMovs(prev => prev.map(m=>m.id===editMov.id ? data : m));
+      if (!data) { setSaving(false); return; } // falló: el formulario queda abierto
+      setMovs(prev => prev.map(m=>m.id===editMov.id ? data : m));
     } else {
       const { data } = await supabase.from("movimientos_cuenta").insert(payload).select().single();
-      if (data) setMovs(prev => [data, ...prev]);
+      if (!data) { setSaving(false); return; }
+      setMovs(prev => [data, ...prev]);
     }
     setSaving(false); setShowModal(false); setEditMov(null); setForm(emptyMov());
   };
 
   const deleteMov = async (id) => {
     if (!window.confirm("¿Eliminar este movimiento?")) return;
-    await supabase.from("movimientos_cuenta").delete().eq("id", id);
+    const { error } = await supabase.from("movimientos_cuenta").delete().eq("id", id); if(error) return;
     setMovs(prev => prev.filter(m=>m.id!==id));
   };
 
@@ -14133,7 +14042,7 @@ function CuentasPorPagar({ isMobile }) {
                                 borderRadius:6, color:editingRow===f.id?COLORS.accent:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
                               ✏️
                             </button>
-                            <button onClick={async()=>{ if(!window.confirm(`¿Eliminar la entrada "${f.numero_documento}"?`)) return; await supabase.from("facturas_recibidas").delete().eq("id",f.id); setFacturas(prev=>prev.filter(x=>x.id!==f.id)); }}
+                            <button onClick={async()=>{ if(!window.confirm(`¿Eliminar la entrada "${f.numero_documento}"?`)) return; const { error } = await supabase.from("facturas_recibidas").delete().eq("id",f.id); if(error) return; setFacturas(prev=>prev.filter(x=>x.id!==f.id)); }}
                               style={{ padding:"5px 8px", background:"transparent", border:`1px solid ${COLORS.red}44`,
                                 borderRadius:6, color:COLORS.red, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
                               ✕
@@ -15192,7 +15101,7 @@ function SlRow({ sl, products, editSl, setEditSl, savingEdit, setSavingEdit, cot
         </button>
         <button onClick={async ()=>{
             if (!window.confirm("¿Eliminar esta línea?")) return;
-            await supabase.from("cot_service_lines").delete().eq("id", sl.id);
+            const { error } = await supabase.from("cot_service_lines").delete().eq("id", sl.id); if(error) return;
             setDetail(p=>({...p, sls: p.sls.filter(x=>x.id!==sl.id)}));
             onRefresh();
           }}
@@ -15483,7 +15392,7 @@ function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
                           </div>
                           <button onClick={async ()=>{
                               if (!window.confirm("¿Eliminar este gasto?")) return;
-                              await supabase.from("cot_gastos_directos").delete().eq("id", gd.id);
+                              const { error } = await supabase.from("cot_gastos_directos").delete().eq("id", gd.id); if(error) return;
                               setDetail(p=>({...p, gds: p.gds.filter(x=>x.id!==gd.id)}));
                               onRefresh();
                             }}
@@ -16388,17 +16297,19 @@ function ProveedoresView({ isMobile }) {
     };
     if (editing) {
       const { data: updated } = await supabase.from("suppliers").update(data).eq("id", editing.id).select().single();
-      if (updated) setSuppliers(prev => prev.map(s => s.id===editing.id ? updated : s));
+      if (!updated) { setSaving(false); return; } // falló: el formulario queda abierto
+      setSuppliers(prev => prev.map(s => s.id===editing.id ? updated : s));
     } else {
       const { data: created } = await supabase.from("suppliers").insert(data).select().single();
-      if (created) setSuppliers(prev => [...prev, created]);
+      if (!created) { setSaving(false); return; }
+      setSuppliers(prev => [...prev, created]);
     }
     setSaving(false); setShowModal(false);
   };
 
   const del = async (id) => {
     if (!window.confirm("¿Eliminar proveedor?")) return;
-    await supabase.from("suppliers").delete().eq("id", id);
+    const { error } = await supabase.from("suppliers").delete().eq("id", id); if(error) return;
     setSuppliers(prev => prev.filter(s => s.id!==id));
   };
 
@@ -17010,7 +16921,7 @@ function AnalisisPreciosView({ isMobile }) {
 
   const deleteAn = async(id)=>{
     if(!window.confirm("¿Eliminar este análisis?")) return;
-    await supabase.from("analisis_precios").delete().eq("id",id);
+    const { error } = await supabase.from("analisis_precios").delete().eq("id",id); if(error) return;
     setAnalyses(prev=>prev.filter(a=>a.id!==id));
   };
 
@@ -18453,7 +18364,7 @@ function OperacionesView({ isMobile }) {
 
   const deleteOp = async(id)=>{
     if(!window.confirm("¿Eliminar esta operación?")) return;
-    await supabase.from("operaciones_terreno").delete().eq("id",id);
+    const { error } = await supabase.from("operaciones_terreno").delete().eq("id",id); if(error) return;
     setOps(prev=>prev.filter(o=>o.id!==id));
   };
 
@@ -19538,7 +19449,7 @@ function AnalisisPrecios({ isMobile }) {
 
   const deleteFicha = async (id) => {
     if(!window.confirm("¿Eliminar esta ficha comparativa?")) return;
-    await supabase.from("fichas_comparativas").delete().eq("id",id);
+    const { error } = await supabase.from("fichas_comparativas").delete().eq("id",id); if(error) return;
     setFichas(prev=>prev.filter(f=>f.id!==id));
   };
 
@@ -20163,10 +20074,12 @@ function IncidenciasView({ contacts, isMobile }) {
     const payload = { ...form, visitas: form.visitas||[] };
     if (editTicket) {
       const { data } = await supabase.from("incidencias").update(payload).eq("id", editTicket.id).select().single();
-      if (data) setTickets(tickets.map(t=>t.id===editTicket.id ? {...data, visitas:data.visitas||[]} : t));
+      if (!data) { setSaving(false); return; } // falló: el formulario queda abierto
+      setTickets(tickets.map(t=>t.id===editTicket.id ? {...data, visitas:data.visitas||[]} : t));
     } else {
       const { data } = await supabase.from("incidencias").insert(payload).select().single();
-      if (data) setTickets([{...data, visitas:data.visitas||[]}, ...tickets]);
+      if (!data) { setSaving(false); return; }
+      setTickets([{...data, visitas:data.visitas||[]}, ...tickets]);
     }
     setSaving(false); setShowModal(false); setEditTicket(null); setForm(emptyForm());
   };
@@ -20184,7 +20097,7 @@ function IncidenciasView({ contacts, isMobile }) {
 
   const del = async (id) => {
     if (!window.confirm("¿Eliminar esta incidencia?")) return;
-    await supabase.from("incidencias").delete().eq("id", id);
+    const { error } = await supabase.from("incidencias").delete().eq("id", id); if(error) return;
     setTickets(tickets.filter(t=>t.id!==id));
   };
 
@@ -21265,6 +21178,8 @@ function ColaboradorView({ session }) {
 }
 
 
+const VALID_ROLES = ["admin", "colaborador", "prueba"];
+
 export default function CRM() {
   const [view, setView] = useState("dashboard");
   const [openCosteoId, setOpenCosteoId] = useState(null);
@@ -21276,7 +21191,7 @@ export default function CRM() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [userRole, setUserRole] = useState(null); // "admin" | "colaborador" | "prueba"
+  const [userRole, setUserRole] = useState(null); // "admin" | "colaborador" | "prueba" | "sin_acceso"
   const [profileError, setProfileError] = useState(null);
   const isMobile = useIsMobile();
 
@@ -21303,16 +21218,24 @@ export default function CRM() {
       setProfileError(null);
       try {
         const email = session.user?.email || "";
-        // Rol y datos son independientes entre sí: se piden en paralelo
-        // en vez de esperar el rol antes de pedir el resto (menos round-trips)
-        const [{ data: roleData }, { data: c }, { data: d }, { data: t }] = await Promise.all([
-          supabase.from("usuarios_roles").select("rol").eq("email", email).single(),
+        // El rol se pide primero: sin un rol válido en usuarios_roles no se
+        // carga ningún dato (antes se asumía "admin" por defecto)
+        const { data: roleData, error: roleError } = await supabase
+          .from("usuarios_roles").select("rol").eq("email", email).maybeSingle();
+        if(cancelled) return;
+        if(roleError) throw roleError;
+        if(!VALID_ROLES.includes(roleData?.rol)) {
+          setUserRole("sin_acceso");
+          setLoading(false);
+          return;
+        }
+        const [{ data: c }, { data: d }, { data: t }] = await Promise.all([
           supabase.from("contactos").select("*"),
           supabase.from("deals").select("*"),
           supabase.from("task").select("*"),
         ]);
         if(cancelled) return;
-        setUserRole(roleData?.rol || "admin"); // default admin si no está en tabla
+        setUserRole(roleData.rol);
         setContacts((c||[]).map(mapContact));
         setDeals((d||[]).map(mapDeal));
         setTasks((t||[]).map(mapTask));
@@ -21352,6 +21275,16 @@ export default function CRM() {
   if(userRole === null) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#0A0C10" }}>
       <div style={{ fontFamily:FONT, color:"#00C2FF", fontSize:14, letterSpacing:"0.1em" }}>Cargando perfil…</div>
+    </div>
+  );
+
+  // Usuario autenticado pero sin rol en usuarios_roles → sin acceso
+  if(userRole === "sin_acceso") return (
+    <div style={{ display:"flex", flexDirection:"column", gap:12, alignItems:"center", justifyContent:"center", height:"100vh", background:"#0A0C10" }}>
+      <div style={{ fontFamily:FONT, color:COLORS.red, fontSize:14, letterSpacing:"0.05em", textAlign:"center", maxWidth:320 }}>
+        La cuenta {session.user?.email} no tiene acceso a este sistema.
+      </div>
+      <button onClick={logout} style={{ fontFamily:FONT, color:"#00C2FF", fontSize:13, background:"transparent", border:"1px solid #00C2FF", borderRadius:6, padding:"8px 16px", cursor:"pointer" }}>Cerrar sesión</button>
     </div>
   );
 
