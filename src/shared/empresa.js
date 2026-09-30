@@ -3,6 +3,9 @@
 // se escriben: si cambia un teléfono, una cuenta o una dirección, se cambia
 // aquí y se actualiza en todos los documentos.
 
+// Teléfono de contacto único en todos los documentos.
+const TELEFONO = "+56 9 8133 4980";
+
 export const EMPRESA = {
   razonSocial: "Polygonos SpA",
   rut:         "77.180.437-3",
@@ -10,7 +13,7 @@ export const EMPRESA = {
   casaMatriz:  "Huérfanos, 1055 Oficina 603",
   sucursal:    "Marco Gallo Vergara 536 B, Dpto 411 Torre D",
   email:       "ventas@polygonos.cl",
-  telefono:    "+56 9 6426 6356",
+  telefono:    TELEFONO,
   lema:        "Innovación | Tecnología | Seguridad",
   banco:       "Banco Santander",
   cuenta:      "Cta. Cte. 99128755",
@@ -23,7 +26,7 @@ export const TITULAR = {
   rut:      "26.074.100-4",
   cargo:    "Especialista en Seguridad Electrónica",
   email:    "maximo.hudson.blanco@gmail.com",
-  telefono: "+56 9 8133 4980",
+  telefono: TELEFONO,
   banco:    "Banco Santander",
   cuenta:   "Cta. Cte. 75 36164 5",
 };

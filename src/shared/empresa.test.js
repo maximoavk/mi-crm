@@ -13,7 +13,8 @@ describe("datos de la empresa", () => {
     expect(datosPago("personal")).toBe(
       "Maximo Hudson\nRUT: 26.074.100-4\nBanco Santander\nCta. Cte. 75 36164 5\nCorreo: maximo.hudson.blanco@gmail.com");
   });
-  it("teléfonos distintos para la empresa y el titular", () => {
-    expect(EMPRESA.telefono).not.toBe(TITULAR.telefono);
+  it("un solo teléfono de contacto en todos los documentos", () => {
+    expect(EMPRESA.telefono).toBe("+56 9 8133 4980");
+    expect(TITULAR.telefono).toBe(EMPRESA.telefono);
   });
 });
