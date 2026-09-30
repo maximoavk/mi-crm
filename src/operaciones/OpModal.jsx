@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { CHECKLIST_COMISIONAMIENTO, CHECKLIST_TEMPLATES, buildChecklist } from "./checklists.js";
 import { supabase } from "../supabaseClient.js";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
-import { fechaLocal } from "../shared/format.js";
+import { fechaLocal, hoyISO } from "../shared/format.js";
 
 // ─── Modal Operación ──────────────────────────────────────────────────────────
 export function OpModal({ op, defaultTipo, quotes, contacts, onClose, onSaved, onPrint }) {
@@ -12,7 +12,7 @@ export function OpModal({ op, defaultTipo, quotes, contacts, onClose, onSaved, o
   const [form,   setForm]   = useState({
     quote_id:             op?.quote_id||"",
     tecnico:              op?.tecnico||"Maximo Hudson",
-    fecha_visita:         op?.fecha_visita||new Date().toISOString().slice(0,10),
+    fecha_visita:         op?.fecha_visita||hoyISO(),
     lugar:                op?.lugar||"",
     cliente_nombre:       op?.cliente_nombre||"",
     cliente_rut:          op?.cliente_rut||"",

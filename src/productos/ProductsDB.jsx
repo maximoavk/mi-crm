@@ -5,7 +5,7 @@ import { mapProduct, mapProductToDb } from "../shared/mappers.js";
 import { FONT, COLORS, FONT_DISPLAY } from "../theme.js";
 import { AddBtn, Loader, Modal, Input, Select } from "../shared/ui.jsx";
 import { CATALOG_CATS } from "../shared/constants.js";
-import { fmt } from "../shared/format.js";
+import { fmt, hoyISO } from "../shared/format.js";
 
 // ── BASE DE DATOS DE PRODUCTOS ───────────────────────────────────────────────
 export function ProductsDB({ isMobile }) {
@@ -60,7 +60,7 @@ export function ProductsDB({ isMobile }) {
 
   const openNew = () => {
     setEditingId(null); setProductPrices([]); setShowPriceForm(false);
-    setForm({ code:"", name:"", description:"", price:"", unit:"un", category:"", provider:"", type:"producto", url:"", updatedAt:new Date().toISOString().slice(0,10), skuProveedor:"" });
+    setForm({ code:"", name:"", description:"", price:"", unit:"un", category:"", provider:"", type:"producto", url:"", updatedAt:hoyISO(), skuProveedor:"" });
     setShowModal(true);
   };
   const openEdit = (p) => {
@@ -91,7 +91,7 @@ export function ProductsDB({ isMobile }) {
             url: priceForm.url||null,
             sku_proveedor: priceForm.sku_proveedor||null,
             es_preferido: true,
-            actualizado: new Date().toISOString().slice(0,10),
+            actualizado: hoyISO(),
           });
           await loadProductPrices(data.id);
           setPriceForm({ supplier_id:"", precio_bruto:"", url:"", sku_proveedor:"", es_preferido:false });
@@ -113,7 +113,7 @@ export function ProductsDB({ isMobile }) {
     await supabase.from("product_prices").update({ es_preferido: true }).eq("id", priceId);
     const chosen = productPrices.find(pp=>pp.id===priceId);
     if (chosen) {
-      await supabase.from("products").update({ precio: chosen.precio_bruto, proveedor: chosen.suppliers?.nombre||"", url_proveedor: chosen.url||"", sku_proveedor: chosen.sku_proveedor||"", precio_actualizado: chosen.actualizado||new Date().toISOString().slice(0,10) }).eq("id", editingId);
+      await supabase.from("products").update({ precio: chosen.precio_bruto, proveedor: chosen.suppliers?.nombre||"", url_proveedor: chosen.url||"", sku_proveedor: chosen.sku_proveedor||"", precio_actualizado: chosen.actualizado||hoyISO() }).eq("id", editingId);
       f("price", String(chosen.precio_bruto)); f("provider", chosen.suppliers?.nombre||"");
       f("url", chosen.url||""); f("skuProveedor", chosen.sku_proveedor||"");
     }
@@ -123,7 +123,7 @@ export function ProductsDB({ isMobile }) {
   const savePrice = async () => {
     if (!priceForm.supplier_id || !priceForm.precio_bruto) return;
     setSavingPrice(true);
-    const dbData = { product_id: editingId, supplier_id: priceForm.supplier_id, precio_bruto: Number(priceForm.precio_bruto), url: priceForm.url||null, sku_proveedor: priceForm.sku_proveedor||null, es_preferido: priceForm.es_preferido||false, actualizado: new Date().toISOString().slice(0,10) };
+    const dbData = { product_id: editingId, supplier_id: priceForm.supplier_id, precio_bruto: Number(priceForm.precio_bruto), url: priceForm.url||null, sku_proveedor: priceForm.sku_proveedor||null, es_preferido: priceForm.es_preferido||false, actualizado: hoyISO() };
     if (editingPriceId) await supabase.from("product_prices").update(dbData).eq("id", editingPriceId);
     else await supabase.from("product_prices").insert(dbData);
     if (priceForm.es_preferido) {

@@ -14,10 +14,12 @@ export const fechaLocal = (s) => {
 };
 
 // Fecha de hoy (hora local) como "YYYY-MM-DD", comparable con las fechas de Supabase.
-export const hoyISO = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
+export const hoyISO = () => fechaISO(new Date());
+
+// Date → "YYYY-MM-DD" en hora local (toISOString() usa UTC y en Chile, desde
+// las 20:00/21:00, ya devuelve el día siguiente).
+export const fechaISO = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 // Atrasado recién desde el día siguiente al vencimiento: lo que vence hoy todavía está a tiempo.
 export const isOverdue = (d) => !!d && String(d).slice(0, 10) < hoyISO();

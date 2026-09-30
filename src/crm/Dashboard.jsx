@@ -1,7 +1,7 @@
 // Dashboard general: KPIs de ventas, pipeline, tareas y accesos rápidos.
 import { useState, useEffect } from "react";
 import { Calculator, GanttChartSquare, Users, ShoppingCart, Receipt, CheckSquare } from "lucide-react";
-import { isOverdue, fmt, fmtDate } from "../shared/format.js";
+import { isOverdue, fmt, fmtDate, hoyISO, fechaISO } from "../shared/format.js";
 import { supabase } from "../supabaseClient.js";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
 import { STAGES } from "../shared/constants.js";
@@ -112,13 +112,13 @@ export function Dashboard({ contacts, deals, tasks, isMobile, navigate }) {
 
   // % rechazadas por vencimiento — solo cohortes que ya cumplieron 30 días desde el 2026-08-25
   const VENCIMIENTO_DESDE = "2026-08-25";
-  const hace30Dias = (()=>{ const d=new Date(); d.setDate(d.getDate()-30); return d.toISOString().slice(0,10); })();
+  const hace30Dias = (()=>{ const d=new Date(); d.setDate(d.getDate()-30); return fechaISO(d); })();
   const cohorteResuelta = cotizaciones.filter(c=>c.fecha>=VENCIMIENTO_DESDE && c.fecha<=hace30Dias);
   const pctVencidas = cohorteResuelta.length>0 ? Math.round(cohorteResuelta.filter(c=>c.vencida).length/cohorteResuelta.length*100) : null;
 
   // Próximas tareas — resumen hoy / semana
-  const todayStr    = new Date().toISOString().slice(0,10);
-  const weekEndStr  = (()=>{ const d=new Date(); d.setDate(d.getDate()+7); return d.toISOString().slice(0,10); })();
+  const todayStr    = hoyISO();
+  const weekEndStr  = (()=>{ const d=new Date(); d.setDate(d.getDate()+7); return fechaISO(d); })();
   const tasksToday  = tasks.filter(t=>!t.done && t.dueDate===todayStr).length;
   const tasksSemana = tasks.filter(t=>!t.done && t.dueDate && t.dueDate>=todayStr && t.dueDate<=weekEndStr).length;
 

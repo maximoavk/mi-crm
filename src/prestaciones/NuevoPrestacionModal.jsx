@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
 import { supabase } from "../supabaseClient.js";
-import { fmt } from "../shared/format.js";
+import { fmt, hoyISO } from "../shared/format.js";
 import { DeclararCambioPanel } from "./DeclararCambioPanel.jsx";
 
 export function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved }) {
@@ -11,14 +11,14 @@ export function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, 
   const AC       = isPF ? COLORS.secondary : COLORS.accent;
   const prefix   = isPF ? "PF" : "CP";
 
-  const emptyTx = () => ({ id:Date.now()+Math.random(), fecha:new Date().toISOString().slice(0,10), codigo:"", monto:"" });
+  const emptyTx = () => ({ id:Date.now()+Math.random(), fecha:hoyISO(), codigo:"", monto:"" });
   const [selectedQuoteIds, setSelectedQuoteIds] = useState(existing?.quote_ids||[]);
   const [selectedLineKeys, setSelectedLineKeys] = useState(null);
   const [transacciones, setTransacciones]       = useState(
     existing?.transacciones?.length>0 ? existing.transacciones.map(t=>({...t,id:t.id||Date.now()+Math.random()})) : [emptyTx()]
   );
   const [form, setForm] = useState({
-    fecha_pago:    existing?.fecha_pago||new Date().toISOString().slice(0,10),
+    fecha_pago:    existing?.fecha_pago||hoyISO(),
     periodo_desde: existing?.periodo_desde||"",
     periodo_hasta: existing?.periodo_hasta||"",
     responsable:   existing?.responsable||"VARRIAGA",

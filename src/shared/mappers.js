@@ -1,5 +1,5 @@
 // Conversión entre filas de Supabase (snake_case) y objetos de la app.
-// Logo oscuro para documentos impresos
+import { hoyISO } from "./format.js";
 
 // ── MAPPERS: Supabase ↔ App ─────────────────────────────────────────────────
 export const mapContact = (r) => ({
@@ -92,7 +92,7 @@ export const mapProductToDb = (f) => ({
   precio: Number(f.price) || 0, unidad: f.unit||"un",
   categoria: f.category||"", proveedor: f.provider||"", tipo: f.type||"producto",
   url_proveedor: f.url||"",
-  precio_actualizado: f.updatedAt || new Date().toISOString().slice(0,10),
+  precio_actualizado: f.updatedAt || hoyISO(),
   sku_proveedor: f.skuProveedor||"",
 });
 

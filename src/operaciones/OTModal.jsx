@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { CHECKLIST_TEMPLATES, CHECKLIST_COMISIONAMIENTO, buildChecklist } from "./checklists.js";
 import { supabase } from "../supabaseClient.js";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
+import { hoyISO } from "../shared/format.js";
 
 // ─── OT MODAL ────────────────────────────────────────────────────────────────
 export function OTModal({ ot, quotes, onClose, onSaved }) {
@@ -29,7 +30,7 @@ export function OTModal({ ot, quotes, onClose, onSaved }) {
     tipo_servicio:    ot?.tipo_servicio||"mantencion",
     equipo_tipo:      ot?.equipo_tipo||Object.keys(CHECKLIST_TEMPLATES)[0],
     valor_servicio:   ot?.valor_servicio||"",
-    fecha_programada: ot?.fecha_programada||new Date().toISOString().slice(0,10),
+    fecha_programada: ot?.fecha_programada||hoyISO(),
     cliente_nombre:   ot?.cliente_nombre||"",
     cliente_rut:      ot?.cliente_rut||"",
     lugar:            ot?.lugar||"",
@@ -224,7 +225,7 @@ export function OTModal({ ot, quotes, onClose, onSaved }) {
       if(error){ alert("Error: "+error.message); setSaving(false); return; }
       // Auto-crear / actualizar entrada en facturas_recibidas (Cuentas por Pagar)
       if(data && !isBorrador){
-        const hoy = new Date().toISOString().slice(0,10);
+        const hoy = hoyISO();
         const montoNeto = Number(payload.valor_servicio)||0;
         const fpp = {
           numero_documento:      data.numero_ot,

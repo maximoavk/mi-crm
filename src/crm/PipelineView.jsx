@@ -4,7 +4,7 @@ import { Wallet, Receipt } from "lucide-react";
 import { supabase } from "../supabaseClient.js";
 import { STAGES, REJECT_REASONS } from "../shared/constants.js";
 import { mapDealToDb, mapDeal, mapTaskToDb, mapTask } from "../shared/mappers.js";
-import { isOverdue, fmt, fmtDate, formatRut } from "../shared/format.js";
+import { isOverdue, fmt, fmtDate, formatRut, hoyISO } from "../shared/format.js";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
 import { Modal, Select, Input } from "../shared/ui.jsx";
 
@@ -44,7 +44,7 @@ export function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMob
     const updates = {
       facturado:      true,
       numero_factura: facturaVal.trim(),
-      fecha_factura:  facturaFecha || new Date().toISOString().slice(0,10),
+      fecha_factura:  facturaFecha || hoyISO(),
     };
     await supabase.from("deals").update(updates).eq("id", dealId);
     setDeals(prev => prev.map(d =>

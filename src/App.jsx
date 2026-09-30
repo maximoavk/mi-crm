@@ -5,7 +5,7 @@ import { supabase } from "./supabaseClient.js";
 import { totalCotizacion } from "./calculos.js";
 import { DesignView } from "./design/DesignView.jsx";
 import { LOGO_B64, LOGO_PRINT } from "./shared/assets.js";
-import { fmt, fmtDate, fmtFecha, fechaLocal } from "./shared/format.js";
+import { fmt, fmtDate, fmtFecha, fechaLocal, hoyISO } from "./shared/format.js";
 import { useIsMobile } from "./shared/useIsMobile.js";
 import { mapContact, mapDeal, mapTask, mapProduct } from "./shared/mappers.js";
 import { Badge, AddBtn, Loader } from "./shared/ui.jsx";
@@ -276,7 +276,7 @@ function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved
     rut_cliente:       proposal?.rut_cliente || "",
     contact_id:        proposal?.contact_id || "",
     elaborado_por:     proposal?.elaborado_por || "Maximo Hudson",
-    fecha_elaboracion: proposal?.fecha_elaboracion || new Date().toISOString().slice(0, 10),
+    fecha_elaboracion: proposal?.fecha_elaboracion || hoyISO(),
     estado:            proposal?.estado || "borrador",
     antecedentes:      proposal?.antecedentes || "",
     propuesta_tecnica: proposal?.propuesta_tecnica || "",
@@ -2317,17 +2317,17 @@ function IncidenciasView({ contacts, isMobile }) {
   const [editTicket, setEditTicket] = useState(null);
   const [showLog, setShowLog]     = useState(null); // ticket id con log abierto
   const [showLogModal, setShowLogModal] = useState(false);
-  const [logForm, setLogForm]     = useState({ fecha: new Date().toISOString().slice(0,10), hora:"09:00", tecnico:"Maximo Hudson", diagnostico:"", piezas:"", upselling:false, notas:"" });
+  const [logForm, setLogForm]     = useState({ fecha: hoyISO(), hora:"09:00", tecnico:"Maximo Hudson", diagnostico:"", piezas:"", upselling:false, notas:"" });
   const [saving, setSaving]       = useState(false);
   const [vistaMode, setVistaMode]       = useState("lista");
-  const [calendarDate, setCalendarDate] = useState(new Date().toISOString().slice(0,10));
+  const [calendarDate, setCalendarDate] = useState(hoyISO());
   const [filterPrio, setFilterPrio]     = useState("todas");
   const [dragId, setDragId]             = useState(null);
 
   const emptyForm = () => ({
     numero_cotizacion:"", titulo:"", cliente:"", descripcion:"",
     categoria:"Cámara CCTV", estado:"reportada",
-    fecha_reporte: new Date().toISOString().slice(0,10),
+    fecha_reporte: hoyISO(),
     equipo:"", serie:"", garantia:false, upselling:false,
     solucion_final:"", prioridad:"media", fecha_programada:"", hora_programada:"",
     visitas: []
@@ -2383,7 +2383,7 @@ function IncidenciasView({ contacts, isMobile }) {
     await supabase.from("incidencias").update({ visitas: updatedVisitas }).eq("id", ticket.id);
     setTickets(tickets.map(t=>t.id===ticket.id ? {...t, visitas: updatedVisitas} : t));
     setShowLogModal(false);
-    setLogForm({ fecha: new Date().toISOString().slice(0,10), hora:"09:00", tecnico:"Maximo Hudson", diagnostico:"", piezas:"", upselling:false, notas:"" });
+    setLogForm({ fecha: hoyISO(), hora:"09:00", tecnico:"Maximo Hudson", diagnostico:"", piezas:"", upselling:false, notas:"" });
   };
 
   const openEdit = (t) => {
@@ -2510,7 +2510,7 @@ function IncidenciasView({ contacts, isMobile }) {
     setDragId(null);
   };
 
-  const today = new Date().toISOString().slice(0,10);
+  const today = hoyISO();
   const nowHour = `${String(new Date().getHours()).padStart(2,"0")}:00`;
 
   return (
@@ -2884,7 +2884,7 @@ function ColaboradorView({ session }) {
   // Estado modal sincronización
   const [syncMonto, setSyncMonto]   = useState("total_cot"); // "total_cot"|"monto_pf"|"manual"
   const [montoManual, setMontoManual] = useState("");
-  const [fechaEmision, setFechaEmision] = useState(new Date().toISOString().slice(0,10));
+  const [fechaEmision, setFechaEmision] = useState(hoyISO());
   const [sincronizar, setSincronizar]   = useState(true); // si crear factura_emitida automáticamente
 
   useEffect(() => {
@@ -3162,13 +3162,13 @@ function ColaboradorView({ session }) {
                   <div style={{ display:"flex", gap:8, flexShrink:0 }}>
                     <button onClick={()=>printDetallado(pf)} style={{ padding:"6px 14px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:6, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>🖨 PDF Detallado</button>
                     {!facturado && (
-                      <button onClick={()=>{ setEditFact({pfId:pf.id, pf}); setFactNum(pf.numero_factura||""); setSyncMonto("total_cot"); setMontoManual(""); setSincronizar(true); setFechaEmision(new Date().toISOString().slice(0,10)); }}
+                      <button onClick={()=>{ setEditFact({pfId:pf.id, pf}); setFactNum(pf.numero_factura||""); setSyncMonto("total_cot"); setMontoManual(""); setSincronizar(true); setFechaEmision(hoyISO()); }}
                         style={{ padding:"6px 14px", background:COLORS.accentDim, border:`1px solid ${COLORS.accent}44`, borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
                         + N° Factura
                       </button>
                     )}
                     {facturado && (
-                      <button onClick={()=>{ setEditFact({pfId:pf.id, pf}); setFactNum(pf.numero_factura||""); setSyncMonto("total_cot"); setMontoManual(""); setSincronizar(false); setFechaEmision(new Date().toISOString().slice(0,10)); }}
+                      <button onClick={()=>{ setEditFact({pfId:pf.id, pf}); setFactNum(pf.numero_factura||""); setSyncMonto("total_cot"); setMontoManual(""); setSincronizar(false); setFechaEmision(hoyISO()); }}
                         style={{ padding:"6px 10px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>✏️</button>
                     )}
                   </div>

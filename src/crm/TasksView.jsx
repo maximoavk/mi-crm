@@ -4,7 +4,7 @@ import { supabase } from "../supabaseClient.js";
 import { mapTaskToDb, mapTask } from "../shared/mappers.js";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
 import { AddBtn } from "../shared/ui.jsx";
-import { fmtDate } from "../shared/format.js";
+import { fmtDate, hoyISO } from "../shared/format.js";
 import { STAGES } from "../shared/constants.js";
 
 // ── TASKS ────────────────────────────────────────────────────────────────────
@@ -29,7 +29,7 @@ export function TasksView({ tasks, setTasks, contacts, deals, isMobile }) {
   };
 
   const [viewMode, setViewMode]   = useState("semana"); // lista | dia | semana | mes
-  const [calDate, setCalDate]     = useState(new Date().toISOString().slice(0,10));
+  const [calDate, setCalDate]     = useState(hoyISO());
   const [dragTaskId, setDragTaskId] = useState(null);
   const [dropTarget, setDropTarget] = useState(null); // hora o fecha resaltada
   const [filter, setFilter]       = useState("todas");
@@ -42,7 +42,7 @@ export function TasksView({ tasks, setTasks, contacts, deals, isMobile }) {
   const ff = (k,v) => setForm(p=>({...p,[k]:v}));
 
   // ── Filtrar ──
-  const today = new Date().toISOString().slice(0,10);
+  const today = hoyISO();
   const filtered = tasks.filter(t => {
     const statusOk = filter==="todas" ? true : filter==="vencidas" ? (t.status!=="completada"&&t.status!=="cancelada"&&t.dueDate&&t.dueDate<today) : t.status===filter;
     const catOk    = filterCat==="todas" || t.category===filterCat;
@@ -202,7 +202,7 @@ export function TasksView({ tasks, setTasks, contacts, deals, isMobile }) {
               {new Date(calDate+"T12:00").toLocaleDateString("es-CL",{weekday:"long",day:"numeric",month:"long"})}
             </span>
             <button onClick={()=>{ const d=new Date(calDate+"T12:00"); d.setDate(d.getDate()+1); setCalDate(d.toISOString().slice(0,10)); }} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"5px 10px", color:COLORS.text, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>→</button>
-            <button onClick={()=>setCalDate(new Date().toISOString().slice(0,10))} style={{ background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, borderRadius:6, padding:"5px 10px", color:COLORS.accent, cursor:"pointer", fontFamily:FONT, fontSize:11 }}>Hoy</button>
+            <button onClick={()=>setCalDate(hoyISO())} style={{ background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, borderRadius:6, padding:"5px 10px", color:COLORS.accent, cursor:"pointer", fontFamily:FONT, fontSize:11 }}>Hoy</button>
           </div>
           <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, overflow:"hidden" }}>
             {HOURS.map(h=>{
@@ -255,11 +255,11 @@ export function TasksView({ tasks, setTasks, contacts, deals, isMobile }) {
               Semana del {new Date(tasksWeek[0]?.date+"T12:00").toLocaleDateString("es-CL",{day:"numeric",month:"short"})} al {new Date(tasksWeek[6]?.date+"T12:00").toLocaleDateString("es-CL",{day:"numeric",month:"short",year:"numeric"})}
             </span>
             <button onClick={()=>{ const d=new Date(calDate+"T12:00"); d.setDate(d.getDate()+7); setCalDate(d.toISOString().slice(0,10)); }} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"5px 10px", color:COLORS.text, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>→</button>
-            <button onClick={()=>setCalDate(new Date().toISOString().slice(0,10))} style={{ background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, borderRadius:6, padding:"5px 10px", color:COLORS.accent, cursor:"pointer", fontFamily:FONT, fontSize:11 }}>Hoy</button>
+            <button onClick={()=>setCalDate(hoyISO())} style={{ background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, borderRadius:6, padding:"5px 10px", color:COLORS.accent, cursor:"pointer", fontFamily:FONT, fontSize:11 }}>Hoy</button>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:8 }}>
             {tasksWeek.map(({date,tasks:dayTasks})=>{
-              const isToday = date===new Date().toISOString().slice(0,10);
+              const isToday = date===hoyISO();
               const isDropDay = dropTarget===date;
               return (
                 <div key={date}
@@ -315,14 +315,14 @@ export function TasksView({ tasks, setTasks, contacts, deals, isMobile }) {
               {new Date(calDate+"T12:00").toLocaleDateString("es-CL",{month:"long",year:"numeric"})}
             </span>
             <button onClick={()=>{ const d=new Date(calDate+"T12:00"); d.setMonth(d.getMonth()+1); setCalDate(d.toISOString().slice(0,10)); }} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"5px 10px", color:COLORS.text, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>→</button>
-            <button onClick={()=>setCalDate(new Date().toISOString().slice(0,10))} style={{ background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, borderRadius:6, padding:"5px 10px", color:COLORS.accent, cursor:"pointer", fontFamily:FONT, fontSize:11 }}>Hoy</button>
+            <button onClick={()=>setCalDate(hoyISO())} style={{ background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, borderRadius:6, padding:"5px 10px", color:COLORS.accent, cursor:"pointer", fontFamily:FONT, fontSize:11 }}>Hoy</button>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:1, background:COLORS.border, border:`1px solid ${COLORS.border}`, borderRadius:8, overflow:"hidden" }}>
             {["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"].map(d=>(
               <div key={d} style={{ background:COLORS.surface, padding:"6px 8px", fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", textAlign:"center" }}>{d}</div>
             ))}
             {tasksMonth.map(({date,inMonth,tasks:dayTasks})=>{
-              const isToday = date===new Date().toISOString().slice(0,10);
+              const isToday = date===hoyISO();
               const isDropDay = dropTarget===date;
               return (
                 <div key={date}

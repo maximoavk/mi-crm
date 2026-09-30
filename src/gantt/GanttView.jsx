@@ -11,7 +11,7 @@ import { fetchImageAsDataUri } from "../CosteoPdfDocs.jsx";
 import { GanttDoc } from "../GanttPdfDoc.jsx";
 import { GanttBar } from "./GanttBar.jsx";
 import { PdfPreviewModal } from "../shared/ui.jsx";
-import { fechaLocal } from "../shared/format.js";
+import { fechaLocal, hoyISO } from "../shared/format.js";
 
 export function GanttView({ isMobile }) {
   const [cotNum, setCotNum]       = useState("");
@@ -20,7 +20,7 @@ export function GanttView({ isMobile }) {
   const [tasks, setTasks]         = useState([]);
   const [saving, setSaving]       = useState(false);
   const [ganttId, setGanttId]     = useState(null);
-  const [calStart, setCalStart]   = useState(new Date().toISOString().slice(0,10));
+  const [calStart, setCalStart]   = useState(hoyISO());
   // `viewStart` es el borde izquierdo de lo que se VE en pantalla — separado
   // de `calStart` (la fecha de inicio OFICIAL del proyecto, la que se guarda
   // en gantt_proyectos.fecha_inicio) para poder paginar por mes sin correr el
@@ -47,10 +47,10 @@ export function GanttView({ isMobile }) {
   });
   const [allGantts, setAllGantts] = useState([]);
   const [versionPicker, setVersionPicker] = useState(null); // { cot, versions }
-  const [headerData, setHeaderData] = useState({ elaboradoPor:"Maximo Hudson", cliente:"", fechaEmision: new Date().toISOString().slice(0,10) });
+  const [headerData, setHeaderData] = useState({ elaboradoPor:"Maximo Hudson", cliente:"", fechaEmision: hoyISO() });
   const [headerEdit, setHeaderEdit] = useState(false);
   const cellW = 28;
-  const today = new Date().toISOString().slice(0,10);
+  const today = hoyISO();
   const calCols = buildCalHeader(viewStart, calDays);
 
   // Vista por mes: pagina la ventana visible mes a mes (sin tocar la fecha

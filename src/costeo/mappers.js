@@ -1,7 +1,9 @@
 // Conversión entre filas de la tabla costeos y proyectos de costeo.
+import { hoyISO } from "../shared/format.js";
+
 export const mapCosteo = (r) => ({
   id: r.id, nombre: r.nombre || "", cliente: r.cliente || "",
-  fecha: r.fecha || new Date().toISOString().slice(0,10),
+  fecha: r.fecha || hoyISO(),
   fases: r.fases || [], partidas: r.partidas || [],
   clienteNombre: r.cliente_nombre || "", clienteEmpresa: r.cliente_empresa || "",
   clienteRut: r.cliente_rut || "", clienteTelefono: r.cliente_telefono || "",

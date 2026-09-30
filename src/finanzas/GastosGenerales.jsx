@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
 import { SecTitle, KpiCard, FinModal, LabelInput, BtnSec, BtnPrimary } from "./ui.jsx";
 import { COLORS, FONT_DISPLAY, FONT } from "../theme.js";
-import { fmtClp, fmtFecha } from "../shared/format.js";
+import { fmtClp, fmtFecha, hoyISO } from "../shared/format.js";
 import { CATEGORIAS_GASTO, LINEAS_NEGOCIO } from "./constants.js";
 
 export function GastosGenerales({ isMobile }) {
@@ -14,7 +14,7 @@ export function GastosGenerales({ isMobile }) {
   const [filtroMes, setFiltroMes] = useState("");
 
   const emptyForm = {
-    numero_documento:"", tipo_documento:"Boleta", fecha_recepcion: new Date().toISOString().slice(0,10),
+    numero_documento:"", tipo_documento:"Boleta", fecha_recepcion: hoyISO(),
     razon_social_proveedor:"", rut_proveedor:"", categoria:"Otro variable",
     monto_neto:0, aplica_iva:true, monto_iva:0, monto_total:0, notas:"", linea_negocio:"",
   };

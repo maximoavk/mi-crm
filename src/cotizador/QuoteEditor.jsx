@@ -6,7 +6,7 @@ import { mapProduct, mapQuoteLine, mapQuoteToDb, mapQuoteLineToDb, mapQuote } fr
 import { subtotalLinea, totalCotizacion } from "../calculos.js";
 import { Input, Select } from "../shared/ui.jsx";
 import { RUBRO_OPTIONS, TIPO_TRABAJO_OPTIONS } from "../shared/constants.js";
-import { formatRut, fmt } from "../shared/format.js";
+import { formatRut, fmt, hoyISO } from "../shared/format.js";
 
 // ── QUOTE EDITOR ─────────────────────────────────────────────────────────────
 function ContactSearchBox({ contacts, onSelect }) {
@@ -71,7 +71,7 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
     type: quote.type||"productos",
     rubro: quote.rubro||"", tipoTrabajo: quote.tipoTrabajo||"",
   } : {
-    number: nextCOT, serie:"COT", date: new Date().toISOString().slice(0,10),
+    number: nextCOT, serie:"COT", date: hoyISO(),
     contactId:"", clientName:"", clientRut:"", clientCompany:"",
     clientAddress:"", clientPhone:"", paymentMethod:"Al finalizar",
     hasIva:true, ivaMode:"empresa", comments:"", terms:TERMS_DEFAULT, status:"borrador", type:"productos",

@@ -1,5 +1,6 @@
 import React from "react";
 import { Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
+import { hoyISO } from "./shared/format.js";
 
 export const GANTT_PDF_COLORS = {
   fase: "#3b82f6",
@@ -302,7 +303,7 @@ export function GanttTaskRow({ task, numberLabel, calCols, weeks, granularity, t
 // si caían fuera de esa ventana). `monthPages` es `[{ label, calCols }]`,
 // una entrada por cada mes que cubre el proyecto completo (ver App.jsx).
 export function GanttDoc({ proyecto, headerData, tasks, monthPages, numbersById, phasePresupById, totales, logoDataUri }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = hoyISO();
   const pages = (monthPages && monthPages.length > 0) ? monthPages : [{ label: "", calCols: [] }];
 
   return (

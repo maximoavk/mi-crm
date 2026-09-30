@@ -8,7 +8,7 @@ import { syncPartidasConFases, calcFase, redondearTotal, partidaCobrado, codigos
 import { FONT_DISPLAY, COLORS, FONT } from "../theme.js";
 import { fetchImageAsDataUri, CosteoInternoDoc, CosteoClienteDoc } from "../CosteoPdfDocs.jsx";
 import { LOGO_PRINT } from "../shared/assets.js";
-import { fmt } from "../shared/format.js";
+import { fmt, hoyISO } from "../shared/format.js";
 import { RUBRO_OPTIONS, TIPO_TRABAJO_OPTIONS } from "../shared/constants.js";
 import { TotBox, FaseBlock, PartidaRow } from "./FaseBlock.jsx";
 import { HistorialCambiosTab } from "./HistorialCambios.jsx";
@@ -130,7 +130,7 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) 
   };
 
   const newProyecto = async () => {
-    const draft = { nombre:"Nuevo Proyecto", cliente:"", fecha: new Date().toISOString().slice(0,10), fases:[], partidas:[] };
+    const draft = { nombre:"Nuevo Proyecto", cliente:"", fecha: hoyISO(), fases:[], partidas:[] };
     const { data, error } = await supabase.from("costeos").insert(mapCosteoToDb(draft)).select().single();
     if(error){ alert("Error al crear proyecto: "+error.message); return; }
     const p = mapCosteo(data);
@@ -155,7 +155,7 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) 
       cliente: p.cliente, clienteNombre: p.clienteNombre, clienteEmpresa: p.clienteEmpresa,
       clienteRut: p.clienteRut, clienteTelefono: p.clienteTelefono, clienteDireccion: p.clienteDireccion,
       clienteId: p.clienteId,
-      fecha: new Date().toISOString().slice(0,10),
+      fecha: hoyISO(),
       fases: (p.fases||[]).map(f=>({ ...f, id: Date.now()+Math.random(), items:(f.items||[]).map(it=>({...it, id:Math.random().toString(36).slice(2)})) })),
       partidas: (p.partidas||[]).map(pa=>({...pa, id: Date.now()+Math.random()}))
     };
@@ -464,7 +464,7 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) 
     // ─────────────────────────────────────────────────────────────────────────
 
     const quoteData = {
-      numero:nextNum, fecha:proyecto.fecha||new Date().toISOString().slice(0,10),
+      numero:nextNum, fecha:proyecto.fecha||hoyISO(),
       contact_id:proyecto.clienteId||null, nombre_cliente:proyecto.clienteNombre||proyecto.cliente||"",
       rut_cliente:proyecto.clienteRut||"", razon_social:proyecto.clienteEmpresa||"",
       direccion:proyecto.clienteDireccion||"", telefono:proyecto.clienteTelefono||"",
