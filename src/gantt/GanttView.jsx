@@ -735,7 +735,7 @@ export function GanttView({ isMobile }) {
                         opacity: draggedId===t.id?0.4:1,
                         borderTop: isDragOver?`2px solid ${COLORS.accent}`:"",
                         cursor: "default" }}
-                      className={isFase ? undefined : "gantt-row-in"}
+                      className={isFase ? undefined : "tree-row-in"}
                       onClick={()=>setSelectedId(t.id)}
                       onDoubleClick={()=>setEditRow(editing?null:t.id)}>
                       {/* Nro */}
