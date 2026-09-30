@@ -4,7 +4,7 @@ import { pdf } from "@react-pdf/renderer";
 import { CosteoInternoDoc, CosteoClienteDoc, fetchImageAsDataUri } from "./CosteoPdfDocs.jsx";
 import { GanttDoc } from "./GanttPdfDoc.jsx";
 import { COLORS, FONT, FONT_DISPLAY } from "./theme.js";
-import { supabase } from "./supabaseClient.js";
+import { supabase, must, replaceRows } from "./supabaseClient.js";
 import { DesignProjectsPanel } from "./design/DesignProjectsPanel.jsx";
 import { DesignView } from "./design/DesignView.jsx";
 
@@ -588,20 +588,20 @@ function ContactsView({ contacts, setContacts, isMobile }) {
     setSaving(true);
     if (editingId) {
       const { data, error } = await supabase.from("contactos").update(mapContactToDb(form)).eq("id", editingId).select().single();
-      if (!error) {
-        const updated = contacts.map(c=>c.id===editingId?mapContact(data):c);
-        setContacts(updated);
-        if (selected?.id===editingId) setSelected(mapContact(data));
-      }
+      if (error) { setSaving(false); return; } // falló: el formulario queda abierto
+      const updated = contacts.map(c=>c.id===editingId?mapContact(data):c);
+      setContacts(updated);
+      if (selected?.id===editingId) setSelected(mapContact(data));
     } else {
       const { data, error } = await supabase.from("contactos").insert(mapContactToDb(form)).select().single();
-      if (!error) setContacts([...contacts, mapContact(data)]);
+      if (error) { setSaving(false); return; }
+      setContacts([...contacts, mapContact(data)]);
     }
     setSaving(false); setShowModal(false); setEditingId(null);
   };
 
   const del = async (id) => {
-    await supabase.from("contactos").delete().eq("id", id);
+    const { error } = await supabase.from("contactos").delete().eq("id", id); if(error) return;
     setContacts(contacts.filter(c=>c.id!==id)); setSelected(null);
   };
 
@@ -842,10 +842,12 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
     const dbData = { ...mapDealToDb(form), numero_cotizacion: form.quoteNumber ? Number(form.quoteNumber) : null };
     if (editingId) {
       const { data, error } = await supabase.from("deals").update(dbData).eq("id", editingId).select().single();
-      if (!error) setDeals(deals.map(d=>d.id===editingId?{...mapDeal(data), quoteNumber:form.quoteNumber}:d));
+      if (error) { setSaving(false); return; } // falló: el formulario queda abierto
+      setDeals(deals.map(d=>d.id===editingId?{...mapDeal(data), quoteNumber:form.quoteNumber}:d));
     } else {
       const { data, error } = await supabase.from("deals").insert(dbData).select().single();
-      if (!error) setDeals([...deals, {...mapDeal(data), quoteNumber:form.quoteNumber}]);
+      if (error) { setSaving(false); return; }
+      setDeals([...deals, {...mapDeal(data), quoteNumber:form.quoteNumber}]);
     }
     setSaving(false); setShowModal(false); setEditingId(null);
   };
@@ -872,7 +874,7 @@ function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) 
   };
 
   const del = async (id) => {
-    await supabase.from("deals").delete().eq("id", id);
+    const { error } = await supabase.from("deals").delete().eq("id", id); if(error) return;
     setDeals(deals.filter(d=>d.id!==id));
   };
 
@@ -1349,17 +1351,19 @@ function TasksView({ tasks, setTasks, contacts, deals, isMobile }) {
     const dbForm = { ...form, company: form.company||(contact?.company||""), done: form.status==="completada" };
     if (editTask) {
       const { data } = await supabase.from("task").update(mapTaskToDb(dbForm)).eq("id", editTask.id).select().single();
-      if (data) setTasks(tasks.map(t=>t.id===editTask.id ? mapTask(data) : t));
+      if (!data) { setSaving(false); return; } // falló: el formulario queda abierto
+      setTasks(tasks.map(t=>t.id===editTask.id ? mapTask(data) : t));
     } else {
       const { data } = await supabase.from("task").insert(mapTaskToDb(dbForm)).select().single();
-      if (data) setTasks([...tasks, mapTask(data)]);
+      if (!data) { setSaving(false); return; }
+      setTasks([...tasks, mapTask(data)]);
     }
     setSaving(false); setShowModal(false); setEditTask(null); setForm(emptyForm());
   };
 
   const del = async (id) => {
     if (!window.confirm("¿Eliminar esta tarea?")) return;
-    await supabase.from("task").delete().eq("id", id);
+    const { error } = await supabase.from("task").delete().eq("id", id); if(error) return;
     setTasks(tasks.filter(t=>t.id!==id));
   };
 
@@ -2693,8 +2697,8 @@ function GanttView({ isMobile }) {
 
   const eliminarGantt = async (g) => {
     if(!window.confirm(`¿Eliminar la carta Gantt de "${g.nombre}" (Cot. N° ${g.numero_cotizacion})? Esta acción no se puede deshacer.`)) return;
-    await supabase.from("gantt_tareas").delete().eq("gantt_id", g.id);
-    await supabase.from("gantt_proyectos").delete().eq("id", g.id);
+    const { error: errTareas } = await supabase.from("gantt_tareas").delete().eq("gantt_id", g.id); if(errTareas) return;
+    const { error: errGantt } = await supabase.from("gantt_proyectos").delete().eq("id", g.id); if(errGantt) return;
     setAllGantts(prev => prev.filter(x => x.id !== g.id));
   };
 
@@ -2702,19 +2706,22 @@ function GanttView({ isMobile }) {
     if(!proyecto) return;
     setSaving(true);
     let gId = ganttId;
-    if(!gId) {
-      const { data } = await supabase.from("gantt_proyectos").insert({
-        numero_cotizacion: Number(cotNum), nombre: proyecto.nombre,
-        fecha_inicio: calStart, fecha_fin: addDays(calStart, calDays),
-      }).select().single();
-      gId = data?.id;
-      setGanttId(gId);
-    } else {
-      await supabase.from("gantt_proyectos").update({ nombre: proyecto.nombre, fecha_inicio: calStart }).eq("id", gId);
+    try {
+      if(!gId) {
+        const data = await must(supabase.from("gantt_proyectos").insert({
+          numero_cotizacion: Number(cotNum), nombre: proyecto.nombre,
+          fecha_inicio: calStart, fecha_fin: addDays(calStart, calDays),
+        }).select().single());
+        gId = data.id;
+        setGanttId(gId);
+      } else {
+        await must(supabase.from("gantt_proyectos").update({ nombre: proyecto.nombre, fecha_inicio: calStart }).eq("id", gId));
+      }
+    } catch(e) {
+      setSaving(false);
+      alert("No se pudo guardar la Gantt: "+e.message);
+      return;
     }
-    if(!gId) { setSaving(false); return; }
-    // Borrar y reinsertar tareas
-    await supabase.from("gantt_tareas").delete().eq("gantt_id", gId);
     const rows = tasks.map((t,i)=>({
       gantt_id: gId, tipo: t.tipo, nombre: t.nombre, rol: t.rol,
       responsable: t.responsable, fecha_inicio: t.inicio, fecha_fin: t.fin,
@@ -2722,7 +2729,13 @@ function GanttView({ isMobile }) {
       hh_presup: Number(t.hhPresup)||0, hh_real: Number(t.hhReal)||0, hh_terceros: Number(t.hhTerceros)||0,
       depende_de: t.depende||"", orden: i, parent_id: t.parentId||null,
     }));
-    await supabase.from("gantt_tareas").insert(rows);
+    try {
+      await replaceRows(supabase, "gantt_tareas", "gantt_id", gId, rows);
+    } catch(e) {
+      setSaving(false);
+      alert("No se pudieron guardar las tareas de la Gantt (se mantienen las anteriores): "+e.message);
+      return;
+    }
     setSaving(false);
     alert("✅ Gantt guardada");
   };
@@ -3542,7 +3555,7 @@ function ProductsDB({ isMobile }) {
   };
 
   const del = async (id) => {
-    await supabase.from("products").delete().eq("id", id);
+    const { error } = await supabase.from("products").delete().eq("id", id); if(error) return;
     setProducts(products.filter(p=>p.id!==id));
   };
 
@@ -3582,7 +3595,7 @@ function ProductsDB({ isMobile }) {
   };
 
   const deletePrice = async (priceId) => {
-    await supabase.from("product_prices").delete().eq("id", priceId);
+    const { error } = await supabase.from("product_prices").delete().eq("id", priceId); if(error) return;
     await loadProductPrices(editingId);
   };
 
@@ -4069,7 +4082,7 @@ function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCosteo })
   };
 
   const del = async (id) => {
-    await supabase.from("cotizaciones").delete().eq("id", id);
+    const { error } = await supabase.from("cotizaciones").delete().eq("id", id); if(error) return;
     setQuotes(quotes.filter(q=>q.id!==id));
   };
 
@@ -5644,7 +5657,7 @@ function PrestacionesView({ isMobile }) {
 
   const deleteDoc = async (id) => {
     if(!window.confirm("¿Eliminar este documento?")) return;
-    await supabase.from("comprobantes_pago").delete().eq("id",id);
+    const { error } = await supabase.from("comprobantes_pago").delete().eq("id",id); if(error) return;
     setDocs(prev=>prev.filter(d=>d.id!==id));
     setPfDocs(prev=>prev.filter(d=>d.id!==id));
   };
@@ -5652,7 +5665,7 @@ function PrestacionesView({ isMobile }) {
   const deletePedido = async (id) => {
     const isCP = tab==="cp";
     if(!window.confirm(`¿Eliminar este ${isCP?"Pedido":"grupo Pre-Factura"}? Los documentos existentes no se eliminan.`)) return;
-    await supabase.from("pedidos").delete().eq("id",id);
+    const { error } = await supabase.from("pedidos").delete().eq("id",id); if(error) return;
     if(isCP) setPedidos(prev=>prev.filter(p=>p.id!==id));
     else     setPfPedidos(prev=>prev.filter(p=>p.id!==id));
   };
@@ -5662,16 +5675,14 @@ function PrestacionesView({ isMobile }) {
     const payload = { ...form, tipo: isCP ? "cp" : "pf" };
     if(editPedido?.id){
       const { data } = await supabase.from("pedidos").update({...payload, updated_at:new Date().toISOString()}).eq("id",editPedido.id).select().single();
-      if(data){
-        if(isCP) setPedidos(prev=>prev.map(p=>p.id===data.id?data:p));
-        else     setPfPedidos(prev=>prev.map(p=>p.id===data.id?data:p));
-      }
+      if(!data) return; // falló: el formulario queda abierto
+      if(isCP) setPedidos(prev=>prev.map(p=>p.id===data.id?data:p));
+      else     setPfPedidos(prev=>prev.map(p=>p.id===data.id?data:p));
     } else {
       const { data } = await supabase.from("pedidos").insert(payload).select().single();
-      if(data){
-        if(isCP) setPedidos(prev=>[data,...prev]);
-        else     setPfPedidos(prev=>[data,...prev]);
-      }
+      if(!data) return;
+      if(isCP) setPedidos(prev=>[data,...prev]);
+      else     setPfPedidos(prev=>[data,...prev]);
     }
     setShowPedidoModal(false); setEditPedido(null);
   };
@@ -6223,7 +6234,7 @@ function DeclararCambioPanel({ quote, onClose, onApplied }) {
       let quoteLinesPatch = [];
       let newTotal = quote.total||0;
       if(isFaseMode){
-        await supabase.from("costeos").update({ fases }).eq("id", costeo.id);
+        await must(supabase.from("costeos").update({ fases }).eq("id", costeo.id));
         const faseIdxsChanged = [...new Set(pending.filter(p=>p.faseIdx!==null).map(p=>p.faseIdx))];
         for(const fi of faseIdxsChanged){
           const codigo = `${sapBase}-F${fi+1}`;
@@ -6231,35 +6242,35 @@ function DeclararCambioPanel({ quote, onClose, onApplied }) {
           const calc = calcFase(fases[fi]);
           if(linea){
             const patch = { precio_unitario:Math.round(calc.ventaBruta), descuento:Number(calc.descPct)||0, subtotal:Math.round(calc.ventaConDesc) };
-            await supabase.from("quote_lines").update(patch).eq("id", linea.id);
+            await must(supabase.from("quote_lines").update(patch).eq("id", linea.id));
             quoteLinesPatch.push({ id: linea.id, ...patch });
           }
         }
         const netoNuevo = Math.round(fases.reduce((s,f)=>s+calcFase(f).ventaConDesc,0));
         newTotal = quote.hasIva ? Math.round((netoNuevo+Math.round(netoNuevo*0.19))/100)*100 : Math.round(netoNuevo/100)*100;
-        await supabase.from("cotizaciones").update({ total:newTotal }).eq("id", quote.id);
+        await must(supabase.from("cotizaciones").update({ total:newTotal }).eq("id", quote.id));
       } else {
         for(const p of pending){
           if(p.esNuevaLinea){
             const maxOrden = quoteLines.reduce((m,l)=>Math.max(m,l.orden||0),0);
-            await supabase.from("quote_lines").insert({
+            await must(supabase.from("quote_lines").insert({
               quote_id:quote.id, codigo:`${sapBase}-EXTRA${Date.now()%10000}`, descripcion:p.descripcion,
               cantidad:1, precio_unitario:p.valor, descuento:0, tipo_linea:"item", hito:"",
               subtotal:p.valor, orden:maxOrden+1,
-            });
+            }));
           } else if(p.lineaId){
-            await supabase.from("quote_lines").delete().eq("id", p.lineaId);
+            await must(supabase.from("quote_lines").delete().eq("id", p.lineaId));
           }
         }
         newTotal = Math.round((quote.total||0) + pending.reduce((s,p)=>s+p.valor,0));
-        await supabase.from("cotizaciones").update({ total:newTotal }).eq("id", quote.id);
+        await must(supabase.from("cotizaciones").update({ total:newTotal }).eq("id", quote.id));
       }
       const rows = pending.map(p=>({
         costeo_id: costeo?.id||null, cotizacion_id: quote.id, fase_id: p.faseId?String(p.faseId):null,
         tipo: p.tipo, descripcion: p.descripcion, product_id: p.productId?String(p.productId):null,
         qty_antes: p.qtyAntes, qty_despues: p.qtyDespues, valor: p.valor,
       }));
-      const { data: inserted } = await supabase.from("cambios_alcance").insert(rows).select("id");
+      const inserted = await must(supabase.from("cambios_alcance").insert(rows).select("id"));
       setSaving(false);
       onApplied({ total:newTotal, quoteLinesPatch, changeIds:(inserted||[]).map(r=>r.id), changes:pending });
     } catch(e){
@@ -7142,16 +7153,17 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
     setSaving(true);
     const quoteData = mapQuoteToDb({...header, total});
     let savedQuote;
-    if (isEdit) {
-      const { data } = await supabase.from("cotizaciones").update(quoteData).eq("id", quote.id).select().single();
-      savedQuote = data;
-      await supabase.from("quote_lines").delete().eq("quote_id", quote.id);
-    } else {
-      const { data } = await supabase.from("cotizaciones").insert(quoteData).select().single();
-      savedQuote = data;
-    }
-    if (savedQuote && lines.length > 0) {
-      await supabase.from("quote_lines").insert(lines.map(l=>mapQuoteLineToDb(l, savedQuote.id)));
+    try {
+      if (isEdit) {
+        savedQuote = await must(supabase.from("cotizaciones").update(quoteData).eq("id", quote.id).select().single());
+      } else {
+        savedQuote = await must(supabase.from("cotizaciones").insert(quoteData).select().single());
+      }
+      await replaceRows(supabase, "quote_lines", "quote_id", savedQuote.id, lines.map(l=>mapQuoteLineToDb(l, savedQuote.id)));
+    } catch(e) {
+      setSaving(false);
+      alert("No se pudo guardar la cotización: "+e.message);
+      return;
     }
     // Auto-push a Pipeline si estado = "enviada" o "aprobada" (COT → Propuesta/Cierre, SIN → Cerrado 100%)
     if((quoteData.estado === "enviada" || quoteData.estado === "aprobada" || quoteData.serie === "SIN") && savedQuote){
@@ -8675,10 +8687,10 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
     scheduleSave(p);
   };
   const deleteProyecto = async (id) => {
+    const { error } = await supabase.from("costeos").delete().eq("id", id); if(error) return;
     clearTimeout(saveTimers.current[id]); delete saveTimers.current[id];
     setProyectos(prev => prev.filter(x=>x.id!==id));
     if(selected===id) setSelected(null);
-    await supabase.from("costeos").delete().eq("id", id);
   };
   const duplicateProyecto = async (p, e) => {
     e.stopPropagation();
@@ -10035,10 +10047,9 @@ function PurchaseView({ isMobile }) {
         updated_at:     new Date().toISOString(),
       };
       if (editingOC) {
-        await supabase.from("purchase_orders").update(ocData).eq("id", ocId);
-        await supabase.from("purchase_order_lines").delete().eq("purchase_order_id", ocId);
+        await must(supabase.from("purchase_orders").update(ocData).eq("id", ocId));
       } else {
-        const { data } = await supabase.from("purchase_orders").insert({ ...ocData, numero_oc: getNextNumOC() }).select().single();
+        const data = await must(supabase.from("purchase_orders").insert({ ...ocData, numero_oc: getNextNumOC() }).select().single());
         ocId = data.id;
       }
       const linesDb = validLines.map(l=>({
@@ -10048,9 +10059,11 @@ function PurchaseView({ isMobile }) {
         cantidad:          Number(l.cantidad),
         precio_unitario:   Math.round(Number(l.precio_unitario) * 1.19), // guardar bruto en BD
       }));
-      await supabase.from("purchase_order_lines").insert(linesDb);
+      await replaceRows(supabase, "purchase_order_lines", "purchase_order_id", ocId, linesDb);
       setShowModal(false); setEditingOC(null);
       await loadAll();
+    } catch(e) {
+      alert("No se pudo guardar la orden de compra: "+e.message);
     } finally { setSavingOC(false); }
   };
 
@@ -10061,8 +10074,8 @@ function PurchaseView({ isMobile }) {
 
   const deleteOC = async (ocId) => {
     if (!confirm("¿Eliminar esta orden de compra?")) return;
-    await supabase.from("purchase_order_lines").delete().eq("purchase_order_id", ocId);
-    await supabase.from("purchase_orders").delete().eq("id", ocId);
+    const { error: errLineas } = await supabase.from("purchase_order_lines").delete().eq("purchase_order_id", ocId); if(errLineas) return;
+    const { error: errOC } = await supabase.from("purchase_orders").delete().eq("id", ocId); if(errOC) return;
     setOcs(p=>p.filter(o=>o.id!==ocId));
   };
 
@@ -10441,7 +10454,7 @@ function PurchaseView({ isMobile }) {
                                   </button>
                                   <button onClick={async()=>{
                                     if (!confirm(`¿Eliminar guía ${ship.numero_guia}?`)) return;
-                                    await supabase.from("shipments").delete().eq("id",ship.id);
+                                    const { error } = await supabase.from("shipments").delete().eq("id",ship.id); if(error) return;
                                     setShipments(prev=>prev.filter(s=>s.id!==ship.id));
                                   }}
                                     style={{ padding:"3px 8px", background:`${COLORS.red}22`, border:`1px solid ${COLORS.red}44`, borderRadius:5, color:COLORS.red, fontFamily:FONT, fontSize:12, cursor:"pointer", fontWeight:700, lineHeight:1 }}>
@@ -12518,7 +12531,7 @@ function GastosGenerales({ isMobile }) {
 
   const del = async (id) => {
     if (!window.confirm("¿Eliminar este gasto?")) return;
-    await supabase.from("facturas_recibidas").delete().eq("id", id);
+    const { error } = await supabase.from("facturas_recibidas").delete().eq("id", id); if(error) return;
     setGastos(p => p.filter(g => g.id !== id));
   };
 
@@ -12815,17 +12828,19 @@ function CajaView({ isMobile }) {
     const payload = { ...form, monto: Number(form.monto) };
     if (editMov) {
       const { data } = await supabase.from("movimientos_cuenta").update(payload).eq("id", editMov.id).select().single();
-      if (data) setMovs(prev => prev.map(m=>m.id===editMov.id ? data : m));
+      if (!data) { setSaving(false); return; } // falló: el formulario queda abierto
+      setMovs(prev => prev.map(m=>m.id===editMov.id ? data : m));
     } else {
       const { data } = await supabase.from("movimientos_cuenta").insert(payload).select().single();
-      if (data) setMovs(prev => [data, ...prev]);
+      if (!data) { setSaving(false); return; }
+      setMovs(prev => [data, ...prev]);
     }
     setSaving(false); setShowModal(false); setEditMov(null); setForm(emptyMov());
   };
 
   const deleteMov = async (id) => {
     if (!window.confirm("¿Eliminar este movimiento?")) return;
-    await supabase.from("movimientos_cuenta").delete().eq("id", id);
+    const { error } = await supabase.from("movimientos_cuenta").delete().eq("id", id); if(error) return;
     setMovs(prev => prev.filter(m=>m.id!==id));
   };
 
@@ -14133,7 +14148,7 @@ function CuentasPorPagar({ isMobile }) {
                                 borderRadius:6, color:editingRow===f.id?COLORS.accent:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
                               ✏️
                             </button>
-                            <button onClick={async()=>{ if(!window.confirm(`¿Eliminar la entrada "${f.numero_documento}"?`)) return; await supabase.from("facturas_recibidas").delete().eq("id",f.id); setFacturas(prev=>prev.filter(x=>x.id!==f.id)); }}
+                            <button onClick={async()=>{ if(!window.confirm(`¿Eliminar la entrada "${f.numero_documento}"?`)) return; const { error } = await supabase.from("facturas_recibidas").delete().eq("id",f.id); if(error) return; setFacturas(prev=>prev.filter(x=>x.id!==f.id)); }}
                               style={{ padding:"5px 8px", background:"transparent", border:`1px solid ${COLORS.red}44`,
                                 borderRadius:6, color:COLORS.red, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
                               ✕
@@ -15192,7 +15207,7 @@ function SlRow({ sl, products, editSl, setEditSl, savingEdit, setSavingEdit, cot
         </button>
         <button onClick={async ()=>{
             if (!window.confirm("¿Eliminar esta línea?")) return;
-            await supabase.from("cot_service_lines").delete().eq("id", sl.id);
+            const { error } = await supabase.from("cot_service_lines").delete().eq("id", sl.id); if(error) return;
             setDetail(p=>({...p, sls: p.sls.filter(x=>x.id!==sl.id)}));
             onRefresh();
           }}
@@ -15483,7 +15498,7 @@ function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
                           </div>
                           <button onClick={async ()=>{
                               if (!window.confirm("¿Eliminar este gasto?")) return;
-                              await supabase.from("cot_gastos_directos").delete().eq("id", gd.id);
+                              const { error } = await supabase.from("cot_gastos_directos").delete().eq("id", gd.id); if(error) return;
                               setDetail(p=>({...p, gds: p.gds.filter(x=>x.id!==gd.id)}));
                               onRefresh();
                             }}
@@ -16388,17 +16403,19 @@ function ProveedoresView({ isMobile }) {
     };
     if (editing) {
       const { data: updated } = await supabase.from("suppliers").update(data).eq("id", editing.id).select().single();
-      if (updated) setSuppliers(prev => prev.map(s => s.id===editing.id ? updated : s));
+      if (!updated) { setSaving(false); return; } // falló: el formulario queda abierto
+      setSuppliers(prev => prev.map(s => s.id===editing.id ? updated : s));
     } else {
       const { data: created } = await supabase.from("suppliers").insert(data).select().single();
-      if (created) setSuppliers(prev => [...prev, created]);
+      if (!created) { setSaving(false); return; }
+      setSuppliers(prev => [...prev, created]);
     }
     setSaving(false); setShowModal(false);
   };
 
   const del = async (id) => {
     if (!window.confirm("¿Eliminar proveedor?")) return;
-    await supabase.from("suppliers").delete().eq("id", id);
+    const { error } = await supabase.from("suppliers").delete().eq("id", id); if(error) return;
     setSuppliers(prev => prev.filter(s => s.id!==id));
   };
 
@@ -17010,7 +17027,7 @@ function AnalisisPreciosView({ isMobile }) {
 
   const deleteAn = async(id)=>{
     if(!window.confirm("¿Eliminar este análisis?")) return;
-    await supabase.from("analisis_precios").delete().eq("id",id);
+    const { error } = await supabase.from("analisis_precios").delete().eq("id",id); if(error) return;
     setAnalyses(prev=>prev.filter(a=>a.id!==id));
   };
 
@@ -18453,7 +18470,7 @@ function OperacionesView({ isMobile }) {
 
   const deleteOp = async(id)=>{
     if(!window.confirm("¿Eliminar esta operación?")) return;
-    await supabase.from("operaciones_terreno").delete().eq("id",id);
+    const { error } = await supabase.from("operaciones_terreno").delete().eq("id",id); if(error) return;
     setOps(prev=>prev.filter(o=>o.id!==id));
   };
 
@@ -19538,7 +19555,7 @@ function AnalisisPrecios({ isMobile }) {
 
   const deleteFicha = async (id) => {
     if(!window.confirm("¿Eliminar esta ficha comparativa?")) return;
-    await supabase.from("fichas_comparativas").delete().eq("id",id);
+    const { error } = await supabase.from("fichas_comparativas").delete().eq("id",id); if(error) return;
     setFichas(prev=>prev.filter(f=>f.id!==id));
   };
 
@@ -20163,10 +20180,12 @@ function IncidenciasView({ contacts, isMobile }) {
     const payload = { ...form, visitas: form.visitas||[] };
     if (editTicket) {
       const { data } = await supabase.from("incidencias").update(payload).eq("id", editTicket.id).select().single();
-      if (data) setTickets(tickets.map(t=>t.id===editTicket.id ? {...data, visitas:data.visitas||[]} : t));
+      if (!data) { setSaving(false); return; } // falló: el formulario queda abierto
+      setTickets(tickets.map(t=>t.id===editTicket.id ? {...data, visitas:data.visitas||[]} : t));
     } else {
       const { data } = await supabase.from("incidencias").insert(payload).select().single();
-      if (data) setTickets([{...data, visitas:data.visitas||[]}, ...tickets]);
+      if (!data) { setSaving(false); return; }
+      setTickets([{...data, visitas:data.visitas||[]}, ...tickets]);
     }
     setSaving(false); setShowModal(false); setEditTicket(null); setForm(emptyForm());
   };
@@ -20184,7 +20203,7 @@ function IncidenciasView({ contacts, isMobile }) {
 
   const del = async (id) => {
     if (!window.confirm("¿Eliminar esta incidencia?")) return;
-    await supabase.from("incidencias").delete().eq("id", id);
+    const { error } = await supabase.from("incidencias").delete().eq("id", id); if(error) return;
     setTickets(tickets.filter(t=>t.id!==id));
   };
 
