@@ -1,4 +1,6 @@
 // ─── PDF OT ───────────────────────────────────────────────────────────────────
+import { EMPRESA, EMPRESA_RUT } from "../shared/empresa.js";
+
 export function printOT(ot, clienteMode=false, historial=[]) {
   const fecha = ot.fecha_programada
     ? new Date(ot.fecha_programada+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"})
@@ -184,7 +186,7 @@ export function printOT(ot, clienteMode=false, historial=[]) {
         ${e.obs?`<div class="hist-obs">↳ ${e.obs}</div>`:""}
       </div>`).join("")}`:""}
   </div>
-  <div class="foot">Innovación | Tecnología | Seguridad · ventas@polygonos.cl · +56 9 6426 6356 · Polygonos SpA · RUT 77.180.437-3</div>
+  <div class="foot">${EMPRESA.lema} · ${EMPRESA.email} · ${EMPRESA.telefono} · ${EMPRESA_RUT}</div>
   <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;background:#fff;z-index:9999"><div style="display:flex;flex-direction:column;line-height:1.15"><span style="font-size:6px;font-weight:700;color:#0ea5e9;letter-spacing:0.18em;text-transform:uppercase;font-family:Arial,sans-serif">CLAUDE ERP</span><span style="font-size:11px;font-weight:900;color:#0f172a;font-family:Arial,sans-serif;letter-spacing:-0.01em">Polygonos 360</span></div></div>
   <script>window.onload=()=>window.print();</script>
   </body></html>`;

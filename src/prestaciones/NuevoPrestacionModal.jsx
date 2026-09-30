@@ -4,6 +4,7 @@ import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
 import { supabase } from "../supabaseClient.js";
 import { fmt, hoyISO } from "../shared/format.js";
 import { DeclararCambioPanel } from "./DeclararCambioPanel.jsx";
+import { EMPRESA_RUT } from "../shared/empresa.js";
 
 export function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved }) {
   const isPF     = tab==="pf";
@@ -158,7 +159,7 @@ export function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, 
 
     const pfWarning  = isPF ? `
       <div style="margin-bottom:5mm;padding:3px 0 4px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:baseline;">
-        <span style="font-size:9px;color:#94a3b8;letter-spacing:.05em;font-family:'Courier New',monospace;">Sistema de Pre-Facturación Interna · Polygonos SpA · RUT 77.180.437-3</span>
+        <span style="font-size:9px;color:#94a3b8;letter-spacing:.05em;font-family:'Courier New',monospace;">Sistema de Pre-Facturación Interna · ${EMPRESA_RUT}</span>
         <span style="font-size:9px;color:#94a3b8;font-family:'Courier New',monospace;">${new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"})} · ${form.responsable||"mhudson"}</span>
       </div>` : "";
 
@@ -244,7 +245,7 @@ export function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, 
       <div class="br"><div class="bl"><span>Saldo pendiente / total COT</span><span>${pct2.toFixed(1)}%</span></div><div class="bt"><div style="height:100%;width:${pct2.toFixed(1)}%;background:#b85c00;border-radius:99px"></div></div></div>
     </div>
     ${cambiosBlock}
-    <div class="foot">${isPF?`Polygonos SpA · RUT 77.180.437-3 · Sistema de Pre-Facturación Interna · No válido como documento legal · Emitido por ${form.responsable||"mhudson"} el ${new Date().toLocaleDateString("es-CL")} · ${numero}`:`Polygonos SpA · RUT 77.180.437-3 · Documento interno de gestión · Generado el ${new Date().toLocaleDateString("es-CL")} · ${numero}`}</div>
+    <div class="foot">${isPF?`${EMPRESA_RUT} · Sistema de Pre-Facturación Interna · No válido como documento legal · Emitido por ${form.responsable||"mhudson"} el ${new Date().toLocaleDateString("es-CL")} · ${numero}`:`${EMPRESA_RUT} · Documento interno de gestión · Generado el ${new Date().toLocaleDateString("es-CL")} · ${numero}`}</div>
     <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;background:#fff;z-index:9999"><div style="display:flex;flex-direction:column;line-height:1.15"><span style="font-size:6px;font-weight:700;color:#0ea5e9;letter-spacing:0.18em;text-transform:uppercase;font-family:Arial,sans-serif">CLAUDE ERP</span><span style="font-size:11px;font-weight:900;color:#0f172a;font-family:Arial,sans-serif;letter-spacing:-0.01em">Polygonos 360</span></div></div>
     <script>window.onload=()=>window.print();</script></body></html>`;
     const clienteNombre = (selQuotes[0]?.clientCompany||selQuotes[0]?.clientName||"Cliente").replace(/[^a-zA-Z0-9\u00C0-\u017E ]/g,"").trim();

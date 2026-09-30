@@ -5,6 +5,7 @@ import { totalCotizacion } from "../calculos.js";
 import { supabase } from "../supabaseClient.js";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
 import { Badge } from "../shared/ui.jsx";
+import { EMPRESA, EMPRESA_RUT, TITULAR } from "../shared/empresa.js";
 
 // ── PROPOSAL EDITOR ────────────────────────────────────────────────────────────
 export function ProposalEditor({ proposal, contacts, costeos, quotes, products, onSaved, onCancel, isMobile }) {
@@ -23,7 +24,7 @@ export function ProposalEditor({ proposal, contacts, costeos, quotes, products, 
     cliente:           proposal?.cliente || "",
     rut_cliente:       proposal?.rut_cliente || "",
     contact_id:        proposal?.contact_id || "",
-    elaborado_por:     proposal?.elaborado_por || "Maximo Hudson",
+    elaborado_por:     proposal?.elaborado_por || TITULAR.nombre,
     fecha_elaboracion: proposal?.fecha_elaboracion || hoyISO(),
     estado:            proposal?.estado || "borrador",
     antecedentes:      proposal?.antecedentes || "",
@@ -311,7 +312,7 @@ export function ProposalEditor({ proposal, contacts, costeos, quotes, products, 
     </table>
     <h2>Garantías</h2><p>${form.garantias}</p>
     <h2>Forma de Pago</h2><p>${form.condiciones_pago}</p>
-    <div class="footer">Polygonos SpA · RUT 77.180.437-3 · ventas@polygonos.cl · +56 9 6426 6356 · Innovación | Tecnología | Seguridad</div>
+    <div class="footer">${EMPRESA_RUT} · ${EMPRESA.email} · ${EMPRESA.telefono} · ${EMPRESA.lema}</div>
     <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;background:#fff;z-index:9999"><div style="display:flex;flex-direction:column;line-height:1.15"><span style="font-size:6px;font-weight:700;color:#0ea5e9;letter-spacing:0.18em;text-transform:uppercase;font-family:Arial,sans-serif">CLAUDE ERP</span><span style="font-size:11px;font-weight:900;color:#0f172a;font-family:Arial,sans-serif;letter-spacing:-0.01em">Polygonos 360</span></div></div>
     <script>window.onload=()=>window.print();</script>
     </body></html>`;

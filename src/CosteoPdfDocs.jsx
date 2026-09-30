@@ -1,5 +1,6 @@
 import React from "react";
 import { Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
+import { EMPRESA, EMPRESA_RUT, TITULAR } from "./shared/empresa.js";
 
 export const fmt = (v) => "$" + Math.round(v || 0).toLocaleString("es-CL");
 
@@ -130,7 +131,7 @@ export function CosteoInternoDoc({ proyecto, fasesCalc, codigosPorFaseArr, total
         <View style={styles.headerRow}>
           <View>
             {logoDataUri ? <Image src={logoDataUri} style={styles.logo} /> : null}
-            <Text style={styles.headerSub}>RUT: 77.180.437-3 · ventas@polygonos.cl · 9-81334980</Text>
+            <Text style={styles.headerSub}>{`RUT: ${EMPRESA.rut} · ${EMPRESA.email} · ${TITULAR.telefono}`}</Text>
           </View>
           <View style={styles.titleBox}>
             <Text style={styles.titleText}>COSTEO INTERNO</Text>
@@ -249,7 +250,7 @@ export function CosteoClienteDoc({ proyecto, fasesCalc, codigosPorFaseArr, total
         <View style={{ marginTop: 16, alignItems: "flex-end" }} wrap={false}>
           <Text style={{ fontSize: 8, fontWeight: 700 }}>Firmado digitalmente por</Text>
           <Text style={{ fontSize: 8, fontWeight: 700 }}>MAXIMO MANUEL HUDSON BLANCO</Text>
-          <Text style={{ fontSize: 7, color: "#64748b" }}>Polygonos SpA · RUT 77.180.437-3</Text>
+          <Text style={{ fontSize: 7, color: "#64748b" }}>{EMPRESA_RUT}</Text>
         </View>
       </Page>
     </Document>

@@ -1,6 +1,7 @@
 import React from "react";
 import { Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
 import { hoyISO } from "./shared/format.js";
+import { EMPRESA_RUT } from "./shared/empresa.js";
 
 export const GANTT_PDF_COLORS = {
   fase: "#3b82f6",
@@ -161,7 +162,7 @@ export function GanttPdfHeader({ proyecto, headerData, totales, calCols, weeks, 
       <View style={ganttPdfStyles.headerTopRow}>
         <View>
           {logoDataUri ? <Image src={logoDataUri} style={ganttPdfStyles.logo} /> : null}
-          <Text style={ganttPdfStyles.headerSub}>Polygonos SpA · RUT 77.180.437-3</Text>
+          <Text style={ganttPdfStyles.headerSub}>{EMPRESA_RUT}</Text>
         </View>
         <View style={{ alignItems: "flex-end" }}>
           <Text style={ganttPdfStyles.titleText}>Carta Gantt · COT-{proyecto?.cotNum || ""}{monthLabel ? ` · ${monthLabel}` : ""}</Text>

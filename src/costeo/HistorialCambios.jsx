@@ -6,6 +6,7 @@ import { fmt } from "../shared/format.js";
 import { calcFase, calcItem } from "../calculos.js";
 import { supabase } from "../supabaseClient.js";
 import { Loader } from "../shared/ui.jsx";
+import { EMPRESA_RUT } from "../shared/empresa.js";
 
 // Historial consolidado de cambios de alcance (ver DeclararCambioPanel) para un
 // Costeo: todos los agregados/quitados/modificados de todas las prefacturas que
@@ -187,7 +188,7 @@ export function HistorialCambiosTab({ costeoId, proyecto }) {
       <tr style="border-top:1px solid #ccc"><td>Diferencia</td><td style="text-align:right;font-weight:600">${delta>=0?"+":""}$${delta.toLocaleString("es-CL")}</td></tr>
       <tr style="border-top:1px solid #1a1a1a;font-weight:bold;font-size:13px"><td>Valor versión ${toV.version_num}</td><td style="text-align:right">$${diff.totalNew.toLocaleString("es-CL")}</td></tr>
     </table></div>
-    <div class="foot">Polygonos SpA · RUT 77.180.437-3 · Documento interno de gestión · Comparativo generado el ${fmtDL(new Date())}</div>
+    <div class="foot">${EMPRESA_RUT} · Documento interno de gestión · Comparativo generado el ${fmtDL(new Date())}</div>
     <script>window.onload=()=>window.print();</script></body></html>`;
     const w = window.open("", "_blank");
     w.document.title = `Comparativo v${fromV.version_num}-v${toV.version_num} ${proyecto?.nombre||""}`;

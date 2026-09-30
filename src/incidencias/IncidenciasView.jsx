@@ -5,6 +5,7 @@ import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
 import { supabase } from "../supabaseClient.js";
 import { LOGO_PRINT } from "../shared/assets.js";
 import { AddBtn } from "../shared/ui.jsx";
+import { EMPRESA, EMPRESA_RUT, TITULAR } from "../shared/empresa.js";
 
 // ── INCIDENCIAS ──────────────────────────────────────────────────────────────
 export function IncidenciasView({ contacts, isMobile }) {
@@ -36,7 +37,7 @@ export function IncidenciasView({ contacts, isMobile }) {
   const [editTicket, setEditTicket] = useState(null);
   const [showLog, setShowLog]     = useState(null); // ticket id con log abierto
   const [showLogModal, setShowLogModal] = useState(false);
-  const [logForm, setLogForm]     = useState({ fecha: hoyISO(), hora:"09:00", tecnico:"Maximo Hudson", diagnostico:"", piezas:"", upselling:false, notas:"" });
+  const [logForm, setLogForm]     = useState({ fecha: hoyISO(), hora:"09:00", tecnico:TITULAR.nombre, diagnostico:"", piezas:"", upselling:false, notas:"" });
   const [saving, setSaving]       = useState(false);
   const [vistaMode, setVistaMode]       = useState("lista");
   const [calendarDate, setCalendarDate] = useState(hoyISO());
@@ -102,7 +103,7 @@ export function IncidenciasView({ contacts, isMobile }) {
     await supabase.from("incidencias").update({ visitas: updatedVisitas }).eq("id", ticket.id);
     setTickets(tickets.map(t=>t.id===ticket.id ? {...t, visitas: updatedVisitas} : t));
     setShowLogModal(false);
-    setLogForm({ fecha: hoyISO(), hora:"09:00", tecnico:"Maximo Hudson", diagnostico:"", piezas:"", upselling:false, notas:"" });
+    setLogForm({ fecha: hoyISO(), hora:"09:00", tecnico:TITULAR.nombre, diagnostico:"", piezas:"", upselling:false, notas:"" });
   };
 
   const openEdit = (t) => {
@@ -149,8 +150,8 @@ export function IncidenciasView({ contacts, isMobile }) {
         <img src="${LOGO_PRINT}" class="hdr-logo"/>
         <div>
           <div class="hdr-title">Reporte de Incidencia Técnica</div>
-          <div class="hdr-sub">Polygonos SpA · RUT 77.180.437-3</div>
-          <div class="hdr-sub">ventas@polygonos.cl · 9-81334980</div>
+          <div class="hdr-sub">${EMPRESA_RUT}</div>
+          <div class="hdr-sub">${EMPRESA.email} · ${TITULAR.telefono}</div>
         </div>
       </div>
       <div style="text-align:right">
@@ -175,7 +176,7 @@ export function IncidenciasView({ contacts, isMobile }) {
     ${t.solucion_final?`<div class="section"><div class="section-title">Solución Final</div><div style="font-size:10px;color:#1e293b;background:#f0fdf4;padding:8px;border-radius:4px;border-left:3px solid #22c55e">${t.solucion_final}</div></div>`:""}
     <div style="margin-top:16px;padding-top:10px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:8px;color:#94a3b8">
       <span>Documento generado el ${new Date().toLocaleDateString("es-CL",{day:"2-digit",month:"long",year:"numeric"})}</span>
-      <span>Polygonos SpA · Soporte Técnico</span>
+      <span>${EMPRESA.razonSocial} · Soporte Técnico</span>
     </div>
     <div style="position:fixed;bottom:0;left:0;right:0;padding:4px 20px;border-top:1px solid #e2e8f0;display:flex;align-items:center;background:#fff;z-index:9999"><div style="display:flex;flex-direction:column;line-height:1.15"><span style="font-size:6px;font-weight:700;color:#0ea5e9;letter-spacing:0.18em;text-transform:uppercase;font-family:Arial,sans-serif">CLAUDE ERP</span><span style="font-size:11px;font-weight:900;color:#0f172a;font-family:Arial,sans-serif;letter-spacing:-0.01em">Polygonos 360</span></div></div>
     <script>window.onload=()=>window.print()<\/script>
