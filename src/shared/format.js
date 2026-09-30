@@ -3,7 +3,14 @@ export const fmt = (n) => new Intl.NumberFormat("es-CL", { style: "currency", cu
 
 export const fmtDate = (d) => d ? new Date(d + "T00:00").toLocaleDateString("es-CL", { day: "2-digit", month: "short" }) : "—";
 
-export const isOverdue = (d) => d && new Date(d + "T00:00") < new Date();
+// Fecha de hoy (hora local) como "YYYY-MM-DD", comparable con las fechas de Supabase.
+export const hoyISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+// Atrasado recién desde el día siguiente al vencimiento: lo que vence hoy todavía está a tiempo.
+export const isOverdue = (d) => !!d && String(d).slice(0, 10) < hoyISO();
 
 export const formatRut = (raw) => {
   const clean = raw.replace(/[^0-9kK]/g, "").toUpperCase();

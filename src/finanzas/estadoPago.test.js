@@ -16,6 +16,15 @@ describe("calcEstado", () => {
     expect(calcEstado(100000, 0, "2026-09-01")).toBe("vencido");
     expect(calcEstado(100000, 40000, "2026-09-01")).toBe("vencido");
   });
+  it("lo que vence hoy todavía no está vencido; desde mañana sí", () => {
+    expect(calcEstado(100000, 0, "2026-09-30")).toBe("pendiente");
+    expect(calcEstado(100000, 40000, "2026-09-30")).toBe("parcial");
+    expect(calcEstado(100000, 0, "2026-09-29")).toBe("vencido");
+  });
+  it("acepta vencimientos con hora (timestamp)", () => {
+    expect(calcEstado(100000, 0, "2026-09-30T00:00:00")).toBe("pendiente");
+    expect(calcEstado(100000, 0, "2026-09-29T23:59:00")).toBe("vencido");
+  });
   it("parcial si tiene abonos y no está vencido", () => {
     expect(calcEstado(100000, 40000, "2026-10-15")).toBe("parcial");
     expect(calcEstado(100000, 40000, null)).toBe("parcial");
