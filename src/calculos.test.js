@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  subtotalLinea, totalCotizacion, redondearTotal, calcItem, calcFase,
+  subtotalLinea, totalCotizacion, redondearTotal, desgloseTotal, calcItem, calcFase,
   partidaCobrado, syncPartidasConFases, codigosPorFase,
 } from "./calculos.js";
 
@@ -183,5 +183,41 @@ describe("codigosPorFase", () => {
       { id: "ma", tipo: "Materiales" },
     ];
     expect(codigosPorFase(items, 1)).toEqual({ eq: "F2-001", fe: "F2-002", ma: "F2-003", mo: "F2-004" });
+  });
+});
+
+describe("desgloseTotal (PDF de cotización)", () => {
+  it("con IVA: muestra el neto real de las líneas y el redondeo aparte", () => {
+    // líneas 102.700 → IVA 19.513 → 122.213 → total 122.210
+    expect(desgloseTotal(122210, 102700, { conIva: true })).toEqual({ neto: 102700, iva: 19513, redondeo: -3 });
+    // 100.000 + 19.000 = 119.000, sin redondeo
+    expect(desgloseTotal(119000, 100000, { conIva: true })).toEqual({ neto: 100000, iva: 19000, redondeo: 0 });
+  });
+  it("con IVA: el redondeo también puede sumar", () => {
+    // 100.005 × 0,19 = 19.000,95 → 19.001; 119.006 → 119.010
+    expect(desgloseTotal(119010, 100005, { conIva: true })).toEqual({ neto: 100005, iva: 19001, redondeo: 4 });
+  });
+  it("neto + IVA + redondeo siempre da el total", () => {
+    for (const neto of [1, 999, 102700, 123456, 987654]) {
+      const total = totalCotizacion(neto, true).total;
+      const d = desgloseTotal(total, neto, { conIva: true });
+      expect(d.neto + d.iva + d.redondeo).toBe(total);
+    }
+  });
+  it("si las líneas quedaron desactualizadas, manda el total (sin fila de redondeo)", () => {
+    // total sincronizado 150.000, pero las líneas todavía suman lo viejo
+    expect(desgloseTotal(150000, 102700, { conIva: true })).toEqual({ neto: 126050, iva: 23950, redondeo: 0 });
+    // mientras las líneas cargan (suma 0)
+    expect(desgloseTotal(122210, 0, { conIva: true })).toEqual({ neto: 102697, iva: 19513, redondeo: 0 });
+  });
+  it("desde el Costeo: las líneas ya traen IVA; el redondeo es contra su suma", () => {
+    // líneas c/IVA 157.446 → total 157.450
+    const d = desgloseTotal(157450, 157446, { lineasConIva: true });
+    expect(d).toEqual({ neto: 132308, iva: 25138, redondeo: 4 });
+    expect(d.neto + d.iva + d.redondeo).toBe(157450);
+  });
+  it("sin IVA: subtotal de líneas y redondeo", () => {
+    expect(desgloseTotal(123460, 123456)).toEqual({ neto: 123456, iva: 0, redondeo: 4 });
+    expect(desgloseTotal(123460, 999)).toEqual({ neto: 123460, iva: 0, redondeo: 0 });
   });
 });

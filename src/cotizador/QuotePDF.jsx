@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
 import { mapQuoteLine } from "../shared/mappers.js";
+import { desgloseTotal } from "../calculos.js";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
 import { LOGO_PRINT } from "../shared/assets.js";
 import { fmtDate, fmt } from "../shared/format.js";
@@ -22,8 +23,10 @@ export function QuotePDF({ quote, onBack }) {
   // motivo las líneas quedaron desactualizadas respecto al total ya
   // sincronizado, este PDF no debe mostrar un valor viejo.
   const total       = Math.round(Number(quote.total) || 0);
-  const netoDisplay = showIva ? Math.round(total / 1.19) : total;
-  const ivaDisplay  = showIva ? total - netoDisplay : 0;
+  // Neto real de las líneas + IVA + fila de redondeo (Ley 20.956), si las
+  // líneas cuadran con el total; si no, desglose calculado desde el total.
+  const sumaLineas  = lines.filter(l=>l.lineType!=="hito").reduce((s,l)=>s+Number(l.subtotal||0),0);
+  const { neto: netoDisplay, iva: ivaDisplay, redondeo } = desgloseTotal(total, sumaLineas, { conIva: quote.hasIva, lineasConIva: fromCosteo });
 
   // ── Forma de pago: calcular tramos con montos reales ──
   const pm       = quote.paymentMethod || "Al finalizar";
@@ -133,16 +136,24 @@ export function QuotePDF({ quote, onBack }) {
         <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
           <table className="totals-table" style={{ width:280, borderCollapse:"collapse" }}>
             <tbody>
-              {showIva ? (<>
+              {(showIva || redondeo !== 0) && (
                 <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
-                  <td style={{ padding:"6px 10px", fontSize:12, whiteSpace:"nowrap" }}>Total Neto</td>
+                  <td style={{ padding:"6px 10px", fontSize:12, whiteSpace:"nowrap" }}>{showIva ? "Total Neto" : "Subtotal"}</td>
                   <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(netoDisplay)}</td>
                 </tr>
+              )}
+              {showIva && (
                 <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
                   <td style={{ padding:"6px 10px", fontSize:12, whiteSpace:"nowrap" }}>IVA (19%)</td>
                   <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right", whiteSpace:"nowrap" }}>{fmt(ivaDisplay)}</td>
                 </tr>
-              </>) : null}
+              )}
+              {redondeo !== 0 && (
+                <tr style={{ borderBottom:"1px solid #e0e0e0" }}>
+                  <td style={{ padding:"6px 10px", fontSize:12, whiteSpace:"nowrap" }}>Redondeo</td>
+                  <td style={{ padding:"6px 10px", fontWeight:600, textAlign:"right", whiteSpace:"nowrap" }}>{redondeo > 0 ? "+" : "−"}{fmt(Math.abs(redondeo))}</td>
+                </tr>
+              )}
               <tr style={{ background:"#f0f0f0" }}>
                 <td style={{ padding:"8px 10px", fontWeight:700, whiteSpace:"nowrap" }}>Total</td>
                 <td style={{ padding:"8px 10px", fontWeight:700, textAlign:"right", fontSize:14, whiteSpace:"nowrap" }}>{fmt(total)}</td>
