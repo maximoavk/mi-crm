@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
+import { hoyISO } from "../shared/format.js";
 
 // ── CAJA / CUENTAS BANCARIAS ─────────────────────────────────────────────────
 export function CajaView({ isMobile }) {
@@ -12,7 +13,7 @@ export function CajaView({ isMobile }) {
   const [showModal,  setShowModal]  = useState(false);
   const [saving,     setSaving]     = useState(false);
   const [editMov,    setEditMov]    = useState(null);
-  const emptyMov = () => ({ cuenta_id:"", fecha:new Date().toISOString().slice(0,10), tipo:"ingreso", concepto:"", referencia:"", monto:"", notas:"" });
+  const emptyMov = () => ({ cuenta_id:"", fecha:hoyISO(), tipo:"ingreso", concepto:"", referencia:"", monto:"", notas:"" });
   const [form, setForm] = useState(emptyMov());
   const ff = (k,v) => setForm(p=>({...p,[k]:v}));
 

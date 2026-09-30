@@ -4,14 +4,14 @@ import { supabase } from "../../supabaseClient.js";
 import { FinModal, LabelInput, BtnSec, BtnPrimary } from "../ui.jsx";
 import { FONT, COLORS, FONT_DISPLAY } from "../../theme.js";
 import { CATS_GASTO_DIRECTO } from "../constants.js";
-import { fmtClp } from "../../shared/format.js";
+import { fmtClp, hoyISO } from "../../shared/format.js";
 
 export function ModalGastoDirecto({ cotizacion, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const emptyF = {
     categoria: "Ferretería / Tornillería",
     descripcion: "", proveedor: "", numero_documento: "",
-    fecha: new Date().toISOString().slice(0,10),
+    fecha: hoyISO(),
     monto_neto: "", aplica_iva: true, notas: "",
   };
   const [form, setForm] = useState(emptyF);

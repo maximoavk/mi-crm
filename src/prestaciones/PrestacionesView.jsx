@@ -8,6 +8,7 @@ import { PedidosGrid } from "./PedidosGrid.jsx";
 import { PedidoModal } from "./PedidoModal.jsx";
 import { EditTxModal } from "./EditTxModal.jsx";
 import { NuevoPrestacionModal } from "./NuevoPrestacionModal.jsx";
+import { hoyISO } from "../shared/format.js";
 
 export function PrestacionesView({ isMobile }) {
   const [tab, setTab]             = useState("cp"); // "cp" | "pf"
@@ -96,7 +97,7 @@ export function PrestacionesView({ isMobile }) {
   const [factNum, setFactNum]           = useState("");
   const [syncMonto, setSyncMonto]       = useState("total_cot");
   const [montoManual, setMontoManual]   = useState("");
-  const [fechaEmision, setFechaEmision] = useState(new Date().toISOString().slice(0,10));
+  const [fechaEmision, setFechaEmision] = useState(hoyISO());
   const [sincronizar, setSincronizar]   = useState(true);
   const [savingFact, setSavingFact]     = useState(false);
 
@@ -106,7 +107,7 @@ export function PrestacionesView({ isMobile }) {
     setSyncMonto("total_cot");
     setMontoManual("");
     setSincronizar(!ped.numero_factura); // si ya tiene N°, no sincronizar por defecto
-    setFechaEmision(new Date().toISOString().slice(0,10));
+    setFechaEmision(hoyISO());
   };
 
   const saveFacturaPF = async () => {

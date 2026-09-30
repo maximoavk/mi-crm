@@ -2,10 +2,10 @@
 import { useState } from "react";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
 import { supabase } from "../supabaseClient.js";
-import { fmt } from "../shared/format.js";
+import { fmt, hoyISO } from "../shared/format.js";
 
 export function EditTxModal({ doc, onClose, onSaved }) {
-  const emptyTx = () => ({ id:Date.now()+Math.random(), fecha:new Date().toISOString().slice(0,10), codigo:"", monto:"" });
+  const emptyTx = () => ({ id:Date.now()+Math.random(), fecha:hoyISO(), codigo:"", monto:"" });
   const [transacciones, setTransacciones] = useState(
     doc.transacciones?.length>0 ? doc.transacciones.map(t=>({...t,id:t.id||Date.now()+Math.random()})) : [emptyTx()]
   );
