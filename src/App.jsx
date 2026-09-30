@@ -5,6 +5,7 @@ import { CosteoInternoDoc, CosteoClienteDoc, fetchImageAsDataUri } from "./Coste
 import { GanttDoc } from "./GanttPdfDoc.jsx";
 import { COLORS, FONT, FONT_DISPLAY } from "./theme.js";
 import { supabase, must, replaceRows } from "./supabaseClient.js";
+import { IVA, CAT_TIPOS, codigosPorFase, calcItem, calcFase, partidaCobrado, syncPartidasConFases, subtotalLinea, totalCotizacion } from "./calculos.js";
 import { DesignProjectsPanel } from "./design/DesignProjectsPanel.jsx";
 import { DesignView } from "./design/DesignView.jsx";
 
@@ -6247,7 +6248,7 @@ function DeclararCambioPanel({ quote, onClose, onApplied }) {
           }
         }
         const netoNuevo = Math.round(fases.reduce((s,f)=>s+calcFase(f).ventaConDesc,0));
-        newTotal = quote.hasIva ? Math.round((netoNuevo+Math.round(netoNuevo*0.19))/100)*100 : Math.round(netoNuevo/100)*100;
+        newTotal = totalCotizacion(netoNuevo, quote.hasIva).total;
         await must(supabase.from("cotizaciones").update({ total:newTotal }).eq("id", quote.id));
       } else {
         for(const p of pending){
@@ -7111,9 +7112,7 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
     setLines(l => l.map((line,i) => {
       if(i!==idx) return line;
       const updated = {...line, productId:p.id, code:p.code, description:descCatalogo, unitPrice:precioConMargen};
-      const qty = Number(updated.qty)||1;
-      const disc = Number(updated.discount)||0;
-      updated.subtotal = precioConMargen * qty * (1 - disc/100);
+      updated.subtotal = subtotalLinea(precioConMargen, updated.qty, updated.discount);
       return updated;
     }));
     setLineSearch(s=>({...s,[idx]:p.name}));
@@ -7135,19 +7134,14 @@ function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
         const p = products.find(x=>x.id===val);
         if (p) { updated.code=p.code; updated.description=p.name; updated.unitPrice=p.price; }
       }
-      const price = Number(key==="unitPrice"?val:updated.unitPrice)||0;
-      const qty = Number(key==="qty"?val:updated.qty)||1;
-      const disc = Number(key==="discount"?val:updated.discount)||0;
-      updated.subtotal = Math.round(price * qty * (1 - disc/100));
+      updated.subtotal = subtotalLinea(updated.unitPrice, updated.qty, updated.discount);
       return updated;
     }));
   };
 
   const removeLine = (idx) => setLines(l=>l.filter((_,i)=>i!==idx));
 
-  const neto  = Math.round(lines.filter(l=>l.lineType!=="hito").reduce((s,l)=>s+Number(l.subtotal),0));
-  const iva   = header.hasIva ? Math.round(neto * 0.19) : 0;
-  const total = Math.round((neto + iva) / 100) * 100;
+  const { neto, iva, total } = totalCotizacion(lines.filter(l=>l.lineType!=="hito").reduce((s,l)=>s+Number(l.subtotal),0), header.hasIva);
 
   const save = async () => {
     setSaving(true);
@@ -7840,112 +7834,13 @@ function QuotePDF({ quote, onBack }) {
 // ── MAIN APP ─────────────────────────────────────────────────────────────────
 // ── COSTEO DE PROYECTOS ──────────────────────────────────────────────────────
 const CON_IVA = ["Equipos","Ferretería","Materiales"];
-const IVA = 1.19;
-const CAT_TIPOS = ["Equipos","Ferretería","Mano de Obra / HH"];
 const CAT_COLOR = { "Equipos":"#3b82f6","Mano de Obra / HH":"#10b981","Ferretería":"#f59e0b","Materiales":"#f59e0b" };
-
-// Códigos SAP de una fase: correlativo único (sin distinguir categoría) según el orden
-// visual de los ítems (mismo agrupamiento que se renderiza: Equipos, Ferretería, Mano de Obra).
-// Se recalcula siempre a partir de la posición real — así reordenar/duplicar ítems o fases
-// nunca puede dejar códigos repetidos o desalineados con la fase que los contiene.
-function codigosPorFase(items, faseIdx) {
-  const grouped = CAT_TIPOS.reduce((acc,t)=>{
-    acc[t] = t==="Ferretería" ? (items||[]).filter(i=>i.tipo==="Ferretería"||i.tipo==="Materiales") : (items||[]).filter(i=>i.tipo===t);
-    return acc;
-  },{});
-  const map = {};
-  let n = 0;
-  CAT_TIPOS.forEach(t => { grouped[t].forEach(it => { n++; map[it.id] = `F${faseIdx+1}-${String(n).padStart(3,"0")}`; }); });
-  return map;
-}
 
 function newItem(tipo) {
   const base = { id: Date.now()+Math.random(), tipo, cod:"", descripcion:"", modelo:"", qty:1, costoUnitNeto:0, margen:30, aplicaIVA: tipo!=="Costos Indirectos" };
   if(tipo==="Mano de Obra / HH") return { ...base, hh:1, valorHH:15000, aplicaIVA:false };
   if(tipo==="Costos Indirectos") return { ...base, costoUnit:0, aplicaIVA:false };
   return base;
-}
-
-function calcItem(it) {
-  const qty = Number(it.qty)||1;
-  const _costoUnit = it.tipo==="Mano de Obra / HH"
-    ? (Number(it.hh)||0)*(Number(it.valorHH)||0)
-    : it.tipo==="Costos Indirectos"
-      ? Number(it.costoUnit)||0
-      : Number(it.costoUnitNeto)||0;
-  const costoNeto = _costoUnit * qty;
-  let ventaNeta;
-  if(it.ventaUnitNeta !== undefined && it.ventaUnitNeta !== "" && it.ventaUnitNeta !== null) {
-    ventaNeta = Number(it.ventaUnitNeta) * qty;
-  } else {
-    ventaNeta = costoNeto * (1 + (Number(it.margen)||0)/100);
-  }
-  const margenVal  = ventaNeta - costoNeto;
-  const aplicaIVA  = !!it.aplicaIVA;
-  const ivaCompra  = aplicaIVA ? costoNeto*(IVA-1) : 0;
-  const ivaVenta   = aplicaIVA ? ventaNeta*(IVA-1) : 0;
-  const costoBruto = costoNeto + ivaCompra;
-  const ventaBruta = ventaNeta + ivaVenta;
-  return { ...it, _costoUnit, costoNeto, costoBruto, ivaCompra, margenTotal:margenVal, ventaNeta, ivaVenta, ventaBruta };
-}
-
-function calcFase(fase) {
-  const items = (fase.items||[]).map(calcItem);
-  const costoNeto   = items.reduce((s,i)=>s+i.costoNeto,0);
-  const costoBruto  = items.reduce((s,i)=>s+i.costoBruto,0);
-  const ivaCompra   = items.reduce((s,i)=>s+i.ivaCompra,0);
-  const margenTotal = items.reduce((s,i)=>s+i.margenTotal,0);
-  const ventaNeta   = items.reduce((s,i)=>s+i.ventaNeta,0);
-  const ivaTotal    = items.reduce((s,i)=>s+i.ivaVenta,0);
-  const ventaBruta  = items.reduce((s,i)=>s+i.ventaBruta,0);
-  // Descuento a nivel de fase, aplicado sobre el neto (antes de IVA); el IVA se recalcula
-  // sobre ese neto ya descontado, manteniendo la proporción IVA/neto real de la fase.
-  const descPct      = Number(fase.descuento)||0;
-  const descMonto    = Math.round(ventaNeta * (descPct/100));
-  const ventaNetaConDesc = ventaNeta - descMonto;
-  const ivaConDesc   = Math.round(ivaTotal * (1 - descPct/100));
-  const ventaConDesc = ventaNetaConDesc + ivaConDesc;
-  return {
-    ...fase, items,
-    costoNeto, costoTotal: costoNeto,
-    costoBruto, ivaCompra,
-    margenTotal,
-    ventaNeta,
-    ivaTotal,
-    ventaBruta, ventaTotal: ventaBruta,
-    descPct, descMonto, ventaNetaConDesc, ivaConDesc, ventaConDesc,
-  };
-}
-
-// Plata ya cobrada de una partida, en pesos exactos. `montoCobrado` es el dato
-// real (lo que se escribe directo en la columna "Cobrado"); `pctAvance` es
-// solo una vista de respaldo para partidas antiguas que no tengan
-// `montoCobrado` guardado todavía — nunca se recalculan pesos desde ahí para
-// no perder precisión (pctAvance solo guarda 1 decimal).
-function partidaCobrado(p) {
-  if(p.montoCobrado !== undefined && p.montoCobrado !== null && p.montoCobrado !== "") return Number(p.montoCobrado)||0;
-  return Number(p.monto||0) * (Number(p.pctAvance)||0) / 100;
-}
-
-// Mantiene el monto de cada partida vinculada a una fase igual al total actual
-// de esa fase, para que un cambio en el costeo no deje avances/cobertura desfasados.
-// La plata YA cobrada (montoCobrado) es un hecho que no cambia retroactivamente
-// — se preserva tal cual cuando el monto de la fase cambia (ej. se saca o
-// agrega un ítem); solo se recalcula pctAvance como referencia visual.
-function syncPartidasConFases(partidas, fases) {
-  let changed = false;
-  const next = (partidas||[]).map(p => {
-    if(!p.faseId) return p;
-    const fase = (fases||[]).find(f=>String(f.id)===String(p.faseId));
-    if(!fase) return p;
-    const montoActual = Math.round(calcFase(fase).ventaConDesc);
-    if(Number(p.monto)===montoActual) return p;
-    changed = true;
-    const cobrado = partidaCobrado(p);
-    const pctAvanceNuevo = montoActual>0 ? Math.min(100, Math.round((cobrado/montoActual)*1000)/10) : 0;
-    return { ...p, monto: montoActual, pctAvance: pctAvanceNuevo };
-  });
-  return changed ? next : partidas;
 }
 
 function TotBox({ label, value, color, sub }) {
@@ -9109,7 +9004,7 @@ function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign }) {
       }];
     }
     const netoNuevo = Math.round(rows.reduce((s,r)=>s+r.nuevo,0));
-    const totalNuevo = cotRow.aplica_iva ? Math.round((netoNuevo+Math.round(netoNuevo*0.19))/100)*100 : Math.round(netoNuevo/100)*100;
+    const totalNuevo = totalCotizacion(netoNuevo, cotRow.aplica_iva).total;
     setSyncPreview({ rows, totalActual:Number(cotRow.total)||0, totalNuevo, cotId:cotRow.id });
     setSyncModal(true);
   };
