@@ -40,8 +40,11 @@ export function planHoy(t, hoy) {
 // Todas las filas llevan pctPlan calculado a la fecha. Una fase sin
 // actividades conserva lo que tenga.
 export function derivarGantt(tasks, hoy) {
-  const hijos = hijosPorFase(tasks);
-  return (tasks || []).map(t => {
+  // Un hito es un solo día (su inicio): uno guardado con rango de fechas
+  // se pintaba repetido en cada día del rango.
+  const lista = (tasks || []).map(t => t.tipo === "H" && t.inicio && t.fin && t.fin !== t.inicio ? { ...t, fin: t.inicio } : t);
+  const hijos = hijosPorFase(lista);
+  return lista.map(t => {
     if (t.tipo === "F" && hijos[t.id]?.length) {
       const conFechas = hijos[t.id].filter(h => h.inicio && h.fin);
       const inicio = conFechas.length ? conFechas.reduce((m, h) => h.inicio < m ? h.inicio : m, conFechas[0].inicio) : t.inicio;
