@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   pagadoComprobante, parteDeComprobante, referenciaCoincide, facturasDeCotizacion, cobradoCotizacion,
   totalOC, pagadoOC, resumenProyecto, evaluarPago, porComprar, siguienteNumeroOC,
+  codigoCot, sugerirCotizacion, vincularProductoEnFases, sugerirCodigo,
 } from "./calculos.js";
 
 const q43 = { id: "q43", numero: 43, serie: "COT", total: 1190000 };
@@ -40,6 +41,10 @@ describe("cobrado al cliente", () => {
       { id: 4, referencia_cotizacion: "COT-12" },
     ];
     expect(facturasDeCotizacion(facturas, q43).map(f => f.id)).toEqual([1, 3]);
+    // con la lista de cotizaciones, una referencia ambigua no se asigna
+    const cots = [q43, { id: "s43", numero: 43, serie: "SIN" }];
+    const amb = [{ id: 7, referencia_cotizacion: "43" }, { id: 8, referencia_cotizacion: "COT 43" }];
+    expect(facturasDeCotizacion(amb, q43, cots).map(f => f.id)).toEqual([8]);
   });
   it("cobrado total con detalle", () => {
     const r = cobradoCotizacion({
@@ -101,10 +106,49 @@ describe("qué falta comprar (desde el Costeo)", () => {
     expect(cam).toMatchObject({ qty: 6, yaEnOC: 5, pendiente: 1, costoBruto: 53550 });
     expect(items.find(i => i.productId === "p2")).toMatchObject({ qty: 1, pendiente: 1 });
     expect(items).toHaveLength(2);
-    expect(sinMaestro).toEqual([{ descripcion: "Switch nuevo", qty: 1, costoBruto: 35700, fase: "Fase 1" }]);
+    expect(sinMaestro).toEqual([{ descripcion: "Switch nuevo", modelo: "", tipo: "Equipos", datasheet_url: "", qty: 1, costoBruto: 35700, fases: ["Fase 1"] }]);
+  });
+  it("los ítems sin maestro con la misma descripción se agrupan", () => {
+    const f = [
+      { nombre: "A", items: [{ tipo: "Equipos", descripcion: "Switch 8p", qty: 1, costoUnitNeto: 10000 }] },
+      { nombre: "B", items: [{ tipo: "Equipos", descripcion: " switch  8P ", qty: 2, costoUnitNeto: 10000 }] },
+    ];
+    expect(porComprar(f, []).sinMaestro).toMatchObject([{ descripcion: "Switch 8p", qty: 3, fases: ["A", "B"] }]);
+  });
+  it("enlaza el producto nuevo con los ítems sin maestro de igual descripción", () => {
+    const f = [
+      { nombre: "A", items: [
+        { tipo: "Equipos", descripcion: "Switch 8p", qty: 1 },
+        { tipo: "Equipos", descripcion: "Switch 8p", productId: "otro" },       // ya enlazado: no se toca
+        { tipo: "Mano de Obra / HH", descripcion: "Switch 8p" },                 // no comprable
+      ] },
+      { nombre: "B", items: [{ tipo: "Materiales", descripcion: "SWITCH 8P", datasheet_url: "http://x" }] },
+    ];
+    const r = vincularProductoEnFases(f, "switch 8p", { id: "pN", codigo: "SW-001", ficha_tecnica_url: "http://ficha" });
+    expect(r.cambiados).toBe(2);
+    expect(r.fases[0].items[0]).toMatchObject({ productId: "pN", cod: "SW-001", datasheet_url: "http://ficha" });
+    expect(r.fases[0].items[1].productId).toBe("otro");
+    expect(r.fases[0].items[2].productId).toBeUndefined();
+    expect(r.fases[1].items[0]).toMatchObject({ productId: "pN", datasheet_url: "http://x" });
+    expect(f[0].items[0].productId).toBeUndefined(); // no muta el original
   });
   it("si se pidió de más, lo pendiente queda en 0", () => {
     expect(porComprar(fases, [{ product_id: "p2", cantidad: 3 }]).items.find(i => i.productId === "p2").pendiente).toBe(0);
+  });
+});
+
+describe("vincular facturas a su cotización", () => {
+  const cots = [{ id: "a", numero: 43, serie: "COT" }, { id: "b", numero: 43, serie: "SIN" }, { id: "c", numero: 50, serie: "COT" }];
+  it("código de la cotización", () => {
+    expect(codigoCot({ numero: 7, serie: "SIN" })).toBe("SIN-007");
+    expect(codigoCot({ numero: 43 })).toBe("COT-043");
+  });
+  it("sugiere solo si hay una candidata", () => {
+    expect(sugerirCotizacion("COT-43", cots).id).toBe("a");
+    expect(sugerirCotizacion("SIN 43", cots).id).toBe("b");
+    expect(sugerirCotizacion("43", cots)).toBeNull();          // COT-043 y SIN-043: ambigua
+    expect(sugerirCotizacion("COT-99", cots)).toBeNull();
+    expect(sugerirCotizacion("", cots)).toBeNull();
   });
 });
 
@@ -113,5 +157,21 @@ describe("número de OC", () => {
     expect(siguienteNumeroOC(["OC-001", "OC-012", "OC-003"])).toBe("OC-013");
     expect(siguienteNumeroOC([])).toBe("OC-001");
     expect(siguienteNumeroOC(["OC-abc", null])).toBe("OC-001");
+  });
+});
+
+describe("código sugerido para un producto nuevo", () => {
+  const prods = [
+    { codigo: "ECAM-001", categoria: "CCTV Equipos" }, { codigo: "ECAM-007", categoria: "CCTV Equipos" },
+    { codigo: "X-1", categoria: "CCTV Equipos" }, { codigo: "ECAM-009", categoria: "Otra" },
+    { codigo: "SW01", categoria: "Redes" },
+  ];
+  it("usa el prefijo más común de la categoría y el siguiente número libre", () => {
+    expect(sugerirCodigo("CCTV Equipos", prods)).toBe("ECAM-010");
+    expect(sugerirCodigo("Redes", prods)).toBe("SW02");
+  });
+  it("sin categoría o sin productos en ella, nada", () => {
+    expect(sugerirCodigo("", prods)).toBe("");
+    expect(sugerirCodigo("Nueva", prods)).toBe("");
   });
 });

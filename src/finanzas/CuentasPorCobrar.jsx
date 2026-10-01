@@ -7,6 +7,8 @@ import { SecTitle, BtnPrimary, KpiCard, FinModal, LabelInput, LabelSelect, BtnSe
 import { fmtClp, fmtFecha } from "../shared/format.js";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
 import { badgePago } from "./badgePago.jsx";
+import { codigoCot, sugerirCotizacion } from "../compras/proyecto/calculos.js";
+import { vincularFactura } from "./facturaCotizacion.js";
 
 // ══════════════════════════════════════════════════════════════════════════════
 // 2. CUENTAS POR COBRAR — Facturas emitidas + pagos recibidos
@@ -19,6 +21,7 @@ export function CuentasPorCobrar({ isMobile }) {
   const [modal, setModal]         = useState(null);
   const [saving, setSaving]       = useState(false);
   const [pagoModal, setPagoModal] = useState(null);
+  const [vinculo, setVinculo]     = useState(null); // { factura, cotizacionId }
 
   // Buscador cliente
   const [busqueda, setBusqueda]           = useState("");
@@ -142,6 +145,34 @@ export function CuentasPorCobrar({ isMobile }) {
     return calcEstado(f.monto_total, pag, f.vencimiento, f.estado_manual) === "vencido";
   }).length;
 
+  // Vínculo con la cotización: lo usa Compras → Por proyecto para el saldo.
+  const cotDe = (f) => cotizaciones.find(q => String(q.id) === String(f.cotizacion_id));
+  const porVincular = facturas
+    .filter(f => !f.cotizacion_id && f.referencia_cotizacion)
+    .map(f => ({ factura: f, quote: sugerirCotizacion(f.referencia_cotizacion, cotizaciones) }))
+    .filter(x => x.quote);
+
+  const guardarVinculo = async () => {
+    setSaving(true);
+    try {
+      await vincularFactura(vinculo.factura.id, cotizaciones.find(q => String(q.id) === vinculo.cotizacionId) || null);
+      setVinculo(null);
+      await loadAll();
+    } catch (e) { alert("No se pudo guardar el vínculo: " + e.message); }
+    finally { setSaving(false); }
+  };
+
+  const vincularTodas = async () => {
+    const lista = porVincular.map(x => `${x.factura.numero_documento} → ${codigoCot(x.quote)}`).join("\n");
+    if (!confirm(`Vincular ${porVincular.length} factura(s) a la cotización de su referencia?\n\n${lista}`)) return;
+    setSaving(true);
+    try {
+      for (const x of porVincular) await vincularFactura(x.factura.id, x.quote);
+    } catch (e) { alert("No se pudieron vincular todas: " + e.message); }
+    await loadAll();
+    setSaving(false);
+  };
+
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start",
@@ -149,7 +180,12 @@ export function CuentasPorCobrar({ isMobile }) {
         <SecTitle sub="Facturas que emites a clientes · seguimiento de cobros">
           Cuentas por Cobrar
         </SecTitle>
-        <BtnPrimary onClick={abrirModal}>+ Nueva Factura Emitida</BtnPrimary>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          {porVincular.length > 0 && (
+            <BtnSec onClick={vincularTodas}>🔗 Vincular por referencia ({porVincular.length})</BtnSec>
+          )}
+          <BtnPrimary onClick={abrirModal}>+ Nueva Factura Emitida</BtnPrimary>
+        </div>
       </div>
 
       {/* KPIs */}
@@ -192,6 +228,16 @@ export function CuentasPorCobrar({ isMobile }) {
                       <tr key={f.id} style={{ borderBottom:`1px solid ${COLORS.border}` }}>
                         <td style={{ padding:"9px 12px", color:COLORS.accent, fontWeight:700, fontFamily:FONT }}>
                           {f.numero_documento}
+                          {(() => {
+                            const q = cotDe(f);
+                            const abrir = () => setVinculo({ factura: f,
+                              cotizacionId: String(q?.id ?? sugerirCotizacion(f.referencia_cotizacion, cotizaciones)?.id ?? "") });
+                            const chip = { display:"block", marginTop:3, padding:0, background:"none", border:"none",
+                              fontFamily:FONT, fontSize:10, fontWeight:400, cursor:"pointer", whiteSpace:"nowrap" };
+                            if (q) return <button onClick={abrir} title="Cambiar la cotización vinculada" style={{ ...chip, color:COLORS.green }}>🔗 {codigoCot(q)}</button>;
+                            if (f.referencia_cotizacion) return <button onClick={abrir} title="Sin vínculo: solo tiene el texto de referencia" style={{ ...chip, color:COLORS.yellow }}>Ref. {f.referencia_cotizacion} · vincular</button>;
+                            return <button onClick={abrir} style={{ ...chip, color:COLORS.textMuted }}>+ cotización</button>;
+                          })()}
                         </td>
                         <td style={{ padding:"9px 12px" }}>
                           <div style={{ fontWeight:600, color:COLORS.text, fontSize:13 }}>{f.razon_social_cliente||"—"}</div>
@@ -389,12 +435,12 @@ export function CuentasPorCobrar({ isMobile }) {
               onChange={e=>{
                 const q = cotizaciones.find(c => String(c.id) === e.target.value);
                 setForm(p=>({ ...p, cotizacion_id: e.target.value,
-                  referencia_cotizacion: q ? `${q.serie||"COT"}-${String(q.numero).padStart(3,"0")}` : "" }));
+                  referencia_cotizacion: q ? codigoCot(q) : "" }));
               }}>
               <option value="">— Sin cotización —</option>
               {cotizaciones.map(q => (
                 <option key={q.id} value={String(q.id)}>
-                  {q.serie||"COT"}-{String(q.numero).padStart(3,"0")} · {q.razon_social||q.nombre_cliente||"—"}{q.estado==="aprobada" ? " · aprobada" : ""}
+                  {codigoCot(q)} · {q.razon_social||q.nombre_cliente||"—"}{q.estado==="aprobada" ? " · aprobada" : ""}
                 </option>
               ))}
             </LabelSelect>
@@ -453,6 +499,33 @@ export function CuentasPorCobrar({ isMobile }) {
             <BtnPrimary onClick={savePago} disabled={saving||!formPago.monto||!formPago.fecha_pago}>
               {saving?"Guardando…":"Registrar Cobro"}
             </BtnPrimary>
+          </div>
+        </FinModal>
+      )}
+
+      {/* Modal vincular factura ↔ cotización */}
+      {vinculo && (
+        <FinModal title={`Cotización de la factura ${vinculo.factura.numero_documento}`} onClose={()=>setVinculo(null)} width={460}>
+          {vinculo.factura.referencia_cotizacion && !vinculo.factura.cotizacion_id && (
+            <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:12 }}>
+              Referencia escrita: <b style={{ color:COLORS.text }}>{vinculo.factura.referencia_cotizacion}</b>
+            </div>
+          )}
+          <LabelSelect label="Cotización" value={vinculo.cotizacionId}
+            onChange={e=>setVinculo(v=>({ ...v, cotizacionId: e.target.value }))}>
+            <option value="">— Sin cotización —</option>
+            {cotizaciones.map(q => (
+              <option key={q.id} value={String(q.id)}>
+                {codigoCot(q)} · {q.razon_social||q.nombre_cliente||"—"}{q.estado==="aprobada" ? " · aprobada" : ""}
+              </option>
+            ))}
+          </LabelSelect>
+          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:14 }}>
+            Los cobros de esta factura suman al saldo del proyecto en Compras → Por proyecto.
+          </div>
+          <div style={{ display:"flex", gap:10 }}>
+            <BtnSec onClick={()=>setVinculo(null)}>Cancelar</BtnSec>
+            <BtnPrimary onClick={guardarVinculo} disabled={saving}>{saving?"Guardando…":"Guardar vínculo"}</BtnPrimary>
           </div>
         </FinModal>
       )}

@@ -9,13 +9,14 @@ import { fmt, fmtFecha } from "../../shared/format.js";
 import { TreeCaret } from "../../shared/TreeCaret.jsx";
 import { TREE_ELBOW, treeLine } from "../../shared/tree.js";
 import { OC_ESTADOS } from "../ocEstados.js";
-import { cobradoCotizacion, porComprar, resumenProyecto, totalOC, pagadoOC } from "./calculos.js";
+import { cobradoCotizacion, codigoCot, porComprar, resumenProyecto, totalOC, pagadoOC } from "./calculos.js";
 import { cargarTodo, borrarPago } from "./datos.js";
 import { campo } from "./estilos.js";
 import { GenerarOCModal } from "./GenerarOCModal.jsx";
 import { PagarOCModal } from "./PagarOCModal.jsx";
+import { CrearProductoModal } from "./CrearProductoModal.jsx";
+import { vincularFactura } from "../../finanzas/facturaCotizacion.js";
 
-const codigoCot = (q) => `${q.serie || "COT"}-${String(q.numero).padStart(3, "0")}`;
 const mismoId = (a, b) => a != null && b != null && String(a) === String(b);
 
 const tarjeta = { background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16 };
@@ -34,6 +35,7 @@ export function ComprasProyectoView({ isMobile }) {
   const [generar, setGenerar] = useState(false);
   const [pagarOC, setPagarOC] = useState(null);
   const [aviso, setAviso] = useState("");
+  const [crearProducto, setCrearProducto] = useState(null); // ítem del Costeo sin maestro
 
   const recargar = () => cargarTodo()
     .then(d => { setDatos(d); setError(null); })
@@ -45,7 +47,7 @@ export function ComprasProyectoView({ isMobile }) {
     if (!datos) return [];
     const totales = Object.fromEntries(datos.cotizaciones.map(q => [q.id, Number(q.total) || 0]));
     return datos.cotizaciones.filter(q => q.estado === "aprobada").map(q => {
-      const cobrado = cobradoCotizacion({ quote: q, comprobantes: datos.comprobantes, facturas: datos.facturas, totalesPorCotizacion: totales });
+      const cobrado = cobradoCotizacion({ quote: q, comprobantes: datos.comprobantes, facturas: datos.facturas, totalesPorCotizacion: totales, cotizaciones: datos.cotizaciones });
       const ocs = datos.ocs.filter(o => mismoId(o.cotizacion_id, q.id));
       const costeo = datos.costeos.find(c => mismoId(c.cotizacion_id, q.id));
       return { quote: q, codigo: codigoCot(q), cobrado, ocs, costeo, resumen: resumenProyecto({ cobrado: cobrado.total, ocs, pagos: datos.pagos }) };
@@ -74,6 +76,14 @@ export function ComprasProyectoView({ isMobile }) {
 
   const seleccionados = faltante.items.filter(i => marcados[i.productId]);
 
+  const confirmarVinculo = async (d) => {
+    try {
+      await vincularFactura(d.facturaId, sel.quote);
+      setAviso(`Factura ${d.ref} vinculada a ${sel.codigo}.`);
+      await recargar();
+    } catch (e) { alert("No se pudo vincular la factura: " + e.message); }
+  };
+
   const quitarPago = async (pago) => {
     if (!confirm(`¿Borrar el pago de ${fmt(Number(pago.monto) || 0)} del ${fmtFecha(pago.fecha)}?`)) return;
     try { await borrarPago(pago.id); await recargar(); }
@@ -95,7 +105,7 @@ export function ComprasProyectoView({ isMobile }) {
         </div>
       )}
       {aviso && (
-        <div style={{ ...tarjeta, borderColor:`${COLORS.green}66`, color:COLORS.green, fontFamily:FONT, fontSize:12, marginBottom:14, display:"flex", justifyContent:"space-between" }}>
+        <div style={{ ...tarjeta, borderColor:`${COLORS.green}66`, color:COLORS.green, fontFamily:FONT, fontSize:12, marginBottom:14, display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 16px" }}>
           <span>{aviso}</span>
           <button onClick={() => setAviso("")} style={{ background:"none", border:"none", color:COLORS.green, cursor:"pointer" }}>✕</button>
         </div>
@@ -171,6 +181,11 @@ export function ComprasProyectoView({ isMobile }) {
                         {d.origen} {d.ref}
                         {d.compartido && <span title="El comprobante cubre varias cotizaciones: se reparte en proporción al total de cada una" style={{ color:COLORS.yellow }}> · compartido</span>}
                         {d.porReferencia && <span title="Factura sin cotización vinculada: se asoció por su texto de referencia" style={{ color:COLORS.yellow }}> · por referencia</span>}
+                        {d.porReferencia && (
+                          <button onClick={() => confirmarVinculo(d)} title={`Guardar el vínculo de la factura ${d.ref} con ${sel.codigo}`}
+                            style={{ marginLeft:8, padding:"1px 8px", borderRadius:5, border:`1px solid ${COLORS.accent}55`, background:`${COLORS.accent}14`,
+                              color:COLORS.accent, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>🔗 Vincular</button>
+                        )}
                       </span>
                       <span style={{ color:COLORS.text }}>{fmt(d.monto)}</span>
                     </div>
@@ -228,12 +243,15 @@ export function ComprasProyectoView({ isMobile }) {
               {faltante.sinMaestro.length > 0 && (
                 <div style={{ marginTop:12, padding:"10px 12px", borderRadius:8, background:COLORS.bg, border:`1px dashed ${COLORS.border}` }}>
                   <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.yellow, marginBottom:6 }}>
-                    Sin producto del maestro — agrégalos al Maestro y vuelve a elegirlos en el Costeo para poder pedirlos en una OC:
+                    Sin producto del maestro — créalos en el Maestro para poder pedirlos en una OC:
                   </div>
                   {faltante.sinMaestro.map((s, i) => (
-                    <div key={i} style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:12, color:COLORS.textMuted, padding:"2px 0" }}>
-                      <span>{s.descripcion} × {s.qty} <span style={{ color:COLORS.textDim }}>({s.fase})</span></span>
+                    <div key={i} style={{ display:"flex", alignItems:"center", gap:10, fontFamily:FONT, fontSize:12, color:COLORS.textMuted, padding:"3px 0" }}>
+                      <span style={{ flex:1, minWidth:0 }}>{s.descripcion} × {s.qty} <span style={{ color:COLORS.textDim }}>({s.fases.join(", ")})</span></span>
                       <span>{fmt(s.costoBruto)}</span>
+                      <button onClick={() => setCrearProducto(s)}
+                        style={{ padding:"3px 10px", borderRadius:6, border:`1px solid ${COLORS.accent}55`, background:`${COLORS.accent}14`,
+                          color:COLORS.accent, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>+ Crear en maestro</button>
                     </div>
                   ))}
                 </div>
@@ -322,6 +340,16 @@ export function ComprasProyectoView({ isMobile }) {
           saldoDisponible={sel.resumen.saldoDisponible}
           onClose={() => setPagarOC(null)}
           onPaid={async () => { setPagarOC(null); await recargar(); }} />
+      )}
+      {crearProducto && sel?.costeo && (
+        <CrearProductoModal item={crearProducto} costeoId={sel.costeo.id} productos={datos.productos} suppliers={datos.suppliers}
+          onClose={() => setCrearProducto(null)}
+          onCreated={async ({ producto, cambiados }) => {
+            setCrearProducto(null);
+            setMarcadosPor(m => ({ ...m, [sel.quote.id]: undefined }));
+            setAviso(`${producto.codigo} · ${producto.nombre} creado en el Maestro y enlazado en ${cambiados} ítem${cambiados === 1 ? "" : "s"} del Costeo.`);
+            await recargar();
+          }} />
       )}
     </div>
   );
