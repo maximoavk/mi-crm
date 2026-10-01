@@ -1,12 +1,13 @@
 // Lecturas y escrituras de "Compras del proyecto" en Supabase.
 import { supabase, must } from "../../supabaseClient.js";
-import { siguienteNumeroOC } from "./calculos.js";
+import { hoyISO } from "../../shared/format.js";
+import { siguienteNumeroOC, vincularProductoEnFases } from "./calculos.js";
 
 // Todo lo que la pantalla necesita, en una pasada. Si la tabla pagos_oc
 // todavía no existe (falta correr el SQL), se informa en faltaSQL y el
 // resto funciona igual.
 export async function cargarTodo() {
-  const [cots, comps, facts, ocs, costeos, supps, prices, pagos] = await Promise.all([
+  const [cots, comps, facts, ocs, costeos, supps, prices, prods, pagos] = await Promise.all([
     supabase.from("cotizaciones").select("id,numero,serie,estado,total,nombre_cliente,razon_social").order("numero", { ascending:false }),
     supabase.from("comprobantes_pago").select("id,numero,quote_ids,transacciones"),
     supabase.from("facturas_emitidas").select("id,numero_documento,cotizacion_id,referencia_cotizacion,notas,pagos_recibidos(monto)"),
@@ -16,9 +17,10 @@ export async function cargarTodo() {
     supabase.from("costeos").select("id,cotizacion_id,fases"),
     supabase.from("suppliers").select("id,nombre").order("nombre"),
     supabase.from("product_prices").select("id,product_id,supplier_id,precio_bruto,es_preferido,suppliers(id,nombre)").order("es_preferido", { ascending:false }),
+    supabase.from("products").select("id,codigo,categoria"),
     supabase.from("pagos_oc").select("*").order("fecha"),
   ]);
-  const error = [cots, comps, facts, ocs, costeos, supps, prices].find(r => r.error)?.error;
+  const error = [cots, comps, facts, ocs, costeos, supps, prices, prods].find(r => r.error)?.error;
   if (error) throw error;
   return {
     cotizaciones: cots.data || [],
@@ -28,6 +30,7 @@ export async function cargarTodo() {
     costeos:      costeos.data || [],
     suppliers:    supps.data || [],
     prices:       prices.data || [],
+    productos:    prods.data || [],
     pagos:        pagos.data || [],
     faltaSQL:     !!pagos.error,
   };
@@ -69,3 +72,26 @@ export async function registrarPago(pago, marcarPagada) {
 }
 
 export const borrarPago = (id) => must(supabase.from("pagos_oc").delete().eq("id", id));
+
+// Crea en el maestro un producto que el Costeo tenía escrito a mano (con su
+// precio de proveedor, si se indica) y lo enlaza en los ítems del costeo con
+// esa descripción. Las fases se releen de la base justo antes de guardar,
+// para no pisar cambios hechos en el Costeo mientras tanto.
+export async function crearProductoDesdeCosteo({ producto, precio, costeoId, descripcion }) {
+  const repetido = await must(supabase.from("products").select("id").eq("codigo", producto.codigo).limit(1));
+  if (repetido.length) throw new Error(`ya existe un producto con el código ${producto.codigo}`);
+  const creado = await must(supabase.from("products").insert(producto).select().single());
+  if (precio) {
+    await must(supabase.from("product_prices").insert({
+      product_id: creado.id, supplier_id: precio.supplier_id, precio_bruto: precio.precio_bruto,
+      es_preferido: true, actualizado: hoyISO(),
+    }));
+  }
+  const costeo = await must(supabase.from("costeos").select("fases").eq("id", costeoId).single());
+  const { fases, cambiados } = vincularProductoEnFases(costeo.fases, descripcion, creado);
+  if (cambiados) {
+    await must(supabase.from("costeos").update({ fases, updated_at: new Date().toISOString() }).eq("id", costeoId));
+  }
+  return { producto: creado, cambiados };
+}
+
