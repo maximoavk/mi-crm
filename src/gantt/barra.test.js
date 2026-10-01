@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { geometriaBarra } from "./barra.js";
+import { geometriaBarra, aplicarArrastre } from "./barra.js";
 
 const base = { calStart: "2026-10-05", calDays: 15, cellW: 20 };
 
@@ -26,5 +26,23 @@ describe("barra de la Gantt dentro del rango visible", () => {
     expect(geometriaBarra({ ...base, inicio: "2026-09-20", fin: "2026-10-04" })).toBeNull();
     expect(geometriaBarra({ ...base, inicio: "2026-10-20", fin: "2026-10-22" })).toBeNull();
     expect(geometriaBarra({ ...base, inicio: "", fin: "2026-10-22" })).toBeNull();
+  });
+});
+
+describe("arrastrar barras", () => {
+  const t = { tipo: "T", inicio: "2026-10-05", fin: "2026-10-09" };
+  it("mover desplaza inicio y fin", () => {
+    expect(aplicarArrastre(t, "mover", 3)).toEqual({ inicio: "2026-10-08", fin: "2026-10-12" });
+    expect(aplicarArrastre(t, "mover", -5)).toEqual({ inicio: "2026-09-30", fin: "2026-10-04" });
+  });
+  it("estirar desde un borde cambia la duración sin cruzar el otro borde", () => {
+    expect(aplicarArrastre(t, "fin", 2)).toEqual({ inicio: "2026-10-05", fin: "2026-10-11" });
+    expect(aplicarArrastre(t, "fin", -10)).toEqual({ inicio: "2026-10-05", fin: "2026-10-05" });
+    expect(aplicarArrastre(t, "inicio", -2)).toEqual({ inicio: "2026-10-03", fin: "2026-10-09" });
+    expect(aplicarArrastre(t, "inicio", 9)).toEqual({ inicio: "2026-10-09", fin: "2026-10-09" });
+  });
+  it("un hito solo se mueve y 0 días no cambia nada", () => {
+    expect(aplicarArrastre({ tipo: "H", inicio: "2026-10-05", fin: "2026-10-05" }, "fin", 2)).toEqual({ inicio: "2026-10-07", fin: "2026-10-07" });
+    expect(aplicarArrastre(t, "mover", 0)).toEqual({ inicio: "2026-10-05", fin: "2026-10-09" });
   });
 });
