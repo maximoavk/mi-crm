@@ -7,8 +7,8 @@ import { siguienteNumeroOC, vincularProductoEnFases } from "./calculos.js";
 // todavía no existe (falta correr el SQL), se informa en faltaSQL y el
 // resto funciona igual.
 export async function cargarTodo() {
-  const [cots, comps, facts, ocs, costeos, supps, prices, prods, pagos, cuentas, colCaja, factsProv] = await Promise.all([
-    supabase.from("cotizaciones").select("id,numero,serie,estado,total,nombre_cliente,razon_social").order("numero", { ascending:false }),
+  const [cots, comps, facts, ocs, costeos, supps, prices, prods, pagos, cuentas, colCaja, factsProv, ships, servicios, gastos] = await Promise.all([
+    supabase.from("cotizaciones").select("id,numero,serie,estado,total,aplica_iva,nombre_cliente,razon_social").order("numero", { ascending:false }),
     supabase.from("comprobantes_pago").select("id,numero,quote_ids,transacciones"),
     supabase.from("facturas_emitidas").select("id,numero_documento,cotizacion_id,referencia_cotizacion,notas,pagos_recibidos(monto)"),
     supabase.from("purchase_orders")
@@ -22,8 +22,14 @@ export async function cargarTodo() {
     supabase.from("cuentas_bancarias").select("id,nombre,banco,tipo").order("created_at"),
     // ¿Ya existe pagos_oc.movimiento_id? (SQL 2026-10-02_cxp_oc_caja.sql)
     supabase.from("pagos_oc").select("movimiento_id").limit(1),
-    // Facturas de proveedores vinculadas a OC (SQL 2026-10-02_cxp_oc_caja.sql)
-    supabase.from("facturas_recibidas").select("id,numero_documento,purchase_order_id").not("purchase_order_id", "is", null),
+    // Facturas de proveedores de un proyecto o de una OC (purchase_order_id: SQL 2026-10-02_cxp_oc_caja.sql)
+    supabase.from("facturas_recibidas")
+      .select("id,numero_documento,tipo_documento,tipo_proveedor,razon_social_proveedor,monto_neto,cotizacion_id,purchase_order_id")
+      .or("cotizacion_id.not.is.null,purchase_order_id.not.is.null"),
+    // Costos reales del margen (mismas fuentes que v_rendimiento_cotizacion)
+    supabase.from("shipments").select("purchase_order_id,costo_despacho"),
+    supabase.from("cot_service_lines").select("cotizacion_id,descripcion,subtotal_neto"),
+    supabase.from("cot_gastos_directos").select("cotizacion_id,descripcion,categoria,monto_neto"),
   ]);
   const error = [cots, comps, facts, ocs, costeos, supps, prices, prods].find(r => r.error)?.error;
   if (error) throw error;
@@ -41,6 +47,9 @@ export async function cargarTodo() {
     cuentas:      cuentas.data || [],
     conCaja:      !colCaja.error,
     facturasProveedor: factsProv.error ? null : (factsProv.data || []), // null = falta el SQL
+    shipments:    ships.data || [],
+    serviceLines: servicios.data || [],
+    gastos:       gastos.data || [],
   };
 }
 

@@ -2,6 +2,8 @@
 // cotización aprobada es la bolsa desde la que se pagan las compras de ese
 // proyecto. Todos los montos son BRUTOS (con IVA). Tests en calculos.test.js.
 
+import { calcFase, calcItem } from "../../calculos.js";
+
 const num = (v) => Number(v) || 0;
 
 // "COT-043" / "SIN-007"
@@ -192,3 +194,75 @@ export function sugerirCodigo(categoria, productos) {
     .map(x => Number(x.slice(prefijo.length))).filter(n => !isNaN(n));
   return prefijo + String(Math.max(c.max, ...usados) + 1).padStart(c.ancho, "0");
 }
+
+// ── Margen del proyecto: presupuestado (Costeo) vs real ──────────────────────
+// Montos NETOS. El costo real sale de las mismas fuentes que la vista
+// v_rendimiento_cotizacion (Finanzas → Rendimiento por COT): OC (neto de
+// sus líneas brutas) + fletes de esas OC + servicios + gastos directos +
+// facturas recibidas de la cotización que NO están vinculadas a una OC (las
+// vinculadas ya están contadas en la OC).
+
+export const CATEGORIAS_MARGEN = [
+  { key: "materiales", label: "Equipos y materiales", tipos: ["Equipos", "Ferretería", "Materiales"] },
+  { key: "manoObra",   label: "Mano de obra y subcontratos", tipos: ["Mano de Obra / HH"] },
+  { key: "otros",      label: "Gastos directos e indirectos", tipos: ["Costos Indirectos"] },
+];
+
+// Neto de la cotización: el total se guarda con IVA salvo que no aplique.
+export const netoCotizacion = (q) => q.aplica_iva === false ? num(q.total) : Math.round(num(q.total) / 1.19);
+
+export function margenProyecto({ quote, fases, ocs, shipments, serviceLines, gastos, facturasRecibidas }) {
+  const mismo = (a, b) => a != null && String(a) === String(b);
+  const cats = Object.fromEntries(CATEGORIAS_MARGEN.map(c => [c.key, { ...c, presupuesto: 0, real: 0, detalle: [] }]));
+  const sumar = (key, origen, ref, monto) => {
+    const m = Math.round(num(monto));
+    if (!m) return;
+    cats[key].real += m;
+    cats[key].detalle.push({ origen, ref, monto: m });
+  };
+
+  // Presupuesto del Costeo (costo neto por tipo de ítem) y venta presupuestada.
+  let ventaCosteo = 0;
+  for (const f of fases || []) {
+    const cf = calcFase(f);
+    ventaCosteo += cf.ventaNetaConDesc;
+    for (const it of f.items || []) {
+      const cat = CATEGORIAS_MARGEN.find(c => c.tipos.includes(it.tipo));
+      if (cat) cats[cat.key].presupuesto += calcItem(it).costoNeto;
+    }
+  }
+
+  const ocsProyecto = (ocs || []).filter(o => mismo(o.cotizacion_id, quote.id));
+  for (const oc of ocsProyecto) {
+    const neto = (oc.purchase_order_lines || oc.lines || []).reduce((s, l) => s + Math.round(num(l.cantidad) * num(l.precio_unitario) / 1.19), 0);
+    sumar("materiales", "OC", `${oc.numero_oc}${oc.suppliers?.nombre ? " · " + oc.suppliers.nombre : ""}`, neto);
+    for (const sh of (shipments || []).filter(x => mismo(x.purchase_order_id, oc.id) && num(x.costo_despacho) > 0)) {
+      sumar("materiales", "Flete", oc.numero_oc, sh.costo_despacho);
+    }
+  }
+  for (const sl of (serviceLines || []).filter(x => mismo(x.cotizacion_id, quote.id))) {
+    sumar("manoObra", "Servicio", sl.descripcion || "", sl.subtotal_neto);
+  }
+  for (const g of (gastos || []).filter(x => mismo(x.cotizacion_id, quote.id))) {
+    sumar("otros", "Gasto directo", g.descripcion || g.categoria || "", g.monto_neto);
+  }
+  for (const f of (facturasRecibidas || []).filter(x => mismo(x.cotizacion_id, quote.id) && x.purchase_order_id == null)) {
+    const key = f.tipo_proveedor === "Subcontratista" ? "manoObra" : f.tipo_proveedor === "Proveedor" ? "materiales" : "otros";
+    sumar(key, f.tipo_documento === "Orden de Trabajo" ? "OT" : "Factura", `${f.numero_documento || ""}${f.razon_social_proveedor ? " · " + f.razon_social_proveedor : ""}`, f.monto_neto);
+  }
+
+  const categorias = CATEGORIAS_MARGEN.map(c => ({ ...cats[c.key], presupuesto: Math.round(cats[c.key].presupuesto) }));
+  const venta = netoCotizacion(quote);
+  const costoPresupuesto = categorias.reduce((s, c) => s + c.presupuesto, 0);
+  const costoReal = categorias.reduce((s, c) => s + c.real, 0);
+  // Al cierre: en cada categoría se supone que se gasta al menos lo presupuestado.
+  const costoProyectado = categorias.reduce((s, c) => s + Math.max(c.real, c.presupuesto), 0);
+  const pct = (m) => venta > 0 ? Math.round(1000 * m / venta) / 10 : 0;
+  const margen = (costo) => ({ monto: venta - costo, pct: pct(venta - costo) });
+  return {
+    venta, ventaCosteo: Math.round(ventaCosteo), categorias,
+    costoPresupuesto, costoReal, costoProyectado,
+    presupuestado: margen(costoPresupuesto), real: margen(costoReal), proyectado: margen(costoProyectado),
+  };
+}
+

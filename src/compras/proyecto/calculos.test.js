@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   pagadoComprobante, parteDeComprobante, referenciaCoincide, facturasDeCotizacion, cobradoCotizacion,
   totalOC, pagadoOC, resumenProyecto, evaluarPago, porComprar, siguienteNumeroOC,
-  codigoCot, sugerirCotizacion, vincularProductoEnFases, sugerirCodigo,
+  codigoCot, sugerirCotizacion, vincularProductoEnFases, sugerirCodigo, margenProyecto, netoCotizacion,
 } from "./calculos.js";
 
 const q43 = { id: "q43", numero: 43, serie: "COT", total: 1190000 };
@@ -175,3 +175,46 @@ describe("código sugerido para un producto nuevo", () => {
     expect(sugerirCodigo("Nueva", prods)).toBe("");
   });
 });
+
+describe("margen del proyecto", () => {
+  const quote = { id: "q1", total: 1190000 };      // neto 1.000.000
+  const fases = [{ nombre: "F1", items: [
+    { tipo: "Equipos", qty: 4, costoUnitNeto: 50000, margen: 30 },                 // 200.000
+    { tipo: "Ferretería", qty: 1, costoUnitNeto: 100000, margen: 30 },             // 100.000
+    { tipo: "Mano de Obra / HH", qty: 1, hh: 10, valorHH: 15000, margen: 50 },     // 150.000
+    { tipo: "Costos Indirectos", qty: 1, costoUnit: 50000, margen: 0 },            //  50.000
+  ] }];
+  const datos = {
+    quote, fases,
+    ocs: [
+      { id: "o1", numero_oc: "OC-1", cotizacion_id: "q1", lines: [{ cantidad: 4, precio_unitario: 59500 }] }, // neto 200.000
+      { id: "o9", numero_oc: "OC-9", cotizacion_id: "otra", lines: [{ cantidad: 1, precio_unitario: 999999 }] },
+    ],
+    shipments: [{ purchase_order_id: "o1", costo_despacho: 8000 }],
+    serviceLines: [{ cotizacion_id: "q1", descripcion: "Instalación", subtotal_neto: 120000 }],
+    gastos: [{ cotizacion_id: "q1", descripcion: "Combustible", monto_neto: 20000 }],
+    facturasRecibidas: [
+      { cotizacion_id: "q1", purchase_order_id: "o1", monto_neto: 200000, tipo_proveedor: "Proveedor" }, // ya está en la OC
+      { cotizacion_id: "q1", purchase_order_id: null, monto_neto: 60000, tipo_proveedor: "Subcontratista", numero_documento: "OT-5", tipo_documento: "Orden de Trabajo" },
+      { cotizacion_id: "q1", purchase_order_id: null, monto_neto: 90000, tipo_proveedor: "Proveedor", numero_documento: "77" },
+    ],
+  };
+  it("neto de la cotización", () => {
+    expect(netoCotizacion({ total: 1190000 })).toBe(1000000);
+    expect(netoCotizacion({ total: 500000, aplica_iva: false })).toBe(500000);
+  });
+  it("presupuesto por categoría desde el Costeo y real sin contar dos veces la factura de la OC", () => {
+    const m = margenProyecto(datos);
+    expect(m.categorias.map(c => [c.key, c.presupuesto, c.real])).toEqual([
+      ["materiales", 300000, 298000],   // OC 200.000 + flete 8.000 + factura sin OC 90.000
+      ["manoObra", 150000, 180000],     // servicio 120.000 + OT 60.000
+      ["otros", 50000, 20000],
+    ]);
+    expect(m.venta).toBe(1000000);
+    expect(m.presupuestado).toEqual({ monto: 500000, pct: 50 });
+    expect(m.real).toEqual({ monto: 502000, pct: 50.2 });
+    expect(m.proyectado).toEqual({ monto: 1000000 - (300000 + 180000 + 50000), pct: 47 });
+    expect(m.categorias[1].detalle.map(d => d.origen)).toEqual(["Servicio", "OT"]);
+  });
+});
+
