@@ -12,7 +12,7 @@ import { TreeNodeCell } from "./TreeNodeCell.jsx";
 import { PdfPreviewModal } from "../shared/ui.jsx";
 import { fechaLocal, hoyISO } from "../shared/format.js";
 import { EMPRESA_RUT, TITULAR } from "../shared/empresa.js";
-import { derivarGantt, avanceProyecto, atrasada, hijosPorFase } from "./calculos.js";
+import { derivarGantt, avanceProyecto, atrasada, hijosPorFase, filasParaGuardar } from "./calculos.js";
 
 export function GanttView({ isMobile }) {
   const [cotNum, setCotNum]       = useState("");
@@ -290,13 +290,9 @@ export function GanttView({ isMobile }) {
       alert("No se pudo guardar la Gantt: "+e.message);
       return;
     }
-    const rows = vista.map((t,i)=>({
-      gantt_id: gId, tipo: t.tipo, nombre: t.nombre, rol: t.rol,
-      responsable: t.responsable, fecha_inicio: t.inicio, fecha_fin: t.fin,
-      pct_plan: Number(t.pctPlan)||0, pct_avance: Number(t.pctAvance)||0,
-      hh_presup: Number(t.hhPresup)||0, hh_real: Number(t.hhReal)||0, hh_terceros: Number(t.hhTerceros)||0,
-      depende_de: t.depende||"", orden: i, parent_id: t.parentId||null,
-    }));
+    // Ids UUID para todas las filas (las importadas o agregadas traen ids
+    // temporales "new_…") y parent_id = la fase bajo la que está cada una.
+    const { rows, ids } = filasParaGuardar(vista, gId);
     try {
       await replaceRows(supabase, "gantt_tareas", "gantt_id", gId, rows);
     } catch(e) {
@@ -304,8 +300,18 @@ export function GanttView({ isMobile }) {
       alert("No se pudieron guardar las tareas de la Gantt (se mantienen las anteriores): "+e.message);
       return;
     }
+    // Se siguen usando los ids guardados (así el próximo guardado conserva los mismos).
+    let fase = null;
+    const guardadas = tasks.map(t => {
+      if (t.tipo === "F") fase = ids[t.id];
+      return { ...t, id: ids[t.id], parentId: t.tipo !== "F" && fase ? fase : null };
+    });
+    setTasks(guardadas);
+    setCollapsedPhases(prev => new Set([...prev].map(id => ids[id] || id)));
+    setSelectedId(prev => (prev && ids[prev]) || prev);
+    setEditRow(prev => (prev && ids[prev]) || prev);
     setSaving(false);
-    setFirmaGuardada(firma);
+    setFirmaGuardada(JSON.stringify({ nombre: proyecto?.nombre, calStart, tasks: guardadas }));
     alert("✅ Gantt guardada");
   };
 

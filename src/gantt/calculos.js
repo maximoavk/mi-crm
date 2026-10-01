@@ -68,3 +68,38 @@ export function avanceProyecto(tasks) {
 
 // Atrasada: tarea o hito que ya debió terminar y no está al 100%.
 export const atrasada = (t, hoy) => t.tipo !== "F" && !!t.fin && t.fin < hoy && num(t.pctAvance) < 100;
+
+// ── Guardado ─────────────────────────────────────────────────────────────────
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// UUID nuevo (crypto.randomUUID donde existe; si no, uno v4 armado a mano).
+export function nuevoUuid() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
+// Filas de gantt_tareas para guardar. Cada fila lleva un id UUID (el que ya
+// tenía o uno nuevo: las filas importadas o agregadas tienen ids temporales
+// "new_…", que la columna uuid rechaza) y parent_id = la fase bajo la que
+// está (el mismo criterio de la numeración). Devuelve también el mapa
+// id anterior → id guardado, para seguir usando los mismos ids.
+export function filasParaGuardar(tasks, ganttId, generar = nuevoUuid) {
+  const ids = {};
+  for (const t of tasks || []) ids[t.id] = UUID.test(String(t.id)) ? t.id : generar();
+  let fase = null;
+  const rows = (tasks || []).map((t, i) => {
+    if (t.tipo === "F") fase = t.id;
+    return {
+      id: ids[t.id], gantt_id: ganttId, tipo: t.tipo, nombre: t.nombre, rol: t.rol,
+      responsable: t.responsable, fecha_inicio: t.inicio, fecha_fin: t.fin,
+      pct_plan: Number(t.pctPlan) || 0, pct_avance: Number(t.pctAvance) || 0,
+      hh_presup: Number(t.hhPresup) || 0, hh_real: Number(t.hhReal) || 0, hh_terceros: Number(t.hhTerceros) || 0,
+      depende_de: t.depende || "", orden: i,
+      parent_id: t.tipo !== "F" && fase ? ids[fase] : null,
+    };
+  });
+  return { rows, ids };
+}
