@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hijosPorFase, avancePonderado, planHoy, derivarGantt, avanceProyecto, atrasada } from "./calculos.js";
+import { hijosPorFase, avancePonderado, planHoy, derivarGantt, avanceProyecto, atrasada, filasParaGuardar, nuevoUuid } from "./calculos.js";
 
 const T = (id, tipo, inicio, fin, pctAvance = 0) => ({ id, tipo, inicio, fin, pctAvance });
 const tasks = [
@@ -53,3 +53,30 @@ it("un hito guardado con rango queda en un solo día (su inicio)", () => {
   expect(d[0]).toMatchObject({ inicio: "2026-12-01", fin: "2026-12-03" });   // la fase ya no se estira por el hito
 });
 
+
+describe("guardar la Gantt", () => {
+  const U = (n) => `00000000-0000-4000-8000-00000000000${n}`;
+  it("ids temporales pasan a UUID y parent_id apunta a la fase de arriba", () => {
+    let n = 0;
+    const gen = () => U(++n);
+    const tasks = [
+      { id: "new_1_0", tipo: "F", nombre: "Fase", inicio: "2026-12-01", fin: "2026-12-02" },
+      { id: "new_1_0_h0", tipo: "H", nombre: "Hito", parentId: "new_1_0" },
+      { id: U(9), tipo: "T", nombre: "Ya guardada", parentId: "id-viejo" },
+      { id: U(8), tipo: "F", nombre: "Fase 2" },
+      { id: "new_2", tipo: "T", nombre: "Agregada", parentId: null },
+    ];
+    const { rows, ids } = filasParaGuardar(tasks, "g1", gen);
+    expect(rows.map(r => [r.id, r.parent_id])).toEqual([
+      [U(1), null], [U(2), U(1)], [U(9), U(1)], [U(8), null], [U(3), U(8)],
+    ]);
+    expect(ids).toMatchObject({ new_1_0: U(1), new_1_0_h0: U(2), [U(9)]: U(9), new_2: U(3) });
+    expect(rows[0]).toMatchObject({ gantt_id: "g1", orden: 0, fecha_inicio: "2026-12-01" });
+  });
+  it("una actividad antes de la primera fase no tiene padre", () => {
+    expect(filasParaGuardar([{ id: "new_x", tipo: "T" }], "g1", () => U(1)).rows[0].parent_id).toBeNull();
+  });
+  it("nuevoUuid genera UUID válidos", () => {
+    expect(nuevoUuid()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+  });
+});
