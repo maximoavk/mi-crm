@@ -1,5 +1,5 @@
-// Modal ancho de "Compras del proyecto" (el Modal compartido es de 480px).
-import { COLORS, FONT, FONT_DISPLAY } from "../../theme.js";
+// Modal ancho (el Modal de ui.jsx es de 480px), con subtítulo y botón de envío configurable.
+import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
 
 export function Ventana({ title, sub, onClose, onSubmit, submitLabel = "Guardar", disabled, maxWidth = 760, children }) {
   return (

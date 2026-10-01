@@ -6,6 +6,7 @@ import { FONT, COLORS, FONT_DISPLAY } from "../theme.js";
 import { AddBtn, Loader, Modal, Input, Select } from "../shared/ui.jsx";
 import { CATALOG_CATS } from "../shared/constants.js";
 import { fmt, hoyISO } from "../shared/format.js";
+import { TraerFichasModal } from "./TraerFichasModal.jsx";
 
 // ── BASE DE DATOS DE PRODUCTOS ───────────────────────────────────────────────
 // openProductId: abre directo la ficha de ese producto (desde "Ver en maestro"
@@ -22,6 +23,8 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ code:"", name:"", description:"", price:"", unit:"un", category:"", provider:"", type:"producto", url:"", updatedAt:"", skuProveedor:"" });
   const f = (k,v) => setForm(p=>({...p,[k]:v}));
+  const [showTraerFichas, setShowTraerFichas] = useState(false);
+  const [avisoFichas, setAvisoFichas] = useState("");
 
   // ── Suppliers & product_prices ──────────────────────────────────────────────
   const [suppliers, setSuppliers] = useState([]);
@@ -170,9 +173,32 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Código, nombre…" style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 14px 8px 32px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", width:180 }} />
             <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", fontSize:12, color:COLORS.textMuted }}>🔍</span>
           </div>
+          <button onClick={()=>setShowTraerFichas(true)} title="Trae al maestro los enlaces a ficha técnica ya escritos en Costeos y cotizaciones"
+            style={{ padding:"9px 14px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:7, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", whiteSpace:"nowrap" }}>
+            📎 Traer fichas técnicas
+          </button>
           <AddBtn onClick={openNew} label="Nuevo ítem" />
         </div>
       </div>
+
+      {avisoFichas && (
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, padding:"10px 14px", marginBottom:14, borderRadius:8,
+          background:`${COLORS.green}14`, border:`1px solid ${COLORS.green}55`, fontFamily:FONT, fontSize:12, color:COLORS.green }}>
+          <span>{avisoFichas}</span>
+          <button onClick={()=>setAvisoFichas("")} style={{ background:"none", border:"none", color:COLORS.green, cursor:"pointer" }}>✕</button>
+        </div>
+      )}
+      {showTraerFichas && (
+        <TraerFichasModal productos={products} onClose={()=>setShowTraerFichas(false)}
+          onSaved={(guardadas, intentadas) => {
+            const n = Object.keys(guardadas).length;
+            setProducts(prev => prev.map(p => guardadas[p.id] ? { ...p, fichaUrl: guardadas[p.id] } : p));
+            setShowTraerFichas(false);
+            setAvisoFichas(n === intentadas
+              ? `${n} ficha${n === 1 ? "" : "s"} técnica${n === 1 ? "" : "s"} guardada${n === 1 ? "" : "s"} en el maestro.`
+              : `Se guardaron ${n} de ${intentadas} fichas; las demás fallaron (revisa la conexión y vuelve a intentar).`);
+          }} />
+      )}
 
       {/* ── FILTROS DE CATEGORÍA ── */}
       <div style={{ overflowX:"auto", marginBottom:16, paddingBottom:4 }}>
