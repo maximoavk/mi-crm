@@ -12,6 +12,7 @@ import { TotBox, FaseBlock, PartidaRow } from "./FaseBlock.jsx";
 import { HistorialCambiosTab } from "./HistorialCambios.jsx";
 import { DesignProjectsPanel } from "../design/DesignProjectsPanel.jsx";
 import { PdfPreviewModal } from "../shared/ui.jsx";
+import { codigoProyecto, numeroParaCotizacion } from "./correlativo.js";
 
 // La librería de PDF pesa ~1,5 MB: se carga recién al generar un PDF.
 const cargarPdfCosteo = () => Promise.all([import("@react-pdf/renderer"), import("../CosteoPdfDocs.jsx")]);
@@ -166,6 +167,7 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
   };
 
   const proyecto = proyectos.find(p=>p.id===selected);
+  const codProyecto = proyecto ? codigoProyecto(proyecto, proyecto.cotizacionId ? quoteMap[proyecto.cotizacionId] : null) : null;
 
   // Resincroniza el monto de las partidas vinculadas a una fase cada vez que el
   // costeo de esa fase cambia, para que nunca quede un monto viejo guardado.
@@ -286,17 +288,11 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
           const tc = fc.reduce((s,f)=>s+f.costoTotal,0);
           const tv = Math.round(fc.reduce((s,f)=>s+f.ventaConDesc,0));
           const tm = Math.round(fc.reduce((s,f)=>s+f.ventaNetaConDesc,0) - tc);
-          const qInfo = p.cotizacionId ? quoteMap[p.cotizacionId] : null;
-          const codigoCot = qInfo ? `${qInfo.serie}-${String(qInfo.numero).padStart(3,"0")}`
-            : (p.cotizacion ? `COT-${String(p.cotizacion).padStart(3,"0")}` : null); // fallback proyectos legacy sin cotizacion_id
+          const cod = codigoProyecto(p, p.cotizacionId ? quoteMap[p.cotizacionId] : null); // sin cotizacion_id: proyectos legacy
           return (
             <div key={p.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"16px 20px", display:"flex", alignItems:"center", gap:16, cursor:"pointer" }} onClick={()=>setSelected(p.id)}>
               <div style={{ flex:1 }}>
-                {codigoCot && (
-                  <span style={{ display:"inline-block", fontFamily:FONT, fontSize:10, fontWeight:700, color:COLORS.accent, background:`${COLORS.accent}18`, border:`1px solid ${COLORS.accent}33`, borderRadius:5, padding:"2px 7px", marginBottom:5 }}>
-                    {codigoCot}
-                  </span>
-                )}
+                {cod && <ChipCot cod={cod} />}
                 <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>
                   {p.nombre}
                 </div>
@@ -409,7 +405,7 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
 
   const guardarVersionManual = async () => {
     setVersionSaving(true);
-    const cotRef = proyecto.cotizacionId ? `COT-${String(proyecto.cotizacion).padStart(3,"0")}` : null;
+    const cotRef = proyecto.cotizacionId ? codProyecto?.codigo || null : null;
     const n = await saveVersion(cotRef, versionNota.trim() || null);
     setVersionSaving(false);
     setVersionSavedNum(n);
@@ -432,8 +428,11 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
     const pctFin = pctBase>0?Math.round(totalFin/pctBase*100):0;
     // Mapear al valor estándar del dropdown del QuoteEditor
     const formaPago = partidas.length > 0 ? "Según partidas" : "A convenir";
-    const { data: ultimas } = await supabase.from("cotizaciones").select("numero").order("numero",{ascending:false}).limit(1);
-    const nextNum = ultimas&&ultimas[0] ? ultimas[0].numero+1 : 1;
+    // Número: el escrito en el nombre del proyecto ("Cot 150 …") si está libre;
+    // si no, el siguiente de la serie COT (la serie SIN tiene su propio correlativo).
+    const { data: existentes, error: errNum } = await supabase.from("cotizaciones").select("numero,serie");
+    if(errNum){ alert("No se pudo leer el correlativo de cotizaciones: "+errNum.message); setGenSaving(false); return; }
+    const nextNum = numeroParaCotizacion(existentes, proyecto.nombre);
     const sapBase = `POL-${String(nextNum).padStart(4,"0")}`;
     const codigoProyecto = sapBase; // raíz WBS del proyecto
 
@@ -467,7 +466,7 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
     // ─────────────────────────────────────────────────────────────────────────
 
     const quoteData = {
-      numero:nextNum, fecha:proyecto.fecha||hoyISO(),
+      numero:nextNum, serie:"COT", fecha:proyecto.fecha||hoyISO(),
       contact_id:proyecto.clienteId||null, nombre_cliente:proyecto.clienteNombre||proyecto.cliente||"",
       rut_cliente:proyecto.clienteRut||"", razon_social:proyecto.clienteEmpresa||"",
       direccion:proyecto.clienteDireccion||"", telefono:proyecto.clienteTelefono||"",
@@ -581,7 +580,7 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
       supabase.from("quote_lines").update({ precio_unitario:r.precioNuevo, descuento:r.descNuevo, subtotal:r.nuevo }).eq("id",r.lineaId)
     ));
     await supabase.from("cotizaciones").update({ total:syncPreview.totalNuevo }).eq("id", syncPreview.cotId);
-    await saveVersion(`COT-${String(proyecto.cotizacion).padStart(3,"0")}`, "Sincronizado con cotización");
+    await saveVersion(codProyecto?.codigo || null, "Sincronizado con cotización");
     setSyncSaving(false);
     setSyncDone(true);
   };
@@ -728,11 +727,7 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
       {/* Header */}
       <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16, flexWrap:"wrap" }}>
         <button onClick={()=>{ flushPending(selected); setSelected(null); }} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>← Proyectos</button>
-        {proyecto.cotizacion && (
-          <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.accent, background:`${COLORS.accent}18`, border:`1px solid ${COLORS.accent}44`, borderRadius:6, padding:"4px 10px" }}>
-            COT-{String(proyecto.cotizacion).padStart(3,"0")}
-          </span>
-        )}
+        {codProyecto && <ChipCot cod={codProyecto} grande />}
         <div style={{ flex:1 }}>
           <input value={proyecto.nombre} onChange={e=>updateProyecto({...proyecto,nombre:e.target.value})}
             style={{ background:"transparent", border:"none", color:COLORS.text, fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, outline:"none", width:"100%" }} />
@@ -960,5 +955,19 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
       )}
       <PdfPreviewModal url={pdfPreviewUrl} onClose={() => { URL.revokeObjectURL(pdfPreviewUrl); setPdfPreviewUrl(null); }} />
     </div>
+  );
+}
+
+// Código de la cotización del proyecto; en amarillo si no coincide con el
+// número escrito en el nombre (p. ej. "Cot 149 …" vinculado a COT-150).
+function ChipCot({ cod, grande }) {
+  const color = cod.distinto != null ? COLORS.yellow : COLORS.accent;
+  return (
+    <span title={cod.distinto != null ? `El nombre dice Cot ${cod.distinto}, pero el proyecto está vinculado a ${cod.codigo}` : undefined}
+      style={{ display:"inline-block", fontFamily: grande ? FONT_DISPLAY : FONT, fontSize: grande ? 12 : 10, fontWeight:700, color,
+        background:`${color}18`, border:`1px solid ${color}${grande ? "44" : "33"}`, borderRadius: grande ? 6 : 5,
+        padding: grande ? "4px 10px" : "2px 7px", marginBottom: grande ? 0 : 5 }}>
+      {cod.codigo}{cod.distinto != null && ` ⚠ nombre: Cot ${cod.distinto}`}
+    </span>
   );
 }
