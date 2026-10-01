@@ -63,3 +63,30 @@ export function buildCalHeader(startDate, days) {
   }
   return cols;
 }
+
+// Corre una fecha `n` días hábiles (lunes a sábado; n puede ser negativo).
+// Con n = 0, una fecha en domingo pasa al lunes.
+export function sumarHabiles(dateStr, n) {
+  if(!dateStr) return dateStr;
+  let d = dateStr;
+  const paso = n < 0 ? -1 : 1;
+  for(let i = 0; i < Math.abs(n); i++) { d = addDays(d, paso); while(isSunday(d)) d = addDays(d, paso); }
+  if(n === 0 && isSunday(d)) d = addDays(d, 1);
+  return d;
+}
+
+// Días hábiles de `a` a `b` (sin contar `a`); negativo si `b` es anterior.
+export function habilesEntre(a, b) {
+  if(!a || !b || a === b) return 0;
+  const signo = b > a ? 1 : -1;
+  let n = 0, d = a;
+  while(d !== b) { d = addDays(d, signo); if(!isSunday(d)) n += signo; }
+  return n;
+}
+
+// Cantidad de días hábiles de una actividad, contando inicio y fin (mínimo 1).
+export function duracionHabil(inicio, fin) {
+  if(!inicio || !fin || fin <= inicio) return 1;
+  return Math.max(1, habilesEntre(inicio, fin) + (isSunday(inicio) ? 0 : 1));
+}
+

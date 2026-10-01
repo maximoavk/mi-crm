@@ -1,6 +1,6 @@
 // ── CARTA GANTT: planificación por cotización, días hábiles y PDF ──────────
 import React, { useState, useEffect, useMemo } from "react";
-import { buildCalHeader, addDays, nextBusinessDay, endOfBusinessSpan, diffDays, shiftDateBusinessDay, fmtShort } from "./fechas.js";
+import { buildCalHeader, addDays, nextBusinessDay, endOfBusinessSpan, habilesEntre, fmtShort } from "./fechas.js";
 import { supabase, must, replaceRows } from "../supabaseClient.js";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
 import { GANTT_COLORS, TIPO_LABEL, ROL_OPTS } from "./constants.js";
@@ -12,7 +12,7 @@ import { TreeNodeCell } from "./TreeNodeCell.jsx";
 import { PdfPreviewModal } from "../shared/ui.jsx";
 import { fechaLocal, hoyISO } from "../shared/format.js";
 import { EMPRESA_RUT, TITULAR } from "../shared/empresa.js";
-import { derivarGantt, avanceProyecto, atrasada, hijosPorFase, filasParaGuardar } from "./calculos.js";
+import { derivarGantt, avanceProyecto, atrasada, hijosPorFase, filasParaGuardar, cambiarFechasConEmpuje, empujarTrasFase, desplazar } from "./calculos.js";
 
 export function GanttView({ isMobile }) {
   const [cotNum, setCotNum]       = useState("");
@@ -54,6 +54,10 @@ export function GanttView({ isMobile }) {
   // Cambios sin guardar (ver `sinGuardar`): firma de lo último cargado o guardado.
   const [firmaGuardada, setFirmaGuardada] = useState(null);
   const [marcarCargada, setMarcarCargada] = useState(false);
+  // Empuje en cadena: si una actividad termina más tarde, lo que viene después
+  // se corre los mismos días. Se recuerda en este navegador.
+  const [cadena, setCadena] = useState(() => { try { return localStorage.getItem("gantt.cadena") !== "0"; } catch { return true; } });
+  const cambiarCadena = (v) => { setCadena(v); try { localStorage.setItem("gantt.cadena", v ? "1" : "0"); } catch { /* sin almacenamiento */ } };
   const cellW = 28;
   const today = hoyISO();
   const calCols = buildCalHeader(viewStart, calDays);
@@ -361,17 +365,18 @@ export function GanttView({ isMobile }) {
       const hijos = hijosPorFase(prev)[id] || [];
       const conFecha = hijos.filter(h => h.inicio);
       const inicioVisto = conFecha.length ? conFecha.reduce((m, h) => h.inicio < m ? h.inicio : m, conFecha[0].inicio) : row.inicio;
-      const delta = diffDays(inicioVisto, val);
+      // Se corre en días hábiles, conservando los días hábiles de cada actividad.
+      const delta = habilesEntre(inicioVisto, val);
       if(delta===0) return prev.map(r=>r.id===id?{...r,inicio:val}:r);
       const ids = new Set(hijos.map(h => h.id));
-      return prev.map(r => {
-        if(r.id===id) return { ...r, inicio:val, fin: r.fin?shiftDateBusinessDay(r.fin,delta):r.fin };
-        if(ids.has(r.id)) return { ...r, inicio: r.inicio?shiftDateBusinessDay(r.inicio,delta):r.inicio, fin: r.fin?shiftDateBusinessDay(r.fin,delta):r.fin };
-        return r;
-      });
+      const movidas = prev.map(r => (r.id===id || ids.has(r.id)) ? desplazar(r, delta) : r);
+      return cadena ? empujarTrasFase(prev, movidas, id) : movidas;
     }
     // Un hito es un solo día: cambiar su inicio o su fin mueve el hito entero.
-    if(row && row.tipo==="H" && (field==="inicio" || field==="fin")) return prev.map(r=>r.id===id?{...r,inicio:val,fin:val}:r);
+    if(row && row.tipo==="H" && (field==="inicio" || field==="fin"))
+      return cadena ? cambiarFechasConEmpuje(prev, id, { inicio:val, fin:val }) : prev.map(r=>r.id===id?{...r,inicio:val,fin:val}:r);
+    // Una actividad que termina más tarde empuja lo que viene después.
+    if(row && cadena && field==="fin") return cambiarFechasConEmpuje(prev, id, { fin: val });
     return prev.map(r=>r.id===id?{...r,[field]:val}:r);
   });
   // Borrar una fase borra también sus actividades (avisando cuántas).
@@ -381,7 +386,7 @@ export function GanttView({ isMobile }) {
   const arrastrarBarra = (t, modo, dias) => {
     if (t.tipo === "F" && t.derivada) { updateTask(t.id, "inicio", addDays(t.inicio, dias)); return; }
     const nuevas = aplicarArrastre(t, modo, dias);
-    setTasks(prev => prev.map(r => r.id === t.id ? { ...r, ...nuevas } : r));
+    setTasks(prev => cadena ? cambiarFechasConEmpuje(prev, t.id, nuevas) : prev.map(r => r.id === t.id ? { ...r, ...nuevas } : r));
   };
 
   const deleteTask = (id) => {
@@ -658,14 +663,9 @@ export function GanttView({ isMobile }) {
           <div style={{ display:"flex", gap:10, marginBottom:12, alignItems:"center", flexWrap:"wrap" }}>
             <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Inicio calendario:</span>
             <CalendarPicker value={calStart} onChange={v=>{
-              const delta = diffDays(calStart, v);
-              if(delta !== 0) {
-                setTasks(prev => prev.map(t => ({
-                  ...t,
-                  inicio: t.inicio ? shiftDateBusinessDay(t.inicio, delta) : t.inicio,
-                  fin: t.fin ? shiftDateBusinessDay(t.fin, delta) : t.fin,
-                })));
-              }
+              // Cambiar el inicio del proyecto corre todo en días hábiles.
+              const delta = habilesEntre(calStart, v);
+              if(delta !== 0) setTasks(prev => prev.map(t => desplazar(t, delta)));
               setCalStart(v);
               setViewStart(v);
               setMonthMode(false);
@@ -695,6 +695,11 @@ export function GanttView({ isMobile }) {
               const fasesConHijos = vista.filter(t=>t.tipo==="F" && (ganttMeta.phaseChildren[t.id]||[]).length).map(t=>t.id);
               const todoContraido = fasesConHijos.length > 0 && fasesConHijos.every(id=>collapsedPhases.has(id));
               return (<>
+                <button onClick={()=>cambiarCadena(!cadena)}
+                  title={cadena ? "Activado: si una actividad termina más tarde, lo que viene después se corre los mismos días" : "Desactivado: cada actividad se mueve sola"}
+                  style={{ ...btn, color: cadena ? COLORS.accent : COLORS.textMuted, borderColor: cadena ? `${COLORS.accent}66` : COLORS.border, background: cadena ? `${COLORS.accent}14` : "transparent" }}>
+                  ⛓ Empuje en cadena: {cadena ? "Sí" : "No"}
+                </button>
                 <button title="Mover la vista a la fecha de hoy" style={btn}
                   onClick={()=>{ setMonthMode(false); setViewStart(addDays(today, -2)); }}>Hoy</button>
                 {inicios.length > 0 && (
@@ -1040,7 +1045,7 @@ export function GanttView({ isMobile }) {
             ))}
           </div>
           <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:8 }}>
-            💡 Doble clic en una fila para editar · Arrastra una barra para moverla o estira sus bordes para cambiar la duración · Enter en el campo cotización para cargar
+            💡 Doble clic en una fila para editar · Arrastra una barra para moverla o estira sus bordes para cambiar la duración (con "Empuje en cadena", lo que viene después se corre) · Enter en el campo cotización para cargar
           </div>
         </>
       )}

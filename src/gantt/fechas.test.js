@@ -65,3 +65,18 @@ describe("formatos", () => {
     expect(buildCalHeader("fecha-mala", 3)).toEqual([]);
   });
 });
+
+describe("días hábiles", () => {
+  it("sumar, contar y duración (lunes a sábado)", async () => {
+    const { sumarHabiles, habilesEntre, duracionHabil } = await import("./fechas.js");
+    expect(sumarHabiles("2026-12-05", 1)).toBe("2026-12-07");   // sáb + 1 = lun
+    expect(sumarHabiles("2026-12-07", -1)).toBe("2026-12-05");  // lun - 1 = sáb
+    expect(sumarHabiles("2026-12-06", 0)).toBe("2026-12-07");   // domingo → lunes
+    expect(habilesEntre("2026-12-04", "2026-12-08")).toBe(3);   // sáb, lun, mar
+    expect(habilesEntre("2026-12-08", "2026-12-04")).toBe(-3);
+    expect(duracionHabil("2026-12-02", "2026-12-05")).toBe(4);
+    expect(duracionHabil("2026-12-04", "2026-12-08")).toBe(4);  // vie, sáb, lun, mar
+    expect(duracionHabil("2026-12-04", "2026-12-04")).toBe(1);
+  });
+});
+
