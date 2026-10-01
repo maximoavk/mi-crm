@@ -1,5 +1,5 @@
 // Catálogo de productos y precios por proveedor.
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../supabaseClient.js";
 import { mapProduct, mapProductToDb } from "../shared/mappers.js";
 import { FONT, COLORS, FONT_DISPLAY } from "../theme.js";
@@ -7,6 +7,8 @@ import { AddBtn, Loader, Modal, Input, Select } from "../shared/ui.jsx";
 import { CATALOG_CATS } from "../shared/constants.js";
 import { fmt, hoyISO } from "../shared/format.js";
 import { TraerFichasModal } from "./TraerFichasModal.jsx";
+import { fichasDeProducto } from "./traerFichas.js";
+import { cargarFuentesFichas } from "./fuentesFichas.js";
 
 // ── BASE DE DATOS DE PRODUCTOS ───────────────────────────────────────────────
 // openProductId: abre directo la ficha de ese producto (desde "Ver en maestro"
@@ -25,6 +27,13 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
   const f = (k,v) => setForm(p=>({...p,[k]:v}));
   const [showTraerFichas, setShowTraerFichas] = useState(false);
   const [avisoFichas, setAvisoFichas] = useState("");
+  // Costeos y cotizaciones con enlace a ficha técnica: se leen una vez, al
+  // abrir el primer producto, para sugerir la ficha si está vacía.
+  const [fuentesFichas, setFuentesFichas] = useState(null);
+  const cargarFuentes = () => {
+    if (fuentesFichas) return;
+    cargarFuentesFichas().then(setFuentesFichas).catch(() => setFuentesFichas({ costeos: [], lineas: [] }));
+  };
 
   // ── Suppliers & product_prices ──────────────────────────────────────────────
   const [suppliers, setSuppliers] = useState([]);
@@ -74,14 +83,25 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
   const openNew = () => {
     setEditingId(null); setProductPrices([]); setShowPriceForm(false);
     setForm({ code:"", name:"", description:"", price:"", unit:"un", category:"", provider:"", type:"producto", url:"", updatedAt:hoyISO(), skuProveedor:"", fichaUrl:"" });
+    cargarFuentes();
     setShowModal(true);
   };
   const openEdit = (p) => {
     setEditingId(p.id); setShowPriceForm(false);
     setForm({ code:p.code, name:p.name, description:p.description||"", price:String(p.price), unit:p.unit, category:p.category, provider:p.provider, type:p.type, url:p.url||"", updatedAt:p.updatedAt||"", skuProveedor:p.skuProveedor||"", fichaUrl:p.fichaUrl||"" });
     loadProductPrices(p.id);
+    cargarFuentes();
     setShowModal(true);
   };
+
+  // Enlaces a ficha técnica ya escritos en Costeos/cotizaciones para el
+  // producto abierto (por vínculo, código, SKU o nombre), si su ficha está vacía.
+  const sugerenciaFicha = useMemo(() => {
+    if (!showModal || !fuentesFichas || String(form.fichaUrl || "").trim()) return null;
+    const id = editingId ?? "__nuevo";
+    const actual = { id, code: form.code, name: form.name, skuProveedor: form.skuProveedor, fichaUrl: "" };
+    return fichasDeProducto(id, { ...fuentesFichas, productos: [...products.filter(p => String(p.id) !== String(id)), actual] });
+  }, [showModal, fuentesFichas, form.fichaUrl, form.code, form.name, form.skuProveedor, editingId, products]);
 
   const save = async () => {
     if (!form.code||!form.name) return;
@@ -174,7 +194,7 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
             <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", fontSize:12, color:COLORS.textMuted }}>🔍</span>
           </div>
           <button onClick={()=>setShowTraerFichas(true)} title="Trae al maestro los enlaces a ficha técnica ya escritos en Costeos y cotizaciones"
-            style={{ padding:"9px 14px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:7, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", whiteSpace:"nowrap" }}>
+            style={{ padding:"9px 14px", background:`${COLORS.accent}14`, border:`1px solid ${COLORS.accent}66`, borderRadius:7, color:COLORS.accent, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
             📎 Traer fichas técnicas
           </button>
           <AddBtn onClick={openNew} label="Nuevo ítem" />
@@ -323,6 +343,21 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
           <div>
             <Input label="Ficha técnica (URL)" value={form.fichaUrl} onChange={e=>f("fichaUrl",e.target.value)} placeholder="https://… (datasheet del fabricante)" />
             <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginTop:2, paddingLeft:2 }}>Se precarga en el Costeo y el Cotizador al insertar este producto</div>
+            {sugerenciaFicha && (
+              <div style={{ marginTop:8, padding:"8px 10px", borderRadius:8, background:`${COLORS.accent}10`, border:`1px solid ${COLORS.accent}44` }}>
+                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, marginBottom:4 }}>
+                  📎 Encontrado en {sugerenciaFicha.fuentes.join(" · ")}
+                  {sugerenciaFicha.porNombre && <span style={{ color:COLORS.yellow }}> · por nombre, revisa que sea este producto</span>}
+                </div>
+                {sugerenciaFicha.alternativas.map(a => (
+                  <div key={a.url} style={{ display:"flex", alignItems:"center", gap:8, padding:"2px 0" }}>
+                    <a href={a.url} target="_blank" rel="noreferrer" style={{ flex:1, minWidth:0, fontFamily:FONT, fontSize:11, color:COLORS.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{a.url}</a>
+                    <button type="button" onClick={()=>f("fichaUrl", a.url)}
+                      style={{ padding:"3px 10px", borderRadius:5, border:"none", background:COLORS.accent, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer" }}>Usar</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Precio bruto con desglose automático */}
