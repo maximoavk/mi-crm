@@ -5,7 +5,7 @@ import { COLORS, FONT } from "../../theme.js";
 import { fmt, hoyISO } from "../../shared/format.js";
 import { mapProductToDb } from "../../shared/mappers.js";
 import { CATALOG_CATS } from "../../shared/constants.js";
-import { Ventana } from "./Ventana.jsx";
+import { Ventana } from "../../shared/Ventana.jsx";
 import { campo, etiqueta } from "./estilos.js";
 import { sugerirCodigo } from "./calculos.js";
 import { crearProductoDesdeCosteo } from "./datos.js";

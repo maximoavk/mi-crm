@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { COLORS, FONT } from "../../theme.js";
 import { fmt, hoyISO } from "../../shared/format.js";
-import { Ventana } from "./Ventana.jsx";
+import { Ventana } from "../../shared/Ventana.jsx";
 import { campo, etiqueta } from "./estilos.js";
 import { evaluarPago } from "./calculos.js";
 import { registrarPago } from "./datos.js";

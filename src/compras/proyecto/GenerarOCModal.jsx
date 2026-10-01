@@ -4,7 +4,7 @@
 import { useMemo, useState } from "react";
 import { COLORS, FONT, FONT_DISPLAY } from "../../theme.js";
 import { fmt } from "../../shared/format.js";
-import { Ventana } from "./Ventana.jsx";
+import { Ventana } from "../../shared/Ventana.jsx";
 import { campo, etiqueta } from "./estilos.js";
 import { crearOCs } from "./datos.js";
 
