@@ -9,7 +9,8 @@ import { fmt, fmtFecha } from "../../shared/format.js";
 import { TreeCaret } from "../../shared/TreeCaret.jsx";
 import { TREE_ELBOW, treeLine } from "../../shared/tree.js";
 import { OC_ESTADOS } from "../ocEstados.js";
-import { cobradoCotizacion, codigoCot, porComprar, resumenProyecto, totalOC, pagadoOC } from "./calculos.js";
+import { cobradoCotizacion, codigoCot, porComprar, resumenProyecto, totalOC, pagadoOC, margenProyecto } from "./calculos.js";
+import { MargenProyecto } from "./MargenProyecto.jsx";
 import { cargarTodo, borrarPago } from "./datos.js";
 import { campo } from "./estilos.js";
 import { GenerarOCModal } from "./GenerarOCModal.jsx";
@@ -65,6 +66,11 @@ export function ComprasProyectoView({ isMobile }) {
   const faltante = useMemo(() => sel
     ? porComprar(sel.costeo?.fases || [], sel.ocs.flatMap(o => o.lines))
     : { items: [], sinMaestro: [] }, [sel]);
+
+  const margen = useMemo(() => sel && margenProyecto({
+    quote: sel.quote, fases: sel.costeo?.fases || [], ocs: sel.ocs, shipments: datos.shipments,
+    serviceLines: datos.serviceLines, gastos: datos.gastos, facturasRecibidas: datos.facturasProveedor || [],
+  }), [sel, datos]);
 
   // Mientras no se toque la selección de un proyecto, van marcados los ítems con algo pendiente.
   const marcados = (sel && marcadosPor[sel.quote.id])
@@ -193,6 +199,8 @@ export function ComprasProyectoView({ isMobile }) {
                 </div>
               )}
             </div>
+
+            {margen && <MargenProyecto margen={margen} tieneCosteo={!!sel.costeo} />}
 
             {/* Por comprar (desde el Costeo) */}
             <div style={tarjeta}>
