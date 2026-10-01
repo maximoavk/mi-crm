@@ -2,7 +2,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { TreeCaret } from "../shared/TreeCaret.jsx";
 import { TreeBranch } from "../shared/TreeBranch.jsx";
-import { Wallet, Receipt } from "lucide-react";
 import { supabase } from "../supabaseClient.js";
 import { STAGES, REJECT_REASONS } from "../shared/constants.js";
 import { mapDealToDb, mapDeal, mapTaskToDb, mapTask } from "../shared/mappers.js";
@@ -57,7 +56,6 @@ export function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMob
     setFacturandoId(null); setFacturaVal(""); setFacturaFecha("");
   };
 
-  const openNew = (serie="COT") => { setEditingId(null); setForm({ title:"", company:"", contactId:"", rut:"", value:"", stage:"propuesta", probability:"40", closeDate:"", quoteNumber:"", serie, pctAnticipo:50 }); setQuoteFound(null); setQuoteBusqueda(""); setShowModal(true); };
   const openEdit = (d) => { setEditingId(d.id); setForm({ title:d.title, company:d.company, contactId:d.contactId||"", rut:d.rut||"", value:String(d.value), stage:d.stage, probability:String(d.probability), closeDate:d.closeDate||"", quoteNumber:d.quoteNumber||"", serie:d.serie||"COT", pctAnticipo:d.pctAnticipo||50 }); setQuoteFound(null); setQuoteBusqueda(""); setShowModal(true); };
   const toggleCollapse = (id) => setCollapsed(p=>({...p,[id]:!p[id]}));
   const allCollapsed = Object.values(collapsed).filter(Boolean).length >= deals.length/2;
@@ -418,14 +416,6 @@ export function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMob
         </div>
         <div style={{ display:"flex", gap:8 }}>
           <button onClick={toggleAll} style={{ padding:"8px 14px", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:7, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer" }}>{allCollapsed?"⊞ Expandir":"⊟ Comprimir"}</button>
-          <button onClick={()=>openNew("SIN")} style={{ position:"relative", display:"flex", alignItems:"center", gap:7, padding:"8px 16px 8px 12px", borderRadius:20, background:"#2563EB22", border:"1px solid #2563EB44", color:"#2563EB", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>
-            <span style={{ position:"absolute", top:-4, right:-4, width:14, height:14, borderRadius:"50%", background:"#2563EB", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:900, color:COLORS.bg }}>+</span>
-            <Wallet size={14} /> SIN
-          </button>
-          <button onClick={()=>openNew("COT")} style={{ position:"relative", display:"flex", alignItems:"center", gap:7, padding:"8px 16px 8px 12px", borderRadius:20, background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, color:COLORS.accent, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>
-            <span style={{ position:"absolute", top:-4, right:-4, width:14, height:14, borderRadius:"50%", background:COLORS.accent, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:900, color:COLORS.bg }}>+</span>
-            <Receipt size={14} /> COT
-          </button>
         </div>
       </div>
 
