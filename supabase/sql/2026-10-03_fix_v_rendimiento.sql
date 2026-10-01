@@ -7,14 +7,12 @@
 -- Compras → Por proyecto (Margen) usa las mismas fuentes.
 -- Correr una vez en Supabase → SQL Editor (requiere 2026-10-02_cxp_oc_caja.sql).
 
--- CREATE OR REPLACE VIEW reinicia las opciones de la vista (ej.
--- security_invoker): se guardan antes y se restauran después.
-begin;
-
-create temp table _opciones_vista as
-  select reloptions from pg_class where oid = 'public.v_rendimiento_cotizacion'::regclass;
-
-create or replace view public.v_rendimiento_cotizacion as
+-- security_invoker = true: la vista se consulta con los permisos de quien
+-- la usa, así respeta el RLS de las tablas (tiene_acceso(), ver
+-- 2026-09-30_rls_tiene_acceso.sql) en vez de saltárselo con los del dueño.
+-- Una sola sentencia: el SQL Editor no garantiza la misma sesión entre
+-- sentencias.
+create or replace view public.v_rendimiento_cotizacion with (security_invoker = true) as
  SELECT c.id AS cotizacion_id,
     c.numero AS numero_cotizacion,
     c.razon_social AS cliente,
@@ -114,17 +112,3 @@ create or replace view public.v_rendimiento_cotizacion as
             AND facturas_recibidas.purchase_order_id IS NULL
           GROUP BY facturas_recibidas.cotizacion_id) fr_agg ON fr_agg.cotizacion_id = c.id
   ORDER BY c.numero DESC;
-
-do $$
-declare
-  opciones text[];
-begin
-  select reloptions into opciones from _opciones_vista;
-  if opciones is not null then
-    execute format('alter view public.v_rendimiento_cotizacion set (%s)', array_to_string(opciones, ', '));
-  end if;
-end $$;
-
-drop table _opciones_vista;
-
-commit;
