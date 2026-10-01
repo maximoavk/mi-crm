@@ -1,5 +1,7 @@
 // Panel para declarar cambios de alcance (agregar o quitar ítems) sobre una cotización.
 import { useState, useEffect } from "react";
+import { TreeCaret } from "../shared/TreeCaret.jsx";
+import { TreeBranch } from "../shared/TreeBranch.jsx";
 import { supabase, must } from "../supabaseClient.js";
 import { mapProduct } from "../shared/mappers.js";
 import { calcFase, totalCotizacion, redondearTotal } from "../calculos.js";
@@ -236,14 +238,16 @@ export function DeclararCambioPanel({ quote, onClose, onApplied }) {
                     <div key={f.id} style={{ background:COLORS.card, border:`1px solid ${delta!==0?COLORS.accent+"55":COLORS.border}`, borderRadius:9, overflow:"hidden" }}>
                       <div onClick={()=>setOpenFaseIdx(abierto?null:fi)} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 12px", cursor:"pointer" }}>
                         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                          <span style={{ color:COLORS.textMuted, fontSize:11 }}>{abierto?"▾":"▸"}</span>
+                          <TreeCaret collapsed={!abierto} />
                           <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text }}>{f.nombre||`Fase ${fi+1}`}</span>
                           <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>({(f.items||[]).length} ítems)</span>
                         </div>
                         {delta!==0 && <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color: delta>0?COLORS.green:COLORS.red }}>{delta>0?"+":""}{fmt(delta)}</span>}
                       </div>
                       {abierto && (
-                        <div style={{ borderTop:`1px solid ${COLORS.border}`, padding:"8px 12px" }}>
+                        <div className="tree-row-in" style={{ borderTop:`1px solid ${COLORS.border}`, padding:"8px 12px" }}>
+                          {/* Árbol: los ítems cuelgan del triángulo de la fase */}
+                          <TreeBranch x={7} anchor={20} reach={23}>
                           {(f.items||[]).map(item=>(
                             <div key={item.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, padding:"6px 0", borderBottom:`1px solid ${COLORS.border}22` }}>
                               <div style={{ minWidth:0, flex:1 }}>
@@ -258,6 +262,7 @@ export function DeclararCambioPanel({ quote, onClose, onApplied }) {
                               </div>
                             </div>
                           ))}
+                          </TreeBranch>
                           {addingFaseIdx===fi ? (
                             addingProduct ? (
                               <div style={{ marginTop:8, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:7, padding:10 }}>

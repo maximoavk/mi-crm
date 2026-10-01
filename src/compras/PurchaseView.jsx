@@ -6,6 +6,7 @@ import { AddBtn, Loader } from "../shared/ui.jsx";
 import { fmt, fmtClp } from "../shared/format.js";
 import { EMPRESA, EMPRESA_RUT, TITULAR } from "../shared/empresa.js";
 import { OC_ESTADOS } from "./ocEstados.js";
+import { TreeCaret } from "../shared/TreeCaret.jsx";
 
 // ── MÓDULO DE COMPRAS ────────────────────────────────────────────────────────
 
@@ -446,6 +447,7 @@ export function PurchaseView({ isMobile }) {
             <div key={oc.id} style={{ background:COLORS.card, border:`1px solid ${isExp?estado.color+"55":COLORS.border}`, borderRadius:10, overflow:"hidden", transition:"border 0.2s" }}>
               {/* Cabecera replegada */}
               <div style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 18px", cursor:"pointer" }} onClick={()=>toggleExpand(oc.id)}>
+                <TreeCaret collapsed={!isExp} size={12} />
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
                     <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.accent }}>{oc.numero_oc}</span>
@@ -464,12 +466,11 @@ export function PurchaseView({ isMobile }) {
                   <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.green }}>Neto: {fmt(neto)}</div>
                   <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{(oc.lines||[]).length} ítems</div>
                 </div>
-                <div style={{ color:COLORS.textMuted, fontSize:14, transition:"transform 0.2s", transform:isExp?"rotate(180deg)":"rotate(0deg)" }}>▼</div>
               </div>
 
               {/* Detalle expandido */}
               {isExp && (
-                <div style={{ borderTop:`1px solid ${COLORS.border}`, padding:"16px 18px" }}>
+                <div className="tree-row-in" style={{ borderTop:`1px solid ${COLORS.border}`, padding:"16px 18px" }}>
                   {/* Cambio de estado */}
                   <div style={{ display:"flex", gap:6, marginBottom:14, flexWrap:"wrap" }}>
                     <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, alignSelf:"center", marginRight:4 }}>Estado:</span>

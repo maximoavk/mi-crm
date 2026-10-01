@@ -1,5 +1,7 @@
 // Incidencias / tickets de soporte post-venta con visitas técnicas.
 import React, { useState, useEffect } from "react";
+import { TreeCaret } from "../shared/TreeCaret.jsx";
+import { TreeBranch } from "../shared/TreeBranch.jsx";
 import { hoyISO, fmtFecha } from "../shared/format.js";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
 import { supabase } from "../supabaseClient.js";
@@ -325,8 +327,8 @@ export function IncidenciasView({ contacts, isMobile }) {
                       {t.descripcion && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:4, fontStyle:"italic" }}>{t.descripcion.slice(0,120)}{t.descripcion.length>120?"…":""}</div>}
                     </div>
                     <div style={{ display:"flex", gap:6, flexShrink:0, alignItems:"center" }}>
-                      <button onClick={()=>setShowLog(isOpen?null:t.id)} style={{ padding:"4px 10px", background:`${COLORS.accent}18`, border:`1px solid ${COLORS.accent}33`, borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>
-                        Log ({(t.visitas||[]).length})
+                      <button onClick={()=>setShowLog(isOpen?null:t.id)} style={{ display:"flex", alignItems:"center", gap:4, padding:"4px 10px", background:`${COLORS.accent}18`, border:`1px solid ${COLORS.accent}33`, borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>
+                        <TreeCaret collapsed={!isOpen} color={COLORS.accent} size={8} /> Log ({(t.visitas||[]).length})
                       </button>
                       <button onClick={()=>openEdit(t)} style={{ padding:"4px 8px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, cursor:"pointer", fontSize:11 }}>✏️</button>
                       <button onClick={()=>printPDF(t)} style={{ padding:"4px 10px", background:`${COLORS.green}18`, border:`1px solid ${COLORS.green}33`, borderRadius:6, color:COLORS.green, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>PDF</button>
@@ -335,7 +337,7 @@ export function IncidenciasView({ contacts, isMobile }) {
                   </div>
                   {/* Log de visitas */}
                   {isOpen && (
-                    <div style={{ borderTop:`1px solid ${COLORS.border}`, padding:"12px 18px", background:COLORS.surface }}>
+                    <div className="tree-row-in" style={{ borderTop:`1px solid ${COLORS.border}`, padding:"12px 18px", background:COLORS.surface }}>
                       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
                         <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Log de visitas</div>
                         <button onClick={()=>{ setShowLog(t.id); setShowLogModal(true); }} style={{ padding:"4px 12px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Agregar visita</button>
@@ -343,9 +345,10 @@ export function IncidenciasView({ contacts, isMobile }) {
                       {(t.visitas||[]).length===0 ? (
                         <div style={{ textAlign:"center", padding:20, fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin visitas registradas</div>
                       ) : (
-                        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                        // Árbol: las visitas cuelgan del log, en orden
+                        <TreeBranch x={7} anchor={19}>
                           {(t.visitas||[]).map((v,i)=>(
-                            <div key={v.id||i} style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 14px", borderLeft:`3px solid ${COLORS.accent}` }}>
+                            <div key={v.id||i} style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 14px", borderLeft:`3px solid ${COLORS.accent}`, marginBottom:8 }}>
                               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
                                 <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text }}>Visita {i+1} · {v.fecha} {v.hora}</span>
                                 <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Técnico: {v.tecnico}</span>
@@ -356,7 +359,7 @@ export function IncidenciasView({ contacts, isMobile }) {
                               {v.notas && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, fontStyle:"italic", marginTop:4 }}>{v.notas}</div>}
                             </div>
                           ))}
-                        </div>
+                        </TreeBranch>
                       )}
                     </div>
                   )}

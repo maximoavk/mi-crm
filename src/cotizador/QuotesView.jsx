@@ -1,5 +1,6 @@
 // Listado de cotizaciones (COT / SIN) con filtros, estados y acceso al editor y PDF.
 import { useState, useEffect } from "react";
+import { TreeCaret } from "../shared/TreeCaret.jsx";
 import { supabase } from "../supabaseClient.js";
 import { mapQuote, mapDeal } from "../shared/mappers.js";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
@@ -242,7 +243,7 @@ export function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCo
                 {/* ── Header siempre visible ── */}
                 <div onClick={()=>toggleQ(q.id)} style={{ padding:"14px 20px", cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center", gap:10 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:10, flex:1, minWidth:0, flexWrap:"wrap" }}>
-                    <span style={{ fontFamily:FONT, fontSize:13, color:COLORS.accent, fontWeight:700, flexShrink:0, display:"inline-block", transform:isOpen?"rotate(90deg)":"rotate(0deg)", transition:"transform 0.2s" }}>▶</span>
+                    <TreeCaret collapsed={!isOpen} color={COLORS.accent} size={12} />
                     <div style={{ fontFamily:FONT, fontSize:13, color:serieColor, fontWeight:700, flexShrink:0 }}>{codigoDisplay}</div>
                     <Badge color={sc.color}>{sc.label}</Badge>
                     <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, flexShrink:0 }}>{fmtDate(q.date)}</div>
@@ -280,7 +281,7 @@ export function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCo
                 </div>
                 {/* ── Cuerpo expandible ── */}
                 {isOpen && (
-                  <div style={{ borderTop:`1px solid ${COLORS.border}`, padding:"12px 20px" }}>
+                  <div className="tree-row-in" style={{ borderTop:`1px solid ${COLORS.border}`, padding:"12px 20px" }}>
                     <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:10 }}>
                       {q.clientName} · RUT: {q.clientRut}
                       {q.paymentMethod && <span style={{marginLeft:10}}>· {q.paymentMethod}</span>}

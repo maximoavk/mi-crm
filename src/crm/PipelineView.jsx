@@ -1,5 +1,7 @@
 // Pipeline de ventas (deals por etapa) con tareas asociadas.
 import { useState, useEffect, useMemo } from "react";
+import { TreeCaret } from "../shared/TreeCaret.jsx";
+import { TreeBranch } from "../shared/TreeBranch.jsx";
 import { Wallet, Receipt } from "lucide-react";
 import { supabase } from "../supabaseClient.js";
 import { STAGES, REJECT_REASONS } from "../shared/constants.js";
@@ -260,7 +262,7 @@ export function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMob
                 onDragEnd={()=>{ setDragDealId(null); setDragOverKey(null); }}
                 style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, borderLeft:`3px solid ${stage.key==="cerrado" && d.facturado ? COLORS.purple : ACTIVITY_BORDER[getDealActivityStatus(d.id)]}`, overflow:"hidden", cursor:"grab", opacity:dragDealId===d.id?0.5:d.facturado?0.55:1, transition:"opacity 0.2s" }}>
                 <div style={{ display:"flex", alignItems:"center", gap:7, padding:isCollapsed?"9px 11px":"11px 13px 7px" }}>
-                  <button onClick={()=>toggleCollapse(d.id)} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:10, padding:0, flexShrink:0 }}>{isCollapsed?"▶":"▼"}</button>
+                  <TreeCaret collapsed={isCollapsed} onToggle={()=>toggleCollapse(d.id)} title={isCollapsed?"Ver detalle":"Ocultar detalle"} />
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:600, color:COLORS.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{d.title}</div>
                     {isCollapsed && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{d.company}</div>}
@@ -270,7 +272,7 @@ export function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMob
                   <button onClick={()=>del(d.id)} style={{ background:"none", border:`1px solid ${COLORS.red}44`, borderRadius:4, color:COLORS.red, cursor:"pointer", fontSize:12, padding:"2px 5px", flexShrink:0 }}>×</button>
                 </div>
                 {!isCollapsed && (
-                  <div style={{ padding:"0 13px 11px" }}>
+                  <div className="tree-row-in" style={{ padding:"0 13px 11px" }}>
                     {/* Próxima actividad */}
                     {(()=>{ const actStatus=getDealActivityStatus(d.id); const nextTask=getDealNextTask(d.id); return (
                       <div style={{ borderLeft:`3px solid ${ACTIVITY_BORDER[actStatus]}`, paddingLeft:8, marginBottom:10 }}>
@@ -387,15 +389,16 @@ export function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMob
                 <button onClick={()=>setMonthOverride(p=>({...p,[groupKey]:!isOpen}))}
                   style={{ width:"100%", display:"flex", flexDirection:"column", padding:"6px 10px", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, cursor:"pointer", marginBottom: isOpen?7:0 }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", width:"100%" }}>
-                    <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.06em" }}>{isOpen?"▼":"▶"} {group.label}</span>
+                    <span style={{ display:"flex", alignItems:"center", gap:4, fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.06em" }}><TreeCaret collapsed={!isOpen} /> {group.label}</span>
                     <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim }}>{group.deals.length}</span>
                   </div>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:accentColor, fontWeight:600, marginTop:2, textAlign:"left" }}>{fmt(groupTotal)}</div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:accentColor, fontWeight:600, marginTop:2, textAlign:"left", paddingLeft:18 }}>{fmt(groupTotal)}</div>
                 </button>
                 {isOpen && (
-                  <div style={{ display:"flex", flexDirection:"column", gap:7, marginBottom:7 }}>
-                    {group.deals.map(d=>renderDealCard(d, stage, laneKey, accentColor))}
-                  </div>
+                  // Árbol: la línea baja desde el triángulo del mes (borde 1 + padding 10 + 7)
+                  <TreeBranch x={18} anchor={17} reach={30} gap={2} style={{ marginBottom:7 }}>
+                    {group.deals.map(d=><div key={d.id} style={{ marginBottom:7 }}>{renderDealCard(d, stage, laneKey, accentColor)}</div>)}
+                  </TreeBranch>
                 )}
               </div>
             );

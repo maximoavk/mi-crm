@@ -1,5 +1,7 @@
 // Contactos: clientes, prospectos y leads.
 import { useState, useEffect } from "react";
+import { TreeCaret } from "../shared/TreeCaret.jsx";
+import { TreeBranch } from "../shared/TreeBranch.jsx";
 import { supabase } from "../supabaseClient.js";
 import { mapContactToDb, mapContact } from "../shared/mappers.js";
 import { FONT, COLORS, FONT_DISPLAY } from "../theme.js";
@@ -132,24 +134,24 @@ export function ContactsView({ contacts, setContacts, isMobile }) {
               {contactQuotes.length>0 && (
                 <div style={{ borderTop:`1px solid ${COLORS.border}`, marginTop:10 }} onClick={e=>e.stopPropagation()}>
                   <div onClick={()=>toggleQ(c.id)} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", cursor:"pointer" }}>
-                    <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Cotizaciones ({contactQuotes.length})</span>
-                    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                      <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.green, fontWeight:600 }}>{fmt(totalCot)}</span>
-                      <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>{cotOpen?"▲":"▼"}</span>
-                    </div>
+                    <span style={{ display:"flex", alignItems:"center", gap:6, fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                      <TreeCaret collapsed={!cotOpen} onToggle={()=>toggleQ(c.id)} title={cotOpen?"Ocultar cotizaciones":"Ver cotizaciones"} />
+                      Cotizaciones ({contactQuotes.length})
+                    </span>
+                    <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.green, fontWeight:600 }}>{fmt(totalCot)}</span>
                   </div>
                   {cotOpen && (
-                    <div style={{ display:"flex", flexDirection:"column", gap:4, paddingBottom:8 }}>
+                    <TreeBranch x={7} anchor={9} reach={9} style={{ paddingBottom:8 }}>
                       {contactQuotes.map(q=>{
                         const approved = q.status==="aprobada";
                         return (
-                          <div key={q.id} style={{ display:"flex", justifyContent:"space-between", padding:approved?"2px 4px":0, borderRadius:approved?4:0, background:approved?`${COLORS.green}18`:"transparent" }}>
+                          <div key={q.id} style={{ display:"flex", justifyContent:"space-between", marginBottom:4, padding:"2px 4px", borderRadius:4, background:approved?`${COLORS.green}18`:"transparent" }}>
                             <span style={{ fontFamily:FONT, fontSize:10, color:approved?COLORS.green:COLORS.textMuted, fontWeight:approved?700:400 }}>{q.serie}-{String(q.number).padStart(3,"0")}</span>
                             <span style={{ fontFamily:FONT, fontSize:10, color:approved?COLORS.green:COLORS.text, fontWeight:approved?700:400 }}>{fmt(q.total)}</span>
                           </div>
                         );
                       })}
-                    </div>
+                    </TreeBranch>
                   )}
                 </div>
               )}

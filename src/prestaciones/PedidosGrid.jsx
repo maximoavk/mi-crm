@@ -1,5 +1,7 @@
 // Grilla de pedidos (CP) y pre-facturas (PF) con sus documentos.
 import { useState } from "react";
+import { TreeCaret } from "../shared/TreeCaret.jsx";
+import { TreeBranch } from "../shared/TreeBranch.jsx";
 import { FONT_DISPLAY, COLORS, FONT } from "../theme.js";
 import { Badge } from "../shared/ui.jsx";
 import { printResumenPedido } from "./printResumenPedido.js";
@@ -94,7 +96,7 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
 
               {/* Área expandible */}
               <div onClick={()=>toggle(ped.id)} style={{ flex:1, display:"flex", alignItems:"center", gap:12, padding:"13px 14px", cursor:"pointer", userSelect:"none", minWidth:0 }}>
-                <span style={{ fontSize:10, color:COLORS.textMuted, flexShrink:0, display:"inline-block", transition:"transform 0.2s", transform:isOpen?"rotate(90deg)":"rotate(0deg)" }}>▶</span>
+                <TreeCaret collapsed={!isOpen} />
                 <div style={{ flexShrink:0 }}>
                   <div style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase" }}>{isPF?"Pre-Factura":"Pedido"}</div>
                   <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:AC }}>{ped.nombre}</div>
@@ -161,7 +163,7 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
 
             {/* ── EXPANDIDO ── */}
             {isOpen && (
-              <div style={{ borderTop:`1px solid ${COLORS.border}22`, padding:"16px 20px 20px", background:COLORS.surface+"28" }}>
+              <div className="tree-row-in" style={{ borderTop:`1px solid ${COLORS.border}22`, padding:"16px 20px 20px", background:COLORS.surface+"28" }}>
                 <div style={{ display:"flex", gap:18, alignItems:"flex-start", flexWrap:"wrap" }}>
 
                   {/* Dona */}
@@ -203,18 +205,20 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
 
                   {/* COTs */}
                   <div style={{ flex:1, display:"flex", flexDirection:"column", gap:10, minWidth:280 }}>
+                    {/* Árbol: las cotizaciones del pedido cuelgan de una misma línea */}
+                    <TreeBranch x={7} anchor={20}>
                     {cotCompensated.map(({ quote:q, docs:qDocs, qTotal, efectivo, saldo, pct }) => {
                       const cotKey = `cot-${ped.id}-${q.id}`;
                       const isCotOpen = !!collapsed[cotKey];
                       const qPaid = saldo<=0 && qTotal>0;
                       const isComp = efectivo > qDocs.reduce((s,d)=>s+Number(d.monto_pagado||0),0);
                       return (
-                        <div key={q.id} style={{ background:COLORS.card, border:`1px solid ${qPaid?COLORS.green+"44":COLORS.border}`, borderRadius:10, overflow:"hidden" }}>
+                        <div key={q.id} style={{ background:COLORS.card, border:`1px solid ${qPaid?COLORS.green+"44":COLORS.border}`, borderRadius:10, overflow:"hidden", marginBottom:10 }}>
                           {/* COT row */}
                           <div style={{ display:"flex", alignItems:"stretch", borderLeft:`3px solid ${qPaid?COLORS.green:AC+"88"}` }}>
                             <div onClick={()=>toggle(cotKey)}
                               style={{ flex:1, display:"flex", alignItems:"center", gap:10, padding:"9px 12px", cursor:"pointer", userSelect:"none", minWidth:0 }}>
-                              <span style={{ fontSize:10, color:COLORS.textMuted, flexShrink:0, display:"inline-block", transition:"transform 0.2s", transform:isCotOpen?"rotate(90deg)":"rotate(0deg)" }}>▶</span>
+                              <TreeCaret collapsed={!isCotOpen} />
                               <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:AC, flexShrink:0 }}>{qPrefix(q)}</span>
                               <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{q.clientCompany||q.clientName}</span>
                               {isComp && <span style={{ fontFamily:FONT, fontSize:8, color:AC, background:`${AC}22`, borderRadius:4, padding:"1px 5px", flexShrink:0 }}>⇄ comp.</span>}
@@ -235,7 +239,7 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
 
                           {/* Documentos dentro de la COT */}
                           {isCotOpen && (
-                            <div style={{ borderTop:`1px solid ${COLORS.border}22`, padding:"14px 14px 14px", background:COLORS.surface+"44" }}>
+                            <div className="tree-row-in" style={{ borderTop:`1px solid ${COLORS.border}22`, padding:"14px 14px 14px", background:COLORS.surface+"44" }}>
                               <div style={{ display:"flex", gap:14, alignItems:"flex-start", flexWrap:"wrap" }}>
 
                                 {/* Dona COT */}
@@ -394,6 +398,7 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
                         </div>
                       );
                     })}
+                    </TreeBranch>
                     {pedidoPagado>pedidoTotal && pedidoTotal>0 && (
                       <div style={{ padding:"7px 12px",borderRadius:8,background:`${AC}11`,border:`1px solid ${AC}33`,fontFamily:FONT,fontSize:10,color:AC }}>
                         ⇄ Sobrepago de <strong>{fmt(pedidoPagado-pedidoTotal)}</strong> — compensa saldos entre cotizaciones de este pedido.
