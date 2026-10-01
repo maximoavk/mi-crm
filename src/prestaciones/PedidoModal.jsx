@@ -1,5 +1,6 @@
 // Modal para crear o editar un pedido (CP) o grupo de pre-factura (PF).
 import { useState } from "react";
+import { TreeCaret } from "../shared/TreeCaret.jsx";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
 
 // ── PEDIDO MODAL ─────────────────────────────────────────────────────────────
@@ -177,7 +178,7 @@ export function PedidoModal({ pedido, quotes, docs, isPF, onSave, onClose, onEdi
 
                     {/* Header COT — clickeable */}
                     <div onClick={()=>toggleCot(q.id)} style={{ padding:"10px 14px", display:"flex", alignItems:"center", gap:10, cursor:"pointer", userSelect:"none", borderLeft:`3px solid ${qPaid?COLORS.green:AC}` }}>
-                      <span style={{ fontSize:9, color:COLORS.textMuted, transition:"transform 0.2s", display:"inline-block", transform:isOpen?"rotate(90deg)":"rotate(0deg)" }}>▶</span>
+                      <TreeCaret collapsed={!isOpen} />
                       <div style={{ flexShrink:0 }}>
                         <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:AC }}>{serieLabel}-{String(q.number).padStart(3,"0")}</div>
                         <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>{q.clientCompany||q.clientName}</div>
@@ -199,7 +200,7 @@ export function PedidoModal({ pedido, quotes, docs, isPF, onSave, onClose, onEdi
 
                     {/* Expandido: líneas + docs */}
                     {isOpen && (
-                      <div style={{ borderTop:`1px solid ${COLORS.border}22`, padding:"14px 16px", background:COLORS.surface+"33" }}>
+                      <div className="tree-row-in" style={{ borderTop:`1px solid ${COLORS.border}22`, padding:"14px 16px", background:COLORS.surface+"33" }}>
                         <div style={{ display:"flex", gap:14, flexWrap:"wrap" }}>
 
                           {/* Líneas COT */}

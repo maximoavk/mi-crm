@@ -1,5 +1,7 @@
 // Rendimiento por cotización / pedido: costo, margen e IVA neto.
 import { useState, useEffect } from "react";
+import { TreeCaret } from "../../shared/TreeCaret.jsx";
+import { TreeBranch } from "../../shared/TreeBranch.jsx";
 import { COLORS, FONT, FONT_DISPLAY } from "../../theme.js";
 import { fmtClp } from "../../shared/format.js";
 import { CotCard } from "./CotCard.jsx";
@@ -91,6 +93,7 @@ function PedidoFinancieroCard({ pedido, cots, suppliers, products, onRefresh, is
       <div onClick={()=>setOpen(p=>!p)}
         style={{ display:"flex", alignItems:"center", gap:16, padding:"16px 20px",
           cursor:"pointer", userSelect:"none" }}>
+        <TreeCaret collapsed={!open} size={12} />
 
         {/* Dona */}
         <div style={{ flexShrink:0 }}>
@@ -151,14 +154,13 @@ function PedidoFinancieroCard({ pedido, cots, suppliers, products, onRefresh, is
           </div>
         )}
 
-        <span style={{ color:COLORS.textMuted, fontSize:16, flexShrink:0 }}>
-          {open ? "▲" : "▼"}
-        </span>
       </div>
 
       {/* COTs hijas expandidas */}
       {open && (
-        <div style={{ borderTop:`1px solid ${COLORS.border}`, padding:"8px 12px 12px" }}>
+        <div className="tree-row-in" style={{ borderTop:`1px solid ${COLORS.border}`, padding:"8px 12px 12px" }}>
+          {/* Árbol: las cotizaciones cuelgan del triángulo del pedido (padding 20 + 7 − 12) */}
+          <TreeBranch x={15} anchor={34} reach={65}>
           {cots.map(cot => (
             <CotCard key={cot.cotizacion_id}
               cot={cot}
@@ -168,6 +170,7 @@ function PedidoFinancieroCard({ pedido, cots, suppliers, products, onRefresh, is
               isMobile={isMobile}
             />
           ))}
+          </TreeBranch>
         </div>
       )}
     </div>

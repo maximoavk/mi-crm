@@ -1,5 +1,7 @@
 // Vista restringida para colaboradores: pedidos por facturar.
 import { useState, useEffect } from "react";
+import { TreeCaret } from "../shared/TreeCaret.jsx";
+import { TreeBranch } from "../shared/TreeBranch.jsx";
 import { hoyISO } from "../shared/format.js";
 import { supabase } from "../supabaseClient.js";
 import { printResumenPedido } from "../prestaciones/printResumenPedido.js";
@@ -281,9 +283,8 @@ export function ColaboradorView({ session }) {
               <div key={pf.id} style={{ background:COLORS.card, border:`1px solid ${facturado?COLORS.green+"44":COLORS.border}`, borderRadius:12, overflow:"hidden" }}>
                 {/* Header */}
                 <div style={{ padding:"14px 18px", display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
-                  <div onClick={()=>setExpanded(p=>({...p,[pf.id]:!isOpen}))} style={{ cursor:"pointer", flexShrink:0 }}>
-                    <span style={{ color:COLORS.accent, fontSize:14 }}>{isOpen?"▼":"▶"}</span>
-                  </div>
+                  <TreeCaret collapsed={!isOpen} onToggle={()=>setExpanded(p=>({...p,[pf.id]:!isOpen}))} color={COLORS.accent} size={12}
+                    title={isOpen?"Ocultar cotizaciones":"Ver cotizaciones"} />
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap", marginBottom:3 }}>
                       <span style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>{pf.nombre}</span>
@@ -313,18 +314,19 @@ export function ColaboradorView({ session }) {
                 {/* COTs detalle */}
                 {isOpen && (
                   <div style={{ borderTop:`1px solid ${COLORS.border}`, padding:"10px 18px 14px" }}>
-                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>Cotizaciones incluidas</div>
-                    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10, paddingLeft:23 }}>Cotizaciones incluidas</div>
+                    {/* Árbol: la línea baja desde el triángulo de la pre-factura */}
+                    <TreeBranch x={7} anchor={22} reach={60}>
                       {pf.cots.map(cot => {
                         const isExpCot = !!cotExpanded[cot.id];
                         const lines    = cotLines[cot.id];
                         const fmtN = n => "$"+Math.round(n||0).toLocaleString("es-CL");
                         return (
-                          <div key={cot.id} style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, overflow:"hidden" }}>
+                          <div key={cot.id} style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, overflow:"hidden", marginBottom:8 }}>
                             {/* Fila resumen COT */}
                             <div style={{ padding:"10px 14px", display:"flex", alignItems:"center", gap:12, cursor:"pointer" }}
                               onClick={()=>toggleCot(cot.id)}>
-                              <span style={{ color:COLORS.accent, fontSize:11, flexShrink:0 }}>{isExpCot?"▼":"▶"}</span>
+                              <TreeCaret collapsed={!isExpCot} color={COLORS.accent} />
                               <div style={{ fontFamily:"monospace", fontSize:12, fontWeight:700, color:COLORS.accent, flexShrink:0 }}>COT-{cot.numero||"—"}</div>
                               <div style={{ flex:1 }}>
                                 <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text }}>{cot.razon_social||cot.nombre_cliente||"—"}</div>
@@ -334,7 +336,7 @@ export function ColaboradorView({ session }) {
                             </div>
                             {/* Tabla de líneas */}
                             {isExpCot && (
-                              <div style={{ borderTop:`1px solid ${COLORS.border}`, padding:"10px 14px" }}>
+                              <div className="tree-row-in" style={{ borderTop:`1px solid ${COLORS.border}`, padding:"10px 14px" }}>
                                 {lines==="loading" ? (
                                   <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textAlign:"center", padding:"12px 0" }}>Cargando ítems…</div>
                                 ) : lines && lines.length > 0 ? (
@@ -375,7 +377,7 @@ export function ColaboradorView({ session }) {
                           </div>
                         );
                       })}
-                    </div>
+                    </TreeBranch>
                     {pf.descripcion && (
                       <div style={{ marginTop:10, fontFamily:FONT, fontSize:11, color:COLORS.textMuted, background:COLORS.bg, borderRadius:6, padding:"8px 12px" }}>
                         <b style={{color:COLORS.text}}>Descripción:</b> {pf.descripcion}

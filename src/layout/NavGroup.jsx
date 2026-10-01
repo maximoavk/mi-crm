@@ -1,6 +1,7 @@
 // Grupo desplegable del menú lateral.
 import { useState, useEffect } from "react";
 import { COLORS, FONT_DISPLAY } from "../theme.js";
+import { TreeBranch } from "../shared/TreeBranch.jsx";
 
 // ── NAV GROUP COMPONENT (extracted so hooks work properly) ───────────────────
 export function NavGroup({ g, view, navigate }) {
@@ -25,7 +26,8 @@ export function NavGroup({ g, view, navigate }) {
         <span style={{ fontSize:9, color:COLORS.textDim, transition:"transform 0.2s", display:"inline-block", transform:open?"rotate(90deg)":"rotate(0deg)" }}>▶</span>
       </button>
       {open && (
-        <div style={{ paddingLeft:16, marginTop:2, marginBottom:4, display:"flex", flexDirection:"column", gap:1 }}>
+        // Árbol: la línea baja desde el centro del ícono del grupo (27px).
+        <TreeBranch x={27} anchor={20} reach={11} gap={0} style={{ marginTop:2, marginBottom:4 }}>
           {(g.children||[]).map(c=>{
             const active = view===c.key;
             return (
@@ -45,7 +47,7 @@ export function NavGroup({ g, view, navigate }) {
               </button>
             );
           })}
-        </div>
+        </TreeBranch>
       )}
     </div>
   );

@@ -1,5 +1,6 @@
 // Tarjeta de cotización con sus servicios, gastos directos y rendimiento.
 import { useState } from "react";
+import { TreeCaret } from "../../shared/TreeCaret.jsx";
 import { COLORS, FONT, FONT_DISPLAY } from "../../theme.js";
 import { LabelInput, BtnSec, BtnPrimary } from "../ui.jsx";
 import { fmtClp, fmtFecha } from "../../shared/format.js";
@@ -191,6 +192,7 @@ export function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
       {/* ── CABECERA TARJETA ── */}
       <div onClick={toggle} style={{ padding:"16px 20px", cursor:"pointer",
         display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>
+        <TreeCaret collapsed={!open} size={12} />
 
         {/* COT badge */}
         <div style={{ fontFamily:FONT, fontSize:13, fontWeight:700, color:COLORS.accent,
@@ -241,12 +243,11 @@ export function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
           </div>
         </div>
 
-        <span style={{ color:COLORS.textMuted, fontSize:16, flexShrink:0 }}>{open?"▲":"▼"}</span>
       </div>
 
       {/* ── DETALLE EXPANDIDO ── */}
       {open && (
-        <div style={{ borderTop:`1px solid ${COLORS.border}`, padding:"18px 20px" }}>
+        <div className="tree-row-in" style={{ borderTop:`1px solid ${COLORS.border}`, padding:"18px 20px" }}>
           {loadingDetail ? (
             <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted,
               textAlign:"center", padding:20 }}>Cargando detalle…</div>
