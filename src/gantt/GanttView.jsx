@@ -349,16 +349,23 @@ export function GanttView({ isMobile }) {
     if(row && row.tipo==="F" && field==="inicio" && row.inicio) {
       // La fase muestra como inicio el de su actividad más temprana: el
       // desplazamiento se mide desde ahí.
-      const hijos = (hijosPorFase(prev)[id] || []).filter(h => h.inicio);
-      const inicioVisto = hijos.length ? hijos.reduce((m, h) => h.inicio < m ? h.inicio : m, hijos[0].inicio) : row.inicio;
+      // Las actividades de la fase son las filas bajo ella (como la numeración
+      // 1.0, 1.1…), no las de parentId: al guardar, las filas reciben ids
+      // nuevos y el parentId guardado queda apuntando al id anterior.
+      const hijos = hijosPorFase(prev)[id] || [];
+      const conFecha = hijos.filter(h => h.inicio);
+      const inicioVisto = conFecha.length ? conFecha.reduce((m, h) => h.inicio < m ? h.inicio : m, conFecha[0].inicio) : row.inicio;
       const delta = diffDays(inicioVisto, val);
       if(delta===0) return prev.map(r=>r.id===id?{...r,inicio:val}:r);
+      const ids = new Set(hijos.map(h => h.id));
       return prev.map(r => {
         if(r.id===id) return { ...r, inicio:val, fin: r.fin?shiftDateBusinessDay(r.fin,delta):r.fin };
-        if(r.parentId===id) return { ...r, inicio: r.inicio?shiftDateBusinessDay(r.inicio,delta):r.inicio, fin: r.fin?shiftDateBusinessDay(r.fin,delta):r.fin };
+        if(ids.has(r.id)) return { ...r, inicio: r.inicio?shiftDateBusinessDay(r.inicio,delta):r.inicio, fin: r.fin?shiftDateBusinessDay(r.fin,delta):r.fin };
         return r;
       });
     }
+    // Un hito es un solo día: cambiar su inicio o su fin mueve el hito entero.
+    if(row && row.tipo==="H" && (field==="inicio" || field==="fin")) return prev.map(r=>r.id===id?{...r,inicio:val,fin:val}:r);
     return prev.map(r=>r.id===id?{...r,[field]:val}:r);
   });
   // Borrar una fase borra también sus actividades (avisando cuántas).

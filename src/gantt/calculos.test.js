@@ -46,3 +46,10 @@ describe("Gantt: fases, avance y plan", () => {
     expect(atrasada(T("a", "F", "2026-10-01", "2026-10-02", 0), "2026-10-05")).toBe(false);
   });
 });
+
+it("un hito guardado con rango queda en un solo día (su inicio)", () => {
+  const d = derivarGantt([T("f", "F", "2026-12-01", "2026-12-15"), T("h", "H", "2026-12-01", "2026-12-15", 0), T("t", "T", "2026-12-02", "2026-12-03")], "2026-11-01");
+  expect(d[1]).toMatchObject({ inicio: "2026-12-01", fin: "2026-12-01" });
+  expect(d[0]).toMatchObject({ inicio: "2026-12-01", fin: "2026-12-03" });   // la fase ya no se estira por el hito
+});
+
