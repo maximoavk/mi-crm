@@ -7,6 +7,7 @@ import { GANTT_COLORS, TIPO_LABEL, ROL_OPTS } from "./constants.js";
 import { LOGO_B64, LOGO_PRINT } from "../shared/assets.js";
 import { CalendarPicker } from "./CalendarPicker.jsx";
 import { GanttBar } from "./GanttBar.jsx";
+import { aplicarArrastre } from "./barra.js";
 import { TreeNodeCell } from "./TreeNodeCell.jsx";
 import { PdfPreviewModal } from "../shared/ui.jsx";
 import { fechaLocal, hoyISO } from "../shared/format.js";
@@ -361,6 +362,15 @@ export function GanttView({ isMobile }) {
     return prev.map(r=>r.id===id?{...r,[field]:val}:r);
   });
   // Borrar una fase borra también sus actividades (avisando cuántas).
+  // Barra soltada después de arrastrarla. Una fase calculada se mueve entera
+  // (con sus actividades, como al cambiar su inicio); el resto cambia sus
+  // fechas según lo arrastrado.
+  const arrastrarBarra = (t, modo, dias) => {
+    if (t.tipo === "F" && t.derivada) { updateTask(t.id, "inicio", addDays(t.inicio, dias)); return; }
+    const nuevas = aplicarArrastre(t, modo, dias);
+    setTasks(prev => prev.map(r => r.id === t.id ? { ...r, ...nuevas } : r));
+  };
+
   const deleteTask = (id) => {
     const row = tasks.find(r => r.id === id);
     const hijos = row?.tipo === "F" ? (ganttMeta.phaseChildren[id] || []) : [];
@@ -987,7 +997,8 @@ export function GanttView({ isMobile }) {
                           borderRight:`1px solid ${COLORS.border}11` }}>
                           {ci===0 && <GanttBar task={t} calStart={viewStart} calDays={calDays} cellW={cellW} today={today}
                             colapsable={isFase && (ganttMeta.phaseChildren[t.id]||[]).length ? { collapsed: isCollapsed, onToggle: ()=>toggleCollapse(t.id) } : null}
-                            resumen={isCollapsed ? (ganttMeta.phaseChildren[t.id]||[]).map(id=>vistaPorId[id]).filter(Boolean) : null} />}
+                            resumen={isCollapsed ? (ganttMeta.phaseChildren[t.id]||[]).map(id=>vistaPorId[id]).filter(Boolean) : null}
+                            onArrastrar={(modo, dias)=>arrastrarBarra(t, modo, dias)} soloMover={!!t.derivada} />}
                           {c.date===today && <div title="Hoy" style={{ position:"absolute", left:cellW/2 - 1, top:0, bottom:0, width:2, background:`${COLORS.accent}88`, zIndex:3, pointerEvents:"none" }} />}
                         </td>
                       ))}
@@ -1016,7 +1027,7 @@ export function GanttView({ isMobile }) {
             ))}
           </div>
           <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:8 }}>
-            💡 Doble clic en una fila para editar · Enter en el campo cotización para cargar
+            💡 Doble clic en una fila para editar · Arrastra una barra para moverla o estira sus bordes para cambiar la duración · Enter en el campo cotización para cargar
           </div>
         </>
       )}
