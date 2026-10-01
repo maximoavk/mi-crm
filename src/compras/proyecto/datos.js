@@ -7,7 +7,7 @@ import { siguienteNumeroOC, vincularProductoEnFases } from "./calculos.js";
 // todavía no existe (falta correr el SQL), se informa en faltaSQL y el
 // resto funciona igual.
 export async function cargarTodo() {
-  const [cots, comps, facts, ocs, costeos, supps, prices, prods, pagos] = await Promise.all([
+  const [cots, comps, facts, ocs, costeos, supps, prices, prods, pagos, cuentas, colCaja, factsProv] = await Promise.all([
     supabase.from("cotizaciones").select("id,numero,serie,estado,total,nombre_cliente,razon_social").order("numero", { ascending:false }),
     supabase.from("comprobantes_pago").select("id,numero,quote_ids,transacciones"),
     supabase.from("facturas_emitidas").select("id,numero_documento,cotizacion_id,referencia_cotizacion,notas,pagos_recibidos(monto)"),
@@ -19,6 +19,11 @@ export async function cargarTodo() {
     supabase.from("product_prices").select("id,product_id,supplier_id,precio_bruto,es_preferido,suppliers(id,nombre)").order("es_preferido", { ascending:false }),
     supabase.from("products").select("id,codigo,categoria"),
     supabase.from("pagos_oc").select("*").order("fecha"),
+    supabase.from("cuentas_bancarias").select("id,nombre,banco,tipo").order("created_at"),
+    // ¿Ya existe pagos_oc.movimiento_id? (SQL 2026-10-02_cxp_oc_caja.sql)
+    supabase.from("pagos_oc").select("movimiento_id").limit(1),
+    // Facturas de proveedores vinculadas a OC (SQL 2026-10-02_cxp_oc_caja.sql)
+    supabase.from("facturas_recibidas").select("id,numero_documento,purchase_order_id").not("purchase_order_id", "is", null),
   ]);
   const error = [cots, comps, facts, ocs, costeos, supps, prices, prods].find(r => r.error)?.error;
   if (error) throw error;
@@ -33,6 +38,9 @@ export async function cargarTodo() {
     productos:    prods.data || [],
     pagos:        pagos.data || [],
     faltaSQL:     !!pagos.error,
+    cuentas:      cuentas.data || [],
+    conCaja:      !colCaja.error,
+    facturasProveedor: factsProv.error ? null : (factsProv.data || []), // null = falta el SQL
   };
 }
 
@@ -63,15 +71,32 @@ export async function crearOCs(cotizacionId, grupos, notas) {
   return creadas;
 }
 
-export async function registrarPago(pago, marcarPagada) {
-  await must(supabase.from("pagos_oc").insert(pago));
+// movimiento: { cuenta_id, concepto, notas } para registrar además el
+// egreso en Caja (movimientos_cuenta); queda enlazado al pago.
+export async function registrarPago(pago, marcarPagada, movimiento) {
+  let mov = null;
+  if (movimiento) {
+    mov = await must(supabase.from("movimientos_cuenta").insert({
+      ...movimiento, fecha: pago.fecha, tipo: "egreso", monto: pago.monto, referencia: pago.referencia || "",
+    }).select("id").single());
+  }
+  try {
+    await must(supabase.from("pagos_oc").insert(mov ? { ...pago, movimiento_id: mov.id } : pago));
+  } catch (e) {
+    if (mov) await supabase.from("movimientos_cuenta").delete().eq("id", mov.id);
+    throw e;
+  }
   if (marcarPagada) {
     await must(supabase.from("purchase_orders")
       .update({ estado: "PAGADA", updated_at: new Date().toISOString() }).eq("id", pago.purchase_order_id));
   }
 }
 
-export const borrarPago = (id) => must(supabase.from("pagos_oc").delete().eq("id", id));
+// Borra el pago y, si lo generó, su egreso en Caja.
+export async function borrarPago(pago) {
+  await must(supabase.from("pagos_oc").delete().eq("id", pago.id));
+  if (pago.movimiento_id) await must(supabase.from("movimientos_cuenta").delete().eq("id", pago.movimiento_id));
+}
 
 // Crea en el maestro un producto que el Costeo tenía escrito a mano (con su
 // precio de proveedor, si se indica) y lo enlaza en los ítems del costeo con

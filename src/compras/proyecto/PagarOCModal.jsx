@@ -10,10 +10,21 @@ import { registrarPago } from "./datos.js";
 
 const METODOS = ["Transferencia", "Tarjeta de crédito", "Tarjeta de débito", "Efectivo", "Cheque"];
 
-export function PagarOCModal({ oc, total, pagado, saldoDisponible, onClose, onPaid }) {
+// Cuenta de Caja donde se registra el egreso: la última usada o, la primera
+// vez, la primera cuenta de la empresa.
+const CLAVE_CUENTA = "pagosOC.cuenta";
+function cuentaInicial(cuentas) {
+  let ultima = null;
+  try { ultima = localStorage.getItem(CLAVE_CUENTA); } catch { /* sin almacenamiento */ }
+  if (ultima === "" || cuentas.some(c => String(c.id) === ultima)) return ultima;
+  return String((cuentas.find(c => c.tipo !== "personal") || cuentas[0])?.id ?? "");
+}
+
+export function PagarOCModal({ oc, total, pagado, saldoDisponible, codigo, cuentas = [], onClose, onPaid }) {
   const pendiente = Math.max(0, total - pagado);
   const [form, setForm] = useState({ monto: pendiente || "", fecha: hoyISO(), metodo: "Transferencia", referencia: "" });
   const [marcarPagada, setMarcarPagada] = useState(true);
+  const [cuentaId, setCuentaId] = useState(() => cuentaInicial(cuentas));
   const [guardando, setGuardando] = useState(false);
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -26,10 +37,13 @@ export function PagarOCModal({ oc, total, pagado, saldoDisponible, onClose, onPa
     if (!valido) return;
     setGuardando(true);
     try {
+      const proveedor = oc.suppliers?.nombre || "proveedor";
       await registrarPago({
         purchase_order_id: oc.id, fecha: form.fecha, monto,
         metodo: form.metodo, referencia: form.referencia.trim() || null,
-      }, completa && marcarPagada && oc.estado !== "PAGADA");
+      }, completa && marcarPagada && oc.estado !== "PAGADA",
+      cuentaId ? { cuenta_id: cuentaId, concepto: `Pago ${oc.numero_oc} · ${proveedor}`, notas: `Compras del proyecto ${codigo || ""} · ${form.metodo}`.trim() } : null);
+      try { localStorage.setItem(CLAVE_CUENTA, cuentaId); } catch { /* sin almacenamiento */ }
       onPaid();
     } catch (e) {
       alert("No se pudo registrar el pago: " + e.message);
@@ -61,6 +75,16 @@ export function PagarOCModal({ oc, total, pagado, saldoDisponible, onClose, onPa
           <input value={form.referencia} onChange={e => set("referencia", e.target.value)} placeholder="N° transferencia / factura" style={campo} />
         </div>
       </div>
+
+      {cuentas.length > 0 && (
+        <div style={{ marginTop:12 }}>
+          <div style={etiqueta}>Registrar egreso en Caja</div>
+          <select aria-label="Cuenta de Caja" value={cuentaId} onChange={e => setCuentaId(e.target.value)} style={campo}>
+            <option value="">— No registrar en Caja —</option>
+            {cuentas.map(c => <option key={c.id} value={String(c.id)}>{c.nombre}{c.banco ? ` · ${c.banco}` : ""}</option>)}
+          </select>
+        </div>
+      )}
 
       <div style={{ marginTop:14, padding:"10px 12px", borderRadius:8, fontFamily:FONT, fontSize:12,
         background: excede ? `${COLORS.yellow}14` : COLORS.card, border:`1px solid ${excede ? `${COLORS.yellow}66` : COLORS.border}`,

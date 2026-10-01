@@ -4,10 +4,12 @@ import { supabase } from "../supabaseClient.js";
 import { IVA_RATE, CENTROS_COSTO, SUBCATEGORIAS_CC, LINEAS_NEGOCIO } from "./constants.js";
 import { SecTitle, BtnPrimary, KpiCard, FinModal, LabelInput, LabelSelect, BtnSec } from "./ui.jsx";
 import { FONT, COLORS, FONT_DISPLAY } from "../theme.js";
-import { fmtClp, fmtFecha } from "../shared/format.js";
+import { fmtClp, fmtFecha, hoyISO } from "../shared/format.js";
 import { calcEstado } from "./estadoPago.js";
 import { badgePago } from "./badgePago.jsx";
 import { printComprobanteCPP } from "./printComprobanteCPP.js";
+import { pagosOCPorFactura, pagadoPropio, ocsSinFactura, netoDesdeBruto } from "./cxpOC.js";
+import { codigoCot } from "../compras/proyecto/calculos.js";
 
 // ══════════════════════════════════════════════════════════════════════════════
 // 3. CUENTAS POR PAGAR — Facturas recibidas (proveedores + subcontratistas)
@@ -15,6 +17,12 @@ import { printComprobanteCPP } from "./printComprobanteCPP.js";
 export function CuentasPorPagar({ isMobile }) {
   const [facturas, setFacturas]     = useState([]);
   const [suppliers, setSuppliers]   = useState([]);
+  // Órdenes de compra y sus pagos (Compras → Por proyecto). conOC = ya se
+  // corrió el SQL que agrega facturas_recibidas.purchase_order_id.
+  const [ocs, setOcs]               = useState([]);
+  const [pagosOC, setPagosOC]       = useState([]);
+  const [cotizaciones, setCotizaciones] = useState([]);
+  const [conOC, setConOC]           = useState(false);
   const [loading, setLoading]       = useState(true);
   const [modal, setModal]           = useState(null);
   const [pagoModal, setPagoModal]   = useState(null);
@@ -25,10 +33,16 @@ export function CuentasPorPagar({ isMobile }) {
 
   const openEdit = (f) => {
     setEditingRow(f.id);
-    setEditForm({ vencimiento: f.vencimiento||"", estado_manual: f.estado_manual||"" });
+    setEditForm({ vencimiento: f.vencimiento||"", estado_manual: f.estado_manual||"", purchase_order_id: f.purchase_order_id != null ? String(f.purchase_order_id) : "" });
   };
   const saveEdit = async (facturaId) => {
     const patch = { vencimiento: editForm.vencimiento||null, estado_manual: editForm.estado_manual||null };
+    if (conOC) {
+      // Al vincular una OC, la factura hereda su cotización (Estado de Resultados la toma como costo de venta).
+      const oc = ocs.find(o => String(o.id) === editForm.purchase_order_id);
+      patch.purchase_order_id = oc ? oc.id : null;
+      if (oc) { patch.referencia_oc = oc.numero_oc; if (oc.cotizacion_id) patch.cotizacion_id = oc.cotizacion_id; }
+    }
     await supabase.from("facturas_recibidas").update(patch).eq("id", facturaId);
     setFacturas(prev=>prev.map(f=>f.id===facturaId?{...f,...patch}:f));
     setEditingRow(null);
@@ -44,7 +58,7 @@ export function CuentasPorPagar({ isMobile }) {
     razon_social_proveedor:"", rut_proveedor:"", tipo_proveedor:"Proveedor",
     monto_neto:"", aplica_iva:true, vencimiento:"",
     referencia_oc:"", referencia_proyecto:"", notas:"", linea_negocio:"",
-    centro_costo:"", subcategoria:"",
+    centro_costo:"", subcategoria:"", purchase_order_id:"", cotizacion_id:"",
   };
   const [form, setForm] = useState(emptyForm);
   const setF = (k,v) => setForm(p=>({...p,[k]:v}));
@@ -57,13 +71,23 @@ export function CuentasPorPagar({ isMobile }) {
 
   const loadAll = async () => {
     setLoading(true);
-    const [{ data: facts }, { data: sups }] = await Promise.all([
+    const [{ data: facts }, { data: sups }, { data: ocsData }, pagosR, { data: cots }, colOC] = await Promise.all([
       supabase.from("facturas_recibidas")
         .select("*, pagos_realizados(*)").order("fecha_recepcion", { ascending:false }),
       supabase.from("suppliers").select("id, nombre, rut, email, telefono").order("nombre"),
+      supabase.from("purchase_orders")
+        .select("id, numero_oc, estado, cotizacion_id, supplier_id, created_at, suppliers(id,nombre,rut), purchase_order_lines(cantidad, precio_unitario)")
+        .order("created_at", { ascending:false }),
+      supabase.from("pagos_oc").select("purchase_order_id, monto"),
+      supabase.from("cotizaciones").select("id, numero, serie"),
+      supabase.from("facturas_recibidas").select("purchase_order_id").limit(1),
     ]);
     setFacturas(facts || []);
     setSuppliers(sups || []);
+    setOcs(ocsData || []);
+    setPagosOC(pagosR.error ? [] : (pagosR.data || []));
+    setCotizaciones(cots || []);
+    setConOC(!colOC.error);
     setLoading(false);
   };
 
@@ -95,6 +119,32 @@ export function CuentasPorPagar({ isMobile }) {
     setModal("nueva");
   };
 
+  // Datos que una factura toma de su OC: proveedor, monto, referencias y cotización.
+  const datosDeOC = (oc, base) => {
+    const cot = cotizaciones.find(q => String(q.id) === String(oc.cotizacion_id));
+    const total = (oc.purchase_order_lines||[]).reduce((a,l)=>a+(Number(l.cantidad)||0)*(Number(l.precio_unitario)||0),0);
+    return {
+      ...base,
+      purchase_order_id: String(oc.id), referencia_oc: oc.numero_oc,
+      cotizacion_id: oc.cotizacion_id != null ? String(oc.cotizacion_id) : "",
+      referencia_proyecto: base.referencia_proyecto || (cot ? codigoCot(cot) : ""),
+      monto_neto: base.monto_neto || String(netoDesdeBruto(total).neto),
+      razon_social_proveedor: base.razon_social_proveedor || oc.suppliers?.nombre || "",
+      rut_proveedor: base.rut_proveedor || oc.suppliers?.rut || "",
+    };
+  };
+  const abrirModalDesdeOC = (oc) => {
+    const sup = suppliers.find(x => String(x.id) === String(oc.supplier_id));
+    setProveedorSel(sup || null);
+    setBusqueda(sup?.nombre || oc.suppliers?.nombre || "");
+    setForm(datosDeOC(oc, { ...emptyForm, fecha_recepcion: hoyISO(), tipo_proveedor:"Proveedor" }));
+    setModal("nueva");
+  };
+  const elegirOC = (id) => {
+    const oc = ocs.find(o => String(o.id) === id);
+    setForm(p => oc ? datosDeOC(oc, p) : { ...p, purchase_order_id:"", referencia_oc:"" });
+  };
+
   const netoNum   = Number(form.monto_neto) || 0;
   const ivaCalc   = form.aplica_iva ? Math.round(netoNum * IVA_RATE) : 0;
   const totalCalc = netoNum + ivaCalc;
@@ -123,6 +173,8 @@ export function CuentasPorPagar({ isMobile }) {
       monto_total:      totalCalc,
       vencimiento:      form.vencimiento || null,
       referencia_oc:    form.referencia_oc.trim() || null,
+      ...(conOC ? { purchase_order_id: form.purchase_order_id || null } : {}),
+      ...(form.cotizacion_id ? { cotizacion_id: form.cotizacion_id } : {}),
       referencia_proyecto: form.referencia_proyecto.trim() || null,
       notas:            form.notas.trim() || null,
       linea_negocio:    ccAuto || form.linea_negocio || null,
@@ -141,6 +193,22 @@ export function CuentasPorPagar({ isMobile }) {
     if (!formPago.monto || !formPago.fecha_pago) return;
     setSaving(true);
     try {
+      // Factura de una OC: el pago se registra a la OC, para que también
+      // descuente del saldo del proyecto en Compras → Por proyecto.
+      if (pagoModal.oc) {
+        const { error } = await supabase.from("pagos_oc").insert({
+          purchase_order_id: pagoModal.oc.id,
+          fecha:      formPago.fecha_pago,
+          monto:      Number(formPago.monto),
+          metodo:     formPago.metodo,
+          referencia: [`Fact. ${pagoModal.facturaN}`, formPago.referencia.trim()].filter(Boolean).join(" · "),
+        });
+        if (error) return;
+        await loadAll();
+        setFormPago(emptyPago);
+        setPagoModal(null);
+        return;
+      }
       const { data: nuevoPago } = await supabase.from("pagos_realizados").insert({
         factura_id: pagoModal.facturaId,
         fecha_pago: formPago.fecha_pago,
@@ -166,9 +234,14 @@ export function CuentasPorPagar({ isMobile }) {
     ? facturas
     : facturas.filter(f => f.tipo_proveedor === filtroTipo);
 
+  // Pagado de una factura = sus pagos + lo pagado a su OC desde Compras.
+  const asignadoOC = pagosOCPorFactura(facturas, pagosOC);
+  const pagadoDe   = (f) => pagadoPropio(f) + (asignadoOC[f.id] || 0);
+  const sinFactura = conOC ? ocsSinFactura(ocs, facturas, pagosOC) : [];
+  const ocDe       = (f) => ocs.find(o => String(o.id) === String(f.purchase_order_id));
+
   const totalFacturado  = filtradas.reduce((s,f) => s + (f.monto_total||0), 0);
-  const totalPagado     = filtradas.reduce((s,f) =>
-    s + (f.pagos_realizados||[]).reduce((a,p)=>a+p.monto,0), 0);
+  const totalPagado     = filtradas.reduce((s,f) => s + pagadoDe(f), 0);
   const totalPendiente  = totalFacturado - totalPagado;
   const creditoFiscal   = filtradas.filter(f=>f.aplica_iva).reduce((s,f)=>s+(f.monto_iva||0),0);
 
@@ -200,7 +273,7 @@ export function CuentasPorPagar({ isMobile }) {
         <KpiCard label="Total Comprometido" value={fmtClp(totalFacturado)} color={COLORS.text} icon="📋" />
         <KpiCard label="Total Pagado"        value={fmtClp(totalPagado)}   color={COLORS.green} icon="✅" />
         <KpiCard label="Por Pagar"           value={fmtClp(totalPendiente)} color={COLORS.red} icon="⏳"
-          sub={`${filtradas.filter(f=>{const p=(f.pagos_realizados||[]).reduce((a,x)=>a+x.monto,0); return p<f.monto_total;}).length} pendientes`} />
+          sub={`${filtradas.filter(f=>pagadoDe(f)<f.monto_total).length} pendientes`} />
         <KpiCard label="Crédito Fiscal IVA"  value={fmtClp(creditoFiscal)} color={COLORS.green} icon="🧾"
           sub="Usado en F29" />
       </div>
@@ -228,14 +301,20 @@ export function CuentasPorPagar({ isMobile }) {
                 </thead>
                 <tbody>
                   {filtradas.map(f => {
-                    const pagado = (f.pagos_realizados||[]).reduce((a,p)=>a+p.monto,0);
+                    const pagado = pagadoDe(f);
                     const saldo  = f.monto_total - pagado;
+                    const oc     = ocDe(f);
                     const estado = calcEstado(f.monto_total, pagado, f.vencimiento, f.estado_manual);
                     return (
                       <React.Fragment key={f.id}>
                       <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
                         <td style={{ padding:"9px 12px", color:COLORS.accent, fontWeight:700, fontFamily:FONT }}>
                           {f.numero_documento}
+                          {oc && (
+                            <div title="Factura vinculada a esta orden de compra" style={{ marginTop:3, fontSize:10, fontWeight:400, color:COLORS.green, whiteSpace:"nowrap" }}>
+                              📦 {oc.numero_oc}
+                            </div>
+                          )}
                         </td>
                         <td style={{ padding:"9px 12px" }}>
                           <div style={{ fontWeight:600, color:COLORS.text, fontSize:13 }}>{f.razon_social_proveedor||"—"}</div>
@@ -263,14 +342,21 @@ export function CuentasPorPagar({ isMobile }) {
                           {f.aplica_iva?fmtClp(f.monto_iva):"—"}
                         </td>
                         <td style={{ padding:"9px 12px", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text }}>{fmtClp(f.monto_total)}</td>
-                        <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.green }}>{fmtClp(pagado)}</td>
+                        <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.green }}>
+                          {fmtClp(pagado)}
+                          {asignadoOC[f.id] > 0 && (
+                            <div title="Pagado a la OC desde Compras → Por proyecto" style={{ fontSize:9, color:COLORS.textMuted, whiteSpace:"nowrap" }}>
+                              incl. {fmtClp(asignadoOC[f.id])} de la OC
+                            </div>
+                          )}
+                        </td>
                         <td style={{ padding:"9px 12px", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700,
                           color:saldo>0?COLORS.red:COLORS.green }}>{fmtClp(saldo)}</td>
                         <td style={{ padding:"9px 12px" }}>{badgePago(estado)}</td>
                         <td style={{ padding:"9px 12px" }}>
                           <div style={{ display:"flex", gap:6, alignItems:"center" }}>
                             {saldo > 0 && (
-                              <button onClick={()=>{ setPagoModal({facturaId:f.id, facturaN:f.numero_documento}); setFormPago(emptyPago); }}
+                              <button onClick={()=>{ setPagoModal({facturaId:f.id, facturaN:f.numero_documento, oc: conOC ? oc : null}); setFormPago(emptyPago); }}
                                 style={{ padding:"5px 10px", background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`,
                                   borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
                                 + Pago
@@ -317,6 +403,17 @@ export function CuentasPorPagar({ isMobile }) {
                                   <option value="vencido">Vencido</option>
                                 </select>
                               </div>
+                              {conOC && (
+                                <div>
+                                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4 }}>Orden de compra</div>
+                                  <select value={editForm.purchase_order_id}
+                                    onChange={e=>setEditForm(p=>({...p,purchase_order_id:e.target.value}))}
+                                    style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"6px 10px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", maxWidth:280 }}>
+                                    <option value="">— Sin OC —</option>
+                                    {ocs.map(o => <option key={o.id} value={String(o.id)}>{o.numero_oc} · {o.suppliers?.nombre||"—"}</option>)}
+                                  </select>
+                                </div>
+                              )}
                               <button onClick={()=>saveEdit(f.id)}
                                 style={{ padding:"7px 18px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT, fontSize:12, fontWeight:700, cursor:"pointer" }}>
                                 Guardar
@@ -336,6 +433,57 @@ export function CuentasPorPagar({ isMobile }) {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* OC sin factura del proveedor (Compras → Por proyecto) */}
+      {!loading && sinFactura.length > 0 && (filtroTipo==="todos" || filtroTipo==="Proveedor") && (
+        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, overflow:"hidden", marginTop:20 }}>
+          <div style={{ padding:"14px 16px", display:"flex", justifyContent:"space-between", alignItems:"baseline", gap:12, flexWrap:"wrap", borderBottom:`1px solid ${COLORS.border}` }}>
+            <div>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text }}>Órdenes de compra sin factura</div>
+              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:2 }}>
+                Se pagan desde Compras → Por proyecto. Registra la factura del proveedor para el crédito fiscal: lo ya pagado a la OC cuenta como pagado.
+              </div>
+            </div>
+            <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, whiteSpace:"nowrap" }}>
+              Por pagar <b style={{ color:COLORS.red }}>{fmtClp(sinFactura.reduce((a,x)=>a+x.pendiente,0))}</b>
+            </div>
+          </div>
+          <div style={{ overflowX:"auto" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse" }}>
+              <thead>
+                <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                  {["OC","Proveedor","Proyecto","Total","Pagado","Por pagar",""].map(h=>(
+                    <th key={h} style={{ padding:"10px 12px", textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, letterSpacing:"0.07em", textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sinFactura.map(({ oc, total, pagado, pendiente }) => {
+                  const cot = cotizaciones.find(q => String(q.id) === String(oc.cotizacion_id));
+                  return (
+                    <tr key={oc.id} style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                      <td style={{ padding:"9px 12px", fontFamily:FONT, fontWeight:700, color:COLORS.accent }}>{oc.numero_oc}</td>
+                      <td style={{ padding:"9px 12px", fontSize:13, color:COLORS.text }}>{oc.suppliers?.nombre||"—"}</td>
+                      <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{cot ? codigoCot(cot) : "—"}</td>
+                      <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.text }}>{fmtClp(total)}</td>
+                      <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.green }}>{fmtClp(pagado)}</td>
+                      <td style={{ padding:"9px 12px", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:pendiente>0?COLORS.red:COLORS.green }}>
+                        {pendiente > 0 ? fmtClp(pendiente) : "✓ Pagada"}
+                      </td>
+                      <td style={{ padding:"9px 12px" }}>
+                        <button onClick={()=>abrirModalDesdeOC(oc)}
+                          style={{ padding:"5px 10px", background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer", whiteSpace:"nowrap" }}>
+                          + Registrar factura
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -527,8 +675,16 @@ export function CuentasPorPagar({ isMobile }) {
                 ))}
               </div>
             </div>
-            <LabelInput label="Ref. Orden de Compra" value={form.referencia_oc}
-              onChange={e=>setF("referencia_oc",e.target.value)} placeholder="OC-001" />
+            {conOC ? (
+              <LabelSelect label="Orden de Compra" value={form.purchase_order_id} onChange={e=>elegirOC(e.target.value)}>
+                <option value="">— Sin OC —</option>
+                {[...ocs].sort((a,b)=>(String(b.supplier_id)===String(proveedorSel?.id))-(String(a.supplier_id)===String(proveedorSel?.id)))
+                  .map(o => <option key={o.id} value={String(o.id)}>{o.numero_oc} · {o.suppliers?.nombre||"—"}</option>)}
+              </LabelSelect>
+            ) : (
+              <LabelInput label="Ref. Orden de Compra" value={form.referencia_oc}
+                onChange={e=>setF("referencia_oc",e.target.value)} placeholder="OC-001" />
+            )}
             <LabelInput label="Ref. Proyecto / Cotización" value={form.referencia_proyecto}
               onChange={e=>setF("referencia_proyecto",e.target.value)} placeholder="COT-005" />
           </div>
@@ -587,6 +743,11 @@ export function CuentasPorPagar({ isMobile }) {
       {/* Modal registrar pago */}
       {pagoModal && (
         <FinModal title={`Registrar Pago — Doc ${pagoModal.facturaN}`} onClose={()=>setPagoModal(null)} width={400}>
+          {pagoModal.oc && (
+            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"8px 12px", marginBottom:14 }}>
+              Se registra como pago de la <b style={{ color:COLORS.text }}>{pagoModal.oc.numero_oc}</b> y descuenta del saldo de su proyecto en Compras → Por proyecto.
+            </div>
+          )}
           <LabelInput label="Fecha de Pago" type="date" value={formPago.fecha_pago}
             onChange={e=>setFP("fecha_pago",e.target.value)} />
           <LabelInput label="Monto Pagado" type="number" value={formPago.monto}
