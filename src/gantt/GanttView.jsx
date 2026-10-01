@@ -11,6 +11,7 @@ import { TreeNodeCell } from "./TreeNodeCell.jsx";
 import { PdfPreviewModal } from "../shared/ui.jsx";
 import { fechaLocal, hoyISO } from "../shared/format.js";
 import { EMPRESA_RUT, TITULAR } from "../shared/empresa.js";
+import { derivarGantt, avanceProyecto, atrasada, hijosPorFase } from "./calculos.js";
 
 export function GanttView({ isMobile }) {
   const [cotNum, setCotNum]       = useState("");
@@ -49,6 +50,9 @@ export function GanttView({ isMobile }) {
   const [versionPicker, setVersionPicker] = useState(null); // { cot, versions }
   const [headerData, setHeaderData] = useState({ elaboradoPor:TITULAR.nombre, cliente:"", fechaEmision: hoyISO() });
   const [headerEdit, setHeaderEdit] = useState(false);
+  // Cambios sin guardar (ver `sinGuardar`): firma de lo último cargado o guardado.
+  const [firmaGuardada, setFirmaGuardada] = useState(null);
+  const [marcarCargada, setMarcarCargada] = useState(false);
   const cellW = 28;
   const today = hoyISO();
   const calCols = buildCalHeader(viewStart, calDays);
@@ -215,6 +219,9 @@ export function GanttView({ isMobile }) {
 
   // Cargar Gantt existente desde Supabase
   const cargarGantt = async (num) => {
+    if (sinGuardar && !window.confirm("Hay cambios sin guardar en esta Gantt. ¿Cargar otra de todas formas?")) return;
+    // Una Gantt nueva o reimportada queda "sin guardar" hasta que se guarde.
+    setFirmaGuardada("");
     setSearching(true);
     const { data: gantt } = await supabase.from("gantt_proyectos").select("*").eq("numero_cotizacion", Number(num)).single();
     if(gantt) {
@@ -232,6 +239,7 @@ export function GanttView({ isMobile }) {
           hhPresup: r.hh_presup||0, hhReal: r.hh_real||0, hhTerceros: r.hh_terceros||0,
           depende: r.depende_de||"", orden: r.orden||0, parentId: r.parent_id||null,
         })));
+        setMarcarCargada(true);
         setSearching(false);
       } else {
         // Gantt guardado pero sin tareas (huérfano): reimportar fases/hitos desde el costeo vinculado
@@ -281,7 +289,7 @@ export function GanttView({ isMobile }) {
       alert("No se pudo guardar la Gantt: "+e.message);
       return;
     }
-    const rows = tasks.map((t,i)=>({
+    const rows = vista.map((t,i)=>({
       gantt_id: gId, tipo: t.tipo, nombre: t.nombre, rol: t.rol,
       responsable: t.responsable, fecha_inicio: t.inicio, fecha_fin: t.fin,
       pct_plan: Number(t.pctPlan)||0, pct_avance: Number(t.pctAvance)||0,
@@ -296,6 +304,7 @@ export function GanttView({ isMobile }) {
       return;
     }
     setSaving(false);
+    setFirmaGuardada(firma);
     alert("✅ Gantt guardada");
   };
 
@@ -337,7 +346,11 @@ export function GanttView({ isMobile }) {
   const updateTask = (id, field, val) => setTasks(prev => {
     const row = prev.find(r=>r.id===id);
     if(row && row.tipo==="F" && field==="inicio" && row.inicio) {
-      const delta = diffDays(row.inicio, val);
+      // La fase muestra como inicio el de su actividad más temprana: el
+      // desplazamiento se mide desde ahí.
+      const hijos = (hijosPorFase(prev)[id] || []).filter(h => h.inicio);
+      const inicioVisto = hijos.length ? hijos.reduce((m, h) => h.inicio < m ? h.inicio : m, hijos[0].inicio) : row.inicio;
+      const delta = diffDays(inicioVisto, val);
       if(delta===0) return prev.map(r=>r.id===id?{...r,inicio:val}:r);
       return prev.map(r => {
         if(r.id===id) return { ...r, inicio:val, fin: r.fin?shiftDateBusinessDay(r.fin,delta):r.fin };
@@ -347,7 +360,14 @@ export function GanttView({ isMobile }) {
     }
     return prev.map(r=>r.id===id?{...r,[field]:val}:r);
   });
-  const deleteTask = (id) => setTasks(t=>t.filter(r=>r.id!==id));
+  // Borrar una fase borra también sus actividades (avisando cuántas).
+  const deleteTask = (id) => {
+    const row = tasks.find(r => r.id === id);
+    const hijos = row?.tipo === "F" ? (ganttMeta.phaseChildren[id] || []) : [];
+    if (hijos.length && !window.confirm(`La fase "${row.nombre}" tiene ${hijos.length} actividad${hijos.length === 1 ? "" : "es"}. ¿Borrar la fase junto con ellas?`)) return;
+    const fuera = new Set([id, ...hijos]);
+    setTasks(t => t.filter(r => !fuera.has(r.id)));
+  };
   const reorderTask = (fromId, toId) => {
     if(fromId===toId) return;
     setTasks(prev => {
@@ -396,6 +416,26 @@ export function GanttView({ isMobile }) {
     });
     return { numbers, phaseHH, childPhaseId, phaseChildren: phaseChildrenMap };
   }, [tasks]);
+
+  // Tareas tal como se muestran y se guardan: cada fase con actividades toma
+  // sus fechas y su avance de ellas, y todas llevan el % planificado a hoy.
+  const vista = useMemo(() => derivarGantt(tasks, today), [tasks, today]);
+  const vistaPorId = useMemo(() => Object.fromEntries(vista.map(t => [t.id, t])), [vista]);
+  const avanceTotal = avanceProyecto(vista);
+
+  // Cambios sin guardar: se compara con la última versión cargada o guardada.
+  const firma = JSON.stringify({ nombre: proyecto?.nombre, calStart, tasks });
+  const sinGuardar = !!proyecto && firmaGuardada !== null && firma !== firmaGuardada;
+  useEffect(() => {
+    if (!sinGuardar) return;
+    const avisar = (e) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", avisar);
+    return () => window.removeEventListener("beforeunload", avisar);
+  }, [sinGuardar]);
+  // Al terminar de cargar una Gantt, su estado pasa a ser "lo guardado".
+  useEffect(() => {
+    if (marcarCargada) { setFirmaGuardada(firma); setMarcarCargada(false); }
+  }, [marcarCargada, firma]);
   const duplicateTask = (id) => {
     setTasks(prev => {
       const idx = prev.findIndex(t=>t.id===id);
@@ -416,6 +456,14 @@ export function GanttView({ isMobile }) {
     [arr[idx],arr[swap]] = [arr[swap],arr[idx]];
     setTasks(arr);
   };
+
+  // Columnas fijas al hacer scroll horizontal: N°, Tipo y Descripción.
+  const FIJAS = [{ left:0, width:44 }, { left:44, width:52 }, { left:96, width:200 }];
+  const fija = (i, background, z = 4) => i < FIJAS.length ? {
+    position:"sticky", left:FIJAS[i].left, width:FIJAS[i].width, minWidth:FIJAS[i].width, maxWidth:FIJAS[i].width,
+    boxSizing:"border-box", background, zIndex:z,
+    ...(i === FIJAS.length - 1 ? { boxShadow:`2px 0 0 ${COLORS.border}` } : {}),
+  } : {};
 
   const s = { // input style
     background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4,
@@ -455,6 +503,7 @@ export function GanttView({ isMobile }) {
               style={{ padding:"5px 10px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
               🔄 Reimportar versión
             </button>
+            {sinGuardar && <span title="Hay cambios que todavía no se guardan" style={{ alignSelf:"center", fontFamily:FONT, fontSize:11, color:COLORS.yellow }}>● Sin guardar</span>}
             <button onClick={saveGantt} disabled={saving} style={{ padding:"5px 14px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer", opacity:saving?0.6:1 }}>
               {saving?"Guardando...":"💾 Guardar"}
             </button>
@@ -566,8 +615,7 @@ export function GanttView({ isMobile }) {
                     {headerData.fechaEmision && <span> · <b style={{color:COLORS.text}}>{new Date(headerData.fechaEmision+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}</b></span>}
                   </div>
                   {(() => {
-                    const ts = tasks.filter(t=>t.tipo!=="H");
-                    const prom = ts.length ? Math.round(ts.reduce((s,t)=>s+Number(t.pctAvance||0),0)/ts.length) : 0;
+                    const prom = avanceTotal;
                     return (
                       <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                         <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Avance: <b style={{color:COLORS.accent}}>{prom}%</b></span>
@@ -617,14 +665,33 @@ export function GanttView({ isMobile }) {
                 <button onClick={()=>shiftMonthView(1)} title="Mes siguiente" style={{ background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.textMuted, cursor:"pointer", padding:"3px 8px", fontSize:11 }}>▶</button>
               </div>
             )}
+            {/* Navegación: ir a hoy / al inicio del proyecto, y contraer/expandir todas las fases */}
+            {(() => {
+              const btn = { padding:"3px 10px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" };
+              const inicios = vista.map(t=>t.inicio).filter(Boolean);
+              const fasesConHijos = vista.filter(t=>t.tipo==="F" && (ganttMeta.phaseChildren[t.id]||[]).length).map(t=>t.id);
+              const todoContraido = fasesConHijos.length > 0 && fasesConHijos.every(id=>collapsedPhases.has(id));
+              return (<>
+                <button title="Mover la vista a la fecha de hoy" style={btn}
+                  onClick={()=>{ setMonthMode(false); setViewStart(addDays(today, -2)); }}>Hoy</button>
+                {inicios.length > 0 && (
+                  <button title="Mover la vista al inicio de la primera actividad" style={btn}
+                    onClick={()=>{ setMonthMode(false); setViewStart(inicios.reduce((a,b)=>a<b?a:b)); }}>⇤ Inicio</button>
+                )}
+                {fasesConHijos.length > 0 && (
+                  <button style={btn} onClick={()=>setCollapsedPhases(todoContraido ? new Set() : new Set(fasesConHijos))}>
+                    {todoContraido ? "⊞ Expandir fases" : "⊟ Contraer fases"}
+                  </button>
+                )}
+              </>);
+            })()}
             {/* Leyenda + PDF */}
             <div style={{ display:"flex", gap:10, marginLeft:"auto", flexWrap:"wrap", alignItems:"center" }}>
               {[["Fase","#3b82f6"],["Tarea","#6366f1"],["Hito","#f59e0b"],["Completado","#22c55e"],["Atrasado","#ef4444"]].map(([l,c])=>(
                 <span key={l} style={{ fontFamily:FONT, fontSize:10, color:c }}>● {l}</span>
               ))}
               <button onClick={async () => {
-                const ts2 = tasks.filter(t => t.tipo !== "H");
-                const avancePromedio = ts2.length ? Math.round(ts2.reduce((s, t) => s + Number(t.pctAvance || 0), 0) / ts2.length) : 0;
+                const avancePromedio = avanceTotal;
                 // El PDF cubre TODO el rango del proyecto (no solo lo que está
                 // visible en pantalla) — una página A4 apaisada por mes, para
                 // que ninguna fase quede fuera solo por estar fuera de la
@@ -667,7 +734,7 @@ export function GanttView({ isMobile }) {
                 ]);
                 let logoDataUri = null;
                 try { logoDataUri = await fetchImageAsDataUri(LOGO_PRINT); } catch { /* el documento se genera igual, sin logo */ }
-                const blob = await pdf(<GanttDoc proyecto={proyecto} headerData={headerData} tasks={tasks} monthPages={monthPages} numbersById={ganttMeta.numbers} phasePresupById={phasePresupById} totales={totales} logoDataUri={logoDataUri} />).toBlob();
+                const blob = await pdf(<GanttDoc proyecto={proyecto} headerData={headerData} tasks={vista} monthPages={monthPages} numbersById={ganttMeta.numbers} phasePresupById={phasePresupById} totales={totales} logoDataUri={logoDataUri} />).toBlob();
                 const url = URL.createObjectURL(blob);
                 setPdfPreviewUrl(url);
               }} style={{ padding:"4px 14px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:5, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>🖨 PDF</button>
@@ -681,8 +748,8 @@ export function GanttView({ isMobile }) {
                 {/* Fila meses */}
                 <tr style={{ background:COLORS.surface }}>
                   {/* Columnas fijas */}
-                  {[["#",28],["Tipo",44],["Descripción",180],["Rol",50],["Responsable",90],["Inicio",88],["Fin",88],["Plan%",52],["Av.%",52],["HH Pres.",62],["HH Real",62],["HH 3ros",62],["Dep.",48],["",52]].map(([h,w])=>(
-                    <th key={h} style={{ padding:"6px 4px", color:COLORS.textMuted, whiteSpace:"nowrap", minWidth:w, maxWidth:w, borderRight:`1px solid ${COLORS.border}`, textAlign:"center", letterSpacing:"0.06em", fontSize:9 }}>{h}</th>
+                  {[["#",28],["Tipo",44],["Descripción",180],["Rol",50],["Responsable",90],["Inicio",88],["Fin",88],["Plan%",52],["Av.%",52],["HH Pres.",62],["HH Real",62],["HH 3ros",62],["Dep.",48],["",52]].map(([h,w],i)=>(
+                    <th key={h} style={{ padding:"6px 4px", color:COLORS.textMuted, whiteSpace:"nowrap", minWidth:w, maxWidth:w, borderRight:`1px solid ${COLORS.border}`, textAlign:"center", letterSpacing:"0.06em", fontSize:9, ...fija(i, COLORS.surface, 6) }}>{h}</th>
                   ))}
                   {/* Meses */}
                   {months.map((m,i)=>(
@@ -695,7 +762,7 @@ export function GanttView({ isMobile }) {
                 <tr style={{ background:COLORS.bg }}>
                   {/* Columnas fijas vacías */}
                   {Array(14).fill(0).map((_,i)=>(
-                    <th key={i} style={{ borderRight:`1px solid ${COLORS.border}`, borderBottom:`1px solid ${COLORS.border}` }} />
+                    <th key={i} style={{ borderRight:`1px solid ${COLORS.border}`, borderBottom:`1px solid ${COLORS.border}`, ...fija(i, COLORS.bg, 6) }} />
                   ))}
                   {/* Días */}
                   {calCols.map((c,i)=>(
@@ -711,11 +778,11 @@ export function GanttView({ isMobile }) {
                 </tr>
               </thead>
               <tbody>
-                {tasks.map((t, idx)=>{
+                {vista.map((t, idx)=>{
                   const isFase = t.tipo==="F";
                   const isHito = t.tipo==="H";
                   const pct    = Number(t.pctAvance)||0;
-                  const isLate = t.fin < today && pct < 100;
+                  const isLate = atrasada(t, today);
                   const rowBg  = isFase ? `${GANTT_COLORS.fase}11` : "transparent";
                   const editing = editRow===t.id;
                   // Ocultar si pertenece a una fase colapsada
@@ -724,6 +791,8 @@ export function GanttView({ isMobile }) {
                   const isCollapsed = isFase && collapsedPhases.has(t.id);
 
                   const isDragOver = dragOverId===t.id && draggedId!==t.id;
+                  // Fondo opaco para las columnas fijas (si no, las barras se verían por debajo al hacer scroll)
+                  const fondoFijo = isFase ? `linear-gradient(${rowBg}, ${rowBg}), ${COLORS.card}` : COLORS.card;
                   return (
                     <tr key={t.id}
                       draggable={!editing}
@@ -739,7 +808,7 @@ export function GanttView({ isMobile }) {
                       onClick={()=>setSelectedId(t.id)}
                       onDoubleClick={()=>setEditRow(editing?null:t.id)}>
                       {/* Nro */}
-                      <td style={{ padding:"4px 4px", textAlign:"center", color:COLORS.textMuted, fontSize:10, borderRight:`1px solid ${COLORS.border}` }}>
+                      <td style={{ padding:"4px 4px", textAlign:"center", color:COLORS.textMuted, fontSize:10, borderRight:`1px solid ${COLORS.border}`, ...fija(0, fondoFijo) }}>
                         <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:1 }}>
                           <button onClick={()=>moveTask(t.id,-1)} style={{ background:"none",border:"none",color:COLORS.textMuted,cursor:"pointer",fontSize:8,padding:0,lineHeight:1 }}>▲</button>
                           <div style={{ display:"flex", alignItems:"center", gap:3 }}>
@@ -755,7 +824,7 @@ export function GanttView({ isMobile }) {
                         </div>
                       </td>
                       {/* Tipo */}
-                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}`, ...fija(1, fondoFijo) }}>
                         {editing ? (
                           <select value={t.tipo} onChange={e=>updateTask(t.id,"tipo",e.target.value)} style={{...s,width:50,padding:"2px 3px"}}>
                             {Object.entries(TIPO_LABEL).map(([k,v])=><option key={k} value={k}>{v}</option>)}
@@ -776,7 +845,7 @@ export function GanttView({ isMobile }) {
                         )}
                       </td>
                       {/* Descripción */}
-                      <td style={{ padding:"4px 6px", borderRight:`1px solid ${COLORS.border}`, maxWidth:200, position:"relative" }}>
+                      <td style={{ padding:"4px 6px", borderRight:`1px solid ${COLORS.border}`, ...fija(2, fondoFijo) }}>
                         <TreeNodeCell
                           task={t} isFase={isFase} editing={editing}
                           selected={selectedId===t.id}
@@ -811,19 +880,19 @@ export function GanttView({ isMobile }) {
                       </td>
                       {/* Fin */}
                       <td style={{ padding:"4px 4px", borderRight:`1px solid ${COLORS.border}` }}>
-                        {editing ? (
+                        {editing && !t.derivada ? (
                           <CalendarPicker value={t.fin} onChange={v=>updateTask(t.id,"fin",v)} />
-                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:isLate?GANTT_COLORS.late:COLORS.text }}>{fmtShort(t.fin)}{isLate&&" ⚠"}</span>}
+                        ) : <span title={t.derivada ? "Fin de la última actividad de la fase" : undefined} style={{ fontFamily:"monospace", fontSize:10, color:isLate?GANTT_COLORS.late:COLORS.text }}>{fmtShort(t.fin)}{isLate&&" ⚠"}</span>}
                       </td>
                       {/* Plan % */}
                       <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
-                        {editing ? (
-                          <input type="number" value={t.pctPlan} onChange={e=>updateTask(t.id,"pctPlan",e.target.value)} style={{...s,width:44}} min={0} max={100} />
-                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.textMuted }}>{t.pctPlan}%</span>}
+                        {/* Calculado: lo que debería llevar a hoy según sus fechas */}
+                        <span title="Avance que debería llevar hoy según sus fechas" style={{ fontFamily:"monospace", fontSize:10,
+                          color: !isHito && pct < t.pctPlan ? GANTT_COLORS.late : COLORS.textMuted }}>{t.pctPlan}%</span>
                       </td>
                       {/* Avance % */}
                       <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
-                        {editing ? (
+                        {editing && !t.derivada ? (
                           <input type="number" value={t.pctAvance} onChange={e=>updateTask(t.id,"pctAvance",e.target.value)} style={{...s,width:44,color:COLORS.accent}} min={0} max={100} />
                         ) : (
                           <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
@@ -916,7 +985,10 @@ export function GanttView({ isMobile }) {
                         <td key={ci} style={{ width:cellW, minWidth:cellW, maxWidth:cellW, padding:0, position:"relative", height:32,
                           background: c.date===today?`${COLORS.accent}18`:c.isWeekend?`${COLORS.border}22`:"transparent",
                           borderRight:`1px solid ${COLORS.border}11` }}>
-                          {ci===0 && <GanttBar task={t} calStart={viewStart} calDays={calDays} cellW={cellW} today={today} />}
+                          {ci===0 && <GanttBar task={t} calStart={viewStart} calDays={calDays} cellW={cellW} today={today}
+                            colapsable={isFase && (ganttMeta.phaseChildren[t.id]||[]).length ? { collapsed: isCollapsed, onToggle: ()=>toggleCollapse(t.id) } : null}
+                            resumen={isCollapsed ? (ganttMeta.phaseChildren[t.id]||[]).map(id=>vistaPorId[id]).filter(Boolean) : null} />}
+                          {c.date===today && <div title="Hoy" style={{ position:"absolute", left:cellW/2 - 1, top:0, bottom:0, width:2, background:`${COLORS.accent}88`, zIndex:3, pointerEvents:"none" }} />}
                         </td>
                       ))}
                     </tr>
@@ -930,12 +1002,12 @@ export function GanttView({ isMobile }) {
           <div style={{ display:"flex", gap:12, marginTop:16, flexWrap:"wrap" }}>
             {[
               { label:"Total Tareas", val: tasks.filter(t=>t.tipo==="T").length, color:GANTT_COLORS.tarea },
-              { label:"Completadas", val: tasks.filter(t=>Number(t.pctAvance)===100).length, color:GANTT_COLORS.done },
-              { label:"Atrasadas", val: tasks.filter(t=>t.fin<today&&Number(t.pctAvance)<100).length, color:GANTT_COLORS.late },
+              { label:"Completadas", val: tasks.filter(t=>t.tipo==="T"&&Number(t.pctAvance)===100).length, color:GANTT_COLORS.done },
+              { label:"Atrasadas", val: vista.filter(t=>atrasada(t, today)).length, color:GANTT_COLORS.late },
               { label:"HH Presup.", val: tasks.reduce((s,t)=>s+Number(t.hhPresup),0), color:COLORS.textMuted, suffix:"HH" },
               { label:"HH Real", val: tasks.reduce((s,t)=>s+Number(t.hhReal),0), color:"#39ff14", suffix:"HH" },
               { label:"HH 3ros", val: tasks.reduce((s,t)=>s+Number(t.hhTerceros||0),0), color:COLORS.purple, suffix:"HH" },
-              { label:"Avance Prom.", val: tasks.filter(t=>t.tipo!=="H").length ? Math.round(tasks.filter(t=>t.tipo!=="H").reduce((s,t)=>s+Number(t.pctAvance),0)/tasks.filter(t=>t.tipo!=="H").length) : 0, color:COLORS.accent, suffix:"%" },
+              { label:"Avance", val: avanceTotal, color:COLORS.accent, suffix:"%" },
             ].map(k=>(
               <div key={k.label} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 16px", flex:1, minWidth:100 }}>
                 <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:4 }}>{k.label}</div>
