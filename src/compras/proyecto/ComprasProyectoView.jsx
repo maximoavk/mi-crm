@@ -85,8 +85,8 @@ export function ComprasProyectoView({ isMobile }) {
   };
 
   const quitarPago = async (pago) => {
-    if (!confirm(`¿Borrar el pago de ${fmt(Number(pago.monto) || 0)} del ${fmtFecha(pago.fecha)}?`)) return;
-    try { await borrarPago(pago.id); await recargar(); }
+    if (!confirm(`¿Borrar el pago de ${fmt(Number(pago.monto) || 0)} del ${fmtFecha(pago.fecha)}?${pago.movimiento_id ? " También se borra su egreso en Caja." : ""}`)) return;
+    try { await borrarPago(pago); await recargar(); }
     catch (e) { alert("No se pudo borrar el pago: " + e.message); }
   };
 
@@ -279,7 +279,15 @@ export function ComprasProyectoView({ isMobile }) {
                       <TreeCaret collapsed={!abierta} onToggle={() => setAbiertas(a => ({ ...a, [oc.id]: !a[oc.id] }))}
                         title={abierta ? "Ocultar detalle" : "Ver líneas y pagos"} />
                       <span style={{ fontFamily:FONT, fontSize:13, fontWeight:700, color:COLORS.text }}>{oc.numero_oc}</span>
-                      <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, flex:1, minWidth:100 }}>{oc.suppliers?.nombre || "—"}</span>
+                      <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, flex:1, minWidth:100 }}>
+                        {oc.suppliers?.nombre || "—"}
+                        {datos.facturasProveedor && (() => {
+                          const facts = datos.facturasProveedor.filter(f => mismoId(f.purchase_order_id, oc.id));
+                          return facts.length
+                            ? <span title="Factura del proveedor en Cuentas por Pagar" style={{ marginLeft:8, fontSize:10, color:COLORS.green }}>🧾 Fact. {facts.map(f => f.numero_documento).join(", ")}</span>
+                            : <span title="Regístrala en Finanzas → Cuentas por Pagar (sección Órdenes de compra sin factura)" style={{ marginLeft:8, fontSize:10, color:COLORS.textDim }}>sin factura</span>;
+                        })()}
+                      </span>
                       <span style={{ fontFamily:FONT, fontSize:10, padding:"2px 8px", borderRadius:4, color:est.color, background:`${est.color}22`, border:`1px solid ${est.color}44` }}>{est.icon} {est.key}</span>
                       <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, whiteSpace:"nowrap" }}>
                         {fmt(pagado)} / <span style={{ color:COLORS.text }}>{fmt(total)}</span>
@@ -337,7 +345,8 @@ export function ComprasProyectoView({ isMobile }) {
       )}
       {pagarOC && sel && (
         <PagarOCModal oc={pagarOC} total={totalOC(pagarOC)} pagado={pagadoOC(pagarOC.id, datos.pagos)}
-          saldoDisponible={sel.resumen.saldoDisponible}
+          saldoDisponible={sel.resumen.saldoDisponible} codigo={sel.codigo}
+          cuentas={datos.conCaja ? datos.cuentas : []}
           onClose={() => setPagarOC(null)}
           onPaid={async () => { setPagarOC(null); await recargar(); }} />
       )}
