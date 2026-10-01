@@ -1,7 +1,7 @@
 // Cálculos de la Carta Gantt: fechas y avance de cada fase a partir de sus
 // actividades, avance del proyecto, % planificado a la fecha y atrasos.
 // Funciones puras; tests en calculos.test.js.
-import { diffDays } from "./fechas.js";
+import { diffDays, sumarHabiles, habilesEntre, duracionHabil, endOfBusinessSpan } from "./fechas.js";
 
 const num = (v) => Number(v) || 0;
 const duracion = (t) => (t.inicio && t.fin) ? Math.max(1, diffDays(t.inicio, t.fin) + 1) : 1;
@@ -103,3 +103,55 @@ export function filasParaGuardar(tasks, ganttId, generar = nuevoUuid) {
   });
   return { rows, ids };
 }
+
+// ── Desplazar y empujar ──────────────────────────────────────────────────────
+
+// Corre una actividad `dias` días HÁBILES (lunes a sábado) conservando su
+// cantidad de días hábiles, como arma la secuencia el Costeo. Antes se
+// corría por días corridos y, al cruzar un domingo, la actividad ganaba o
+// perdía un día hábil.
+export function desplazar(t, dias) {
+  if (!dias || !t.inicio) return t;
+  const inicio = sumarHabiles(t.inicio, dias);
+  if (!t.fin) return { ...t, inicio };
+  const fin = t.tipo === "H" ? inicio : endOfBusinessSpan(inicio, duracionHabil(t.inicio, t.fin));
+  return { ...t, inicio, fin };
+}
+
+// ── Empuje en cadena ─────────────────────────────────────────────────────────
+// Cuando una actividad (o una fase entera) termina `dias` días hábiles más
+// tarde, las filas que vienen después en la lista y que empezaban DESPUÉS de
+// su fin anterior se corren los mismos días hábiles. Las que
+// iban en paralelo (empezaban antes de ese fin) y las de `excluir` no se
+// tocan. Solo empuja hacia adelante.
+export function empujarDespues(tasks, { despuesDe, finAnterior, dias, excluir = new Set() }) {
+  if (!(dias > 0) || !finAnterior) return tasks;
+  return tasks.map((t, i) => {
+    if (i <= despuesDe || excluir.has(t.id) || !t.inicio || t.inicio <= finAnterior) return t;
+    return desplazar(t, dias);
+  });
+}
+
+// Aplica el cambio de fechas de una actividad (no fase) y empuja lo que viene después.
+export function cambiarFechasConEmpuje(tasks, id, nuevas) {
+  const i = tasks.findIndex(t => t.id === id);
+  if (i < 0) return tasks;
+  const antes = tasks[i];
+  const cambiadas = tasks.map(t => t.id === id ? { ...t, ...nuevas } : t);
+  const finNuevo = nuevas.fin ?? antes.fin;
+  return empujarDespues(cambiadas, { despuesDe: i, finAnterior: antes.fin, dias: habilesEntre(antes.fin, finNuevo) });
+}
+
+// Después de mover una fase con sus actividades (`antes` → `despues`, misma
+// lista), empuja las filas que vienen después del bloque de la fase.
+export function empujarTrasFase(antes, despues, faseId) {
+  const hijosAntes = hijosPorFase(antes)[faseId] || [];
+  const finDe = (lista, ids) => lista.filter(t => ids.has(t.id) && t.fin).reduce((m, t) => !m || t.fin > m ? t.fin : m, null);
+  const ids = new Set([faseId, ...hijosAntes.map(h => h.id)]);
+  const finAnterior = finDe(antes, ids);
+  const finNuevo = finDe(despues, ids);
+  if (!finAnterior || !finNuevo) return despues;
+  const ultimo = Math.max(...despues.map((t, i) => ids.has(t.id) ? i : -1));
+  return empujarDespues(despues, { despuesDe: ultimo, finAnterior, dias: habilesEntre(finAnterior, finNuevo), excluir: ids });
+}
+
