@@ -139,6 +139,12 @@ Pantalla **Compras → Por proyecto** (`src/compras/proyecto/`):
   termina más tarde, lo que viene después se corre en días hábiles.
 - **Días hábiles (lun–sáb):** mover fase, empuje e "Inicio calendario"
   conservan los días hábiles de cada actividad.
+- **Dependencias reales (Fin → Inicio):** la columna "Dep." guarda el id de la
+  predecesora (las Gantt antiguas con número se convierten al cargar, sin SQL).
+  Con el empuje en cadena activado, la sucesora no empieza antes del día hábil
+  siguiente al fin de su predecesora y empuja a las suyas; flecha en el
+  calendario (roja si queda antes de tiempo); no admite ciclos. Lógica en
+  `src/gantt/calculos.js` (`aplicarDependencias`, `creaCiclo`).
 - **Errores corregidos:** la fase volvía a no mover sus actividades después de
   guardar (parent_id viejo); hitos con rango repetidos en el PDF; guardar una
   Gantt importada fallaba (`invalid input syntax for type uuid`).
@@ -199,10 +205,6 @@ con `format_type(...)` dentro de un `DO $$`.
 
 ## 5. Pendientes e ideas para seguir
 
-- **Gantt:** dependencias reales entre tareas (la columna "Dep." guarda el
-  número y no tiene efecto; podría apuntar a la tarea, empujar y dibujar
-  flechas). La columna `gantt_tareas.parent_id` se rellena correctamente desde
-  el PR #33, pero la jerarquía se toma del orden de las filas.
 - **Caja:** los pagos de facturas sin OC (gastos generales, subcontratos) aún
   no generan el egreso en Caja automáticamente.
 - **Compras:** borrar un pago a OC no revierte el estado PAGADA de la OC.

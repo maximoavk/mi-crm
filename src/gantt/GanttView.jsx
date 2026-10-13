@@ -7,12 +7,13 @@ import { GANTT_COLORS, TIPO_LABEL, ROL_OPTS } from "./constants.js";
 import { LOGO_B64, LOGO_PRINT } from "../shared/assets.js";
 import { CalendarPicker } from "./CalendarPicker.jsx";
 import { GanttBar } from "./GanttBar.jsx";
+import { FlechaDependencia } from "./FlechaDependencia.jsx";
 import { aplicarArrastre } from "./barra.js";
 import { TreeNodeCell } from "./TreeNodeCell.jsx";
 import { PdfPreviewModal } from "../shared/ui.jsx";
 import { fechaLocal, hoyISO } from "../shared/format.js";
 import { EMPRESA_RUT, TITULAR } from "../shared/empresa.js";
-import { derivarGantt, avanceProyecto, atrasada, hijosPorFase, filasParaGuardar, cambiarFechasConEmpuje, empujarTrasFase, desplazar } from "./calculos.js";
+import { derivarGantt, avanceProyecto, atrasada, hijosPorFase, filasParaGuardar, cambiarFechasConEmpuje, empujarTrasFase, desplazar, numerarFilas, normalizarDependencias, predecesorasPosibles, aplicarDependencias, incumpleDependencia } from "./calculos.js";
 
 export function GanttView({ isMobile }) {
   const [cotNum, setCotNum]       = useState("");
@@ -237,13 +238,14 @@ export function GanttView({ isMobile }) {
       setMonthMode(false);
       const { data: rows } = await supabase.from("gantt_tareas").select("*").eq("gantt_id", gantt.id).order("orden");
       if((rows||[]).length > 0) {
-        setTasks(rows.map(r=>({
+        // Las Gantt guardadas antes llevan en "Dep." el número de la fila: se pasa al id.
+        setTasks(normalizarDependencias(rows.map(r=>({
           id: r.id, tipo: r.tipo, nombre: r.nombre, rol: r.rol||"",
           responsable: r.responsable||"", inicio: r.fecha_inicio, fin: r.fecha_fin,
           pctPlan: r.pct_plan||0, pctAvance: r.pct_avance||0,
           hhPresup: r.hh_presup||0, hhReal: r.hh_real||0, hhTerceros: r.hh_terceros||0,
           depende: r.depende_de||"", orden: r.orden||0, parentId: r.parent_id||null,
-        })));
+        }))));
         setMarcarCargada(true);
         setSearching(false);
       } else {
@@ -308,7 +310,7 @@ export function GanttView({ isMobile }) {
     let fase = null;
     const guardadas = tasks.map(t => {
       if (t.tipo === "F") fase = ids[t.id];
-      return { ...t, id: ids[t.id], parentId: t.tipo !== "F" && fase ? fase : null };
+      return { ...t, id: ids[t.id], depende: ids[t.depende] || "", parentId: t.tipo !== "F" && fase ? fase : null };
     });
     setTasks(guardadas);
     setCollapsedPhases(prev => new Set([...prev].map(id => ids[id] || id)));
@@ -354,7 +356,10 @@ export function GanttView({ isMobile }) {
   // Editar el "Inicio" de una FASE mueve, con ella, a todos sus hijos (hitos y
   // tareas) por la misma diferencia de días — para que mover una fase en el
   // tiempo no la deje "descontenida" de sus propios hitos, como pasaba antes.
-  const updateTask = (id, field, val) => setTasks(prev => {
+  // Con el empuje en cadena, lo que depende de una actividad se corre cuando
+  // ella termina más tarde (Dep. = predecesora Fin → Inicio).
+  const conDependencias = (lista) => cadena ? aplicarDependencias(lista) : lista;
+  const cambiarCampo = (prev, id, field, val) => {
     const row = prev.find(r=>r.id===id);
     if(row && row.tipo==="F" && field==="inicio" && row.inicio) {
       // La fase muestra como inicio el de su actividad más temprana: el
@@ -378,6 +383,10 @@ export function GanttView({ isMobile }) {
     // Una actividad que termina más tarde empuja lo que viene después.
     if(row && cadena && field==="fin") return cambiarFechasConEmpuje(prev, id, { fin: val });
     return prev.map(r=>r.id===id?{...r,[field]:val}:r);
+  };
+  const updateTask = (id, field, val) => setTasks(prev => {
+    const nuevas = cambiarCampo(prev, id, field, val);
+    return ["inicio","fin","depende"].includes(field) ? conDependencias(nuevas) : nuevas;
   });
   // Borrar una fase borra también sus actividades (avisando cuántas).
   // Barra soltada después de arrastrarla. Una fase calculada se mueve entera
@@ -386,7 +395,7 @@ export function GanttView({ isMobile }) {
   const arrastrarBarra = (t, modo, dias) => {
     if (t.tipo === "F" && t.derivada) { updateTask(t.id, "inicio", addDays(t.inicio, dias)); return; }
     const nuevas = aplicarArrastre(t, modo, dias);
-    setTasks(prev => cadena ? cambiarFechasConEmpuje(prev, t.id, nuevas) : prev.map(r => r.id === t.id ? { ...r, ...nuevas } : r));
+    setTasks(prev => conDependencias(cadena ? cambiarFechasConEmpuje(prev, t.id, nuevas) : prev.map(r => r.id === t.id ? { ...r, ...nuevas } : r)));
   };
 
   const deleteTask = (id) => {
@@ -394,7 +403,7 @@ export function GanttView({ isMobile }) {
     const hijos = row?.tipo === "F" ? (ganttMeta.phaseChildren[id] || []) : [];
     if (hijos.length && !window.confirm(`La fase "${row.nombre}" tiene ${hijos.length} actividad${hijos.length === 1 ? "" : "es"}. ¿Borrar la fase junto con ellas?`)) return;
     const fuera = new Set([id, ...hijos]);
-    setTasks(t => t.filter(r => !fuera.has(r.id)));
+    setTasks(t => t.filter(r => !fuera.has(r.id)).map(r => fuera.has(r.depende) ? { ...r, depende: "" } : r));
   };
   const reorderTask = (fromId, toId) => {
     if(fromId===toId) return;
@@ -410,26 +419,15 @@ export function GanttView({ isMobile }) {
 
   // ── Numeración automática y totales HH por fase ──────────────────────────
   const ganttMeta = useMemo(() => {
-    const numbers = {};
+    const numbers = numerarFilas(tasks);
     const phaseChildrenMap = {}; // faseId → [taskIds]
-    let faseCount = 0;
     let currentFaseId = null;
-    let subCount = 0;
-    let noFaseCount = 0;
     tasks.forEach(t => {
       if (t.tipo === "F") {
-        faseCount++;
-        subCount = 0;
         currentFaseId = t.id;
         phaseChildrenMap[t.id] = [];
-        numbers[t.id] = `${faseCount}.0`;
       } else if (currentFaseId) {
-        subCount++;
-        numbers[t.id] = `${faseCount}.${subCount}`;
         phaseChildrenMap[currentFaseId].push(t.id);
-      } else {
-        noFaseCount++;
-        numbers[t.id] = String(noFaseCount);
       }
     });
     const taskMap = Object.fromEntries(tasks.map(t => [t.id, t]));
@@ -449,6 +447,17 @@ export function GanttView({ isMobile }) {
   // sus fechas y su avance de ellas, y todas llevan el % planificado a hoy.
   const vista = useMemo(() => derivarGantt(tasks, today), [tasks, today]);
   const vistaPorId = useMemo(() => Object.fromEntries(vista.map(t => [t.id, t])), [vista]);
+  // Posición de cada fila visible (las de una fase contraída no cuentan): sirve
+  // para dibujar las flechas de dependencia entre filas.
+  const filaVisible = useMemo(() => {
+    const pos = {};
+    let n = 0;
+    for (const t of vista) {
+      const f = ganttMeta.childPhaseId[t.id];
+      if (!(f && collapsedPhases.has(f))) pos[t.id] = n++;
+    }
+    return pos;
+  }, [vista, ganttMeta, collapsedPhases]);
   const avanceTotal = avanceProyecto(vista);
 
   // Cambios sin guardar: se compara con la última versión cargada o guardada.
@@ -696,7 +705,7 @@ export function GanttView({ isMobile }) {
               const todoContraido = fasesConHijos.length > 0 && fasesConHijos.every(id=>collapsedPhases.has(id));
               return (<>
                 <button onClick={()=>cambiarCadena(!cadena)}
-                  title={cadena ? "Activado: si una actividad termina más tarde, lo que viene después se corre los mismos días" : "Desactivado: cada actividad se mueve sola"}
+                  title={cadena ? "Activado: si una actividad termina más tarde, lo que viene después y lo que depende de ella (columna Dep.) se corre" : "Desactivado: cada actividad se mueve sola (las flechas de Dep. se ponen rojas si una sucesora queda antes de tiempo)"}
                   style={{ ...btn, color: cadena ? COLORS.accent : COLORS.textMuted, borderColor: cadena ? `${COLORS.accent}66` : COLORS.border, background: cadena ? `${COLORS.accent}14` : "transparent" }}>
                   ⛓ Empuje en cadena: {cadena ? "Sí" : "No"}
                 </button>
@@ -817,6 +826,7 @@ export function GanttView({ isMobile }) {
                   const parentFaseId = ganttMeta.childPhaseId[t.id];
                   if(parentFaseId && collapsedPhases.has(parentFaseId)) return null;
                   const isCollapsed = isFase && collapsedPhases.has(t.id);
+                  const idxVisible = filaVisible[t.id];
 
                   const isDragOver = dragOverId===t.id && draggedId!==t.id;
                   // Fondo opaco para las columnas fijas (si no, las barras se verían por debajo al hacer scroll)
@@ -985,15 +995,15 @@ export function GanttView({ isMobile }) {
                         {editing ? (
                           <select value={t.depende||""} onChange={e=>updateTask(t.id,"depende",e.target.value)} style={{...s,width:72,padding:"2px 3px"}}>
                             <option value="">N/A</option>
-                            {tasks.filter(r=>r.id!==t.id).map(r=>{
+                            {predecesorasPosibles(tasks, t.id).map(r=>{
                               const num = ganttMeta.numbers[r.id]||"";
                               const label = `${num} ${r.nombre}`.slice(0,22);
-                              return <option key={r.id} value={num}>{label}</option>;
+                              return <option key={r.id} value={r.id}>{label}</option>;
                             })}
                           </select>
                         ) : (
                           <span style={{ fontFamily:"monospace", fontSize:10, color:t.depende?COLORS.accent:COLORS.textMuted }}>
-                            {t.depende||"N/A"}
+                            {(t.depende && ganttMeta.numbers[t.depende]) || "N/A"}
                           </span>
                         )}
                       </td>
@@ -1013,6 +1023,10 @@ export function GanttView({ isMobile }) {
                         <td key={ci} style={{ width:cellW, minWidth:cellW, maxWidth:cellW, padding:0, position:"relative", height:32,
                           background: c.date===today?`${COLORS.accent}18`:c.isWeekend?`${COLORS.border}22`:"transparent",
                           borderRight:`1px solid ${COLORS.border}11` }}>
+                          {ci===0 && t.depende && filaVisible[t.depende] !== undefined && (
+                            <FlechaDependencia pred={vistaPorId[t.depende]} tarea={t} dy={(filaVisible[t.depende]-idxVisible)*32}
+                              calStart={viewStart} calDays={calDays} cellW={cellW} incumple={incumpleDependencia(t, vistaPorId[t.depende])} />
+                          )}
                           {ci===0 && <GanttBar task={t} calStart={viewStart} calDays={calDays} cellW={cellW} today={today}
                             colapsable={isFase && (ganttMeta.phaseChildren[t.id]||[]).length ? { collapsed: isCollapsed, onToggle: ()=>toggleCollapse(t.id) } : null}
                             resumen={isCollapsed ? (ganttMeta.phaseChildren[t.id]||[]).map(id=>vistaPorId[id]).filter(Boolean) : null}
@@ -1045,7 +1059,7 @@ export function GanttView({ isMobile }) {
             ))}
           </div>
           <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:8 }}>
-            💡 Doble clic en una fila para editar · Arrastra una barra para moverla o estira sus bordes para cambiar la duración (con "Empuje en cadena", lo que viene después se corre) · Enter en el campo cotización para cargar
+            💡 Doble clic en una fila para editar · Arrastra una barra para moverla o estira sus bordes para cambiar la duración (con "Empuje en cadena", lo que viene después y lo que depende de ella se corre) · Columna Dep.: la actividad empieza después de que termine su predecesora, con flecha en el calendario · Enter en el campo cotización para cargar
           </div>
         </>
       )}

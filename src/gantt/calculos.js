@@ -1,7 +1,7 @@
 // Cálculos de la Carta Gantt: fechas y avance de cada fase a partir de sus
 // actividades, avance del proyecto, % planificado a la fecha y atrasos.
 // Funciones puras; tests en calculos.test.js.
-import { diffDays, sumarHabiles, habilesEntre, duracionHabil, endOfBusinessSpan } from "./fechas.js";
+import { diffDays, sumarHabiles, habilesEntre, duracionHabil, endOfBusinessSpan, nextBusinessDay } from "./fechas.js";
 
 const num = (v) => Number(v) || 0;
 const duracion = (t) => (t.inicio && t.fin) ? Math.max(1, diffDays(t.inicio, t.fin) + 1) : 1;
@@ -15,6 +15,19 @@ export function hijosPorFase(tasks) {
     else if (fase) hijos[fase].push(t);
   }
   return hijos;
+}
+
+// Numeración de las filas (1.0 para la fase, 1.1, 1.2… para sus actividades;
+// las filas sin fase llevan 1, 2…). Es la que se ve en la tabla.
+export function numerarFilas(tasks) {
+  const numeros = {};
+  let fases = 0, sub = 0, sueltas = 0, enFase = false;
+  for (const t of tasks || []) {
+    if (t.tipo === "F") { fases++; sub = 0; enFase = true; numeros[t.id] = `${fases}.0`; }
+    else if (enFase) { sub++; numeros[t.id] = `${fases}.${sub}`; }
+    else { sueltas++; numeros[t.id] = String(sueltas); }
+  }
+  return numeros;
 }
 
 // Avance ponderado por duración (días): una tarea de 5 días pesa 5 veces
@@ -97,7 +110,7 @@ export function filasParaGuardar(tasks, ganttId, generar = nuevoUuid) {
       responsable: t.responsable, fecha_inicio: t.inicio, fecha_fin: t.fin,
       pct_plan: Number(t.pctPlan) || 0, pct_avance: Number(t.pctAvance) || 0,
       hh_presup: Number(t.hhPresup) || 0, hh_real: Number(t.hhReal) || 0, hh_terceros: Number(t.hhTerceros) || 0,
-      depende_de: t.depende || "", orden: i,
+      depende_de: ids[t.depende] || "", orden: i,
       parent_id: t.tipo !== "F" && fase ? ids[fase] : null,
     };
   });
@@ -155,3 +168,72 @@ export function empujarTrasFase(antes, despues, faseId) {
   return empujarDespues(despues, { despuesDe: ultimo, finAnterior, dias: habilesEntre(finAnterior, finNuevo), excluir: ids });
 }
 
+
+// ── Dependencias (Fin → Inicio) ──────────────────────────────────────────────
+// `depende` guarda el id de la actividad predecesora: la sucesora no puede
+// empezar antes del día hábil siguiente al fin de su predecesora.
+
+// Las Gantt guardadas antes llevan en `depende` el número de la fila ("2.1").
+// Se cambia por el id de esa fila; si ya es un id válido se deja, y si no
+// apunta a nada queda vacío.
+export function normalizarDependencias(tasks) {
+  const numeros = numerarFilas(tasks);
+  const idPorNumero = Object.fromEntries(Object.entries(numeros).map(([id, n]) => [n, id]));
+  const ids = new Set((tasks || []).map(t => t.id));
+  return (tasks || []).map(t => {
+    if (!t.depende) return t;
+    const destino = ids.has(t.depende) ? t.depende : idPorNumero[t.depende] || "";
+    const valido = destino === t.id ? "" : destino;
+    return valido === t.depende ? t : { ...t, depende: valido };
+  });
+}
+
+// ¿Poner `predId` como predecesora de `id` cerraría un ciclo? También cuenta
+// como ciclo relacionar una fase con sus propias actividades.
+export function creaCiclo(tasks, id, predId) {
+  if (!id || !predId) return false;
+  if (id === predId) return true;
+  const porId = Object.fromEntries((tasks || []).map(t => [t.id, t]));
+  const hijos = hijosPorFase(tasks);
+  const faseDe = {};
+  for (const [f, hs] of Object.entries(hijos)) for (const h of hs) faseDe[h.id] = f;
+  if (faseDe[id] === predId || faseDe[predId] === id) return true;
+  const visto = new Set();
+  for (let cur = predId; cur && !visto.has(cur); cur = porId[cur]?.depende) {
+    if (cur === id) return true;
+    visto.add(cur);
+  }
+  return false;
+}
+
+// Filas que se pueden elegir como predecesora de `id` (sin ciclos).
+export const predecesorasPosibles = (tasks, id) => (tasks || []).filter(t => !creaCiclo(tasks, id, t.id));
+
+// Corre hacia adelante cada actividad que empieza antes de que termine su
+// predecesora, y repite hasta que ninguna incumpla (la que se corre puede
+// empujar a su vez a sus sucesoras). Solo empuja: nunca adelanta. Una fase
+// sucesora se corre con sus actividades. Los ciclos heredados se ignoran.
+export function aplicarDependencias(tasks) {
+  let lista = tasks || [];
+  const tope = lista.length * lista.length + 10;
+  for (let pasada = 0; pasada < tope; pasada++) {
+    const vista = derivarGantt(lista, "");
+    const porId = Object.fromEntries(vista.map(t => [t.id, t]));
+    const hijos = hijosPorFase(lista);
+    const incumple = vista.find(t => {
+      const p = t.depende ? porId[t.depende] : null;
+      return p && p.id !== t.id && p.fin && t.inicio && !creaCiclo(lista, t.id, t.depende)
+        && t.inicio < nextBusinessDay(p.fin);
+    });
+    if (!incumple) return lista;
+    const dias = habilesEntre(incumple.inicio, nextBusinessDay(porId[incumple.depende].fin));
+    const mover = new Set([incumple.id, ...(incumple.tipo === "F" ? (hijos[incumple.id] || []).map(h => h.id) : [])]);
+    lista = lista.map(t => mover.has(t.id) ? desplazar(t, dias) : t);
+  }
+  return lista;
+}
+
+// Predecesoras con fecha incumplida (la sucesora empieza antes de tiempo):
+// sirve para pintar la flecha en rojo cuando el empuje en cadena está apagado.
+export const incumpleDependencia = (t, pred) =>
+  !!(t && pred && pred.fin && t.inicio && t.inicio < nextBusinessDay(pred.fin));

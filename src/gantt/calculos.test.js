@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hijosPorFase, avancePonderado, planHoy, derivarGantt, avanceProyecto, atrasada, filasParaGuardar, nuevoUuid, empujarDespues, cambiarFechasConEmpuje, empujarTrasFase, desplazar } from "./calculos.js";
+import { hijosPorFase, avancePonderado, planHoy, derivarGantt, avanceProyecto, atrasada, filasParaGuardar, nuevoUuid, empujarDespues, cambiarFechasConEmpuje, empujarTrasFase, desplazar, numerarFilas, normalizarDependencias, creaCiclo, predecesorasPosibles, aplicarDependencias, incumpleDependencia } from "./calculos.js";
 
 const T = (id, tipo, inicio, fin, pctAvance = 0) => ({ id, tipo, inicio, fin, pctAvance });
 const tasks = [
@@ -134,3 +134,88 @@ it("desplazar corre días hábiles y conserva la cantidad de días hábiles", ()
   expect(desplazar(T("x", "H", "2026-12-12", "2026-12-12"), 1)).toMatchObject({ inicio: "2026-12-14", fin: "2026-12-14" });
 });
 
+
+describe("Gantt: dependencias Fin → Inicio", () => {
+  // f1 [a (lun 07 → mar 08), b (mié 09 → mié 09)], f2 [c (jue 10 → vie 11)]
+  const base = () => [
+    { id: "f1", tipo: "F", nombre: "Fase 1", inicio: "2026-12-07", fin: "2026-12-09", depende: "" },
+    { id: "a", tipo: "T", nombre: "A", inicio: "2026-12-07", fin: "2026-12-08", depende: "" },
+    { id: "b", tipo: "T", nombre: "B", inicio: "2026-12-09", fin: "2026-12-09", depende: "a" },
+    { id: "f2", tipo: "F", nombre: "Fase 2", inicio: "2026-12-10", fin: "2026-12-11", depende: "" },
+    { id: "c", tipo: "T", nombre: "C", inicio: "2026-12-10", fin: "2026-12-11", depende: "b" },
+  ];
+  const fechas = (l) => Object.fromEntries(l.map(t => [t.id, `${t.inicio.slice(8)}-${t.fin.slice(8)}`]));
+
+  it("numera como la tabla", () => {
+    expect(numerarFilas(base())).toEqual({ f1: "1.0", a: "1.1", b: "1.2", f2: "2.0", c: "2.1" });
+  });
+
+  it("cambia el número heredado por el id de la fila", () => {
+    const l = base().map(t => t.id === "c" ? { ...t, depende: "1.2" } : t.id === "b" ? { ...t, depende: "9.9" } : t);
+    const r = normalizarDependencias(l);
+    expect(r.find(t => t.id === "c").depende).toBe("b");
+    expect(r.find(t => t.id === "b").depende).toBe("");
+    expect(normalizarDependencias(base())).toEqual(base());   // ya son ids: no cambia nada
+  });
+
+  it("detecta ciclos y relaciones fase ↔ sus actividades", () => {
+    const l = base();
+    expect(creaCiclo(l, "a", "a")).toBe(true);
+    expect(creaCiclo(l, "a", "c")).toBe(true);        // c depende de b, que depende de a
+    expect(creaCiclo(l, "a", "f1")).toBe(true);       // a es hija de f1
+    expect(creaCiclo(l, "f1", "b")).toBe(true);
+    expect(creaCiclo(l, "c", "a")).toBe(false);
+    expect(predecesorasPosibles(l, "a").map(t => t.id)).toEqual(["f2"]);
+  });
+
+  it("cumplidas: no cambia nada", () => {
+    const l = base();
+    expect(aplicarDependencias(l)).toBe(l);
+  });
+
+  it("empuja a la sucesora y, en cadena, a la que viene después", () => {
+    const l = base().map(t => t.id === "a" ? { ...t, fin: "2026-12-10" } : t);   // a termina el jue 10
+    const r = aplicarDependencias(l);
+    // b pasa al vie 11 y c (depende de b) al sáb 12, conservando sus 2 días hábiles (sáb 12 y lun 14)
+    expect(fechas(r)).toMatchObject({ a: "07-10", b: "11-11", c: "12-14" });
+  });
+
+  it("salta el domingo y conserva los días hábiles", () => {
+    const l = base().map(t => t.id === "a" ? { ...t, fin: "2026-12-12" } : t);   // a termina el sáb 12
+    const r = aplicarDependencias(l);
+    expect(fechas(r)).toMatchObject({ b: "14-14", c: "15-16" });                  // lun 14 y mar 15–mié 16
+  });
+
+  it("nunca adelanta: una sucesora que ya empieza más tarde se queda", () => {
+    const l = base().map(t => t.id === "b" ? { ...t, inicio: "2026-12-15", fin: "2026-12-15" } : t);
+    const r = aplicarDependencias(l);
+    expect(fechas(r)).toMatchObject({ a: "07-08", b: "15-15" });   // b no vuelve al día 9
+    expect(fechas(r).c).toBe("16-17");                              // c sí se corre tras b
+  });
+
+  it("una fase sucesora se corre con sus actividades", () => {
+    const l = [
+      { id: "x", tipo: "T", inicio: "2026-12-07", fin: "2026-12-11", depende: "" },
+      { id: "f", tipo: "F", inicio: "2026-12-08", fin: "2026-12-09", depende: "x" },
+      { id: "h", tipo: "T", inicio: "2026-12-08", fin: "2026-12-09", depende: "" },
+    ];
+    const r = aplicarDependencias(l);
+    // x termina el vie 11: la fase y su actividad pasan al sáb 12 (y lun 14), con sus 2 días hábiles
+    expect(fechas(r)).toMatchObject({ f: "12-14", h: "12-14" });
+  });
+
+  it("un ciclo heredado no se cuelga ni mueve nada", () => {
+    const l = [
+      { id: "p", tipo: "T", inicio: "2026-12-07", fin: "2026-12-08", depende: "q" },
+      { id: "q", tipo: "T", inicio: "2026-12-07", fin: "2026-12-08", depende: "p" },
+    ];
+    expect(aplicarDependencias(l)).toBe(l);
+  });
+
+  it("incumpleDependencia", () => {
+    expect(incumpleDependencia({ inicio: "2026-12-08" }, { fin: "2026-12-08" })).toBe(true);
+    expect(incumpleDependencia({ inicio: "2026-12-09" }, { fin: "2026-12-08" })).toBe(false);
+    expect(incumpleDependencia({ inicio: "2026-12-14" }, { fin: "2026-12-12" })).toBe(false);   // sáb → lun
+    expect(incumpleDependencia({ inicio: "2026-12-14" }, null)).toBe(false);
+  });
+});
