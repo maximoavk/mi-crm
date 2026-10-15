@@ -63,13 +63,26 @@ export function QuotePDF({ quote, onBack }) {
         {/* HEADER */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:24, borderBottom:"2px solid #e0e0e0", paddingBottom:16 }}>
           <div>
-            <img src={LOGO_PRINT} alt="Polygonos" style={{ height:60, marginBottom:8, display:"block" }} />
-            <div style={{ fontSize:11, color:"#555" }}>Sucursales: {EMPRESA.sucursal}</div>
-            <div style={{ fontSize:11, color:"#555" }}>Casa Matriz: {EMPRESA.casaMatriz}</div>
-            <div style={{ fontSize:11, color:"#555" }}>Giro: {EMPRESA.giro}</div>
-            <div style={{ fontSize:11, color:"#555" }}>Fono: {TITULAR.telefono}</div>
-            <div style={{ fontSize:11, color:"#555" }}>eMail: {EMPRESA.email}</div>
-            <div style={{ fontSize:11, color:"#555" }}>Vendedor: {TITULAR.nombre} / {TITULAR.email}</div>
+            {/* Sin factura (personal): sin logo ni membrete de la empresa —
+                solo los datos del titular que emite la boleta/cotización. */}
+            {quote.ivaMode==="personal" ? (
+              <>
+                <div style={{ fontSize:13, fontWeight:700, color:"#333", marginBottom:4 }}>{TITULAR.nombre}</div>
+                <div style={{ fontSize:11, color:"#555" }}>{TITULAR.cargo}</div>
+                <div style={{ fontSize:11, color:"#555" }}>Fono: {TITULAR.telefono}</div>
+                <div style={{ fontSize:11, color:"#555" }}>eMail: {TITULAR.email}</div>
+              </>
+            ) : (
+              <>
+                <img src={LOGO_PRINT} alt="Polygonos" style={{ height:60, marginBottom:8, display:"block" }} />
+                <div style={{ fontSize:11, color:"#555" }}>Sucursales: {EMPRESA.sucursal}</div>
+                <div style={{ fontSize:11, color:"#555" }}>Casa Matriz: {EMPRESA.casaMatriz}</div>
+                <div style={{ fontSize:11, color:"#555" }}>Giro: {EMPRESA.giro}</div>
+                <div style={{ fontSize:11, color:"#555" }}>Fono: {TITULAR.telefono}</div>
+                <div style={{ fontSize:11, color:"#555" }}>eMail: {EMPRESA.email}</div>
+                <div style={{ fontSize:11, color:"#555" }}>Vendedor: {TITULAR.nombre} / {TITULAR.email}</div>
+              </>
+            )}
           </div>
           <div style={{ textAlign:"center" }}>
             {/* RUT solo si es Con IVA */}

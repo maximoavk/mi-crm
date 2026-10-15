@@ -453,21 +453,27 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
         // Solo indexa si tiene descripción
         if(it.descripcion) {
           itemsParaCatalogo.push({
-            code: sapCod,
-            name: it.descripcion,
-            description: it.modelo||"",
-            price: Math.round(it.tipo==="Mano de Obra / HH" ? it.valorHH*(IVA) : (it.costoUnitNeto||it.costoUnit||0)*(IVA)),
-            unit: it.tipo==="Mano de Obra / HH" ? "HH" : (it.unit||"un"),
-            category: it.tipo,
-            provider: "",
-            type: "producto",
+            codigo: sapCod,
+            nombre: it.descripcion,
+            descripcion: it.modelo||"",
+            precio: Math.round(it.tipo==="Mano de Obra / HH" ? it.valorHH*(IVA) : (it.costoUnitNeto||it.costoUnit||0)*(IVA)),
+            unidad: it.tipo==="Mano de Obra / HH" ? "HH" : (it.unit||"un"),
+            proveedor: "",
+            tipo: "producto",
           });
         }
       });
     });
-    // Upsert al catálogo (on conflict do update)
-    if(itemsParaCatalogo.length > 0) {
-      await supabase.from("products").upsert(itemsParaCatalogo, { onConflict: "code", ignoreDuplicates: false });
+    // Upsert al catálogo por código: no se usa supabase.upsert() porque
+    // "codigo" no tiene restricción única en la base (puede haber duplicados
+    // viejos) — se busca a mano y se actualiza o inserta según corresponda.
+    // No manda "categoria": el tipo de costeo (Equipos/Ferretería/MO) no usa
+    // el mismo vocabulario que las categorías del Maestro, se deja para
+    // clasificar ahí si hace falta.
+    for (const item of itemsParaCatalogo) {
+      const { data: existentesCod } = await supabase.from("products").select("id").eq("codigo", item.codigo).limit(1);
+      if (existentesCod?.[0]) await supabase.from("products").update(item).eq("id", existentesCod[0].id);
+      else await supabase.from("products").insert(item);
     }
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -476,7 +482,7 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
       contact_id:proyecto.clienteId||null, nombre_cliente:proyecto.clienteNombre||proyecto.cliente||"",
       rut_cliente:proyecto.clienteRut||"", razon_social:proyecto.clienteEmpresa||"",
       direccion:proyecto.clienteDireccion||"", telefono:proyecto.clienteTelefono||"",
-      forma_pago:formaPago, pct_anticipo:pctAnt, aplica_iva:false, iva_modo:"empresa",
+      forma_pago:formaPago, pct_anticipo:pctAnt, aplica_iva:false, iva_modo: serieDestino==="SIN" ? "personal" : "empresa",
       comentarios:`${proyecto.nombre}`,
       terminos:"", estado:"borrador", tipo:"productos", total:redondearTotal(totalBrutoFinal),
       rubro: proyecto.rubro || null, tipo_trabajo: proyecto.tipoTrabajo || null,

@@ -10,13 +10,17 @@ export function numeroEnNombre(nombre) {
   return m ? Number(m[1]) : null;
 }
 
-// Número para la cotización que se genera desde un proyecto: el del nombre si
-// ninguna cotización de esa serie lo usa todavía; si no, el siguiente de esa
-// serie (COT y SIN llevan correlativos separados).
+// Número para la cotización que se genera desde un proyecto. Para la serie
+// COT: el número del nombre del proyecto ("Cot 150 …") si está libre; si no,
+// el siguiente correlativo de COT. Los proyectos se nombran pensando en su
+// número COT, así que ese número del nombre NO aplica a SIN — SIN siempre
+// sigue su propio correlativo, separado de COT.
 export function numeroParaCotizacion(cotizaciones, nombre, serie = "COT") {
   const usados = new Set((cotizaciones || []).filter(q => (q.serie || "COT") === serie).map(q => Number(q.numero) || 0));
-  const delNombre = numeroEnNombre(nombre);
-  if (delNombre && !usados.has(delNombre)) return delNombre;
+  if (serie === "COT") {
+    const delNombre = numeroEnNombre(nombre);
+    if (delNombre && !usados.has(delNombre)) return delNombre;
+  }
   return usados.size ? Math.max(...usados) + 1 : 1;
 }
 
