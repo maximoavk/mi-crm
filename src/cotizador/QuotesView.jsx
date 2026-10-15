@@ -32,10 +32,10 @@ export function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCo
 
   useEffect(()=>{ loadQuotes(); },[]);
   useEffect(()=>{
-    supabase.from("costeos").select("id,nombre,cotizacion_id").not("cotizacion_id","is",null).then(({data})=>{
+    supabase.from("costeos").select("id,nombre,cotizacion_id,propuesta_url").not("cotizacion_id","is",null).then(({data})=>{
       if(data){
         const map = {};
-        data.forEach(c=>{ map[c.cotizacion_id] = { id:c.id, nombre:c.nombre }; });
+        data.forEach(c=>{ map[c.cotizacion_id] = { id:c.id, nombre:c.nombre, propuestaUrl:c.propuesta_url||"" }; });
         setCosteoMap(map);
       }
     });
@@ -291,6 +291,10 @@ export function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCo
                       <button onClick={(e)=>{ e.stopPropagation(); setSelectedQuote(q); setView("pdf"); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.green}44`, color:COLORS.green }}>📄 Ver PDF</button>
                       {costeoMap[q.id] && onOpenCosteo && (
                         <button onClick={(e)=>{ e.stopPropagation(); onOpenCosteo(costeoMap[q.id].id); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>📐 Ver proyecto origen</button>
+                      )}
+                      {costeoMap[q.id]?.propuestaUrl && (
+                        <a href={costeoMap[q.id].propuestaUrl} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()}
+                          style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent, textDecoration:"none" }}>📄 Ver propuesta</a>
                       )}
                       {["enviada","aprobada","rechazada"].map(s=>(
                         <button key={s} onClick={(e)=>{ e.stopPropagation(); updateStatus(q.id,s); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:q.status===s?STATUS_QUOTE[s].color+"22":"transparent", border:`1px solid ${STATUS_QUOTE[s].color}44`, color:STATUS_QUOTE[s].color }}>

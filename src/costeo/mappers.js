@@ -11,6 +11,7 @@ export const mapCosteo = (r) => ({
   proyectoId: r.proyecto_id || null, cotizacion: r.cotizacion || "",
   cotizacionId: r.cotizacion_id || null,
   rubro: r.rubro || "", tipoTrabajo: r.tipo_trabajo || "",
+  propuestaUrl: r.propuesta_url || "",
 });
 
 export const mapCosteoToDb = (p) => ({
@@ -22,5 +23,6 @@ export const mapCosteoToDb = (p) => ({
   proyecto_id: p.proyectoId || null, cotizacion: p.cotizacion || null,
   cotizacion_id: p.cotizacionId || null,
   rubro: p.rubro || null, tipo_trabajo: p.tipoTrabajo || null,
+  propuesta_url: p.propuestaUrl || null,
   updated_at: new Date().toISOString(),
 });

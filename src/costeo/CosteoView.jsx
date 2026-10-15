@@ -809,6 +809,19 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
         </select>
       </div>
 
+      {/* Enlace a la propuesta (Google Docs u otro) — se muestra también en la cotización vinculada */}
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
+        <input value={proyecto.propuestaUrl||""} onChange={e=>updateProyecto({...proyecto,propuestaUrl:e.target.value})}
+          placeholder="Enlace de la propuesta (Google Docs)…"
+          style={{ flex:1, background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:7, color:COLORS.text, fontFamily:FONT, fontSize:12, padding:"7px 10px", outline:"none" }} />
+        {proyecto.propuestaUrl && (
+          <a href={proyecto.propuestaUrl} target="_blank" rel="noopener noreferrer"
+            style={{ padding:"7px 14px", background:`${COLORS.accent}14`, border:`1px solid ${COLORS.accent}66`, borderRadius:7, color:COLORS.accent, fontFamily:FONT, fontSize:11, fontWeight:700, textDecoration:"none", whiteSpace:"nowrap" }}>
+            📄 Abrir
+          </a>
+        )}
+      </div>
+
       {/* Buscador RUT / Cliente */}
       <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"14px 18px", marginBottom:16, position:"relative" }}>
         {proyecto.clienteNombre ? (
