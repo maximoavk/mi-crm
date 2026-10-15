@@ -259,6 +259,11 @@ export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, prod
   const codigoPorId = codigosPorFase(fase.items, faseIdx);
   const updateItem = (id, item) => onChange({ ...fase, items: fase.items.map(i=>i.id===id?item:i) });
   const deleteItem = (id) => onChange({ ...fase, items: fase.items.filter(i=>i.id!==id) });
+  // Marca/desmarca "Aplica IVA" en TODOS los ítems de una categoría a la vez
+  // (en vez de uno por uno) — aplica tanto a Mano de Obra como a Equipos/Ferretería.
+  const bulkSetIVA = (tipo, value) => onChange({ ...fase, items: fase.items.map(i =>
+    (i.tipo===tipo || (tipo==="Ferretería" && i.tipo==="Materiales")) ? { ...i, aplicaIVA: value } : i
+  ) });
   const duplicateItem = (id) => {
     const item = (fase.items||[]).find(i=>i.id===id);
     if(!item) return;
@@ -343,8 +348,9 @@ export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, prod
             const isLastSec = tipoIdx === CAT_TIPOS.length - 1;
             const tieneIVA = CON_IVA.includes(tipo);
             const esMO = tipo==="Mano de Obra / HH";
-            const calcItems = grouped[tipo].map(it => esMO ? calcItem({...it, moConIVA: fase.moConIVA}) : calcItem(it));
+            const calcItems = grouped[tipo].map(calcItem);
             const secCollapsed = !!collapsedSections[tipo];
+            const todosConIVA = grouped[tipo].length>0 && grouped[tipo].every(it=>!!it.aplicaIVA);
             return (
               <div key={tipo} style={{ marginBottom:16, position:"relative", paddingLeft:SEC_PAD }}>
                 {/* Línea de la fase: sigue hacia la próxima categoría (salvo la última) y dobla en "L" hacia esta */}
@@ -358,11 +364,12 @@ export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, prod
                   <span style={{ fontFamily:FONT, fontSize:11, fontWeight:600, color:CAT_COLOR[tipo], letterSpacing:"0.08em", textTransform:"uppercase" }}>{tipo}</span>
                   <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>({grouped[tipo].length})</span>
                   {tieneIVA && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.text, background:`${COLORS.border}`, padding:"1px 6px", borderRadius:4 }}>Ingresar neto</span>}
-                  {esMO && (
-                    <label style={{ display:"flex", alignItems:"center", gap:5, cursor:"pointer", fontFamily:FONT, fontSize:11, color: fase.moConIVA ? "#ef4444" : COLORS.textMuted }}>
-                      <input type="checkbox" checked={!!fase.moConIVA} onChange={e=>onChange({...fase, moConIVA:e.target.checked})}
+                  {grouped[tipo].length>0 && (
+                    <label title="Marca o desmarca el IVA en todos los ítems de esta categoría a la vez"
+                      style={{ display:"flex", alignItems:"center", gap:5, cursor:"pointer", fontFamily:FONT, fontSize:11, color: todosConIVA ? "#ef4444" : COLORS.textMuted }}>
+                      <input type="checkbox" checked={todosConIVA} onChange={e=>bulkSetIVA(tipo, e.target.checked)}
                         style={{ cursor:"pointer", accentColor:"#ef4444" }} />
-                      Aplica IVA a MO
+                      Aplica IVA {esMO ? "a MO" : `a ${tipo}`}
                     </label>
                   )}
                   <button onClick={()=>addItem(tipo)} style={{ background:`${CAT_COLOR[tipo]}22`, border:`1px solid ${CAT_COLOR[tipo]}44`, borderRadius:5, color:CAT_COLOR[tipo], cursor:"pointer", fontFamily:FONT, fontSize:10, padding:"2px 8px" }}>+ Agregar</button>
@@ -404,7 +411,7 @@ export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, prod
                       </thead>
                       <tbody>
                         {grouped[tipo].map((it, itIdx)=>(
-                          <ItemRow key={it.id} isLast={itIdx === grouped[tipo].length - 1} onFichaGuardada={onFichaGuardada} onOpenProducto={onOpenProducto} item={esMO ? {...it, moConIVA: fase.moConIVA} : it} codigo={codigoPorId[it.id]} onChange={item=>updateItem(it.id, esMO ? {...item, moConIVA: undefined} : item)} onDelete={()=>deleteItem(it.id)} onDuplicate={()=>duplicateItem(it.id)} onReorder={reorderItem} productos={productos} />
+                          <ItemRow key={it.id} isLast={itIdx === grouped[tipo].length - 1} onFichaGuardada={onFichaGuardada} onOpenProducto={onOpenProducto} item={it} codigo={codigoPorId[it.id]} onChange={item=>updateItem(it.id, item)} onDelete={()=>deleteItem(it.id)} onDuplicate={()=>duplicateItem(it.id)} onReorder={reorderItem} productos={productos} />
                         ))}
                       </tbody>
                         <tfoot>

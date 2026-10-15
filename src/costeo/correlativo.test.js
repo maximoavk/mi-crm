@@ -18,6 +18,12 @@ describe("correlativo de cotización de los proyectos", () => {
     expect(numeroParaCotizacion(cots, "Sin número")).toBe(151);   // la serie SIN no cuenta
     expect(numeroParaCotizacion([], "Obra")).toBe(1);
   });
+  it("calcula el correlativo de la serie SIN por separado de COT", () => {
+    const cots = [{ numero: 150, serie: "COT" }, { numero: 160, serie: "SIN" }, { numero: 161, serie: "SIN" }];
+    expect(numeroParaCotizacion(cots, "Obra sin factura", "SIN")).toBe(162);
+    expect(numeroParaCotizacion(cots, "Cot 160 Repetido", "SIN")).toBe(162); // 160 ya usado en SIN
+    expect(numeroParaCotizacion([], "Obra", "SIN")).toBe(1);
+  });
   it("marca el proyecto cuyo nombre no coincide con su cotización", () => {
     expect(codigoProyecto({ nombre: "Cot 149 X" }, { numero: 150, serie: "COT" })).toEqual({ codigo: "COT-150", distinto: 149 });
     expect(codigoProyecto({ nombre: "Cot 150 X" }, { numero: 150 })).toEqual({ codigo: "COT-150", distinto: null });

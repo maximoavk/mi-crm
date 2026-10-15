@@ -428,11 +428,17 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
     const pctFin = pctBase>0?Math.round(totalFin/pctBase*100):0;
     // Mapear al valor estándar del dropdown del QuoteEditor
     const formaPago = partidas.length > 0 ? "Según partidas" : "A convenir";
-    // Número: el escrito en el nombre del proyecto ("Cot 150 …") si está libre;
-    // si no, el siguiente de la serie COT (la serie SIN tiene su propio correlativo).
+    // Si ningún ítem del proyecto lleva IVA (checkbox "Aplica IVA" desmarcado
+    // en todas las categorías), la cotización se genera en la serie SIN en vez
+    // de COT — para no tener que ir a sacarle el IVA a mano en el Cotizador.
+    const sinSegmentoIVA = fases.every(f => (f.items||[]).every(it => !it.aplicaIVA));
+    const serieDestino = sinSegmentoIVA ? "SIN" : "COT";
+    // Número: el escrito en el nombre del proyecto ("Cot 150 …") si está libre
+    // en esa serie; si no, el siguiente correlativo de esa serie (COT y SIN
+    // llevan correlativos separados).
     const { data: existentes, error: errNum } = await supabase.from("cotizaciones").select("numero,serie");
     if(errNum){ alert("No se pudo leer el correlativo de cotizaciones: "+errNum.message); setGenSaving(false); return; }
-    const nextNum = numeroParaCotizacion(existentes, proyecto.nombre);
+    const nextNum = numeroParaCotizacion(existentes, proyecto.nombre, serieDestino);
     const sapBase = `POL-${String(nextNum).padStart(4,"0")}`;
     const codigoProyecto = sapBase; // raíz WBS del proyecto
 
@@ -466,7 +472,7 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
     // ─────────────────────────────────────────────────────────────────────────
 
     const quoteData = {
-      numero:nextNum, serie:"COT", fecha:proyecto.fecha||hoyISO(),
+      numero:nextNum, serie:serieDestino, fecha:proyecto.fecha||hoyISO(),
       contact_id:proyecto.clienteId||null, nombre_cliente:proyecto.clienteNombre||proyecto.cliente||"",
       rut_cliente:proyecto.clienteRut||"", razon_social:proyecto.clienteEmpresa||"",
       direccion:proyecto.clienteDireccion||"", telefono:proyecto.clienteTelefono||"",
@@ -519,7 +525,7 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
     if(lineas.length>0) await supabase.from("quote_lines").insert(lineas);
     setQuoteMap(prev=>({ ...prev, [savedQuote.id]: { numero:savedQuote.numero, serie:savedQuote.serie||"COT" } }));
     updateProyecto({ ...proyecto, cotizacion: String(nextNum), cotizacionId: savedQuote.id });
-    await saveVersion(`COT-${String(nextNum).padStart(3,"0")}`, "Cotización generada");
+    await saveVersion(`${serieDestino}-${String(nextNum).padStart(3,"0")}`, "Cotización generada");
     setGenSaving(false);
     setGenDone(nextNum);
   };
@@ -635,6 +641,17 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
                     if(tb>0&&fin>0) pts.push(`${Math.round(fin/tb*100)}% Al finalizar`);
                     return pts.length>0?pts.join(" · "):"A convenir";
                   })()}</div>
+                  {(()=>{
+                    const sinSegmentoIVA = fasesCalc.every(f => (f.items||[]).every(it => !it.aplicaIVA));
+                    return (
+                      <div style={{ fontFamily:FONT, fontSize:11, marginTop:4 }}>
+                        <strong style={{color:COLORS.text}}>Serie:</strong>{" "}
+                        <span style={{ color: sinSegmentoIVA?COLORS.yellow:COLORS.accent, fontWeight:600 }}>
+                          {sinSegmentoIVA ? "SIN · sin IVA (ningún ítem lo aplica)" : "COT · con IVA"}
+                        </span>
+                      </div>
+                    );
+                  })()}
                   <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:4 }}>
                     {genTipo==="fases"
                       ? `${(proyecto.fases||[]).length} línea(s) por fase + ${(proyecto.partidas||[]).length} hito(s) de pago`
