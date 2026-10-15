@@ -349,37 +349,70 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
           }} />
       )}
 
-      {/* ── FILTROS DE CATEGORÍA ── */}
-      <div style={{ overflowX:"auto", marginBottom:16, paddingBottom:4 }}>
-        <div style={{ display:"flex", gap:6, minWidth:"max-content" }}>
-          {CATALOG_CATS.map(cat => {
-            const active = filterType === cat.key;
-            const count = cat.key==="todos" ? products.length : products.filter(p=>p.category===cat.key).length;
-            return (
-              <button key={cat.key} onClick={()=>setFilterType(cat.key)}
-                style={{
-                  display:"flex", alignItems:"center", gap:5,
-                  padding:"6px 12px", borderRadius:20, cursor:"pointer",
-                  background: active ? cat.color+"22" : COLORS.card,
-                  border:`1px solid ${active ? cat.color : COLORS.border}`,
-                  color: active ? cat.color : COLORS.textMuted,
-                  fontFamily:FONT, fontSize:11, fontWeight: active?700:400,
-                  whiteSpace:"nowrap", transition:"all 0.15s",
-                }}>
-                <span style={{ fontSize:12 }}>{cat.icon}</span>
-                {cat.label}
-                <span style={{
-                  fontSize:9, fontFamily:FONT,
-                  background: active ? cat.color+"33" : COLORS.border,
-                  color: active ? cat.color : COLORS.textMuted,
-                  borderRadius:10, padding:"1px 6px", marginLeft:2,
-                }}>{count}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <div style={{ display:"flex", gap:16, alignItems:"flex-start" }}>
+        {/* ── FILTROS DE CATEGORÍA ── */}
+        {isMobile ? (
+          <div style={{ overflowX:"auto", marginBottom:16, paddingBottom:4, width:"100%" }}>
+            <div style={{ display:"flex", gap:6, minWidth:"max-content" }}>
+              {CATALOG_CATS.map(cat => {
+                const active = filterType === cat.key;
+                const count = cat.key==="todos" ? products.length : products.filter(p=>p.category===cat.key).length;
+                return (
+                  <button key={cat.key} onClick={()=>setFilterType(cat.key)}
+                    style={{
+                      display:"flex", alignItems:"center", gap:5,
+                      padding:"6px 12px", borderRadius:999, cursor:"pointer",
+                      background: active ? "linear-gradient(120deg,#AC3AB322,#2954EC22)" : COLORS.card,
+                      border:`1px solid ${active ? "#AC3AB355" : COLORS.border}`,
+                      color: active ? COLORS.text : COLORS.textMuted,
+                      fontFamily:FONT_DISPLAY, fontSize:11, fontWeight: active?700:500,
+                      whiteSpace:"nowrap", transition:"all 0.15s",
+                    }}>
+                    <span style={{ fontSize:12 }}>{cat.icon}</span>
+                    {cat.label}
+                    <span style={{
+                      fontSize:9, fontFamily:FONT,
+                      background: active ? "#AC3AB333" : COLORS.border,
+                      color: active ? COLORS.text : COLORS.textMuted,
+                      borderRadius:10, padding:"1px 6px", marginLeft:2,
+                    }}>{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div style={{ width:188, flexShrink:0, display:"flex", flexDirection:"column", gap:5 }}>
+            {CATALOG_CATS.map(cat => {
+              const active = filterType === cat.key;
+              const count = cat.key==="todos" ? products.length : products.filter(p=>p.category===cat.key).length;
+              return (
+                <button key={cat.key} onClick={()=>setFilterType(cat.key)}
+                  style={{
+                    display:"flex", alignItems:"center", gap:8, width:"100%", textAlign:"left",
+                    padding:"8px 14px", borderRadius:999, cursor:"pointer",
+                    background: active ? "linear-gradient(120deg,#AC3AB322,#2954EC22)" : COLORS.card,
+                    border:`1px solid ${active ? "#AC3AB355" : COLORS.border}`,
+                    color: active ? COLORS.text : COLORS.textMuted,
+                    fontFamily:FONT_DISPLAY, fontSize:12, fontWeight: active?700:500,
+                    transition:"all 0.15s",
+                  }}>
+                  <span style={{ fontSize:13, flexShrink:0 }}>{cat.icon}</span>
+                  <span style={{ flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{cat.label}</span>
+                  {active && <span style={{ width:5, height:5, borderRadius:"50%", background:"#AC3AB3", flexShrink:0 }} />}
+                  <span style={{
+                    fontSize:9, fontFamily:FONT, flexShrink:0,
+                    background: active ? "#AC3AB333" : COLORS.border,
+                    color: active ? COLORS.text : COLORS.textMuted,
+                    borderRadius:10, padding:"1px 6px",
+                  }}>{count}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
+      <div style={{ flex:1, minWidth:0 }}>
       {loading ? <Loader /> : (
         <div style={{ overflowX:"auto" }}>
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12, fontFamily:FONT }}>
@@ -450,6 +483,8 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
           {filtered.length===0 && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>Sin productos. ¡Agrega el primero!</div>}
         </div>
       )}
+      </div>
+      </div>
 
       {showModal && (
         <Modal title={editingId?"Editar Ítem":"Nuevo Ítem"} onClose={()=>{ setShowModal(false); setEditingId(null); setProductPrices([]); setShowPriceForm(false); onVolver?.(); }} onSubmit={save}>
