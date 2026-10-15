@@ -349,7 +349,7 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
           }} />
       )}
 
-      <div style={{ display:"flex", gap:16, alignItems:"flex-start" }}>
+      <div style={{ display:"flex", gap:10, alignItems:"flex-start" }}>
         {/* ── FILTROS DE CATEGORÍA ── */}
         {isMobile ? (
           <div style={{ overflowX:"auto", marginBottom:16, paddingBottom:4, width:"100%" }}>
@@ -382,29 +382,28 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
             </div>
           </div>
         ) : (
-          <div style={{ width:188, flexShrink:0, display:"flex", flexDirection:"column", gap:5 }}>
+          <div style={{ width:128, flexShrink:0, display:"flex", flexDirection:"column", gap:4 }}>
             {CATALOG_CATS.map(cat => {
               const active = filterType === cat.key;
               const count = cat.key==="todos" ? products.length : products.filter(p=>p.category===cat.key).length;
               return (
-                <button key={cat.key} onClick={()=>setFilterType(cat.key)}
+                <button key={cat.key} onClick={()=>setFilterType(cat.key)} title={cat.label}
                   style={{
-                    display:"flex", alignItems:"center", gap:8, width:"100%", textAlign:"left",
-                    padding:"8px 14px", borderRadius:999, cursor:"pointer",
+                    display:"flex", alignItems:"center", gap:6, width:"100%", textAlign:"left",
+                    padding:"6px 9px", borderRadius:999, cursor:"pointer",
                     background: active ? "linear-gradient(120deg,#AC3AB322,#2954EC22)" : COLORS.card,
                     border:`1px solid ${active ? "#AC3AB355" : COLORS.border}`,
                     color: active ? COLORS.text : COLORS.textMuted,
-                    fontFamily:FONT_DISPLAY, fontSize:12, fontWeight: active?700:500,
+                    fontFamily:FONT_DISPLAY, fontSize:11, fontWeight: active?700:500,
                     transition:"all 0.15s",
                   }}>
-                  <span style={{ fontSize:13, flexShrink:0 }}>{cat.icon}</span>
+                  <span style={{ fontSize:12, flexShrink:0 }}>{cat.icon}</span>
                   <span style={{ flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{cat.label}</span>
-                  {active && <span style={{ width:5, height:5, borderRadius:"50%", background:"#AC3AB3", flexShrink:0 }} />}
                   <span style={{
                     fontSize:9, fontFamily:FONT, flexShrink:0,
                     background: active ? "#AC3AB333" : COLORS.border,
                     color: active ? COLORS.text : COLORS.textMuted,
-                    borderRadius:10, padding:"1px 6px",
+                    borderRadius:10, padding:"1px 5px",
                   }}>{count}</span>
                 </button>
               );
@@ -418,8 +417,8 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12, fontFamily:FONT }}>
             <thead>
               <tr style={{ borderBottom:`2px solid ${COLORS.border}` }}>
-                {["Código","SKU Proveedor","Nombre","Modelo","Categoría","Proveedor","Precio Bruto","Neto","IVA Costo","Actualizado","Link",""].map(h=>(
-                  <th key={h} style={{ padding:"10px 10px", textAlign:"left", color:COLORS.textMuted, fontWeight:600, fontSize:10, letterSpacing:"0.08em", textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
+                {["Código","SKU Proveedor","Nombre","Categoría","Proveedor","Precio Bruto","Neto","IVA Costo","Link",""].map(h=>(
+                  <th key={h} style={{ padding:"8px 7px", textAlign:"left", color:COLORS.textMuted, fontWeight:600, fontSize:10, letterSpacing:"0.08em", textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -430,17 +429,19 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
                 const catDef = CATALOG_CATS.find(c=>c.key===p.category);
                 return (
                 <tr key={p.id} style={{ borderBottom:`1px solid ${COLORS.border}` }}>
-                  <td style={{ padding:"8px 10px", color:COLORS.accent, fontWeight:600 }}>{p.code}</td>
+                  <td style={{ padding:"6px 7px", color:COLORS.accent, fontWeight:600 }}>{p.code}</td>
                   {/* SKU Proveedor */}
-                  <td style={{ padding:"8px 10px", color:COLORS.textMuted, fontSize:10, fontFamily:"monospace", whiteSpace:"nowrap" }} title={p.skuProveedor}>
+                  <td style={{ padding:"6px 7px", color:COLORS.textMuted, fontSize:10, fontFamily:"monospace", whiteSpace:"nowrap" }} title={p.skuProveedor}>
                     {p.skuProveedor ? (
                       <span style={{ background:`${COLORS.accent}15`, border:`1px solid ${COLORS.accent}33`, borderRadius:3, padding:"1px 5px", color:COLORS.textMuted }}>{p.skuProveedor}</span>
                     ) : <span style={{ color:"#374151" }}>—</span>}
                   </td>
-                  <td style={{ padding:"8px 10px", color:COLORS.text, fontWeight:500, minWidth:140 }}>{p.name}</td>
-                  <td style={{ padding:"8px 10px", color:COLORS.textMuted, maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={p.description}>{p.description}</td>
+                  <td style={{ padding:"6px 7px", color:COLORS.text, fontWeight:500, minWidth:140, maxWidth:220 }}>
+                    <div style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</div>
+                    {p.description && <div style={{ fontSize:10, fontWeight:400, color:COLORS.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", marginTop:1 }} title={p.description}>{p.description}</div>}
+                  </td>
                   {/* Categoría con badge de color */}
-                  <td style={{ padding:"8px 10px", whiteSpace:"nowrap" }}>
+                  <td style={{ padding:"6px 7px", whiteSpace:"nowrap" }}>
                     {catDef ? (
                       <span style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 8px", borderRadius:4, fontSize:10, fontFamily:FONT, background:catDef.color+"22", color:catDef.color, border:`1px solid ${catDef.color}44` }}>
                         <span>{catDef.icon}</span>{catDef.label}
@@ -449,19 +450,15 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
                       <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{p.category}</span>
                     ) : <span style={{ color:COLORS.textDim }}>—</span>}
                   </td>
-                  <td style={{ padding:"8px 10px", color:COLORS.textMuted, whiteSpace:"nowrap" }}>{p.provider}</td>
+                  <td style={{ padding:"6px 7px", color:COLORS.textMuted, whiteSpace:"nowrap" }}>{p.provider}</td>
                   {/* Precio Bruto */}
-                  <td style={{ padding:"8px 10px", color:COLORS.text, fontWeight:700, whiteSpace:"nowrap" }}>{fmt(p.price)}</td>
+                  <td style={{ padding:"6px 7px", color:COLORS.text, fontWeight:700, whiteSpace:"nowrap" }}>{fmt(p.price)}</td>
                   {/* Neto */}
-                  <td style={{ padding:"8px 10px", color:COLORS.green, fontWeight:600, whiteSpace:"nowrap" }}>{fmt(neto)}</td>
+                  <td style={{ padding:"6px 7px", color:COLORS.green, fontWeight:600, whiteSpace:"nowrap" }}>{fmt(neto)}</td>
                   {/* IVA Costo */}
-                  <td style={{ padding:"8px 10px", color:"#ef4444", fontSize:11, whiteSpace:"nowrap" }}>{fmt(iva)}</td>
-                  {/* Actualizado */}
-                  <td style={{ padding:"8px 10px", color:COLORS.textMuted, fontSize:10, whiteSpace:"nowrap" }}>
-                    {p.updatedAt ? new Date(p.updatedAt).toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"2-digit"}) : "—"}
-                  </td>
+                  <td style={{ padding:"6px 7px", color:"#ef4444", fontSize:11, whiteSpace:"nowrap" }}>{fmt(iva)}</td>
                   {/* Link proveedor */}
-                  <td style={{ padding:"8px 10px", textAlign:"center" }}>
+                  <td style={{ padding:"6px 7px", textAlign:"center" }}>
                     {p.url ? (
                       <a href={p.url} target="_blank" rel="noopener noreferrer"
                         style={{ padding:"2px 8px", background:`${COLORS.accent}22`, border:`1px solid ${COLORS.accent}44`, borderRadius:4, color:COLORS.accent, textDecoration:"none", fontFamily:FONT, fontSize:10, whiteSpace:"nowrap" }}>
@@ -469,7 +466,7 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
                       </a>
                     ) : <span style={{ color:COLORS.textMuted, fontSize:10 }}>—</span>}
                   </td>
-                  <td style={{ padding:"8px 10px" }}>
+                  <td style={{ padding:"6px 7px" }}>
                     <div style={{ display:"flex", gap:6 }}>
                       <button onClick={()=>openEdit(p)} style={{ background:"none", border:`1px solid ${COLORS.accent}44`, borderRadius:4, color:COLORS.accent, cursor:"pointer", fontSize:11, padding:"2px 7px" }}>✏️</button>
                       <button onClick={()=>del(p.id)} style={{ background:"none", border:`1px solid ${COLORS.red}44`, borderRadius:4, color:COLORS.red, cursor:"pointer", fontSize:11, padding:"2px 7px" }}>✕</button>
