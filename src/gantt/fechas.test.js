@@ -3,7 +3,21 @@
 // aparecen fuera de UTC.
 process.env.TZ = "America/Santiago";
 import { describe, it, expect } from "vitest";
-import { addDays, diffDays, isSunday, nextBusinessDay, shiftDateBusinessDay, endOfBusinessSpan, fmtShort, fmtDDMMYYYY, buildCalHeader } from "./fechas.js";
+import { addDays, diffDays, isSunday, nextBusinessDay, shiftDateBusinessDay, endOfBusinessSpan, fmtShort, fmtDDMMYYYY, parseDDMMYYYY, buildCalHeader } from "./fechas.js";
+
+describe("parseDDMMYYYY", () => {
+  it("parsea dd/mm/aaaa y dd-mm-aaaa", () => {
+    expect(parseDDMMYYYY("05/10/2026")).toBe("2026-10-05");
+    expect(parseDDMMYYYY("5-10-2026")).toBe("2026-10-05");
+    expect(parseDDMMYYYY("31/12/2026")).toBe("2026-12-31");
+  });
+  it("rechaza fechas que no existen o formatos inválidos", () => {
+    expect(parseDDMMYYYY("31/02/2026")).toBe(null);
+    expect(parseDDMMYYYY("2026-10-05")).toBe(null);
+    expect(parseDDMMYYYY("")).toBe(null);
+    expect(parseDDMMYYYY(null)).toBe(null);
+  });
+});
 
 // Octubre 2026: sáb 3, dom 4, lun 5
 describe("addDays / diffDays", () => {

@@ -9,7 +9,7 @@ import { TreeCaret } from "../shared/TreeCaret.jsx";
 
 const X = 13; // eje de la línea vertical (centro del triángulo), px desde el borde de la celda
 
-export function TreeNodeCell({ task, isFase, editing, selected, collapsed, hasChildren, inPhase, isLastChild, onToggle, onAddChild, renderEditor }) {
+export function TreeNodeCell({ task, isFase, editing, selected, collapsed, hasChildren, inPhase, isLastChild, onToggle, onAddChild, renderEditor, trailing }) {
   const expandedWithChildren = isFase && hasChildren && !collapsed;
 
   const nombre = (
@@ -52,6 +52,7 @@ export function TreeNodeCell({ task, isFase, editing, selected, collapsed, hasCh
             title={collapsed ? "Desplegar fase" : "Contraer fase"} />
         )}
         {editing ? renderEditor() : nombre}
+        {!editing && trailing}
       </div>
     </>
   );

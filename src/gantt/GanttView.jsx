@@ -11,9 +11,10 @@ import { FlechaDependencia } from "./FlechaDependencia.jsx";
 import { aplicarArrastre } from "./barra.js";
 import { TreeNodeCell } from "./TreeNodeCell.jsx";
 import { PdfPreviewModal } from "../shared/ui.jsx";
-import { fechaLocal, hoyISO } from "../shared/format.js";
+import { fechaLocal, hoyISO, fmt } from "../shared/format.js";
 import { EMPRESA_RUT, TITULAR } from "../shared/empresa.js";
 import { derivarGantt, avanceProyecto, atrasada, hijosPorFase, filasParaGuardar, cambiarFechasConEmpuje, empujarTrasFase, desplazar, numerarFilas, normalizarDependencias, predecesorasPosibles, aplicarDependencias, incumpleDependencia } from "./calculos.js";
+import { partidaCobrado } from "../calculos.js";
 
 export function GanttView({ isMobile }) {
   const [cotNum, setCotNum]       = useState("");
@@ -31,6 +32,11 @@ export function GanttView({ isMobile }) {
   const [monthMode, setMonthMode] = useState(false);
   const [calDays, setCalDays]     = useState(15);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
+  // Fases y partidas de pago del Costeo vinculado — solo para cruzar avance
+  // físico con plata cobrada (señal 💰), no se edita desde acá.
+  const [costeoComercial, setCosteoComercial] = useState(null); // { fases, partidas } | null
+  // Fase elegida para ver/exportar solo esa parte del proyecto; null = todo el proyecto.
+  const [faseScopeId, setFaseScopeId] = useState(null);
   const [editRow, setEditRow]     = useState(null); // id de fila en edición inline
   const [draggedId, setDraggedId] = useState(null);
   const [dragOverId, setDragOverId] = useState(null);
@@ -94,6 +100,15 @@ export function GanttView({ isMobile }) {
     else months[months.length-1].count++;
   });
 
+  // Trae fases y partidas del Costeo vinculado a la cotización, para la
+  // señal de cobro (💰) de cada fase del Gantt — no se usa para importar.
+  const cargarComercialDesdeCosteo = async (num) => {
+    const { data: cot } = await supabase.from("cotizaciones").select("id").eq("numero", Number(num)).single();
+    if (!cot) { setCosteoComercial(null); return; }
+    const { data: costeo } = await supabase.from("costeos").select("fases,partidas").eq("cotizacion_id", cot.id).maybeSingle();
+    setCosteoComercial(costeo || null);
+  };
+
   // Importa fases + hitos automáticos + HH desde el costeo vinculado a una cotización.
   // `versionId` (opcional) trae las fases desde una foto guardada en
   // costeo_versiones en vez del costeo en vivo — así el Gantt puede reflejar
@@ -123,6 +138,7 @@ export function GanttView({ isMobile }) {
           id: faseId, tipo:"F", nombre: f.nombre||`Fase ${fi+1}`,
           rol:"PM", responsable:"", inicio: faseInicio, fin: faseInicio, // fin real se fija más abajo, al conocer el cierre
           pctPlan:0, pctAvance:0, hhPresup:0, hhReal:0, hhTerceros:0, depende:"", orden:orden++, parentId:null,
+          costeoFaseId: f.id != null ? String(f.id) : null,
         });
         // Hitos de apertura automáticos, escalonados 1 día cada uno desde el inicio de la fase
         [{ nombre:"Planificación", rol:"PM" }, { nombre:"Compras", rol:"ADM" }].forEach(({nombre, rol}, hi) => {
@@ -230,6 +246,8 @@ export function GanttView({ isMobile }) {
     setFirmaGuardada("");
     setSearching(true);
     const { data: gantt } = await supabase.from("gantt_proyectos").select("*").eq("numero_cotizacion", Number(num)).single();
+    setFaseScopeId(null);
+    cargarComercialDesdeCosteo(num);
     if(gantt) {
       setGanttId(gantt.id);
       setProyecto({ nombre: gantt.nombre, cotNum: num });
@@ -245,6 +263,7 @@ export function GanttView({ isMobile }) {
           pctPlan: r.pct_plan||0, pctAvance: r.pct_avance||0,
           hhPresup: r.hh_presup||0, hhReal: r.hh_real||0, hhTerceros: r.hh_terceros||0,
           depende: r.depende_de||"", orden: r.orden||0, parentId: r.parent_id||null,
+          costeoFaseId: r.costeo_fase_id||null,
         }))));
         setMarcarCargada(true);
         setSearching(false);
@@ -459,6 +478,32 @@ export function GanttView({ isMobile }) {
     return pos;
   }, [vista, ganttMeta, collapsedPhases]);
   const avanceTotal = avanceProyecto(vista);
+
+  // Señal de cobro (💰) por fase: cruza cada fase del Gantt con sus partidas
+  // de pago en Costeo. Usa el costeo_fase_id guardado si existe; si no (Gantt
+  // importado antes de este cambio), empareja por nombre — solo en memoria,
+  // no se guarda — y si tampoco calza, la fase queda sin señal.
+  const cobradoPorFase = useMemo(() => {
+    const map = {};
+    if (!costeoComercial) return map;
+    const fases = costeoComercial.fases || [];
+    const partidas = costeoComercial.partidas || [];
+    tasks.filter(t => t.tipo === "F").forEach(f => {
+      let costeoFaseId = f.costeoFaseId;
+      if (costeoFaseId == null) {
+        const porNombre = fases.find(cf => (cf.nombre||"").trim().toLowerCase() === (f.nombre||"").trim().toLowerCase());
+        costeoFaseId = porNombre ? String(porNombre.id) : null;
+      }
+      if (costeoFaseId == null) return;
+      const propias = partidas.filter(p => String(p.faseId) === String(costeoFaseId));
+      if (propias.length === 0) return;
+      const monto = propias.reduce((s, p) => s + (Number(p.monto)||0), 0);
+      const cobrado = propias.reduce((s, p) => s + partidaCobrado(p), 0);
+      if (monto <= 0) return;
+      map[f.id] = { monto, cobrado, pct: Math.min(100, Math.round((cobrado/monto)*1000)/10) };
+    });
+    return map;
+  }, [tasks, costeoComercial]);
 
   // Cambios sin guardar: se compara con la última versión cargada o guardada.
   const firma = JSON.stringify({ nombre: proyecto?.nombre, calStart, tasks });
@@ -720,6 +765,17 @@ export function GanttView({ isMobile }) {
                     {todoContraido ? "⊞ Expandir fases" : "⊟ Contraer fases"}
                   </button>
                 )}
+                {/* Ver/exportar una sola fase, para reportes acotados al cliente */}
+                {vista.some(t=>t.tipo==="F") && (
+                  <select value={faseScopeId||""} onChange={e=>setFaseScopeId(e.target.value||null)}
+                    title="Ver y exportar solo una fase del proyecto"
+                    style={{ ...btn, color: faseScopeId?COLORS.accent:COLORS.textMuted, borderColor: faseScopeId?`${COLORS.accent}66`:COLORS.border, cursor:"pointer" }}>
+                    <option value="">Ver: Todo el proyecto</option>
+                    {vista.filter(t=>t.tipo==="F").map(f=>(
+                      <option key={f.id} value={f.id}>Ver: {f.nombre}</option>
+                    ))}
+                  </select>
+                )}
               </>);
             })()}
             {/* Leyenda + PDF */}
@@ -728,12 +784,22 @@ export function GanttView({ isMobile }) {
                 <span key={l} style={{ fontFamily:FONT, fontSize:10, color:c }}>● {l}</span>
               ))}
               <button onClick={async () => {
-                const avancePromedio = avanceTotal;
-                // El PDF cubre TODO el rango del proyecto (no solo lo que está
-                // visible en pantalla) — una página A4 apaisada por mes, para
-                // que ninguna fase quede fuera solo por estar fuera de la
-                // ventana de 5d/15d/30d/mes que se esté viendo en ese momento.
-                const allDates = tasks.flatMap(t=>[t.inicio,t.fin]).filter(Boolean);
+                // Si hay una fase elegida (selector "Ver: ..."), el PDF sale
+                // acotado solo a esa fase y sus hitos/tareas, con su propio
+                // resumen de cobro — igual que lo que se ve en pantalla.
+                const tasksPdf = faseScopeId
+                  ? tasks.filter(t => t.id===faseScopeId || ganttMeta.childPhaseId[t.id]===faseScopeId)
+                  : tasks;
+                const vistaPdf = faseScopeId
+                  ? vista.filter(t => t.id===faseScopeId || ganttMeta.childPhaseId[t.id]===faseScopeId)
+                  : vista;
+                const avancePromedio = avanceProyecto(vistaPdf);
+                // El PDF cubre TODO el rango de lo que se está exportando (no
+                // solo lo que está visible en pantalla) — una página A4
+                // apaisada por mes, para que ninguna fase quede fuera solo por
+                // estar fuera de la ventana de 5d/15d/30d/mes que se esté
+                // viendo en ese momento.
+                const allDates = tasksPdf.flatMap(t=>[t.inicio,t.fin]).filter(Boolean);
                 const minDate = allDates.length ? allDates.reduce((a,b)=>a<b?a:b) : viewStart;
                 const maxDate = allDates.length ? allDates.reduce((a,b)=>a>b?a:b) : viewStart;
                 const monthPages = [];
@@ -744,7 +810,7 @@ export function GanttView({ isMobile }) {
                   const monthEnd = `${y}-${String(m).padStart(2,"0")}-${String(diasDelMes).padStart(2,"0")}`;
                   // Se omite el mes si ninguna tarea/hito/fase lo toca — un PDF
                   // más corto en vez de páginas vacías con solo "Sin actividades".
-                  const tieneActividad = tasks.some(t=>t.inicio && t.fin && t.fin>=cursor && t.inicio<=monthEnd);
+                  const tieneActividad = tasksPdf.some(t=>t.inicio && t.fin && t.fin>=cursor && t.inicio<=monthEnd);
                   if(tieneActividad) {
                     monthPages.push({
                       label: new Date(cursor+"T00:00:00Z").toLocaleDateString("es-CL",{month:"long",year:"numeric",timeZone:"UTC"}),
@@ -754,14 +820,16 @@ export function GanttView({ isMobile }) {
                   cursor = m===12 ? `${y+1}-01-01` : `${y}-${String(m+1).padStart(2,"0")}-01`;
                 }
                 const diasHabilesTotal = monthPages.reduce((s,p)=>s+p.calCols.filter(c=>!c.isWeekend).length, 0);
+                const cobradoScope = faseScopeId ? cobradoPorFase[faseScopeId] : null;
                 const totales = {
-                  hhPresup: tasks.reduce((s, t) => s + Number(t.hhPresup || 0), 0),
-                  hhTerceros: tasks.reduce((s, t) => s + Number(t.hhTerceros || 0), 0),
+                  hhPresup: tasksPdf.reduce((s, t) => s + Number(t.hhPresup || 0), 0),
+                  hhTerceros: tasksPdf.reduce((s, t) => s + Number(t.hhTerceros || 0), 0),
                   diasHabiles: diasHabilesTotal,
                   avancePromedio,
+                  ...(cobradoScope ? { cobradoMonto: cobradoScope.cobrado, cobradoPct: cobradoScope.pct } : {}),
                 };
                 const phasePresupById = {};
-                tasks.forEach(t => {
+                tasksPdf.forEach(t => {
                   const faseId = ganttMeta.childPhaseId[t.id];
                   if (faseId) phasePresupById[faseId] = (phasePresupById[faseId] || 0) + (Number(t.hhPresup) || 0);
                 });
@@ -771,7 +839,7 @@ export function GanttView({ isMobile }) {
                 ]);
                 let logoDataUri = null;
                 try { logoDataUri = await fetchImageAsDataUri(LOGO_PRINT); } catch { /* el documento se genera igual, sin logo */ }
-                const blob = await pdf(<GanttDoc proyecto={proyecto} headerData={headerData} tasks={vista} monthPages={monthPages} numbersById={ganttMeta.numbers} phasePresupById={phasePresupById} totales={totales} logoDataUri={logoDataUri} />).toBlob();
+                const blob = await pdf(<GanttDoc proyecto={proyecto} headerData={headerData} tasks={vistaPdf} monthPages={monthPages} numbersById={ganttMeta.numbers} phasePresupById={phasePresupById} totales={totales} logoDataUri={logoDataUri} />).toBlob();
                 const url = URL.createObjectURL(blob);
                 setPdfPreviewUrl(url);
               }} style={{ padding:"4px 14px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:5, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>🖨 PDF</button>
@@ -825,6 +893,8 @@ export function GanttView({ isMobile }) {
                   // Ocultar si pertenece a una fase colapsada
                   const parentFaseId = ganttMeta.childPhaseId[t.id];
                   if(parentFaseId && collapsedPhases.has(parentFaseId)) return null;
+                  // Si hay una fase elegida para ver sola, ocultar todo lo demás
+                  if(faseScopeId && t.id!==faseScopeId && parentFaseId!==faseScopeId) return null;
                   const isCollapsed = isFase && collapsedPhases.has(t.id);
                   const idxVisible = filaVisible[t.id];
 
@@ -894,6 +964,12 @@ export function GanttView({ isMobile }) {
                           onToggle={()=>toggleCollapse(t.id)}
                           onAddChild={()=>addChildToFase(t.id)}
                           renderEditor={()=><input value={t.nombre} onChange={e=>updateTask(t.id,"nombre",e.target.value)} style={{...s,width:170}} />}
+                          trailing={isFase && cobradoPorFase[t.id] && (
+                            <span title={`Cobrado ${fmt(cobradoPorFase[t.id].cobrado)} de ${fmt(cobradoPorFase[t.id].monto)} (${cobradoPorFase[t.id].pct}%)`}
+                              style={{ flexShrink:0, fontSize:11, opacity: cobradoPorFase[t.id].pct>=100?1:0.45, cursor:"default" }}>
+                              💰
+                            </span>
+                          )}
                         />
                       </td>
                       {/* Rol */}

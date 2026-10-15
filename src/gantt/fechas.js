@@ -50,6 +50,21 @@ export function fmtDDMMYYYY(dateStr) {
   return `${d}/${m}/${y}`;
 }
 
+// Parsea "dd/mm/aaaa" o "dd-mm-aaaa" (escrito a mano) a "YYYY-MM-DD".
+// Devuelve null si el texto no calza con el formato o la fecha no existe
+// (ej. 31/02), para que quien llama pueda rechazar el valor sin reventar.
+export function parseDDMMYYYY(str) {
+  if(!str) return null;
+  const m = String(str).trim().match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if(!m) return null;
+  const d = Number(m[1]), mo = Number(m[2]), y = Number(m[3]);
+  if(mo<1||mo>12||d<1) return null;
+  const diasEnMes = new Date(y, mo, 0).getDate();
+  if(d>diasEnMes) return null;
+  const pad2 = n => String(n).padStart(2,"0");
+  return `${y}-${pad2(mo)}-${pad2(d)}`;
+}
+
 // Genera rango de fechas para el header del calendario
 export function buildCalHeader(startDate, days) {
   const cols = [];

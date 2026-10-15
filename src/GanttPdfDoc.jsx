@@ -191,6 +191,12 @@ export function GanttPdfHeader({ proyecto, headerData, totales, calCols, weeks, 
           <Text style={ganttPdfStyles.kpiLabel}>AVANCE PROM.</Text>
           <Text style={ganttPdfStyles.kpiValue}>{totales.avancePromedio}%</Text>
         </View>
+        {totales.cobradoMonto != null && (
+          <View style={ganttPdfStyles.kpiBox}>
+            <Text style={ganttPdfStyles.kpiLabel}>COBRADO</Text>
+            <Text style={[ganttPdfStyles.kpiValue, { color: "#16a34a" }]}>{totales.cobradoPct}%</Text>
+          </View>
+        )}
       </View>
       <View style={ganttPdfStyles.legendRow}>
         {[["Fase", GANTT_PDF_COLORS.fase], ["Tarea", GANTT_PDF_COLORS.tarea], ["Hito", GANTT_PDF_COLORS.hito], ["Completado", GANTT_PDF_COLORS.done], ["Atrasado", GANTT_PDF_COLORS.late]].map(([label, color]) => (

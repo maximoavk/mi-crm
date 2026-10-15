@@ -1,15 +1,28 @@
 import React, { useState, useEffect } from "react";
 import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
-import { fmtDDMMYYYY } from "./fechas.js";
+import { fmtDDMMYYYY, parseDDMMYYYY } from "./fechas.js";
 
-// Calendario propio (desplegable) para elegir una fecha "YYYY-MM-DD" sin depender del picker nativo del navegador
+// Calendario propio (desplegable) para elegir una fecha "YYYY-MM-DD" sin depender del picker nativo del navegador.
+// Doble entrada: se puede escribir la fecha a mano (dd/mm/aaaa) en el campo,
+// o abrir el calendario con el ícono 📅 para elegirla con el mouse.
 export function CalendarPicker({ value, onChange }) {
   const [open, setOpen] = useState(false);
+  const [texto, setTexto] = useState(fmtDDMMYYYY(value));
   const initial = value ? new Date(value+"T00:00") : new Date();
   const [viewYear, setViewYear] = useState(initial.getFullYear());
   const [viewMonth, setViewMonth] = useState(initial.getMonth());
   const ref = React.useRef(null);
   const pad2 = n => String(n).padStart(2,"0");
+
+  // El campo de texto sigue a `value` cuando cambia desde afuera (ej. al
+  // elegir un día en el calendario, o si otra acción mueve la fecha).
+  useEffect(() => { setTexto(fmtDDMMYYYY(value)); }, [value]);
+
+  const commitTexto = () => {
+    const parsed = parseDDMMYYYY(texto);
+    if (parsed) onChange(parsed);
+    else setTexto(fmtDDMMYYYY(value)); // texto inválido: vuelve al último valor válido
+  };
 
   useEffect(() => {
     if(!open) return;
@@ -44,10 +57,17 @@ export function CalendarPicker({ value, onChange }) {
   };
 
   return (
-    <div ref={ref} style={{ position:"relative", display:"inline-block" }}>
-      <button type="button" onClick={toggleOpen} style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4,
-        color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"3px 6px", cursor:"pointer", display:"flex", alignItems:"center", gap:5 }}>
-        📅 {fmtDDMMYYYY(value)}
+    <div ref={ref} style={{ position:"relative", display:"inline-flex", alignItems:"center", gap:3 }}>
+      <input value={texto} onChange={e=>setTexto(e.target.value)}
+        onBlur={commitTexto}
+        onKeyDown={e=>{ if(e.key==="Enter"){ e.preventDefault(); commitTexto(); } else if(e.key==="Escape"){ setTexto(fmtDDMMYYYY(value)); e.target.blur(); } }}
+        placeholder="dd/mm/aaaa"
+        style={{ width:72, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4,
+          color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"3px 5px", outline:"none" }} />
+      <button type="button" onClick={toggleOpen} title="Elegir del calendario"
+        style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4,
+          color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"3px 5px", cursor:"pointer", lineHeight:1 }}>
+        📅
       </button>
       {open && (
         <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, zIndex:50, background:COLORS.card, border:`1px solid ${COLORS.border}`,

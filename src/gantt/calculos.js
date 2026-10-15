@@ -112,6 +112,7 @@ export function filasParaGuardar(tasks, ganttId, generar = nuevoUuid) {
       hh_presup: Number(t.hhPresup) || 0, hh_real: Number(t.hhReal) || 0, hh_terceros: Number(t.hhTerceros) || 0,
       depende_de: ids[t.depende] || "", orden: i,
       parent_id: t.tipo !== "F" && fase ? ids[fase] : null,
+      costeo_fase_id: t.tipo === "F" && t.costeoFaseId != null ? String(t.costeoFaseId) : null,
     };
   });
   return { rows, ids };
