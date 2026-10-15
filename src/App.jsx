@@ -276,7 +276,7 @@ export default function CRM() {
           {view==="analisis"    && <AnalisisPreciosView isMobile={isMobile} />}
           {view==="tasks"     && <TasksView tasks={tasks} setTasks={setTasks} contacts={contacts} deals={deals} isMobile={isMobile} />}
           {view==="incidencias" && <IncidenciasView contacts={contacts} isMobile={isMobile} />}
-          {view==="proposals" && <ProposalsView contacts={contacts} isMobile={isMobile} />}
+          {view==="proposals" && <ProposalsView onOpenCosteo={(id)=>{ setOpenCosteoId(id); setView("costeo"); }} />}
           {view==="reports"   && <ReportsView contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} />}
           {view==="finanzas_dashboard" && <FinanzasDashboard isMobile={isMobile} />}
           {view==="cxc"                && <CuentasPorCobrar  isMobile={isMobile} />}
