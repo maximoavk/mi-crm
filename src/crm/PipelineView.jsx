@@ -29,6 +29,7 @@ export function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMob
   const [cotFechas, setCotFechas] = useState([]);
   const [monthOverride, setMonthOverride] = useState({});
   const [hoverMonth, setHoverMonth] = useState(null);
+  const [resumenOpen, setResumenOpen] = useState(true);
 
   useEffect(() => {
     supabase.from("cotizaciones").select("id,fecha").then(({data})=>{ if(data) setCotFechas(data); });
@@ -208,9 +209,17 @@ export function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMob
     });
     return Object.keys(groups).sort().map(key=>{
       const g = groups[key];
-      return { key, label:monthLabel(key), shortLabel:monthShortLabel(key), ...g, total:g.propuesta+g.cerrado+g.rechazado };
+      return { key, year:key.slice(0,4), label:monthLabel(key), shortLabel:monthShortLabel(key), ...g, total:g.propuesta+g.cerrado+g.rechazado };
     });
   },[deals, cotFechas]);
+
+  // Donas agrupadas por año — una fila por año, para que escale bien con 12+ meses
+  const monthlyByYear = useMemo(()=>{
+    const groups = {};
+    monthlyStats.forEach(m=>{ (groups[m.year] = groups[m.year]||[]).push(m); });
+    return Object.keys(groups).sort().map(year=>({ year, months:groups[year] }));
+  },[monthlyStats]);
+  const resumenYears = monthlyByYear.map(g=>g.year);
 
   // Dona chica de resumen mensual (hover = agranda + tooltip con detalle)
   const renderMonthDonut = (m) => {
@@ -419,43 +428,55 @@ export function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMob
         </div>
       </div>
 
-      <div style={{ display:"flex", gap:16, alignItems:"flex-start" }}>
-        <div style={{ flex:1, minWidth:0 }}>
-          {/* ── LANE COT — Con factura / IVA ── */}
-          <div style={{ marginBottom:6 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
-              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.12em", fontWeight:700 }}>COT · Con IVA · Facturas empresa</div>
-              <div style={{ flex:1, height:1, background:COLORS.accent+"33" }} />
-              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{fmt(dealsCOT.reduce((s,d)=>s+Number(d.value),0))}</div>
-            </div>
-            <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)", gap:12 }}>
-              {STAGES.map(stage => renderStageCol(stage, groupedCOT, "COT", COLORS.accent))}
-            </div>
+      <div>
+        {/* ── LANE COT — Con factura / IVA ── */}
+        <div style={{ marginBottom:6 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
+            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.12em", fontWeight:700 }}>COT · Con IVA · Facturas empresa</div>
+            <div style={{ flex:1, height:1, background:COLORS.accent+"33" }} />
+            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{fmt(dealsCOT.reduce((s,d)=>s+Number(d.value),0))}</div>
           </div>
-
-          {/* ── LANE SIN — Sin IVA / Boletas / Personal ── */}
-          <div style={{ marginTop:28 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
-              <div style={{ fontFamily:FONT, fontSize:10, color:"#2563EB", textTransform:"uppercase", letterSpacing:"0.12em", fontWeight:700 }}>SIN · Sin IVA · Boletas / Personal</div>
-              <div style={{ flex:1, height:1, background:"#2563EB33" }} />
-              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{fmt(dealsSIN.reduce((s,d)=>s+Number(d.value),0))}</div>
-            </div>
-            <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)", gap:12 }}>
-              {STAGES.map(stage => renderStageCol(stage, groupedSIN, "SIN", "#2563EB"))}
-            </div>
+          <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)", gap:12 }}>
+            {STAGES.map(stage => renderStageCol(stage, groupedCOT, "COT", COLORS.accent))}
           </div>
         </div>
 
-        {/* ── Panel resumen mensual (dona COT+SIN por mes) ── */}
-        {!isMobile && monthlyStats.length>0 && (
-          <div style={{ width:280, flexShrink:0, background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:14 }}>
-            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>Resumen por mes</div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:4 }}>
-              {monthlyStats.map(renderMonthDonut)}
-            </div>
+        {/* ── LANE SIN — Sin IVA / Boletas / Personal ── */}
+        <div style={{ marginTop:28 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
+            <div style={{ fontFamily:FONT, fontSize:10, color:"#2563EB", textTransform:"uppercase", letterSpacing:"0.12em", fontWeight:700 }}>SIN · Sin IVA · Boletas / Personal</div>
+            <div style={{ flex:1, height:1, background:"#2563EB33" }} />
+            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{fmt(dealsSIN.reduce((s,d)=>s+Number(d.value),0))}</div>
           </div>
-        )}
+          <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)", gap:12 }}>
+            {STAGES.map(stage => renderStageCol(stage, groupedSIN, "SIN", "#2563EB"))}
+          </div>
+        </div>
       </div>
+
+      {/* ── Panel resumen mensual (dona COT+SIN por mes) — al pie, ancho completo ── */}
+      {!isMobile && monthlyStats.length>0 && (
+        <div style={{ marginTop:28, background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:14 }}>
+          <button onClick={()=>setResumenOpen(o=>!o)} style={{ width:"100%", display:"flex", alignItems:"center", gap:6, background:"none", border:"none", cursor:"pointer", padding:0, marginBottom:resumenOpen?12:0 }}>
+            <TreeCaret collapsed={!resumenOpen} />
+            <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>
+              Resumen por mes{resumenYears.length===1 && ` · ${resumenYears[0]}`}
+            </span>
+          </button>
+          {resumenOpen && (
+            <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+              {monthlyByYear.map(({year, months})=>(
+                <div key={year} style={{ display:"flex", flexWrap:"wrap", gap:18, alignItems:"flex-start" }}>
+                  {resumenYears.length>1 && (
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.text, writingMode:"vertical-rl", padding:"4px 2px" }}>{year}</div>
+                  )}
+                  {months.map(renderMonthDonut)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {rejectModal && (
         <Modal title="Motivo de rechazo" onClose={()=>setRejectModal(null)} onSubmit={confirmReject}>
           <Select label="Causa" value={rejectReason} onChange={e=>setRejectReason(e.target.value)}>
