@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { TreeCaret } from "../shared/TreeCaret.jsx";
 import { TreeBranch } from "../shared/TreeBranch.jsx";
 import { hoyISO, fmtFecha } from "../shared/format.js";
-import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { supabase } from "../supabaseClient.js";
 import { LOGO_PRINT } from "../shared/assets.js";
 import { AddBtn } from "../shared/ui.jsx";
@@ -58,8 +58,8 @@ export function IncidenciasView({ contacts, isMobile }) {
   const ff = (k,v) => setForm(p=>({...p,[k]:v}));
   const lf = (k,v) => setLogForm(p=>({...p,[k]:v}));
 
-  const inp = { width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", boxSizing:"border-box" };
-  const lbl = { fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4, display:"block" };
+  const inp = { width:"100%", background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:12, color:C.text, outline:"none", boxSizing:"border-box" };
+  const lbl = { fontFamily:FONT, fontSize:10, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4, display:"block" };
 
   useEffect(() => {
     supabase.from("incidencias").select("*").order("created_at", { ascending:false })
@@ -240,16 +240,16 @@ export function IncidenciasView({ contacts, isMobile }) {
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:18, flexWrap:"wrap", gap:10 }}>
         <div>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Operaciones · Soporte</div>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Incidencias Técnicas</div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Operaciones · Soporte</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:C.text }}>Incidencias Técnicas</div>
         </div>
-        <AddBtn onClick={()=>{ setEditTicket(null); setForm(emptyForm()); setShowModal(true); }} label="+ Nueva incidencia" />
+        <AddBtn onClick={()=>{ setEditTicket(null); setForm(emptyForm()); setShowModal(true); }} label="+ Nueva incidencia" theme={LIGHT_THEME} />
       </div>
 
       {/* Stats */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))", gap:10, marginBottom:18 }}>
         {[
-          { label:"Total", val:tickets.length, color:COLORS.text },
+          { label:"Total", val:tickets.length, color:C.text },
           { label:"Reportadas", val:tickets.filter(t=>t.estado==="reportada").length, color:"#FFB800" },
           { label:"En curso", val:tickets.filter(t=>t.estado==="en_curso").length, color:"#00C2FF" },
           { label:"Solucionadas", val:tickets.filter(t=>t.estado==="solucionada").length, color:"#00E5A0" },
@@ -257,8 +257,8 @@ export function IncidenciasView({ contacts, isMobile }) {
           { label:"Upselling", val:tickets.filter(t=>t.upselling||(t.visitas||[]).some(v=>v.upselling)).length, color:"#F97316" },
           { label:"Alta prioridad", val:tickets.filter(t=>t.prioridad==="alta").length, color:"#FF4D6A" },
         ].map(s=>(
-          <div key={s.label} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"12px 16px" }}>
-            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>{s.label}</div>
+          <div key={s.label} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"12px 16px" }}>
+            <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>{s.label}</div>
             <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:s.color }}>{s.val}</div>
           </div>
         ))}
@@ -267,40 +267,40 @@ export function IncidenciasView({ contacts, isMobile }) {
       {/* Vista tabs + Filtros */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14, flexWrap:"wrap", gap:10 }}>
         {/* Vista mode tabs */}
-        <div style={{ display:"flex", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:3, gap:2 }}>
+        <div style={{ display:"flex", background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:3, gap:2 }}>
           {[{k:"lista",l:"Lista"},{k:"semana",l:"Semana"},{k:"dia",l:"Día"}].map(({k,l})=>(
-            <button key={k} onClick={()=>setVistaMode(k)} style={{ padding:"5px 16px", borderRadius:6, fontFamily:FONT, fontSize:12, cursor:"pointer", background:vistaMode===k?COLORS.accent:"transparent", color:vistaMode===k?COLORS.bg:COLORS.textMuted, border:"none", fontWeight:vistaMode===k?700:400 }}>{l}</button>
+            <button key={k} onClick={()=>setVistaMode(k)} style={{ padding:"5px 16px", borderRadius:6, fontFamily:FONT, fontSize:12, cursor:"pointer", background:vistaMode===k?C.accent:"transparent", color:vistaMode===k?C.bg:C.textMuted, border:"none", fontWeight:vistaMode===k?700:400 }}>{l}</button>
           ))}
         </div>
         {/* Filtros */}
         <div style={{ display:"flex", gap:6, flexWrap:"wrap", alignItems:"center" }}>
           {[{k:"todas",l:"Todas"},...ESTADOS.map(e=>({k:e.key,l:e.label}))].map(({k,l})=>(
-            <button key={k} onClick={()=>setFilterEst(k)} style={{ padding:"4px 12px", borderRadius:20, fontFamily:FONT, fontSize:11, cursor:"pointer", background:filterEst===k?COLORS.accent:COLORS.card, color:filterEst===k?COLORS.bg:COLORS.textMuted, border:`1px solid ${filterEst===k?COLORS.accent:COLORS.border}` }}>{l}</button>
+            <button key={k} onClick={()=>setFilterEst(k)} style={{ padding:"4px 12px", borderRadius:20, fontFamily:FONT, fontSize:11, cursor:"pointer", background:filterEst===k?C.accent:C.card, color:filterEst===k?C.bg:C.textMuted, border:`1px solid ${filterEst===k?C.accent:C.border}` }}>{l}</button>
           ))}
-          <select value={filterCat} onChange={e=>setFilterCat(e.target.value)} style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"4px 10px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none" }}>
+          <select value={filterCat} onChange={e=>setFilterCat(e.target.value)} style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"4px 10px", fontFamily:FONT, fontSize:11, color:C.text, outline:"none" }}>
             <option value="todas">Todas las categorías</option>
             {CATEGORIAS.map(c=><option key={c} value={c}>{c}</option>)}
           </select>
           {/* Prioridad filter */}
-          {[{k:"todas",l:"Todas",c:COLORS.accent},{k:"alta",l:"Alta",c:"#FF4D6A"},{k:"media",l:"Media",c:"#FFB800"},{k:"baja",l:"Baja",c:"#00E5A0"}].map(({k,l,c})=>(
-            <button key={k} onClick={()=>setFilterPrio(k)} style={{ padding:"4px 12px", borderRadius:20, fontFamily:FONT, fontSize:11, cursor:"pointer", background:filterPrio===k?c:COLORS.card, color:filterPrio===k?COLORS.bg:COLORS.textMuted, border:`1px solid ${filterPrio===k?c:COLORS.border}` }}>{l}</button>
+          {[{k:"todas",l:"Todas",c:C.accent},{k:"alta",l:"Alta",c:"#FF4D6A"},{k:"media",l:"Media",c:"#FFB800"},{k:"baja",l:"Baja",c:"#00E5A0"}].map(({k,l,c})=>(
+            <button key={k} onClick={()=>setFilterPrio(k)} style={{ padding:"4px 12px", borderRadius:20, fontFamily:FONT, fontSize:11, cursor:"pointer", background:filterPrio===k?c:C.card, color:filterPrio===k?C.bg:C.textMuted, border:`1px solid ${filterPrio===k?c:C.border}` }}>{l}</button>
           ))}
         </div>
       </div>
 
       {/* ── LISTA ─────────────────────────────────────────────────────────── */}
       {vistaMode==="lista" && (
-        loading ? <div style={{ textAlign:"center", padding:40, color:COLORS.textMuted, fontFamily:FONT }}>Cargando...</div> : (
+        loading ? <div style={{ textAlign:"center", padding:40, color:C.textMuted, fontFamily:FONT }}>Cargando...</div> : (
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
             {filtered.map(t=>{
               const sc = stCfg(t.estado);
-              const catColor = CAT_COLORS[t.categoria]||COLORS.textMuted;
+              const catColor = CAT_COLORS[t.categoria]||C.textMuted;
               const pc = prioConfig(t.prioridad||"media");
               const isOpen = showLog===t.id;
               return (
                 <div key={t.id}
                   draggable onDragStart={e=>handleDragStart(e,t.id)} onDragEnd={handleDragEnd}
-                  style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, overflow:"hidden", opacity:dragId===t.id?0.5:1, cursor:"grab" }}>
+                  style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden", opacity:dragId===t.id?0.5:1, cursor:"grab" }}>
                   {/* Priority stripe */}
                   <div style={{ height:3, background:pc.color }} />
                   {/* Main row */}
@@ -311,52 +311,52 @@ export function IncidenciasView({ contacts, isMobile }) {
                     </select>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:4 }}>
-                        <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text }}>{t.titulo}</span>
+                        <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:C.text }}>{t.titulo}</span>
                         <span style={{ fontFamily:FONT, fontSize:10, background:`${catColor}18`, color:catColor, border:`1px solid ${catColor}33`, borderRadius:10, padding:"1px 8px" }}>{t.categoria}</span>
                         <span style={{ fontFamily:FONT, fontSize:10, background:`${pc.color}22`, color:pc.color, border:`1px solid ${pc.color}44`, borderRadius:10, padding:"1px 8px", fontWeight:700 }}>{pc.label}</span>
                         {t.garantia && <span style={{ fontFamily:FONT, fontSize:10, background:"#FF4D6A22", color:"#FF4D6A", border:"1px solid #FF4D6A33", borderRadius:10, padding:"1px 8px" }}>Garantía</span>}
                         {(t.upselling||(t.visitas||[]).some(v=>v.upselling)) && <span style={{ fontFamily:FONT, fontSize:10, background:"#F9731622", color:"#F97316", border:"1px solid #F9731633", borderRadius:10, padding:"1px 8px" }}>Upselling</span>}
                       </div>
-                      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                      <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>
                         {t.cliente && <span>{t.cliente} · </span>}
                         {t.numero_cotizacion && <span>COT-{t.numero_cotizacion} · </span>}
                         {t.equipo && <span>{t.equipo} · </span>}
                         <span>{t.fecha_reporte}</span>
-                        {t.fecha_programada && <span style={{color:COLORS.accent}}> · Prog: {fmtFecha(t.fecha_programada)}{t.hora_programada?` ${t.hora_programada}`:""}</span>}
+                        {t.fecha_programada && <span style={{color:C.accent}}> · Prog: {fmtFecha(t.fecha_programada)}{t.hora_programada?` ${t.hora_programada}`:""}</span>}
                       </div>
-                      {t.descripcion && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:4, fontStyle:"italic" }}>{t.descripcion.slice(0,120)}{t.descripcion.length>120?"…":""}</div>}
+                      {t.descripcion && <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, marginTop:4, fontStyle:"italic" }}>{t.descripcion.slice(0,120)}{t.descripcion.length>120?"…":""}</div>}
                     </div>
                     <div style={{ display:"flex", gap:6, flexShrink:0, alignItems:"center" }}>
-                      <button onClick={()=>setShowLog(isOpen?null:t.id)} style={{ display:"flex", alignItems:"center", gap:4, padding:"4px 10px", background:`${COLORS.accent}18`, border:`1px solid ${COLORS.accent}33`, borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>
-                        <TreeCaret collapsed={!isOpen} color={COLORS.accent} size={8} /> Log ({(t.visitas||[]).length})
+                      <button onClick={()=>setShowLog(isOpen?null:t.id)} style={{ display:"flex", alignItems:"center", gap:4, padding:"4px 10px", background:`${C.accent}18`, border:`1px solid ${C.accent}33`, borderRadius:6, color:C.accent, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>
+                        <TreeCaret collapsed={!isOpen} color={C.accent} size={8} /> Log ({(t.visitas||[]).length})
                       </button>
-                      <button onClick={()=>openEdit(t)} style={{ padding:"4px 8px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, cursor:"pointer", fontSize:11 }}>✏️</button>
-                      <button onClick={()=>printPDF(t)} style={{ padding:"4px 10px", background:`${COLORS.green}18`, border:`1px solid ${COLORS.green}33`, borderRadius:6, color:COLORS.green, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>PDF</button>
-                      <button onClick={()=>del(t.id)} style={{ background:"none", border:"none", color:COLORS.textDim, cursor:"pointer", fontSize:13 }}>✕</button>
+                      <button onClick={()=>openEdit(t)} style={{ padding:"4px 8px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, color:C.textMuted, cursor:"pointer", fontSize:11 }}>✏️</button>
+                      <button onClick={()=>printPDF(t)} style={{ padding:"4px 10px", background:`${C.green}18`, border:`1px solid ${C.green}33`, borderRadius:6, color:C.green, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>PDF</button>
+                      <button onClick={()=>del(t.id)} style={{ background:"none", border:"none", color:C.textDim, cursor:"pointer", fontSize:13 }}>✕</button>
                     </div>
                   </div>
                   {/* Log de visitas */}
                   {isOpen && (
-                    <div className="tree-row-in" style={{ borderTop:`1px solid ${COLORS.border}`, padding:"12px 18px", background:COLORS.surface }}>
+                    <div className="tree-row-in" style={{ borderTop:`1px solid ${C.border}`, padding:"12px 18px", background:C.surface }}>
                       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-                        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Log de visitas</div>
-                        <button onClick={()=>{ setShowLog(t.id); setShowLogModal(true); }} style={{ padding:"4px 12px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Agregar visita</button>
+                        <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Log de visitas</div>
+                        <button onClick={()=>{ setShowLog(t.id); setShowLogModal(true); }} style={{ padding:"4px 12px", background:C.accent, border:"none", borderRadius:6, color:C.bg, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Agregar visita</button>
                       </div>
                       {(t.visitas||[]).length===0 ? (
-                        <div style={{ textAlign:"center", padding:20, fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin visitas registradas</div>
+                        <div style={{ textAlign:"center", padding:20, fontFamily:FONT, fontSize:12, color:C.textMuted }}>Sin visitas registradas</div>
                       ) : (
                         // Árbol: las visitas cuelgan del log, en orden
-                        <TreeBranch x={7} anchor={19}>
+                        <TreeBranch x={7} anchor={19} color={C.border}>
                           {(t.visitas||[]).map((v,i)=>(
-                            <div key={v.id||i} style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 14px", borderLeft:`3px solid ${COLORS.accent}`, marginBottom:8 }}>
+                            <div key={v.id||i} style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 14px", borderLeft:`3px solid ${C.accent}`, marginBottom:8 }}>
                               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                                <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text }}>Visita {i+1} · {v.fecha} {v.hora}</span>
-                                <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Técnico: {v.tecnico}</span>
+                                <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:C.text }}>Visita {i+1} · {v.fecha} {v.hora}</span>
+                                <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>Técnico: {v.tecnico}</span>
                               </div>
-                              {v.diagnostico && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:3 }}><b style={{color:COLORS.text}}>Diagnóstico:</b> {v.diagnostico}</div>}
-                              {v.piezas && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:3 }}><b style={{color:COLORS.text}}>Piezas cambiadas:</b> {v.piezas}</div>}
+                              {v.diagnostico && <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, marginBottom:3 }}><b style={{color:C.text}}>Diagnóstico:</b> {v.diagnostico}</div>}
+                              {v.piezas && <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, marginBottom:3 }}><b style={{color:C.text}}>Piezas cambiadas:</b> {v.piezas}</div>}
                               {v.upselling && <div style={{ fontFamily:FONT, fontSize:11, color:"#F97316", fontWeight:700 }}>Oportunidad de upselling</div>}
-                              {v.notas && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, fontStyle:"italic", marginTop:4 }}>{v.notas}</div>}
+                              {v.notas && <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, fontStyle:"italic", marginTop:4 }}>{v.notas}</div>}
                             </div>
                           ))}
                         </TreeBranch>
@@ -366,7 +366,7 @@ export function IncidenciasView({ contacts, isMobile }) {
                 </div>
               );
             })}
-            {filtered.length===0 && !loading && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>Sin incidencias</div>}
+            {filtered.length===0 && !loading && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:C.textMuted }}>Sin incidencias</div>}
           </div>
         )
       )}
@@ -375,35 +375,35 @@ export function IncidenciasView({ contacts, isMobile }) {
       {vistaMode==="semana" && (
         <div>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-            <button onClick={()=>navCalendar(-1,"week")} style={{ padding:"6px 14px", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.text, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>← Semana ant.</button>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text }}>{fmtFecha(weekDays[0])} — {fmtFecha(weekDays[6])}</div>
-            <button onClick={()=>navCalendar(1,"week")} style={{ padding:"6px 14px", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.text, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>Semana sig. →</button>
+            <button onClick={()=>navCalendar(-1,"week")} style={{ padding:"6px 14px", background:C.card, border:`1px solid ${C.border}`, borderRadius:6, color:C.text, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>← Semana ant.</button>
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:C.text }}>{fmtFecha(weekDays[0])} — {fmtFecha(weekDays[6])}</div>
+            <button onClick={()=>navCalendar(1,"week")} style={{ padding:"6px 14px", background:C.card, border:`1px solid ${C.border}`, borderRadius:6, color:C.text, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>Semana sig. →</button>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"130px repeat(7,1fr)", gap:6 }}>
             {/* Headers */}
-            <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"8px 10px", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", display:"flex", alignItems:"center" }}>Sin fecha</div>
+            <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:"8px 10px", fontFamily:FONT, fontSize:10, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", display:"flex", alignItems:"center" }}>Sin fecha</div>
             {weekDays.map((d,i)=>{
               const isToday = d===today;
               return (
-                <div key={d} style={{ background:isToday?`${COLORS.accent}18`:COLORS.card, border:`1px solid ${isToday?COLORS.accent:COLORS.border}`, borderRadius:8, padding:"8px 10px", textAlign:"center" }}>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{DIAS_SEMANA[i]}</div>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:isToday?COLORS.accent:COLORS.text }}>{d.slice(8)}</div>
+                <div key={d} style={{ background:isToday?`${C.accent}18`:C.card, border:`1px solid ${isToday?C.accent:C.border}`, borderRadius:8, padding:"8px 10px", textAlign:"center" }}>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>{DIAS_SEMANA[i]}</div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:isToday?C.accent:C.text }}>{d.slice(8)}</div>
                 </div>
               );
             })}
             {/* Sin fecha drop zone */}
             <div onDragOver={e=>e.preventDefault()}
               onDrop={e=>{ e.preventDefault(); const id=e.dataTransfer.getData("ticketId"); if(id) updateSchedule(id,null,null); setDragId(null); }}
-              style={{ background:COLORS.surface, border:`1px dashed ${COLORS.border}`, borderRadius:8, padding:6, minHeight:140, display:"flex", flexDirection:"column", gap:4 }}>
+              style={{ background:C.surface, border:`1px dashed ${C.border}`, borderRadius:8, padding:6, minHeight:140, display:"flex", flexDirection:"column", gap:4 }}>
               {filtered.filter(t=>!t.fecha_programada).map(t=>{
                 const pc = prioConfig(t.prioridad||"media");
                 const sc = stCfg(t.estado);
                 return (
                   <div key={t.id} draggable onDragStart={e=>handleDragStart(e,t.id)} onDragEnd={handleDragEnd}
                     onClick={()=>openEdit(t)}
-                    style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"6px 8px", cursor:"grab", opacity:dragId===t.id?0.35:1, borderLeft:`3px solid ${pc.color}` }}>
-                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:COLORS.text, marginBottom:2 }}>{t.titulo}</div>
-                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{t.cliente||""}</div>
+                    style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 8px", cursor:"grab", opacity:dragId===t.id?0.35:1, borderLeft:`3px solid ${pc.color}` }}>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:C.text, marginBottom:2 }}>{t.titulo}</div>
+                    <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>{t.cliente||""}</div>
                     <span style={{ fontFamily:FONT, fontSize:9, background:`${sc.color}22`, color:sc.color, borderRadius:10, padding:"1px 6px" }}>{sc.label}</span>
                   </div>
                 );
@@ -414,18 +414,18 @@ export function IncidenciasView({ contacts, isMobile }) {
               const dayTickets = filtered.filter(t=>t.fecha_programada===d);
               return (
                 <div key={d} onDragOver={e=>e.preventDefault()} onDrop={e=>handleDropOnDay(e,d)}
-                  style={{ background:COLORS.surface, border:`1px dashed ${COLORS.border}`, borderRadius:8, padding:6, minHeight:140, display:"flex", flexDirection:"column", gap:4 }}>
-                  {dayTickets.length===0 && <div style={{ textAlign:"center", paddingTop:24, fontFamily:FONT, fontSize:11, color:`${COLORS.textMuted}55` }}>—</div>}
+                  style={{ background:C.surface, border:`1px dashed ${C.border}`, borderRadius:8, padding:6, minHeight:140, display:"flex", flexDirection:"column", gap:4 }}>
+                  {dayTickets.length===0 && <div style={{ textAlign:"center", paddingTop:24, fontFamily:FONT, fontSize:11, color:`${C.textMuted}55` }}>—</div>}
                   {dayTickets.map(t=>{
                     const pc = prioConfig(t.prioridad||"media");
                     const sc = stCfg(t.estado);
                     return (
                       <div key={t.id} draggable onDragStart={e=>handleDragStart(e,t.id)} onDragEnd={handleDragEnd}
                         onClick={()=>openEdit(t)}
-                        style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"6px 8px", cursor:"grab", opacity:dragId===t.id?0.35:1, borderLeft:`3px solid ${pc.color}` }}>
-                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:COLORS.text, marginBottom:2 }}>{t.titulo}</div>
-                        {t.hora_programada && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, marginBottom:2 }}>{t.hora_programada}</div>}
-                        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{t.cliente||""}</div>
+                        style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 8px", cursor:"grab", opacity:dragId===t.id?0.35:1, borderLeft:`3px solid ${pc.color}` }}>
+                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:C.text, marginBottom:2 }}>{t.titulo}</div>
+                        {t.hora_programada && <div style={{ fontFamily:FONT, fontSize:10, color:C.accent, marginBottom:2 }}>{t.hora_programada}</div>}
+                        <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>{t.cliente||""}</div>
                         <span style={{ fontFamily:FONT, fontSize:9, background:`${sc.color}22`, color:sc.color, borderRadius:10, padding:"1px 6px" }}>{sc.label}</span>
                       </div>
                     );
@@ -441,25 +441,25 @@ export function IncidenciasView({ contacts, isMobile }) {
       {vistaMode==="dia" && (
         <div>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-            <button onClick={()=>navCalendar(-1,"day")} style={{ padding:"6px 14px", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.text, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>← Día ant.</button>
+            <button onClick={()=>navCalendar(-1,"day")} style={{ padding:"6px 14px", background:C.card, border:`1px solid ${C.border}`, borderRadius:6, color:C.text, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>← Día ant.</button>
             <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-              <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>{fmtFecha(calendarDate)}</div>
-              <input type="date" value={calendarDate} onChange={e=>setCalendarDate(e.target.value)} style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"4px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none" }} />
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:C.text }}>{fmtFecha(calendarDate)}</div>
+              <input type="date" value={calendarDate} onChange={e=>setCalendarDate(e.target.value)} style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"4px 8px", fontFamily:FONT, fontSize:11, color:C.text, outline:"none" }} />
             </div>
-            <button onClick={()=>navCalendar(1,"day")} style={{ padding:"6px 14px", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.text, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>Día sig. →</button>
+            <button onClick={()=>navCalendar(1,"day")} style={{ padding:"6px 14px", background:C.card, border:`1px solid ${C.border}`, borderRadius:6, color:C.text, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>Día sig. →</button>
           </div>
           {/* Sin hora bucket */}
           <div onDragOver={e=>e.preventDefault()}
             onDrop={e=>{ e.preventDefault(); const id=e.dataTransfer.getData("ticketId"); if(id) updateSchedule(id,calendarDate,null); setDragId(null); }}
-            style={{ background:COLORS.surface, border:`1px dashed ${COLORS.border}`, borderRadius:8, padding:"8px 12px", marginBottom:8, minHeight:44, display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
-            <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", flexShrink:0 }}>Sin hora</span>
+            style={{ background:C.surface, border:`1px dashed ${C.border}`, borderRadius:8, padding:"8px 12px", marginBottom:8, minHeight:44, display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+            <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", flexShrink:0 }}>Sin hora</span>
             {filtered.filter(t=>t.fecha_programada===calendarDate && !t.hora_programada).map(t=>{
               const pc = prioConfig(t.prioridad||"media");
               return (
                 <div key={t.id} draggable onDragStart={e=>handleDragStart(e,t.id)} onDragEnd={handleDragEnd}
                   onClick={()=>openEdit(t)}
-                  style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"4px 10px", cursor:"grab", opacity:dragId===t.id?0.35:1, borderLeft:`3px solid ${pc.color}` }}>
-                  <span style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:COLORS.text }}>{t.titulo}</span>
+                  style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:6, padding:"4px 10px", cursor:"grab", opacity:dragId===t.id?0.35:1, borderLeft:`3px solid ${pc.color}` }}>
+                  <span style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:C.text }}>{t.titulo}</span>
                 </div>
               );
             })}
@@ -471,18 +471,18 @@ export function IncidenciasView({ contacts, isMobile }) {
               const isCurrent = hora===nowHour && calendarDate===today;
               return (
                 <React.Fragment key={hora}>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:isCurrent?COLORS.accent:COLORS.textMuted, paddingTop:8, textAlign:"right", paddingRight:10, fontWeight:isCurrent?700:400 }}>{hora}</div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:isCurrent?C.accent:C.textMuted, paddingTop:8, textAlign:"right", paddingRight:10, fontWeight:isCurrent?700:400 }}>{hora}</div>
                   <div onDragOver={e=>e.preventDefault()} onDrop={e=>handleDropOnHour(e,hora)}
-                    style={{ borderTop:`1px solid ${isCurrent?COLORS.accent:COLORS.border}`, minHeight:52, padding:"4px 8px", display:"flex", gap:6, flexWrap:"wrap", alignItems:"flex-start", background:isCurrent?`${COLORS.accent}08`:"transparent" }}>
+                    style={{ borderTop:`1px solid ${isCurrent?C.accent:C.border}`, minHeight:52, padding:"4px 8px", display:"flex", gap:6, flexWrap:"wrap", alignItems:"flex-start", background:isCurrent?`${C.accent}08`:"transparent" }}>
                     {slotTickets.map(t=>{
                       const pc = prioConfig(t.prioridad||"media");
                       const sc = stCfg(t.estado);
                       return (
                         <div key={t.id} draggable onDragStart={e=>handleDragStart(e,t.id)} onDragEnd={handleDragEnd}
                           onClick={()=>openEdit(t)}
-                          style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"6px 12px", cursor:"grab", opacity:dragId===t.id?0.35:1, borderLeft:`3px solid ${pc.color}`, minWidth:160 }}>
-                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.text, marginBottom:2 }}>{t.titulo}</div>
-                          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:3 }}>{t.cliente}</div>
+                          style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:"6px 12px", cursor:"grab", opacity:dragId===t.id?0.35:1, borderLeft:`3px solid ${pc.color}`, minWidth:160 }}>
+                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:C.text, marginBottom:2 }}>{t.titulo}</div>
+                          <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginBottom:3 }}>{t.cliente}</div>
                           <span style={{ fontFamily:FONT, fontSize:9, background:`${sc.color}22`, color:sc.color, borderRadius:10, padding:"1px 6px" }}>{sc.label}</span>
                         </div>
                       );
@@ -498,10 +498,10 @@ export function IncidenciasView({ contacts, isMobile }) {
       {/* Modal nueva/editar incidencia */}
       {showModal && (
         <div style={{ position:"fixed", inset:0, background:"#000A", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-          <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:24, width:"100%", maxWidth:560, maxHeight:"90vh", overflowY:"auto" }}>
+          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, padding:24, width:"100%", maxWidth:560, maxHeight:"90vh", overflowY:"auto" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
-              <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text }}>{editTicket?"Editar incidencia":"Nueva incidencia"}</div>
-              <button onClick={()=>{ setShowModal(false); setEditTicket(null); }} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:18 }}>✕</button>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:C.text }}>{editTicket?"Editar incidencia":"Nueva incidencia"}</div>
+              <button onClick={()=>{ setShowModal(false); setEditTicket(null); }} style={{ background:"none", border:"none", color:C.textMuted, cursor:"pointer", fontSize:18 }}>✕</button>
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
               <div><label style={lbl}>Título *</label><input value={form.titulo} onChange={e=>ff("titulo",e.target.value)} placeholder="Ej: Cámara sin señal en piso 3" style={inp} /></div>
@@ -528,7 +528,7 @@ export function IncidenciasView({ contacts, isMobile }) {
                 <div style={{ display:"flex", gap:6 }}>
                   {PRIORIDADES.map(p=>(
                     <button key={p.key} type="button" onClick={()=>ff("prioridad",p.key)}
-                      style={{ flex:1, padding:"7px 0", borderRadius:6, fontFamily:FONT, fontSize:12, cursor:"pointer", fontWeight:form.prioridad===p.key?700:400, background:form.prioridad===p.key?`${p.color}22`:"transparent", color:form.prioridad===p.key?p.color:COLORS.textMuted, border:`1px solid ${form.prioridad===p.key?p.color:COLORS.border}` }}>{p.label}</button>
+                      style={{ flex:1, padding:"7px 0", borderRadius:6, fontFamily:FONT, fontSize:12, cursor:"pointer", fontWeight:form.prioridad===p.key?700:400, background:form.prioridad===p.key?`${p.color}22`:"transparent", color:form.prioridad===p.key?p.color:C.textMuted, border:`1px solid ${form.prioridad===p.key?p.color:C.border}` }}>{p.label}</button>
                   ))}
                 </div>
               </div>
@@ -540,7 +540,7 @@ export function IncidenciasView({ contacts, isMobile }) {
               <div><label style={lbl}>Descripción del problema</label><textarea value={form.descripcion} onChange={e=>ff("descripcion",e.target.value)} rows={3} style={{ ...inp, resize:"vertical" }} /></div>
               <div><label style={lbl}>Solución final</label><textarea value={form.solucion_final} onChange={e=>ff("solucion_final",e.target.value)} rows={2} style={{ ...inp, resize:"vertical" }} placeholder="Completar al resolver" /></div>
               <div style={{ display:"flex", gap:16 }}>
-                <label style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer", fontFamily:FONT, fontSize:12, color:COLORS.text }}>
+                <label style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer", fontFamily:FONT, fontSize:12, color:C.text }}>
                   <input type="checkbox" checked={form.garantia} onChange={e=>ff("garantia",e.target.checked)} />
                   Aplica garantía
                 </label>
@@ -551,8 +551,8 @@ export function IncidenciasView({ contacts, isMobile }) {
               </div>
             </div>
             <div style={{ display:"flex", gap:10, marginTop:18 }}>
-              <button onClick={()=>{ setShowModal(false); setEditTicket(null); }} style={{ flex:1, padding:"10px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>Cancelar</button>
-              <button onClick={save} disabled={saving} style={{ flex:2, padding:"10px 0", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>{saving?"Guardando…":"Guardar"}</button>
+              <button onClick={()=>{ setShowModal(false); setEditTicket(null); }} style={{ flex:1, padding:"10px 0", background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, color:C.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>Cancelar</button>
+              <button onClick={save} disabled={saving} style={{ flex:2, padding:"10px 0", background:C.accent, border:"none", borderRadius:6, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>{saving?"Guardando…":"Guardar"}</button>
             </div>
           </div>
         </div>
@@ -561,10 +561,10 @@ export function IncidenciasView({ contacts, isMobile }) {
       {/* Modal agregar visita */}
       {showLogModal && showLog && (
         <div style={{ position:"fixed", inset:0, background:"#000A", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-          <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:24, width:"100%", maxWidth:480 }}>
+          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, padding:24, width:"100%", maxWidth:480 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-              <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>Agregar visita técnica</div>
-              <button onClick={()=>setShowLogModal(false)} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:18 }}>✕</button>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:C.text }}>Agregar visita técnica</div>
+              <button onClick={()=>setShowLogModal(false)} style={{ background:"none", border:"none", color:C.textMuted, cursor:"pointer", fontSize:18 }}>✕</button>
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
@@ -581,8 +581,8 @@ export function IncidenciasView({ contacts, isMobile }) {
               </label>
             </div>
             <div style={{ display:"flex", gap:10, marginTop:16 }}>
-              <button onClick={()=>setShowLogModal(false)} style={{ flex:1, padding:"10px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>Cancelar</button>
-              <button onClick={()=>addVisita(tickets.find(t=>t.id===showLog))} style={{ flex:2, padding:"10px 0", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>Guardar visita</button>
+              <button onClick={()=>setShowLogModal(false)} style={{ flex:1, padding:"10px 0", background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, color:C.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>Cancelar</button>
+              <button onClick={()=>addVisita(tickets.find(t=>t.id===showLog))} style={{ flex:2, padding:"10px 0", background:C.accent, border:"none", borderRadius:6, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>Guardar visita</button>
             </div>
           </div>
         </div>

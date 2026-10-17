@@ -1,6 +1,6 @@
 // Historial de versiones guardadas de un costeo y comparación entre versiones.
 import { useState, useEffect } from "react";
-import { COLORS, FONT_DISPLAY, FONT } from "../theme.js";
+import { COLORS_LIGHT as C, FONT_DISPLAY, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { buildVersionDiff } from "./versionDiff.js";
 import { fmt } from "../shared/format.js";
 import { calcFase, calcItem } from "../calculos.js";
@@ -13,7 +13,7 @@ import { EMPRESA_RUT } from "../shared/empresa.js";
 // se han emitido para este proyecto, en orden cronológico, con qué documento
 // declaró cada uno — trazabilidad completa para el cliente.
 function tipoBadge(tipo) {
-  const m = { agregado:{c:COLORS.green,s:"+ AGREGADO"}, removido:{c:COLORS.red,s:"− QUITADO"}, modificado:{c:"#f59e0b",s:"~ MODIFICADO"} }[tipo] || { c:COLORS.textMuted, s:tipo };
+  const m = { agregado:{c:C.green,s:"+ AGREGADO"}, removido:{c:C.red,s:"− QUITADO"}, modificado:{c:"#f59e0b",s:"~ MODIFICADO"} }[tipo] || { c:C.textMuted, s:tipo };
   return <span style={{ fontFamily:FONT_DISPLAY, fontSize:9, fontWeight:700, color:m.c, background:`${m.c}18`, border:`1px solid ${m.c}44`, borderRadius:5, padding:"2px 6px" }}>{m.s}</span>;
 }
 
@@ -21,31 +21,31 @@ function VersionDiffModal({ versionOld, versionNew, onClose }) {
   const diff = buildVersionDiff(versionOld.fases, versionNew.fases);
   return (
     <div style={{ position:"fixed", inset:0, background:"#000c", zIndex:500, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-      <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:14, width:"100%", maxWidth:640, maxHeight:"88vh", overflowY:"auto", padding:26 }}>
+      <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:14, width:"100%", maxWidth:640, maxHeight:"88vh", overflowY:"auto", padding:26 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text }}>Versión {versionOld.version_num} → {versionNew.version_num}</div>
-          <button onClick={onClose} style={{ background:"transparent", border:"none", color:COLORS.textMuted, fontSize:20, cursor:"pointer" }}>✕</button>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:C.text }}>Versión {versionOld.version_num} → {versionNew.version_num}</div>
+          <button onClick={onClose} style={{ background:"transparent", border:"none", color:C.textMuted, fontSize:20, cursor:"pointer" }}>✕</button>
         </div>
-        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:16 }}>
+        <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, marginBottom:16 }}>
           {new Date(versionOld.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"})} → {new Date(versionNew.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"})}
         </div>
 
         {diff.rows.length===0 ? (
-          <div style={{ padding:"20px 0", textAlign:"center", fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin diferencias entre estas dos versiones.</div>
+          <div style={{ padding:"20px 0", textAlign:"center", fontFamily:FONT, fontSize:12, color:C.textMuted }}>Sin diferencias entre estas dos versiones.</div>
         ) : diff.rows.map(r=>(
           <div key={r.faseId} style={{ marginBottom:14 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
-              <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text }}>{r.faseNombre}</span>
-              {r.ventaOld!==r.ventaNew && <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:r.ventaNew>r.ventaOld?COLORS.green:COLORS.red }}>{fmt(r.ventaOld)} → {fmt(r.ventaNew)}</span>}
+              <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:C.text }}>{r.faseNombre}</span>
+              {r.ventaOld!==r.ventaNew && <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:r.ventaNew>r.ventaOld?C.green:C.red }}>{fmt(r.ventaOld)} → {fmt(r.ventaNew)}</span>}
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
               {r.itemDiffs.map((it,i)=>(
-                <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 10px", background:COLORS.card, borderRadius:7 }}>
+                <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 10px", background:C.card, borderRadius:7 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0 }}>
                     {tipoBadge(it.tipo)}
-                    <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{it.descripcion}{it.qtyOld!==it.qtyNew ? ` (${it.qtyOld}→${it.qtyNew})` : ""}</span>
+                    <span style={{ fontFamily:FONT, fontSize:11, color:C.text }}>{it.descripcion}{it.qtyOld!==it.qtyNew ? ` (${it.qtyOld}→${it.qtyNew})` : ""}</span>
                   </div>
-                  <span style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:(it.ventaNew-it.ventaOld)>=0?COLORS.green:COLORS.red, flexShrink:0 }}>
+                  <span style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:(it.ventaNew-it.ventaOld)>=0?C.green:C.red, flexShrink:0 }}>
                     {it.tipo==="modificado" ? `${fmt(it.ventaOld)} → ${fmt(it.ventaNew)}` : `${it.ventaNew-it.ventaOld>=0?"+":""}${fmt(it.ventaNew-it.ventaOld)}`}
                   </span>
                 </div>
@@ -54,11 +54,11 @@ function VersionDiffModal({ versionOld, versionNew, onClose }) {
           </div>
         ))}
 
-        <div style={{ background:COLORS.card, borderRadius:8, padding:"10px 14px", marginTop:10, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Total</span>
+        <div style={{ background:C.card, borderRadius:8, padding:"10px 14px", marginTop:10, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Total</span>
           <div style={{ textAlign:"right" }}>
-            {diff.totalOld!==diff.totalNew && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textDecoration:"line-through" }}>{fmt(diff.totalOld)}</div>}
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.accent }}>{fmt(diff.totalNew)}</div>
+            {diff.totalOld!==diff.totalNew && <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textDecoration:"line-through" }}>{fmt(diff.totalOld)}</div>}
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:C.accent }}>{fmt(diff.totalNew)}</div>
           </div>
         </div>
       </div>
@@ -74,37 +74,37 @@ function VersionDetailModal({ version, onClose }) {
   const total = Math.round(fases.reduce((s,f)=>s+f.ventaConDesc,0));
   return (
     <div style={{ position:"fixed", inset:0, background:"#000c", zIndex:500, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-      <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:14, width:"100%", maxWidth:640, maxHeight:"88vh", overflowY:"auto", padding:26 }}>
+      <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:14, width:"100%", maxWidth:640, maxHeight:"88vh", overflowY:"auto", padding:26 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text }}>Versión {version.version_num}{version.cotizacion_ref?` — ${version.cotizacion_ref}`:""}</div>
-          <button onClick={onClose} style={{ background:"transparent", border:"none", color:COLORS.textMuted, fontSize:20, cursor:"pointer" }}>✕</button>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:C.text }}>Versión {version.version_num}{version.cotizacion_ref?` — ${version.cotizacion_ref}`:""}</div>
+          <button onClick={onClose} style={{ background:"transparent", border:"none", color:C.textMuted, fontSize:20, cursor:"pointer" }}>✕</button>
         </div>
-        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:16 }}>
+        <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, marginBottom:16 }}>
           {new Date(version.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"})}{version.nota?` · ${version.nota}`:""}
         </div>
 
-        {fases.length===0 && <div style={{ padding:"20px 0", textAlign:"center", fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin fases guardadas en esta versión.</div>}
+        {fases.length===0 && <div style={{ padding:"20px 0", textAlign:"center", fontFamily:FONT, fontSize:12, color:C.textMuted }}>Sin fases guardadas en esta versión.</div>}
         {fases.map(f=>(
           <div key={f.id} style={{ marginBottom:14 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
-              <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text }}>{f.nombre||"Fase"}</span>
-              <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.accent }}>{fmt(Math.round(f.ventaConDesc))}</span>
+              <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:C.text }}>{f.nombre||"Fase"}</span>
+              <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:C.accent }}>{fmt(Math.round(f.ventaConDesc))}</span>
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-              {(f.items||[]).length===0 && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textDim, fontStyle:"italic" }}>Sin ítems</div>}
+              {(f.items||[]).length===0 && <div style={{ fontFamily:FONT, fontSize:11, color:C.textDim, fontStyle:"italic" }}>Sin ítems</div>}
               {(f.items||[]).map(item=>(
-                <div key={item.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 10px", background:COLORS.card, borderRadius:7 }}>
-                  <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{item.descripcion||"(sin descripción)"}{Number(item.qty)>1?` × ${item.qty}`:""}</span>
-                  <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{fmt(Math.round(calcItem(item).ventaBruta))}</span>
+                <div key={item.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 10px", background:C.card, borderRadius:7 }}>
+                  <span style={{ fontFamily:FONT, fontSize:11, color:C.text }}>{item.descripcion||"(sin descripción)"}{Number(item.qty)>1?` × ${item.qty}`:""}</span>
+                  <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>{fmt(Math.round(calcItem(item).ventaBruta))}</span>
                 </div>
               ))}
             </div>
           </div>
         ))}
 
-        <div style={{ background:COLORS.card, borderRadius:8, padding:"10px 14px", marginTop:10, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Total</span>
-          <span style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.accent }}>{fmt(total)}</span>
+        <div style={{ background:C.card, borderRadius:8, padding:"10px 14px", marginTop:10, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Total</span>
+          <span style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:C.accent }}>{fmt(total)}</span>
         </div>
       </div>
     </div>
@@ -203,7 +203,7 @@ export function HistorialCambiosTab({ costeoId, proyecto }) {
   ].sort((a,b)=> new Date(b.ts) - new Date(a.ts));
 
   if(merged.length===0) return (
-    <div style={{ padding:"30px 14px", textAlign:"center", fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>
+    <div style={{ padding:"30px 14px", textAlign:"center", fontFamily:FONT, fontSize:12, color:C.textMuted }}>
       Sin historial todavía. Las versiones se guardan al generar/sincronizar la cotización o con "📌 Guardar versión"; los cambios de alcance se declaran desde Prestaciones / Pre-Facturación con "🌳 Declarar cambio de alcance".
     </div>
   );
@@ -214,38 +214,38 @@ export function HistorialCambiosTab({ costeoId, proyecto }) {
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
       {versiones.length>=2 && (
-        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:9, padding:"12px 14px", display:"flex", gap:10, alignItems:"center", flexWrap:"wrap", marginBottom:6 }}>
-          <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>PDF comparativo</span>
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:9, padding:"12px 14px", display:"flex", gap:10, alignItems:"center", flexWrap:"wrap", marginBottom:6 }}>
+          <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>PDF comparativo</span>
           <select value={fromV?.id||""} onChange={e=>setPdfFromId(e.target.value)}
-            style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"6px 8px" }}>
+            style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, color:C.text, fontFamily:FONT, fontSize:11, padding:"6px 8px" }}>
             {versiones.map(v=><option key={v.id} value={v.id}>Versión {v.version_num}{v.cotizacion_ref?` (${v.cotizacion_ref})`:""}</option>)}
           </select>
-          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>→</span>
+          <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>→</span>
           <select value={toV?.id||""} onChange={e=>setPdfToId(e.target.value)}
-            style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"6px 8px" }}>
+            style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, color:C.text, fontFamily:FONT, fontSize:11, padding:"6px 8px" }}>
             {versiones.map(v=><option key={v.id} value={v.id}>Versión {v.version_num}{v.cotizacion_ref?` (${v.cotizacion_ref})`:""}</option>)}
           </select>
           <button onClick={()=>printVersionComparativo(fromV, toV)} disabled={!fromV||!toV||fromV.id===toV.id}
-            style={{ padding:"7px 14px", background:COLORS.accent, border:"none", borderRadius:7, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer", opacity:(!fromV||!toV||fromV.id===toV.id)?0.5:1 }}>
+            style={{ padding:"7px 14px", background:C.accent, border:"none", borderRadius:7, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer", opacity:(!fromV||!toV||fromV.id===toV.id)?0.5:1 }}>
             📄 Generar PDF comparativo
           </button>
         </div>
       )}
       {merged.map(m => m.kind==="version" ? (
-        <div key={"v"+m.data.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.accent}44`, borderRadius:9, padding:"12px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
+        <div key={"v"+m.data.id} style={{ background:C.card, border:`1px solid ${C.accent}44`, borderRadius:9, padding:"12px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
           <div style={{ minWidth:0 }}>
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4, flexWrap:"wrap" }}>
-              <span style={{ fontFamily:FONT_DISPLAY, fontSize:9, fontWeight:700, color:COLORS.accent, background:`${COLORS.accent}18`, border:`1px solid ${COLORS.accent}44`, borderRadius:5, padding:"2px 6px" }}>📌 VERSIÓN {m.data.version_num}</span>
-              {m.data.cotizacion_ref && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{m.data.cotizacion_ref}</span>}
+              <span style={{ fontFamily:FONT_DISPLAY, fontSize:9, fontWeight:700, color:C.accent, background:`${C.accent}18`, border:`1px solid ${C.accent}44`, borderRadius:5, padding:"2px 6px" }}>📌 VERSIÓN {m.data.version_num}</span>
+              {m.data.cotizacion_ref && <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>{m.data.cotizacion_ref}</span>}
             </div>
-            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
+            <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>
               {new Date(m.data.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"})}
               {m.data.nota && ` · ${m.data.nota}`}
             </div>
           </div>
           <div style={{ display:"flex", gap:8, flexShrink:0 }}>
             <button onClick={()=>setViewVersion(m.data)}
-              style={{ padding:"6px 12px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+              style={{ padding:"6px 12px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, color:C.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
               👁 Ver detalle
             </button>
             {(() => {
@@ -253,7 +253,7 @@ export function HistorialCambiosTab({ costeoId, proyecto }) {
               const prev = idx>0 ? versiones[idx-1] : null;
               return prev ? (
                 <button onClick={()=>setDiffPair({ old:prev, new:m.data })}
-                  style={{ padding:"6px 12px", background:"transparent", border:`1px solid ${COLORS.accent}`, borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+                  style={{ padding:"6px 12px", background:"transparent", border:`1px solid ${C.accent}`, borderRadius:6, color:C.accent, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
                   🔍 Comparar con anterior
                 </button>
               ) : null;
@@ -261,19 +261,19 @@ export function HistorialCambiosTab({ costeoId, proyecto }) {
           </div>
         </div>
       ) : (
-        <div key={"c"+m.data.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:9, padding:"12px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
+        <div key={"c"+m.data.id} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:9, padding:"12px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
           <div style={{ minWidth:0 }}>
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
               {tipoBadge(m.data.tipo)}
-              <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text }}>{m.data.descripcion}</span>
+              <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:C.text }}>{m.data.descripcion}</span>
             </div>
-            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
+            <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>
               {new Date(m.data.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"})}
               {m.data.qty_antes!==m.data.qty_despues && ` · Cant. ${m.data.qty_antes ?? 0} → ${m.data.qty_despues ?? 0}`}
               {m.data.comprobante_pago_id && ` · Declarado en ${docsMap[m.data.comprobante_pago_id]||"documento"}`}
             </div>
           </div>
-          <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color: m.data.valor>=0?COLORS.green:COLORS.red, flexShrink:0 }}>{m.data.valor>=0?"+":""}{fmt(m.data.valor)}</span>
+          <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color: m.data.valor>=0?C.green:C.red, flexShrink:0 }}>{m.data.valor>=0?"+":""}{fmt(m.data.valor)}</span>
         </div>
       ))}
 

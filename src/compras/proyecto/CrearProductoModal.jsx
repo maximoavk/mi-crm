@@ -1,7 +1,7 @@
 // Crea en el Maestro un producto que el Costeo tenía escrito a mano y lo
 // enlaza en el Costeo, para poder pedirlo en una OC sin salir de Compras.
 import { useState } from "react";
-import { COLORS, FONT } from "../../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../../theme.js";
 import { fmt, hoyISO } from "../../shared/format.js";
 import { mapProductToDb } from "../../shared/mappers.js";
 import { CATALOG_CATS } from "../../shared/constants.js";
@@ -78,7 +78,7 @@ export function CrearProductoModal({ item, costeoId, productos, suppliers, onClo
         {fila("Precio bruto", <input aria-label="Precio bruto" type="number" min="0" value={form.precio} onChange={e => set("precio", e.target.value)} style={campo} />)}
         <div style={{ gridColumn:"1 / -1" }}>{fila("Ficha técnica (URL)", <input value={form.fichaUrl} placeholder="https://…" onChange={e => set("fichaUrl", e.target.value)} style={campo} />)}</div>
       </div>
-      <div style={{ marginTop:14, padding:"10px 12px", borderRadius:8, background:COLORS.card, border:`1px solid ${COLORS.border}`, fontFamily:FONT, fontSize:11, color:COLORS.textMuted, lineHeight:1.6 }}>
+      <div style={{ marginTop:14, padding:"10px 12px", borderRadius:8, background:C.card, border:`1px solid ${C.border}`, fontFamily:FONT, fontSize:11, color:C.textMuted, lineHeight:1.6 }}>
         Se crea el producto en el Maestro{form.supplier_id && precio > 0 ? ` con precio preferido ${fmt(precio)}` : ""} y queda enlazado en
         los ítems del Costeo llamados "{item.descripcion}", que pasan a "Por comprar" listos para pedirse en una OC.
       </div>

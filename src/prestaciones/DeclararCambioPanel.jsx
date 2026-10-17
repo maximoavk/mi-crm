@@ -7,7 +7,7 @@ import { mapProduct } from "../shared/mappers.js";
 import { calcFase, totalCotizacion, redondearTotal } from "../calculos.js";
 import { newItem } from "../costeo/items.js";
 import { fmt } from "../shared/format.js";
-import { COLORS, FONT_DISPLAY, FONT } from "../theme.js";
+import { COLORS_LIGHT as C, FONT_DISPLAY, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { Loader } from "../shared/ui.jsx";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -211,19 +211,19 @@ export function DeclararCambioPanel({ quote, onClose, onApplied }) {
     : [];
 
   const badge = (tipo) => {
-    const map = { agregado:{c:COLORS.green,s:"+ AGREGADO"}, removido:{c:COLORS.red,s:"− QUITADO"}, modificado:{c:"#f59e0b",s:"~ MODIFICADO"} };
+    const map = { agregado:{c:C.green,s:"+ AGREGADO"}, removido:{c:C.red,s:"− QUITADO"}, modificado:{c:"#f59e0b",s:"~ MODIFICADO"} };
     const m = map[tipo]||map.modificado;
     return <span style={{ fontFamily:FONT_DISPLAY, fontSize:9, fontWeight:700, color:m.c, background:`${m.c}18`, border:`1px solid ${m.c}44`, borderRadius:5, padding:"2px 6px" }}>{m.s}</span>;
   };
 
   return (
     <div style={{ position:"fixed", inset:0, background:"#000c", zIndex:400, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-      <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.accent}44`, borderRadius:14, width:"100%", maxWidth:640, maxHeight:"92vh", overflowY:"auto", padding:26 }}>
+      <div style={{ background:C.surface, border:`1px solid ${C.accent}44`, borderRadius:14, width:"100%", maxWidth:640, maxHeight:"92vh", overflowY:"auto", padding:26 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text }}>🌳 Declarar cambio de alcance</div>
-          <button onClick={onClose} style={{ background:"transparent", border:"none", color:COLORS.textMuted, fontSize:20, cursor:"pointer" }}>✕</button>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:C.text }}>🌳 Declarar cambio de alcance</div>
+          <button onClick={onClose} style={{ background:"transparent", border:"none", color:C.textMuted, fontSize:20, cursor:"pointer" }}>✕</button>
         </div>
-        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:16 }}>
+        <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, marginBottom:16 }}>
           COT °{quote.number} · {isFaseMode ? "Costeo vinculado — desglose por ítem" : "Sin Costeo vinculado — solo por línea"}
         </div>
 
@@ -235,77 +235,77 @@ export function DeclararCambioPanel({ quote, onClose, onApplied }) {
                   const delta = Math.round(calcFase(f).ventaConDesc - calcFase(origFases[fi]||{items:[]}).ventaConDesc);
                   const abierto = openFaseIdx===fi;
                   return (
-                    <div key={f.id} style={{ background:COLORS.card, border:`1px solid ${delta!==0?COLORS.accent+"55":COLORS.border}`, borderRadius:9, overflow:"hidden" }}>
+                    <div key={f.id} style={{ background:C.card, border:`1px solid ${delta!==0?C.accent+"55":C.border}`, borderRadius:9, overflow:"hidden" }}>
                       <div onClick={()=>setOpenFaseIdx(abierto?null:fi)} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 12px", cursor:"pointer" }}>
                         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                          <TreeCaret collapsed={!abierto} />
-                          <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text }}>{f.nombre||`Fase ${fi+1}`}</span>
-                          <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>({(f.items||[]).length} ítems)</span>
+                          <TreeCaret collapsed={!abierto} color={C.textMuted} />
+                          <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:C.text }}>{f.nombre||`Fase ${fi+1}`}</span>
+                          <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>({(f.items||[]).length} ítems)</span>
                         </div>
-                        {delta!==0 && <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color: delta>0?COLORS.green:COLORS.red }}>{delta>0?"+":""}{fmt(delta)}</span>}
+                        {delta!==0 && <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color: delta>0?C.green:C.red }}>{delta>0?"+":""}{fmt(delta)}</span>}
                       </div>
                       {abierto && (
-                        <div className="tree-row-in" style={{ borderTop:`1px solid ${COLORS.border}`, padding:"8px 12px" }}>
+                        <div className="tree-row-in" style={{ borderTop:`1px solid ${C.border}`, padding:"8px 12px" }}>
                           {/* Árbol: los ítems cuelgan del triángulo de la fase */}
-                          <TreeBranch x={7} anchor={20} reach={23}>
+                          <TreeBranch x={7} anchor={20} reach={23} color={C.border}>
                           {(f.items||[]).map(item=>(
-                            <div key={item.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, padding:"6px 0", borderBottom:`1px solid ${COLORS.border}22` }}>
+                            <div key={item.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, padding:"6px 0", borderBottom:`1px solid ${C.border}22` }}>
                               <div style={{ minWidth:0, flex:1 }}>
-                                <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{item.descripcion||"(sin descripción)"}</div>
-                                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{item.tipo}</div>
+                                <div style={{ fontFamily:FONT, fontSize:12, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{item.descripcion||"(sin descripción)"}</div>
+                                <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>{item.tipo}</div>
                               </div>
                               <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
-                                <button onClick={()=>cambiarQty(fi,item.id,-1)} style={{ width:22, height:22, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.text, cursor:"pointer", fontFamily:FONT }}>−</button>
-                                <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, color:COLORS.text, minWidth:20, textAlign:"center" }}>{item.qty}</span>
-                                <button onClick={()=>cambiarQty(fi,item.id,1)} style={{ width:22, height:22, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.text, cursor:"pointer", fontFamily:FONT }}>+</button>
-                                <button onClick={()=>quitarItem(fi,item.id)} title="Quitar del alcance" style={{ background:"transparent", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14, marginLeft:4 }}>✕</button>
+                                <button onClick={()=>cambiarQty(fi,item.id,-1)} style={{ width:22, height:22, background:C.bg, border:`1px solid ${C.border}`, borderRadius:5, color:C.text, cursor:"pointer", fontFamily:FONT }}>−</button>
+                                <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, color:C.text, minWidth:20, textAlign:"center" }}>{item.qty}</span>
+                                <button onClick={()=>cambiarQty(fi,item.id,1)} style={{ width:22, height:22, background:C.bg, border:`1px solid ${C.border}`, borderRadius:5, color:C.text, cursor:"pointer", fontFamily:FONT }}>+</button>
+                                <button onClick={()=>quitarItem(fi,item.id)} title="Quitar del alcance" style={{ background:"transparent", border:"none", color:C.red, cursor:"pointer", fontSize:14, marginLeft:4 }}>✕</button>
                               </div>
                             </div>
                           ))}
                           </TreeBranch>
                           {addingFaseIdx===fi ? (
                             addingProduct ? (
-                              <div style={{ marginTop:8, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:7, padding:10 }}>
-                                <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text, marginBottom:2 }}>{addingProduct.name}</div>
-                                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:10 }}>Costo neto catálogo (referencia): {fmt(addingProduct.priceNeto||0)}</div>
+                              <div style={{ marginTop:8, background:C.bg, border:`1px solid ${C.border}`, borderRadius:7, padding:10 }}>
+                                <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:C.text, marginBottom:2 }}>{addingProduct.name}</div>
+                                <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginBottom:10 }}>Costo neto catálogo (referencia): {fmt(addingProduct.priceNeto||0)}</div>
                                 <div style={{ display:"grid", gridTemplateColumns:"70px 1fr", gap:8, marginBottom:10 }}>
                                   <div>
-                                    <label style={{ display:"block", fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", marginBottom:3 }}>Cant.</label>
+                                    <label style={{ display:"block", fontFamily:FONT, fontSize:9, color:C.textMuted, textTransform:"uppercase", marginBottom:3 }}>Cant.</label>
                                     <input type="number" min={1} value={addQty} onChange={e=>setAddQty(e.target.value)}
-                                      style={{ width:"100%", background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.text, fontFamily:FONT, fontSize:12, padding:"7px 8px", boxSizing:"border-box" }} />
+                                      style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, color:C.text, fontFamily:FONT, fontSize:12, padding:"7px 8px", boxSizing:"border-box" }} />
                                   </div>
                                   <div>
-                                    <label style={{ display:"block", fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", marginBottom:3 }}>Valor venta neto (lo cotizado al cliente, por unidad)</label>
+                                    <label style={{ display:"block", fontFamily:FONT, fontSize:9, color:C.textMuted, textTransform:"uppercase", marginBottom:3 }}>Valor venta neto (lo cotizado al cliente, por unidad)</label>
                                     <input type="number" min={0} value={addVenta} onChange={e=>setAddVenta(e.target.value)} autoFocus
-                                      style={{ width:"100%", background:COLORS.surface, border:`1px solid ${COLORS.accent}66`, borderRadius:6, color:COLORS.text, fontFamily:FONT, fontSize:12, padding:"7px 8px", boxSizing:"border-box" }} />
+                                      style={{ width:"100%", background:C.surface, border:`1px solid ${C.accent}66`, borderRadius:6, color:C.text, fontFamily:FONT, fontSize:12, padding:"7px 8px", boxSizing:"border-box" }} />
                                   </div>
                                 </div>
                                 <div style={{ display:"flex", gap:8 }}>
-                                  <button onClick={()=>setAddingProduct(null)} style={{ flex:1, padding:"7px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>← Elegir otro</button>
-                                  <button onClick={()=>confirmarAgregarItem(fi)} style={{ flex:1, padding:"7px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer" }}>+ Agregar</button>
+                                  <button onClick={()=>setAddingProduct(null)} style={{ flex:1, padding:"7px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, color:C.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>← Elegir otro</button>
+                                  <button onClick={()=>confirmarAgregarItem(fi)} style={{ flex:1, padding:"7px", background:C.accent, border:"none", borderRadius:6, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer" }}>+ Agregar</button>
                                 </div>
                               </div>
                             ) : (
                               <div style={{ marginTop:8, position:"relative" }}>
                                 <input autoFocus value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar en el maestro de productos..."
-                                  style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.text, fontFamily:FONT, fontSize:12, padding:"7px 10px", boxSizing:"border-box" }} />
+                                  style={{ width:"100%", background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, color:C.text, fontFamily:FONT, fontSize:12, padding:"7px 10px", boxSizing:"border-box" }} />
                                 {busqueda.length>=2 && (
-                                  <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:7, marginTop:4, maxHeight:180, overflowY:"auto" }}>
-                                    {resultados.length===0 && <div style={{ padding:"8px 12px", fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Sin resultados</div>}
+                                  <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:7, marginTop:4, maxHeight:180, overflowY:"auto" }}>
+                                    {resultados.length===0 && <div style={{ padding:"8px 12px", fontFamily:FONT, fontSize:11, color:C.textMuted }}>Sin resultados</div>}
                                     {resultados.map(p=>(
-                                      <div key={p.id} onClick={()=>elegirProducto(p)} style={{ padding:"7px 10px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}11`, display:"flex", justifyContent:"space-between" }}
-                                        onMouseEnter={e=>e.currentTarget.style.background=COLORS.card} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                                        <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{p.name}</span>
-                                        <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Costo: {fmt(p.priceNeto)}</span>
+                                      <div key={p.id} onClick={()=>elegirProducto(p)} style={{ padding:"7px 10px", cursor:"pointer", borderBottom:`1px solid ${C.border}11`, display:"flex", justifyContent:"space-between" }}
+                                        onMouseEnter={e=>e.currentTarget.style.background=C.card} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                                        <span style={{ fontFamily:FONT, fontSize:11, color:C.text }}>{p.name}</span>
+                                        <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>Costo: {fmt(p.priceNeto)}</span>
                                       </div>
                                     ))}
                                   </div>
                                 )}
-                                <button onClick={()=>{setAddingFaseIdx(null);setBusqueda("");}} style={{ marginTop:6, background:"transparent", border:"none", color:COLORS.textMuted, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>Cancelar</button>
+                                <button onClick={()=>{setAddingFaseIdx(null);setBusqueda("");}} style={{ marginTop:6, background:"transparent", border:"none", color:C.textMuted, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>Cancelar</button>
                               </div>
                             )
                           ) : (
-                            <button onClick={()=>setAddingFaseIdx(fi)} style={{ marginTop:8, width:"100%", padding:"7px", background:"transparent", border:`1px dashed ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Agregar ítem del maestro de productos</button>
+                            <button onClick={()=>setAddingFaseIdx(fi)} style={{ marginTop:8, width:"100%", padding:"7px", background:"transparent", border:`1px dashed ${C.border}`, borderRadius:6, color:C.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Agregar ítem del maestro de productos</button>
                           )}
                         </div>
                       )}
@@ -316,63 +316,63 @@ export function DeclararCambioPanel({ quote, onClose, onApplied }) {
             ) : (
               <div style={{ marginBottom:16 }}>
                 {quoteLines.filter(l=>l.tipo_linea!=="hito").map(l=>(
-                  <div key={l.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 10px", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:7, marginBottom:6 }}>
+                  <div key={l.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 10px", background:C.card, border:`1px solid ${C.border}`, borderRadius:7, marginBottom:6 }}>
                     <div style={{ minWidth:0 }}>
-                      <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text }}>{l.descripcion}</div>
-                      <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{fmt(l.subtotal)}</div>
+                      <div style={{ fontFamily:FONT, fontSize:12, color:C.text }}>{l.descripcion}</div>
+                      <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>{fmt(l.subtotal)}</div>
                     </div>
-                    <button onClick={()=>quitarLineaFlat(l)} style={{ background:"transparent", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>✕ Quitar</button>
+                    <button onClick={()=>quitarLineaFlat(l)} style={{ background:"transparent", border:"none", color:C.red, cursor:"pointer", fontSize:14 }}>✕ Quitar</button>
                   </div>
                 ))}
                 {flatAdding ? (
-                  <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:7, padding:10, display:"flex", flexDirection:"column", gap:8 }}>
+                  <div style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:7, padding:10, display:"flex", flexDirection:"column", gap:8 }}>
                     <input value={flatDesc} onChange={e=>setFlatDesc(e.target.value)} placeholder="Descripción del ítem/servicio nuevo"
-                      style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.text, fontFamily:FONT, fontSize:12, padding:"7px 10px" }} />
+                      style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, color:C.text, fontFamily:FONT, fontSize:12, padding:"7px 10px" }} />
                     <input type="number" value={flatValor} onChange={e=>setFlatValor(e.target.value)} placeholder="Valor $ (c/IVA)"
-                      style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.text, fontFamily:FONT, fontSize:12, padding:"7px 10px" }} />
+                      style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, color:C.text, fontFamily:FONT, fontSize:12, padding:"7px 10px" }} />
                     <div style={{ display:"flex", gap:8 }}>
-                      <button onClick={()=>setFlatAdding(false)} style={{ flex:1, padding:"7px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>Cancelar</button>
-                      <button onClick={agregarLineaFlat} style={{ flex:1, padding:"7px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer" }}>Agregar</button>
+                      <button onClick={()=>setFlatAdding(false)} style={{ flex:1, padding:"7px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, color:C.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>Cancelar</button>
+                      <button onClick={agregarLineaFlat} style={{ flex:1, padding:"7px", background:C.accent, border:"none", borderRadius:6, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer" }}>Agregar</button>
                     </div>
                   </div>
                 ) : (
-                  <button onClick={()=>setFlatAdding(true)} style={{ width:"100%", padding:"8px", background:"transparent", border:`1px dashed ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Agregar línea nueva</button>
+                  <button onClick={()=>setFlatAdding(true)} style={{ width:"100%", padding:"8px", background:"transparent", border:`1px dashed ${C.border}`, borderRadius:6, color:C.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Agregar línea nueva</button>
                 )}
               </div>
             )}
 
             {pending.length>0 && (
-              <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:9, padding:"10px 12px", marginBottom:16 }}>
+              <div style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:9, padding:"10px 12px", marginBottom:16 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-                  <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Cambios declarados</span>
-                  <button onClick={undoLast} style={{ background:"transparent", border:"none", color:COLORS.textMuted, fontFamily:FONT, fontSize:10, cursor:"pointer", textDecoration:"underline" }}>Deshacer último</button>
+                  <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Cambios declarados</span>
+                  <button onClick={undoLast} style={{ background:"transparent", border:"none", color:C.textMuted, fontFamily:FONT, fontSize:10, cursor:"pointer", textDecoration:"underline" }}>Deshacer último</button>
                 </div>
                 <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
                   {pending.map(p=>(
                     <div key={p.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8 }}>
                       <div style={{ display:"flex", alignItems:"center", gap:6, minWidth:0 }}>
                         {badge(p.tipo)}
-                        <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.descripcion}</span>
+                        <span style={{ fontFamily:FONT, fontSize:11, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p.descripcion}</span>
                       </div>
-                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:p.valor>=0?COLORS.green:COLORS.red, flexShrink:0 }}>{p.valor>=0?"+":""}{fmt(p.valor)}</span>
+                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:p.valor>=0?C.green:C.red, flexShrink:0 }}>{p.valor>=0?"+":""}{fmt(p.valor)}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            <div style={{ background:COLORS.card, borderRadius:8, padding:"10px 14px", marginBottom:18, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Total cotización</span>
+            <div style={{ background:C.card, borderRadius:8, padding:"10px 14px", marginBottom:18, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Total cotización</span>
               <div style={{ textAlign:"right" }}>
-                {totalDelta!==0 && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textDecoration:"line-through" }}>{fmt(quote.total||0)}</div>}
-                <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.accent }}>{fmt(totalNuevo)}</div>
+                {totalDelta!==0 && <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textDecoration:"line-through" }}>{fmt(quote.total||0)}</div>}
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:C.accent }}>{fmt(totalNuevo)}</div>
               </div>
             </div>
 
             <div style={{ display:"flex", gap:10 }}>
-              <button onClick={onClose} style={{ flex:1, padding:"10px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>Cancelar</button>
+              <button onClick={onClose} style={{ flex:1, padding:"10px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:8, color:C.textMuted, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>Cancelar</button>
               <button onClick={confirmarCambios} disabled={saving||pending.length===0}
-                style={{ flex:2, padding:"10px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer", opacity:(saving||pending.length===0)?0.6:1 }}>
+                style={{ flex:2, padding:"10px", background:C.accent, border:"none", borderRadius:8, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer", opacity:(saving||pending.length===0)?0.6:1 }}>
                 {saving?"Aplicando...":`✅ Confirmar ${pending.length>0?`${pending.length} `:""}cambio${pending.length===1?"":"s"}`}
               </button>
             </div>

@@ -3,7 +3,7 @@
 // triángulo de la fase, esquina redondeada hacia cada hijo, y la línea
 // termina en el último hijo), nodo seleccionado resaltado y botón "+" para
 // agregar una tarea a la fase.
-import { COLORS, FONT } from "../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { TREE_ELBOW as ELBOW, TREE_MINT as MINT, treeLine as line } from "../shared/tree.js";
 import { TreeCaret } from "../shared/TreeCaret.jsx";
 
@@ -21,7 +21,7 @@ export function TreeNodeCell({ task, isFase, editing, selected, collapsed, hasCh
     }}>
       <span style={{
         fontWeight: isFase ? 700 : 400, fontSize: isFase ? 12 : 11,
-        color: selected ? MINT : isFase ? COLORS.text : COLORS.textMuted,
+        color: selected ? MINT : isFase ? C.text : C.textMuted,
         whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
       }}>{task.nombre}</span>
       {selected && isFase && (
@@ -48,7 +48,7 @@ export function TreeNodeCell({ task, isFase, editing, selected, collapsed, hasCh
 
       <div style={{ display:"flex", alignItems:"center", gap:4, paddingLeft: inPhase ? X + ELBOW - 2 : 0, minWidth:0, position:"relative" }}>
         {isFase && (
-          <TreeCaret collapsed={collapsed} onToggle={onToggle} color={selected ? MINT : COLORS.textMuted}
+          <TreeCaret collapsed={collapsed} onToggle={onToggle} color={selected ? MINT : C.textMuted}
             title={collapsed ? "Desplegar fase" : "Contraer fase"} />
         )}
         {editing ? renderEditor() : nombre}

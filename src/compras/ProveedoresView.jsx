@@ -1,7 +1,7 @@
 // Maestro de proveedores: datos de contacto, bancarios y evaluación.
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
-import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { Loader, AddBtn, Modal, Input, Select } from "../shared/ui.jsx";
 import { formatRut } from "../shared/format.js";
 
@@ -83,16 +83,16 @@ export function ProveedoresView({ isMobile }) {
       {[1,2,3,4,5].map(i=>(
         <div key={i} style={{
           width:10, height:10, borderRadius:"50%",
-          background: i<=rating ? COLORS.yellow : COLORS.border,
+          background: i<=rating ? C.yellow : C.border,
         }} />
       ))}
     </div>
   );
 
   const ratingColor = (r) => {
-    if (r>=4) return COLORS.green;
-    if (r===3) return COLORS.yellow;
-    return COLORS.red;
+    if (r>=4) return C.green;
+    if (r===3) return C.yellow;
+    return C.red;
   };
   const ratingLabel = (r) => {
     if (r>=5) return "Excelente";
@@ -109,37 +109,37 @@ export function ProveedoresView({ isMobile }) {
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:20, flexWrap:"wrap", gap:12 }}>
         <div>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Catálogo</div>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Proveedores</div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Catálogo</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:C.text }}>Proveedores</div>
         </div>
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
           <div style={{ position:"relative" }}>
             <input
               value={search} onChange={e=>setSearch(e.target.value)}
               placeholder="Nombre, RUT o ciudad…"
-              style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 14px 8px 34px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", width:isMobile?160:220 }}
+              style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 14px 8px 34px", fontFamily:FONT, fontSize:12, color:C.text, outline:"none", width:isMobile?160:220 }}
             />
-            <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", fontSize:13, color:COLORS.textMuted }}>🔍</span>
+            <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", fontSize:13, color:C.textMuted }}>🔍</span>
           </div>
-          <AddBtn onClick={openNew} label="Nuevo proveedor" />
+          <AddBtn onClick={openNew} label="Nuevo proveedor" theme={LIGHT_THEME} />
         </div>
       </div>
 
       {/* Stats rápidas */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3, minmax(0,1fr))", gap:10, marginBottom:20 }}>
-        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"14px 16px" }}>
-          <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Total proveedores</div>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>{suppliers.filter(s=>s.activo!==false).length}</div>
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"14px 16px" }}>
+          <div style={{ fontFamily:FONT, fontSize:9, color:C.textDim, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Total proveedores</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:C.text }}>{suppliers.filter(s=>s.activo!==false).length}</div>
         </div>
-        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"14px 16px" }}>
-          <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Rating promedio</div>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.yellow }}>
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"14px 16px" }}>
+          <div style={{ fontFamily:FONT, fontSize:9, color:C.textDim, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Rating promedio</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:C.yellow }}>
             {suppliers.length>0 ? (suppliers.reduce((s,x)=>s+(x.rating||3),0)/suppliers.length).toFixed(1) : "—"}
           </div>
         </div>
-        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"14px 16px" }}>
-          <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Con datos bancarios</div>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.accent }}>
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"14px 16px" }}>
+          <div style={{ fontFamily:FONT, fontSize:9, color:C.textDim, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Con datos bancarios</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:C.accent }}>
             {suppliers.filter(s=>s.banco&&s.numero_cuenta).length}
           </div>
         </div>
@@ -147,7 +147,7 @@ export function ProveedoresView({ isMobile }) {
 
       {/* Grid de tarjetas */}
       {filtered.length===0 && (
-        <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>
+        <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:C.textMuted }}>
           {search ? `Sin resultados para "${search}"` : "Sin proveedores. ¡Agrega el primero!"}
         </div>
       )}
@@ -155,21 +155,21 @@ export function ProveedoresView({ isMobile }) {
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(auto-fill, minmax(320px,1fr))", gap:14 }}>
         {filtered.map(s=>(
           <div key={s.id} style={{
-            background:COLORS.card, border:`1px solid ${COLORS.border}`,
+            background:C.card, border:`1px solid ${C.border}`,
             borderLeft:`3px solid ${ratingColor(s.rating||3)}`,
             borderRadius:10, padding:18,
           }}>
             {/* Header tarjeta */}
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
               <div style={{ flex:1 }}>
-                <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text }}>{s.nombre}</div>
-                {s.rut && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, marginTop:2 }}>RUT: {s.rut}</div>}
-                {s.ciudad && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:2 }}>{s.ciudad}</div>}
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:C.text }}>{s.nombre}</div>
+                {s.rut && <div style={{ fontFamily:FONT, fontSize:10, color:C.textDim, marginTop:2 }}>RUT: {s.rut}</div>}
+                {s.ciudad && <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, marginTop:2 }}>{s.ciudad}</div>}
               </div>
               <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6 }}>
                 <div style={{ display:"flex", gap:6 }}>
-                  <button onClick={()=>openEdit(s)} style={{ background:"none", border:`1px solid ${COLORS.accent}44`, borderRadius:4, color:COLORS.accent, cursor:"pointer", fontSize:11, padding:"2px 8px" }}>✏️</button>
-                  <button onClick={()=>del(s.id)} style={{ background:"none", border:`1px solid ${COLORS.red}44`, borderRadius:4, color:COLORS.red, cursor:"pointer", fontSize:11, padding:"2px 8px" }}>✕</button>
+                  <button onClick={()=>openEdit(s)} style={{ background:"none", border:`1px solid ${C.accent}44`, borderRadius:4, color:C.accent, cursor:"pointer", fontSize:11, padding:"2px 8px" }}>✏️</button>
+                  <button onClick={()=>del(s.id)} style={{ background:"none", border:`1px solid ${C.red}44`, borderRadius:4, color:C.red, cursor:"pointer", fontSize:11, padding:"2px 8px" }}>✕</button>
                 </div>
                 <span style={{ fontSize:9, padding:"2px 8px", borderRadius:4, fontWeight:600, background:`${ratingColor(s.rating||3)}18`, color:ratingColor(s.rating||3), border:`1px solid ${ratingColor(s.rating||3)}33` }}>
                   {ratingLabel(s.rating||3)}
@@ -180,36 +180,36 @@ export function ProveedoresView({ isMobile }) {
             {/* Stars */}
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
               <Stars rating={s.rating||3} />
-              <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim }}>{s.rating||3}/5</span>
+              <span style={{ fontFamily:FONT, fontSize:10, color:C.textDim }}>{s.rating||3}/5</span>
             </div>
 
             {/* Datos contacto */}
-            <div style={{ borderTop:`1px solid ${COLORS.border}`, paddingTop:10, marginBottom:10 }}>
-              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Contacto</div>
+            <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:10, marginBottom:10 }}>
+              <div style={{ fontFamily:FONT, fontSize:9, color:C.textDim, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Contacto</div>
               <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                {s.email && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>✉ {s.email}</div>}
-                {s.telefono && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>☏ {s.telefono}</div>}
-                {s.direccion && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>📍 {s.direccion}</div>}
+                {s.email && <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>✉ {s.email}</div>}
+                {s.telefono && <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>☏ {s.telefono}</div>}
+                {s.direccion && <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>📍 {s.direccion}</div>}
               </div>
             </div>
 
             {/* Datos bancarios */}
             {(s.banco || s.numero_cuenta) && (
-              <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 12px" }}>
-                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Datos bancarios</div>
-                {s.banco && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text, marginBottom:2 }}>{s.banco}</div>}
-                {s.tipo_cuenta && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:2 }}>{s.tipo_cuenta.charAt(0).toUpperCase()+s.tipo_cuenta.slice(1)}</div>}
-                {s.numero_cuenta && <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, fontWeight:600, marginBottom:2 }}>{s.numero_cuenta}</div>}
-                {s.email_pago && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{s.email_pago}</div>}
+              <div style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 12px" }}>
+                <div style={{ fontFamily:FONT, fontSize:9, color:C.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>Datos bancarios</div>
+                {s.banco && <div style={{ fontFamily:FONT, fontSize:11, color:C.text, marginBottom:2 }}>{s.banco}</div>}
+                {s.tipo_cuenta && <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginBottom:2 }}>{s.tipo_cuenta.charAt(0).toUpperCase()+s.tipo_cuenta.slice(1)}</div>}
+                {s.numero_cuenta && <div style={{ fontFamily:FONT, fontSize:12, color:C.text, fontWeight:600, marginBottom:2 }}>{s.numero_cuenta}</div>}
+                {s.email_pago && <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>{s.email_pago}</div>}
               </div>
             )}
             {!s.banco && !s.numero_cuenta && (
-              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, fontStyle:"italic", marginTop:4 }}>Sin datos bancarios</div>
+              <div style={{ fontFamily:FONT, fontSize:10, color:C.textDim, fontStyle:"italic", marginTop:4 }}>Sin datos bancarios</div>
             )}
 
             {/* Notas */}
             {s.notas && (
-              <div style={{ marginTop:10, fontFamily:FONT, fontSize:10, color:COLORS.textMuted, borderTop:`1px solid ${COLORS.border}`, paddingTop:8 }}>
+              <div style={{ marginTop:10, fontFamily:FONT, fontSize:10, color:C.textMuted, borderTop:`1px solid ${C.border}`, paddingTop:8 }}>
                 {s.notas}
               </div>
             )}
@@ -222,35 +222,34 @@ export function ProveedoresView({ isMobile }) {
         <Modal
           title={editing ? `Editar — ${editing.nombre}` : "Nuevo Proveedor"}
           onClose={()=>setShowModal(false)}
-          onSubmit={save}
-        >
-          <Input label="Nombre *" value={form.nombre} onChange={e=>ff("nombre",e.target.value)} placeholder="Ej: Dahua Technology Chile" />
-          <Input label="RUT" value={form.rut} onChange={e=>ff("rut",formatRut(e.target.value))} placeholder="12.345.678-9" maxLength={12} />
-          <Input label="Email" value={form.email} onChange={e=>ff("email",e.target.value)} placeholder="contacto@proveedor.com" type="email" />
-          <Input label="Teléfono" value={form.telefono} onChange={e=>ff("telefono",e.target.value)} placeholder="+56 9 ..." />
-          <Input label="Dirección" value={form.direccion} onChange={e=>ff("direccion",e.target.value)} placeholder="Av. Ejemplo 123" />
-          <Input label="Ciudad" value={form.ciudad} onChange={e=>ff("ciudad",e.target.value)} placeholder="La Serena" />
+          onSubmit={save} theme={LIGHT_THEME}>
+          <Input label="Nombre *" value={form.nombre} onChange={e=>ff("nombre",e.target.value)} placeholder="Ej: Dahua Technology Chile" theme={LIGHT_THEME} />
+          <Input label="RUT" value={form.rut} onChange={e=>ff("rut",formatRut(e.target.value))} placeholder="12.345.678-9" maxLength={12} theme={LIGHT_THEME} />
+          <Input label="Email" value={form.email} onChange={e=>ff("email",e.target.value)} placeholder="contacto@proveedor.com" type="email" theme={LIGHT_THEME} />
+          <Input label="Teléfono" value={form.telefono} onChange={e=>ff("telefono",e.target.value)} placeholder="+56 9 ..." theme={LIGHT_THEME} />
+          <Input label="Dirección" value={form.direccion} onChange={e=>ff("direccion",e.target.value)} placeholder="Av. Ejemplo 123" theme={LIGHT_THEME} />
+          <Input label="Ciudad" value={form.ciudad} onChange={e=>ff("ciudad",e.target.value)} placeholder="La Serena" theme={LIGHT_THEME} />
 
-          <div style={{ borderTop:`1px solid ${COLORS.border}`, marginTop:8, paddingTop:14, marginBottom:8 }}>
-            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>Datos bancarios</div>
-            <Input label="Banco" value={form.banco} onChange={e=>ff("banco",e.target.value)} placeholder="Ej: Banco Santander" />
-            <Select label="Tipo de cuenta" value={form.tipo_cuenta} onChange={e=>ff("tipo_cuenta",e.target.value)}>
+          <div style={{ borderTop:`1px solid ${C.border}`, marginTop:8, paddingTop:14, marginBottom:8 }}>
+            <div style={{ fontFamily:FONT, fontSize:10, color:C.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>Datos bancarios</div>
+            <Input label="Banco" value={form.banco} onChange={e=>ff("banco",e.target.value)} placeholder="Ej: Banco Santander" theme={LIGHT_THEME} />
+            <Select label="Tipo de cuenta" value={form.tipo_cuenta} onChange={e=>ff("tipo_cuenta",e.target.value)} theme={LIGHT_THEME}>
               <option value="corriente">Cuenta Corriente</option>
               <option value="ahorro">Cuenta de Ahorro</option>
               <option value="vista">Cuenta Vista / RUT</option>
             </Select>
-            <Input label="Número de cuenta" value={form.numero_cuenta} onChange={e=>ff("numero_cuenta",e.target.value)} placeholder="0000000000" />
-            <Input label="Email para transferencias" value={form.email_pago} onChange={e=>ff("email_pago",e.target.value)} placeholder="pagos@proveedor.com" type="email" />
+            <Input label="Número de cuenta" value={form.numero_cuenta} onChange={e=>ff("numero_cuenta",e.target.value)} placeholder="0000000000" theme={LIGHT_THEME} />
+            <Input label="Email para transferencias" value={form.email_pago} onChange={e=>ff("email_pago",e.target.value)} placeholder="pagos@proveedor.com" type="email" theme={LIGHT_THEME} />
           </div>
 
           <div style={{ marginBottom:14 }}>
-            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Índice de satisfacción (1–5)</div>
+            <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Índice de satisfacción (1–5)</div>
             <div style={{ display:"flex", gap:8, alignItems:"center" }}>
               {[1,2,3,4,5].map(i=>(
                 <button key={i} onClick={()=>ff("rating",i)} style={{
-                  width:32, height:32, borderRadius:6, border:`1px solid ${i<=form.rating?COLORS.yellow:COLORS.border}`,
-                  background: i<=form.rating ? `${COLORS.yellow}22` : COLORS.card,
-                  color: i<=form.rating ? COLORS.yellow : COLORS.textDim,
+                  width:32, height:32, borderRadius:6, border:`1px solid ${i<=form.rating?C.yellow:C.border}`,
+                  background: i<=form.rating ? `${C.yellow}22` : C.card,
+                  color: i<=form.rating ? C.yellow : C.textDim,
                   fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, cursor:"pointer",
                 }}>
                   {i}
@@ -262,9 +261,9 @@ export function ProveedoresView({ isMobile }) {
             </div>
           </div>
 
-          <Input label="Notas internas" value={form.notas} onChange={e=>ff("notas",e.target.value)} placeholder="Obs. de pago, tiempos de entrega, etc." />
+          <Input label="Notas internas" value={form.notas} onChange={e=>ff("notas",e.target.value)} placeholder="Obs. de pago, tiempos de entrega, etc." theme={LIGHT_THEME} />
 
-          {saving && <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.accent, textAlign:"center" }}>Guardando…</div>}
+          {saving && <div style={{ fontFamily:FONT, fontSize:12, color:C.accent, textAlign:"center" }}>Guardando…</div>}
         </Modal>
       )}
     </div>

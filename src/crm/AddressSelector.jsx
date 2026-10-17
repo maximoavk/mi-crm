@@ -1,5 +1,6 @@
 // Selector de dirección chilena (región → comuna) para contactos.
 import { FONT, COLORS } from "../theme.js";
+const DEFAULT_THEME = { colors: COLORS, font: FONT };
 
 // ── CHILE REGIONES Y COMUNAS ─────────────────────────────────────────────────
 const CHILE = {
@@ -21,19 +22,20 @@ const CHILE = {
   "Magallanes": ["Punta Arenas","Laguna Blanca","Río Verde","San Gregorio","Cabo de Hornos","Antártica","Porvenir","Primavera","Timaukel","Natales","Torres del Paine"],
 };
 
-export function AddressSelector({ value, onChange }) {
+export function AddressSelector({ value, onChange, theme }) {
+  const { colors:C, font } = theme || DEFAULT_THEME;
   const addr = value || { calle:"", comuna:"", region:"" };
   const comunas = addr.region ? (CHILE[addr.region]||[]).sort() : [];
   return (
     <div style={{ marginBottom:14 }}>
-      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Dirección</div>
-      <input value={addr.calle} onChange={e=>onChange({...addr,calle:e.target.value})} placeholder="Calle / Avenida y número" style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box", marginBottom:8 }} />
+      <div style={{ fontFamily:font, fontSize:11, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Dirección</div>
+      <input value={addr.calle} onChange={e=>onChange({...addr,calle:e.target.value})} placeholder="Calle / Avenida y número" style={{ width:"100%", background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:font, fontSize:13, color:C.text, outline:"none", boxSizing:"border-box", marginBottom:8 }} />
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-        <select value={addr.region} onChange={e=>onChange({...addr,region:e.target.value,comuna:""})} style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:addr.region?COLORS.text:COLORS.textMuted, outline:"none" }}>
+        <select value={addr.region} onChange={e=>onChange({...addr,region:e.target.value,comuna:""})} style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:font, fontSize:12, color:addr.region?C.text:C.textMuted, outline:"none" }}>
           <option value="">— Región —</option>
           {Object.keys(CHILE).map(r=><option key={r} value={r}>{r}</option>)}
         </select>
-        <select value={addr.comuna} onChange={e=>onChange({...addr,comuna:e.target.value})} style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:addr.comuna?COLORS.text:COLORS.textMuted, outline:"none" }} disabled={!addr.region}>
+        <select value={addr.comuna} onChange={e=>onChange({...addr,comuna:e.target.value})} style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:font, fontSize:12, color:addr.comuna?C.text:C.textMuted, outline:"none" }} disabled={!addr.region}>
           <option value="">— Comuna —</option>
           {comunas.map(c=><option key={c} value={c}>{c}</option>)}
         </select>

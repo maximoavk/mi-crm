@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { buildCalHeader, addDays, nextBusinessDay, endOfBusinessSpan, habilesEntre, fmtShort } from "./fechas.js";
 import { supabase, must, replaceRows } from "../supabaseClient.js";
-import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { GANTT_COLORS, TIPO_LABEL, ROL_OPTS } from "./constants.js";
 import { LOGO_B64, LOGO_PRINT } from "../shared/assets.js";
 import { CalendarPicker } from "./CalendarPicker.jsx";
@@ -544,27 +544,27 @@ export function GanttView({ isMobile }) {
   const fija = (i, background, z = 4) => i < FIJAS.length ? {
     position:"sticky", left:FIJAS[i].left, width:FIJAS[i].width, minWidth:FIJAS[i].width, maxWidth:FIJAS[i].width,
     boxSizing:"border-box", background, zIndex:z,
-    ...(i === FIJAS.length - 1 ? { boxShadow:`2px 0 0 ${COLORS.border}` } : {}),
+    ...(i === FIJAS.length - 1 ? { boxShadow:`2px 0 0 ${C.border}` } : {}),
   } : {};
 
   const s = { // input style
-    background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4,
-    color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"3px 6px", outline:"none",
+    background:C.bg, border:`1px solid ${C.border}`, borderRadius:4,
+    color:C.text, fontFamily:FONT, fontSize:11, padding:"3px 6px", outline:"none",
   };
 
   return (
-    <div style={{ fontFamily:FONT, color:COLORS.text }}>
+    <div style={{ fontFamily:FONT, color:C.text }}>
       {/* HEADER */}
       <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20, flexWrap:"wrap" }}>
-        <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>
-          📅 Control de <span style={{color:COLORS.accent}}>Proyecto</span>
+        <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:C.text }}>
+          📅 Control de <span style={{color:C.accent}}>Proyecto</span>
         </div>
-        <div style={{ display:"flex", gap:8, alignItems:"center", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"6px 12px" }}>
-          <span style={{ fontSize:11, color:COLORS.textMuted }}>Cot. N°</span>
+        <div style={{ display:"flex", gap:8, alignItems:"center", background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:"6px 12px" }}>
+          <span style={{ fontSize:11, color:C.textMuted }}>Cot. N°</span>
           <input value={cotNum} onChange={e=>setCotNum(e.target.value)} onKeyDown={e=>e.key==="Enter"&&cargarGantt(cotNum)}
             placeholder="ej: 83" style={{...s, width:60}} />
           <button onClick={()=>cargarGantt(cotNum)} disabled={searching||!cotNum}
-            style={{ padding:"5px 12px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer", opacity:searching?0.6:1 }}>
+            style={{ padding:"5px 12px", background:C.accent, border:"none", borderRadius:6, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer", opacity:searching?0.6:1 }}>
             {searching?"...":"Cargar"}
           </button>
         </div>
@@ -572,8 +572,8 @@ export function GanttView({ isMobile }) {
           <input
             value={proyecto.nombre}
             onChange={e => setProyecto(p => ({...p, nombre: e.target.value}))}
-            style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.accent,
-              background:"transparent", border:"none", borderBottom:`1px dashed ${COLORS.accent}55`,
+            style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:C.accent,
+              background:"transparent", border:"none", borderBottom:`1px dashed ${C.accent}55`,
               outline:"none", padding:"2px 4px", minWidth:200, maxWidth:500 }}
             title="Click para editar el nombre del proyecto"
           />
@@ -582,11 +582,11 @@ export function GanttView({ isMobile }) {
             <button onClick={()=>addTask("T")} style={{ padding:"5px 10px", background:`${GANTT_COLORS.tarea}22`, border:`1px solid ${GANTT_COLORS.tarea}44`, borderRadius:6, color:GANTT_COLORS.tarea, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Tarea</button>
             <button onClick={()=>addTask("H")} style={{ padding:"5px 10px", background:`${GANTT_COLORS.hito}22`, border:`1px solid ${GANTT_COLORS.hito}44`, borderRadius:6, color:GANTT_COLORS.hito, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>+ Hito</button>
             <button onClick={reimportarDesdeVersion} title="Reemplaza las fases/tareas actuales por las de una versión del Costeo"
-              style={{ padding:"5px 10px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+              style={{ padding:"5px 10px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, color:C.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
               🔄 Reimportar versión
             </button>
-            {sinGuardar && <span title="Hay cambios que todavía no se guardan" style={{ alignSelf:"center", fontFamily:FONT, fontSize:11, color:COLORS.yellow }}>● Sin guardar</span>}
-            <button onClick={saveGantt} disabled={saving} style={{ padding:"5px 14px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer", opacity:saving?0.6:1 }}>
+            {sinGuardar && <span title="Hay cambios que todavía no se guardan" style={{ alignSelf:"center", fontFamily:FONT, fontSize:11, color:C.yellow }}>● Sin guardar</span>}
+            <button onClick={saveGantt} disabled={saving} style={{ padding:"5px 14px", background:C.accent, border:"none", borderRadius:6, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer", opacity:saving?0.6:1 }}>
               {saving?"Guardando...":"💾 Guardar"}
             </button>
           </div>
@@ -596,28 +596,28 @@ export function GanttView({ isMobile }) {
       {/* Modal: elegir desde qué versión del Costeo importar las fases */}
       {versionPicker && (
         <div style={{ position:"fixed", inset:0, background:"#000a", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center" }}>
-          <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:14, padding:28, width:440, maxWidth:"95vw" }}>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text, marginBottom:4 }}>¿Desde qué versión importar las fases?</div>
-            <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:16 }}>
+          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:14, padding:28, width:440, maxWidth:"95vw" }}>
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:C.text, marginBottom:4 }}>¿Desde qué versión importar las fases?</div>
+            <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted, marginBottom:16 }}>
               Este proyecto tiene {versionPicker.versiones.length} versión(es) guardada(s) en Costeo — el alcance puede haber cambiado entre una y otra.
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20, maxHeight:300, overflowY:"auto" }}>
               <button onClick={()=>confirmVersionImport(null)}
-                style={{ textAlign:"left", padding:"10px 12px", background:`${COLORS.accent}11`, border:`1px solid ${COLORS.accent}`, borderRadius:8, color:COLORS.text, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
-                <div style={{ fontFamily:FONT_DISPLAY, fontWeight:700, color:COLORS.accent }}>Actual (en vivo)</div>
-                <div style={{ fontSize:10, color:COLORS.textMuted, marginTop:2 }}>El estado más reciente del costeo, sin importar si está o no guardado como versión</div>
+                style={{ textAlign:"left", padding:"10px 12px", background:`${C.accent}11`, border:`1px solid ${C.accent}`, borderRadius:8, color:C.text, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
+                <div style={{ fontFamily:FONT_DISPLAY, fontWeight:700, color:C.accent }}>Actual (en vivo)</div>
+                <div style={{ fontSize:10, color:C.textMuted, marginTop:2 }}>El estado más reciente del costeo, sin importar si está o no guardado como versión</div>
               </button>
               {versionPicker.versiones.map(v=>(
                 <button key={v.id} onClick={()=>confirmVersionImport(v.id)}
-                  style={{ textAlign:"left", padding:"10px 12px", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.text, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
+                  style={{ textAlign:"left", padding:"10px 12px", background:C.card, border:`1px solid ${C.border}`, borderRadius:8, color:C.text, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
                   <div style={{ fontFamily:FONT_DISPLAY, fontWeight:700 }}>Versión {v.version_num}{v.cotizacion_ref?` — ${v.cotizacion_ref}`:""}</div>
-                  <div style={{ fontSize:10, color:COLORS.textMuted, marginTop:2 }}>
+                  <div style={{ fontSize:10, color:C.textMuted, marginTop:2 }}>
                     {new Date(v.created_at).toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit",year:"numeric"})}{v.nota?` · ${v.nota}`:""}
                   </div>
                 </button>
               ))}
             </div>
-            <button onClick={()=>setVersionPicker(null)} style={{ width:"100%", padding:"10px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
+            <button onClick={()=>setVersionPicker(null)} style={{ width:"100%", padding:"10px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:8, color:C.textMuted, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
               Cancelar
             </button>
           </div>
@@ -628,36 +628,36 @@ export function GanttView({ isMobile }) {
         <div>
           {allGantts.length > 0 && (
             <div style={{ marginBottom:20 }}>
-              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>
+              <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>
                 Cartas Gantt guardadas ({allGantts.length})
               </div>
               <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                 {allGantts.map(g => (
                   <div key={g.id} onClick={() => { setCotNum(String(g.numero_cotizacion)); cargarGantt(String(g.numero_cotizacion)); }}
-                    style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"12px 18px", cursor:"pointer", display:"flex", alignItems:"center", gap:14, transition:"border-color 0.15s" }}
-                    onMouseEnter={e=>e.currentTarget.style.borderColor=COLORS.accent}
-                    onMouseLeave={e=>e.currentTarget.style.borderColor=COLORS.border}>
-                    <div style={{ width:40, height:40, borderRadius:8, background:`${COLORS.accent}18`, border:`1px solid ${COLORS.accent}33`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.accent }}>#{g.numero_cotizacion}</span>
+                    style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"12px 18px", cursor:"pointer", display:"flex", alignItems:"center", gap:14, transition:"border-color 0.15s" }}
+                    onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent}
+                    onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+                    <div style={{ width:40, height:40, borderRadius:8, background:`${C.accent}18`, border:`1px solid ${C.accent}33`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:C.accent }}>#{g.numero_cotizacion}</span>
                     </div>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text, marginBottom:2 }}>{g.nombre}</div>
-                      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:C.text, marginBottom:2 }}>{g.nombre}</div>
+                      <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>
                         {g.fecha_inicio ? new Date(g.fecha_inicio+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"}) : "—"}
                         {g.fecha_fin ? ` → ${new Date(g.fecha_fin+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}` : ""}
                       </div>
                     </div>
-                    <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.accent }}>Abrir →</span>
+                    <span style={{ fontFamily:FONT, fontSize:12, color:C.accent }}>Abrir →</span>
                     <button onClick={(e)=>{ e.stopPropagation(); eliminarGantt(g); }} title="Eliminar carta Gantt"
-                      style={{ padding:"5px 8px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:GANTT_COLORS.late, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>🗑️</button>
+                      style={{ padding:"5px 8px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, color:GANTT_COLORS.late, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>🗑️</button>
                   </div>
                 ))}
               </div>
             </div>
           )}
-          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:24, textAlign:"center" }}>
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:24, textAlign:"center" }}>
             <div style={{ fontSize:32, marginBottom:8 }}>📅</div>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, color:COLORS.textMuted }}>Ingresa un N° de cotización para cargar o crear un nuevo Gantt</div>
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, color:C.textMuted }}>Ingresa un N° de cotización para cargar o crear un nuevo Gantt</div>
           </div>
         </div>
       )}
@@ -665,57 +665,57 @@ export function GanttView({ isMobile }) {
       {proyecto && (
         <>
           {/* ── ENCABEZADO EDITABLE ── */}
-          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"12px 16px", marginBottom:12, position:"relative" }}>
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"12px 16px", marginBottom:12, position:"relative" }}>
             {headerEdit ? (
               <div>
-                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>Editar encabezado</div>
+                <div style={{ fontFamily:FONT, fontSize:10, color:C.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>Editar encabezado</div>
                 <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr", gap:10, marginBottom:10 }}>
                   {[["Elaborado por","elaboradoPor"],["Cliente","cliente"],["Fecha emisión","fechaEmision"]].map(([lbl,key])=>(
                     <div key={key}>
-                      <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:3, textTransform:"uppercase" }}>{lbl}</div>
+                      <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginBottom:3, textTransform:"uppercase" }}>{lbl}</div>
                       <input type={key==="fechaEmision"?"date":"text"} value={headerData[key]}
                         onChange={e=>setHeaderData(p=>({...p,[key]:e.target.value}))}
-                        style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"6px 10px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+                        style={{ width:"100%", background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 10px", fontFamily:FONT, fontSize:12, color:C.text, outline:"none", boxSizing:"border-box" }} />
                     </div>
                   ))}
                 </div>
-                <button onClick={()=>setHeaderEdit(false)} style={{ padding:"5px 16px", background:COLORS.accent, border:"none", borderRadius:6, color:"#fff", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>✓ Listo</button>
+                <button onClick={()=>setHeaderEdit(false)} style={{ padding:"5px 16px", background:C.accent, border:"none", borderRadius:6, color:"#fff", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>✓ Listo</button>
               </div>
             ) : (
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:10 }}>
                 <div style={{ display:"flex", gap:12, alignItems:"center" }}>
                   <img src={LOGO_B64} alt="Polygonos" style={{ height:34 }} />
                   <div>
-                    <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.1em" }}>{EMPRESA_RUT}</div>
-                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text }}>Carta Gantt · COT-{proyecto.cotNum}</div>
+                    <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.1em" }}>{EMPRESA_RUT}</div>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:C.text }}>Carta Gantt · COT-{proyecto.cotNum}</div>
                   </div>
                 </div>
                 <div style={{ display:"flex", gap:20, alignItems:"center", flexWrap:"wrap" }}>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
-                    {headerData.cliente && <span>Cliente: <b style={{color:COLORS.text}}>{headerData.cliente}</b> · </span>}
-                    Elaborado por: <b style={{color:COLORS.text}}>{headerData.elaboradoPor}</b>
-                    {headerData.fechaEmision && <span> · <b style={{color:COLORS.text}}>{new Date(headerData.fechaEmision+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}</b></span>}
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>
+                    {headerData.cliente && <span>Cliente: <b style={{color:C.text}}>{headerData.cliente}</b> · </span>}
+                    Elaborado por: <b style={{color:C.text}}>{headerData.elaboradoPor}</b>
+                    {headerData.fechaEmision && <span> · <b style={{color:C.text}}>{new Date(headerData.fechaEmision+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}</b></span>}
                   </div>
                   {(() => {
                     const prom = avanceTotal;
                     return (
                       <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                        <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Avance: <b style={{color:COLORS.accent}}>{prom}%</b></span>
-                        <div style={{ width:80, height:5, background:COLORS.border, borderRadius:3 }}>
-                          <div style={{ width:`${prom}%`, height:5, background:prom===100?COLORS.green:COLORS.accent, borderRadius:3 }} />
+                        <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>Avance: <b style={{color:C.accent}}>{prom}%</b></span>
+                        <div style={{ width:80, height:5, background:C.border, borderRadius:3 }}>
+                          <div style={{ width:`${prom}%`, height:5, background:prom===100?C.green:C.accent, borderRadius:3 }} />
                         </div>
                       </div>
                     );
                   })()}
                 </div>
-                <button onClick={()=>setHeaderEdit(true)} style={{ padding:"4px 10px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>✏️ Editar</button>
+                <button onClick={()=>setHeaderEdit(true)} style={{ padding:"4px 10px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, color:C.textMuted, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>✏️ Editar</button>
               </div>
             )}
           </div>
 
           {/* Controles de vista */}
           <div style={{ display:"flex", gap:10, marginBottom:12, alignItems:"center", flexWrap:"wrap" }}>
-            <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Inicio calendario:</span>
+            <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>Inicio calendario:</span>
             <CalendarPicker value={calStart} onChange={v=>{
               // Cambiar el inicio del proyecto corre todo en días hábiles.
               const delta = habilesEntre(calStart, v);
@@ -724,34 +724,34 @@ export function GanttView({ isMobile }) {
               setViewStart(v);
               setMonthMode(false);
             }} />
-            <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Vista:</span>
+            <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>Vista:</span>
             {[{d:5,l:"5d"},{d:7,l:"7d"},{d:15,l:"15d"},{d:30,l:"30d"},{d:60,l:"60d"}].map(({d,l})=>(
               <button key={d} onClick={()=>{ setMonthMode(false); setCalDays(d); }}
-                style={{ padding:"3px 10px", background: (!monthMode&&calDays===d)?COLORS.accent:"transparent", border:`1px solid ${(!monthMode&&calDays===d)?COLORS.accent:COLORS.border}`, borderRadius:5, color: (!monthMode&&calDays===d)?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>{l}</button>
+                style={{ padding:"3px 10px", background: (!monthMode&&calDays===d)?C.accent:"transparent", border:`1px solid ${(!monthMode&&calDays===d)?C.accent:C.border}`, borderRadius:5, color: (!monthMode&&calDays===d)?C.bg:C.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>{l}</button>
             ))}
             <button onClick={()=>setMonthView(viewStart)}
-              style={{ padding:"3px 10px", background: monthMode?COLORS.accent:"transparent", border:`1px solid ${monthMode?COLORS.accent:COLORS.border}`, borderRadius:5, color: monthMode?COLORS.bg:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+              style={{ padding:"3px 10px", background: monthMode?C.accent:"transparent", border:`1px solid ${monthMode?C.accent:C.border}`, borderRadius:5, color: monthMode?C.bg:C.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
               Mes
             </button>
             {monthMode && (
               <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-                <button onClick={()=>shiftMonthView(-1)} title="Mes anterior" style={{ background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.textMuted, cursor:"pointer", padding:"3px 8px", fontSize:11 }}>◀</button>
-                <span style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:COLORS.text, textTransform:"capitalize", minWidth:110, textAlign:"center" }}>
+                <button onClick={()=>shiftMonthView(-1)} title="Mes anterior" style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:5, color:C.textMuted, cursor:"pointer", padding:"3px 8px", fontSize:11 }}>◀</button>
+                <span style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:C.text, textTransform:"capitalize", minWidth:110, textAlign:"center" }}>
                   {new Date(viewStart+"T00:00").toLocaleDateString("es-CL",{month:"long",year:"numeric"})}
                 </span>
-                <button onClick={()=>shiftMonthView(1)} title="Mes siguiente" style={{ background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.textMuted, cursor:"pointer", padding:"3px 8px", fontSize:11 }}>▶</button>
+                <button onClick={()=>shiftMonthView(1)} title="Mes siguiente" style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:5, color:C.textMuted, cursor:"pointer", padding:"3px 8px", fontSize:11 }}>▶</button>
               </div>
             )}
             {/* Navegación: ir a hoy / al inicio del proyecto, y contraer/expandir todas las fases */}
             {(() => {
-              const btn = { padding:"3px 10px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" };
+              const btn = { padding:"3px 10px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:5, color:C.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" };
               const inicios = vista.map(t=>t.inicio).filter(Boolean);
               const fasesConHijos = vista.filter(t=>t.tipo==="F" && (ganttMeta.phaseChildren[t.id]||[]).length).map(t=>t.id);
               const todoContraido = fasesConHijos.length > 0 && fasesConHijos.every(id=>collapsedPhases.has(id));
               return (<>
                 <button onClick={()=>cambiarCadena(!cadena)}
                   title={cadena ? "Activado: si una actividad termina más tarde, lo que viene después y lo que depende de ella (columna Dep.) se corre" : "Desactivado: cada actividad se mueve sola (las flechas de Dep. se ponen rojas si una sucesora queda antes de tiempo)"}
-                  style={{ ...btn, color: cadena ? COLORS.accent : COLORS.textMuted, borderColor: cadena ? `${COLORS.accent}66` : COLORS.border, background: cadena ? `${COLORS.accent}14` : "transparent" }}>
+                  style={{ ...btn, color: cadena ? C.accent : C.textMuted, borderColor: cadena ? `${C.accent}66` : C.border, background: cadena ? `${C.accent}14` : "transparent" }}>
                   ⛓ Empuje en cadena: {cadena ? "Sí" : "No"}
                 </button>
                 <button title="Mover la vista a la fecha de hoy" style={btn}
@@ -769,7 +769,7 @@ export function GanttView({ isMobile }) {
                 {vista.some(t=>t.tipo==="F") && (
                   <select value={faseScopeId||""} onChange={e=>setFaseScopeId(e.target.value||null)}
                     title="Ver y exportar solo una fase del proyecto"
-                    style={{ ...btn, color: faseScopeId?COLORS.accent:COLORS.textMuted, borderColor: faseScopeId?`${COLORS.accent}66`:COLORS.border, cursor:"pointer" }}>
+                    style={{ ...btn, color: faseScopeId?C.accent:C.textMuted, borderColor: faseScopeId?`${C.accent}66`:C.border, cursor:"pointer" }}>
                     <option value="">Ver: Todo el proyecto</option>
                     {vista.filter(t=>t.tipo==="F").map(f=>(
                       <option key={f.id} value={f.id}>Ver: {f.nombre}</option>
@@ -842,39 +842,39 @@ export function GanttView({ isMobile }) {
                 const blob = await pdf(<GanttDoc proyecto={proyecto} headerData={headerData} tasks={vistaPdf} monthPages={monthPages} numbersById={ganttMeta.numbers} phasePresupById={phasePresupById} totales={totales} logoDataUri={logoDataUri} />).toBlob();
                 const url = URL.createObjectURL(blob);
                 setPdfPreviewUrl(url);
-              }} style={{ padding:"4px 14px", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, borderRadius:5, color:COLORS.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>🖨 PDF</button>
+              }} style={{ padding:"4px 14px", background:`${C.green}22`, border:`1px solid ${C.green}44`, borderRadius:5, color:C.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>🖨 PDF</button>
             </div>
           </div>
 
           {/* TABLA GANTT */}
-          <div style={{ overflowX:"auto", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10 }}>
+          <div style={{ overflowX:"auto", background:C.card, border:`1px solid ${C.border}`, borderRadius:10 }}>
             <table style={{ borderCollapse:"collapse", fontSize:11, fontFamily:FONT }}>
               <thead>
                 {/* Fila meses */}
-                <tr style={{ background:COLORS.surface }}>
+                <tr style={{ background:C.surface }}>
                   {/* Columnas fijas */}
                   {[["#",28],["Tipo",44],["Descripción",180],["Rol",50],["Responsable",90],["Inicio",88],["Fin",88],["Plan%",52],["Av.%",52],["HH Pres.",62],["HH Real",62],["HH 3ros",62],["Dep.",48],["",52]].map(([h,w],i)=>(
-                    <th key={h} style={{ padding:"6px 4px", color:COLORS.textMuted, whiteSpace:"nowrap", minWidth:w, maxWidth:w, borderRight:`1px solid ${COLORS.border}`, textAlign:"center", letterSpacing:"0.06em", fontSize:9, ...fija(i, COLORS.surface, 6) }}>{h}</th>
+                    <th key={h} style={{ padding:"6px 4px", color:C.textMuted, whiteSpace:"nowrap", minWidth:w, maxWidth:w, borderRight:`1px solid ${C.border}`, textAlign:"center", letterSpacing:"0.06em", fontSize:9, ...fija(i, C.surface, 6) }}>{h}</th>
                   ))}
                   {/* Meses */}
                   {months.map((m,i)=>(
-                    <th key={i} colSpan={m.count} style={{ padding:"6px 4px", color:COLORS.accent, borderRight:`1px solid ${COLORS.border}`, textAlign:"center", fontFamily:FONT_DISPLAY, fontSize:10, textTransform:"uppercase", letterSpacing:"0.08em", whiteSpace:"nowrap", minWidth:m.count*cellW }}>
+                    <th key={i} colSpan={m.count} style={{ padding:"6px 4px", color:C.accent, borderRight:`1px solid ${C.border}`, textAlign:"center", fontFamily:FONT_DISPLAY, fontSize:10, textTransform:"uppercase", letterSpacing:"0.08em", whiteSpace:"nowrap", minWidth:m.count*cellW }}>
                       {m.name}
                     </th>
                   ))}
                 </tr>
                 {/* Fila días */}
-                <tr style={{ background:COLORS.bg }}>
+                <tr style={{ background:C.bg }}>
                   {/* Columnas fijas vacías */}
                   {Array(14).fill(0).map((_,i)=>(
-                    <th key={i} style={{ borderRight:`1px solid ${COLORS.border}`, borderBottom:`1px solid ${COLORS.border}`, ...fija(i, COLORS.bg, 6) }} />
+                    <th key={i} style={{ borderRight:`1px solid ${C.border}`, borderBottom:`1px solid ${C.border}`, ...fija(i, C.bg, 6) }} />
                   ))}
                   {/* Días */}
                   {calCols.map((c,i)=>(
                     <th key={i} style={{ width:cellW, minWidth:cellW, maxWidth:cellW, padding:"2px 0", textAlign:"center",
-                      background: c.date===today ? `${COLORS.accent}33` : c.isWeekend ? `${COLORS.border}44` : "transparent",
-                      borderRight:`1px solid ${COLORS.border}22`, borderBottom:`1px solid ${COLORS.border}`,
-                      color: c.date===today ? COLORS.accent : c.isWeekend ? COLORS.textMuted : COLORS.textMuted,
+                      background: c.date===today ? `${C.accent}33` : c.isWeekend ? `${C.border}44` : "transparent",
+                      borderRight:`1px solid ${C.border}22`, borderBottom:`1px solid ${C.border}`,
+                      color: c.date===today ? C.accent : c.isWeekend ? C.textMuted : C.textMuted,
                       fontSize:9, fontWeight: c.date===today?"700":"400" }}>
                       <div>{c.dow}</div>
                       <div>{c.day}</div>
@@ -900,7 +900,7 @@ export function GanttView({ isMobile }) {
 
                   const isDragOver = dragOverId===t.id && draggedId!==t.id;
                   // Fondo opaco para las columnas fijas (si no, las barras se verían por debajo al hacer scroll)
-                  const fondoFijo = isFase ? `linear-gradient(${rowBg}, ${rowBg}), ${COLORS.card}` : COLORS.card;
+                  const fondoFijo = isFase ? `linear-gradient(${rowBg}, ${rowBg}), ${C.card}` : C.card;
                   return (
                     <tr key={t.id}
                       draggable={!editing}
@@ -908,17 +908,17 @@ export function GanttView({ isMobile }) {
                       onDragOver={e=>{e.preventDefault();setDragOverId(t.id);}}
                       onDrop={e=>{e.preventDefault();reorderTask(draggedId,t.id);setDraggedId(null);setDragOverId(null);}}
                       onDragEnd={()=>{setDraggedId(null);setDragOverId(null);}}
-                      style={{ borderBottom:`1px solid ${COLORS.border}22`, background:rowBg,
+                      style={{ borderBottom:`1px solid ${C.border}22`, background:rowBg,
                         opacity: draggedId===t.id?0.4:1,
-                        borderTop: isDragOver?`2px solid ${COLORS.accent}`:"",
+                        borderTop: isDragOver?`2px solid ${C.accent}`:"",
                         cursor: "default" }}
                       className={isFase ? undefined : "tree-row-in"}
                       onClick={()=>setSelectedId(t.id)}
                       onDoubleClick={()=>setEditRow(editing?null:t.id)}>
                       {/* Nro */}
-                      <td style={{ padding:"4px 4px", textAlign:"center", color:COLORS.textMuted, fontSize:10, borderRight:`1px solid ${COLORS.border}`, ...fija(0, fondoFijo) }}>
+                      <td style={{ padding:"4px 4px", textAlign:"center", color:C.textMuted, fontSize:10, borderRight:`1px solid ${C.border}`, ...fija(0, fondoFijo) }}>
                         <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:1 }}>
-                          <button onClick={()=>moveTask(t.id,-1)} style={{ background:"none",border:"none",color:COLORS.textMuted,cursor:"pointer",fontSize:8,padding:0,lineHeight:1 }}>▲</button>
+                          <button onClick={()=>moveTask(t.id,-1)} style={{ background:"none",border:"none",color:C.textMuted,cursor:"pointer",fontSize:8,padding:0,lineHeight:1 }}>▲</button>
                           <div style={{ display:"flex", alignItems:"center", gap:3 }}>
                             {/* Handle de drag — única zona que activa el drag */}
                             <span
@@ -926,13 +926,13 @@ export function GanttView({ isMobile }) {
                               onMouseDown={()=>{ dragFromHandle.current=true; }}
                               onMouseUp={()=>{ dragFromHandle.current=false; }}
                               style={{ cursor:"grab", color:"#6b7280", fontSize:14, lineHeight:1, userSelect:"none", flexShrink:0, padding:"0 2px" }}>⠿</span>
-                            <span style={{ fontWeight:isFase?700:400, color:isFase?GANTT_COLORS.fase:COLORS.textMuted }}>{ganttMeta.numbers[t.id]||idx+1}</span>
+                            <span style={{ fontWeight:isFase?700:400, color:isFase?GANTT_COLORS.fase:C.textMuted }}>{ganttMeta.numbers[t.id]||idx+1}</span>
                           </div>
-                          <button onClick={()=>moveTask(t.id,1)} style={{ background:"none",border:"none",color:COLORS.textMuted,cursor:"pointer",fontSize:8,padding:0,lineHeight:1 }}>▼</button>
+                          <button onClick={()=>moveTask(t.id,1)} style={{ background:"none",border:"none",color:C.textMuted,cursor:"pointer",fontSize:8,padding:0,lineHeight:1 }}>▼</button>
                         </div>
                       </td>
                       {/* Tipo */}
-                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}`, ...fija(1, fondoFijo) }}>
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${C.border}`, ...fija(1, fondoFijo) }}>
                         {editing ? (
                           <select value={t.tipo} onChange={e=>updateTask(t.id,"tipo",e.target.value)} style={{...s,width:50,padding:"2px 3px"}}>
                             {Object.entries(TIPO_LABEL).map(([k,v])=><option key={k} value={k}>{v}</option>)}
@@ -946,14 +946,14 @@ export function GanttView({ isMobile }) {
                             </span>
                             <button onClick={e=>{ e.stopPropagation(); duplicateTask(t.id); }}
                               title="Duplicar fila"
-                              style={{ background:"none", border:`1px solid ${COLORS.border}`, borderRadius:3, color:COLORS.textMuted, cursor:"pointer", fontSize:8, padding:"0px 4px", lineHeight:"14px" }}>
+                              style={{ background:"none", border:`1px solid ${C.border}`, borderRadius:3, color:C.textMuted, cursor:"pointer", fontSize:8, padding:"0px 4px", lineHeight:"14px" }}>
                               ⧉
                             </button>
                           </div>
                         )}
                       </td>
                       {/* Descripción */}
-                      <td style={{ padding:"4px 6px", borderRight:`1px solid ${COLORS.border}`, ...fija(2, fondoFijo) }}>
+                      <td style={{ padding:"4px 6px", borderRight:`1px solid ${C.border}`, ...fija(2, fondoFijo) }}>
                         <TreeNodeCell
                           task={t} isFase={isFase} editing={editing}
                           selected={selectedId===t.id}
@@ -973,67 +973,67 @@ export function GanttView({ isMobile }) {
                         />
                       </td>
                       {/* Rol */}
-                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${C.border}` }}>
                         {editing ? (
                           <select value={t.rol} onChange={e=>updateTask(t.id,"rol",e.target.value)} style={{...s,width:50,padding:"2px 3px"}}>
                             {ROL_OPTS.map(r=><option key={r} value={r}>{r}</option>)}
                           </select>
-                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.accent }}>{t.rol}</span>}
+                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:C.accent }}>{t.rol}</span>}
                       </td>
                       {/* Responsable */}
-                      <td style={{ padding:"4px 4px", borderRight:`1px solid ${COLORS.border}` }}>
+                      <td style={{ padding:"4px 4px", borderRight:`1px solid ${C.border}` }}>
                         {editing ? (
                           <input value={t.responsable} onChange={e=>updateTask(t.id,"responsable",e.target.value)} style={{...s,width:84}} />
-                        ) : <span style={{ fontSize:10, color:COLORS.textMuted }}>{t.responsable}</span>}
+                        ) : <span style={{ fontSize:10, color:C.textMuted }}>{t.responsable}</span>}
                       </td>
                       {/* Inicio */}
-                      <td style={{ padding:"4px 4px", borderRight:`1px solid ${COLORS.border}` }}>
+                      <td style={{ padding:"4px 4px", borderRight:`1px solid ${C.border}` }}>
                         {editing ? (
                           <CalendarPicker value={t.inicio} onChange={v=>updateTask(t.id,"inicio",v)} />
-                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.text }}>{fmtShort(t.inicio)}</span>}
+                        ) : <span style={{ fontFamily:"monospace", fontSize:10, color:C.text }}>{fmtShort(t.inicio)}</span>}
                       </td>
                       {/* Fin */}
-                      <td style={{ padding:"4px 4px", borderRight:`1px solid ${COLORS.border}` }}>
+                      <td style={{ padding:"4px 4px", borderRight:`1px solid ${C.border}` }}>
                         {editing && !t.derivada ? (
                           <CalendarPicker value={t.fin} onChange={v=>updateTask(t.id,"fin",v)} />
-                        ) : <span title={t.derivada ? "Fin de la última actividad de la fase" : undefined} style={{ fontFamily:"monospace", fontSize:10, color:isLate?GANTT_COLORS.late:COLORS.text }}>{fmtShort(t.fin)}{isLate&&" ⚠"}</span>}
+                        ) : <span title={t.derivada ? "Fin de la última actividad de la fase" : undefined} style={{ fontFamily:"monospace", fontSize:10, color:isLate?GANTT_COLORS.late:C.text }}>{fmtShort(t.fin)}{isLate&&" ⚠"}</span>}
                       </td>
                       {/* Plan % */}
-                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${C.border}` }}>
                         {/* Calculado: lo que debería llevar a hoy según sus fechas */}
                         <span title="Avance que debería llevar hoy según sus fechas" style={{ fontFamily:"monospace", fontSize:10,
-                          color: !isHito && pct < t.pctPlan ? GANTT_COLORS.late : COLORS.textMuted }}>{t.pctPlan}%</span>
+                          color: !isHito && pct < t.pctPlan ? GANTT_COLORS.late : C.textMuted }}>{t.pctPlan}%</span>
                       </td>
                       {/* Avance % */}
-                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${C.border}` }}>
                         {editing && !t.derivada ? (
-                          <input type="number" value={t.pctAvance} onChange={e=>updateTask(t.id,"pctAvance",e.target.value)} style={{...s,width:44,color:COLORS.accent}} min={0} max={100} />
+                          <input type="number" value={t.pctAvance} onChange={e=>updateTask(t.id,"pctAvance",e.target.value)} style={{...s,width:44,color:C.accent}} min={0} max={100} />
                         ) : (
                           <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
-                            <span style={{ fontFamily:"monospace", fontSize:10, color: pct===100?GANTT_COLORS.done:isLate?GANTT_COLORS.late:COLORS.accent, fontWeight:700 }}>{pct}%</span>
-                            <div style={{ width:40, height:3, background:COLORS.border, borderRadius:2 }}>
-                              <div style={{ width:`${pct}%`, height:"100%", background: pct===100?GANTT_COLORS.done:isLate?GANTT_COLORS.late:COLORS.accent, borderRadius:2 }} />
+                            <span style={{ fontFamily:"monospace", fontSize:10, color: pct===100?GANTT_COLORS.done:isLate?GANTT_COLORS.late:C.accent, fontWeight:700 }}>{pct}%</span>
+                            <div style={{ width:40, height:3, background:C.border, borderRadius:2 }}>
+                              <div style={{ width:`${pct}%`, height:"100%", background: pct===100?GANTT_COLORS.done:isLate?GANTT_COLORS.late:C.accent, borderRadius:2 }} />
                             </div>
                           </div>
                         )}
                       </td>
                       {/* HH Pres. — en Fase: presupuesto editable; en otros: HH propias */}
-                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${C.border}` }}>
                         {isFase ? (
                           editing ? (
                             <input type="number" value={t.hhPresup} onChange={e=>updateTask(t.id,"hhPresup",e.target.value)} style={{...s,width:54}} placeholder="Presup." />
                           ) : (
                             <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
-                              <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.textMuted }}>{t.hhPresup>0?`${t.hhPresup}HH`:"-"}</span>
+                              <span style={{ fontFamily:"monospace", fontSize:10, color:C.textMuted }}>{t.hhPresup>0?`${t.hhPresup}HH`:"-"}</span>
                               {t.hhPresup>0 && (() => {
                                 const used = ganttMeta.phaseHH[t.id]?.real||0;
                                 const pctHH = Math.min(100, Math.round((used/t.hhPresup)*100));
                                 const over = used > t.hhPresup;
                                 return (<>
-                                  <div style={{ width:44, height:3, background:COLORS.border, borderRadius:2 }}>
+                                  <div style={{ width:44, height:3, background:C.border, borderRadius:2 }}>
                                     <div style={{ width:`${pctHH}%`, height:"100%", borderRadius:2, background:over?GANTT_COLORS.late:GANTT_COLORS.done }} />
                                   </div>
-                                  <span style={{ fontSize:8, color:over?GANTT_COLORS.late:COLORS.textMuted }}>{used}/{t.hhPresup}</span>
+                                  <span style={{ fontSize:8, color:over?GANTT_COLORS.late:C.textMuted }}>{used}/{t.hhPresup}</span>
                                 </>);
                               })()}
                             </div>
@@ -1041,11 +1041,11 @@ export function GanttView({ isMobile }) {
                         ) : (
                           editing ? (
                             <input type="number" value={t.hhPresup} onChange={e=>updateTask(t.id,"hhPresup",e.target.value)} style={{...s,width:54}} />
-                          ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.textMuted }}>{t.hhPresup>0?t.hhPresup:"-"}</span>
+                          ) : <span style={{ fontFamily:"monospace", fontSize:10, color:C.textMuted }}>{t.hhPresup>0?t.hhPresup:"-"}</span>
                         )}
                       </td>
                       {/* HH Real — en Fase: auto-suma de tareas hijas; en otros: HH propias */}
-                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${C.border}` }}>
                         {isFase ? (() => {
                           const phaseReal = ganttMeta.phaseHH[t.id]?.real||0;
                           const over = t.hhPresup>0 && phaseReal>t.hhPresup;
@@ -1057,17 +1057,17 @@ export function GanttView({ isMobile }) {
                         )}
                       </td>
                       {/* HH 3ros — en Fase: auto-suma; en otros: editable */}
-                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${C.border}` }}>
                         {isFase ? (
-                          <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.purple }}>{(ganttMeta.phaseHH[t.id]?.terceros||0)>0?(ganttMeta.phaseHH[t.id]?.terceros):"-"}</span>
+                          <span style={{ fontFamily:"monospace", fontSize:10, color:C.purple }}>{(ganttMeta.phaseHH[t.id]?.terceros||0)>0?(ganttMeta.phaseHH[t.id]?.terceros):"-"}</span>
                         ) : (
                           editing ? (
-                            <input type="number" value={t.hhTerceros} onChange={e=>updateTask(t.id,"hhTerceros",e.target.value)} style={{...s,width:54,color:COLORS.purple}} />
-                          ) : <span style={{ fontFamily:"monospace", fontSize:10, color:COLORS.purple }}>{t.hhTerceros>0?t.hhTerceros:"-"}</span>
+                            <input type="number" value={t.hhTerceros} onChange={e=>updateTask(t.id,"hhTerceros",e.target.value)} style={{...s,width:54,color:C.purple}} />
+                          ) : <span style={{ fontFamily:"monospace", fontSize:10, color:C.purple }}>{t.hhTerceros>0?t.hhTerceros:"-"}</span>
                         )}
                       </td>
                       {/* Dependencia */}
-                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${C.border}` }}>
                         {editing ? (
                           <select value={t.depende||""} onChange={e=>updateTask(t.id,"depende",e.target.value)} style={{...s,width:72,padding:"2px 3px"}}>
                             <option value="">N/A</option>
@@ -1078,27 +1078,27 @@ export function GanttView({ isMobile }) {
                             })}
                           </select>
                         ) : (
-                          <span style={{ fontFamily:"monospace", fontSize:10, color:t.depende?COLORS.accent:COLORS.textMuted }}>
+                          <span style={{ fontFamily:"monospace", fontSize:10, color:t.depende?C.accent:C.textMuted }}>
                             {(t.depende && ganttMeta.numbers[t.depende]) || "N/A"}
                           </span>
                         )}
                       </td>
                       {/* Acciones */}
-                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${COLORS.border}` }}>
+                      <td style={{ padding:"4px 4px", textAlign:"center", borderRight:`1px solid ${C.border}` }}>
                         <div style={{ display:"flex", gap:2, justifyContent:"center" }}>
                           <button onClick={()=>setEditRow(editing?null:t.id)}
-                            style={{ background:editing?COLORS.accent:"none", border:`1px solid ${editing?COLORS.accent:COLORS.border}`, borderRadius:3, color:editing?COLORS.bg:COLORS.textMuted, cursor:"pointer", fontSize:9, padding:"1px 5px" }}>
+                            style={{ background:editing?C.accent:"none", border:`1px solid ${editing?C.accent:C.border}`, borderRadius:3, color:editing?C.bg:C.textMuted, cursor:"pointer", fontSize:9, padding:"1px 5px" }}>
                             {editing?"✓":"✏"}
                           </button>
                           <button onClick={()=>deleteTask(t.id)}
-                            style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:12, padding:"0 2px" }}>×</button>
+                            style={{ background:"none", border:"none", color:C.red, cursor:"pointer", fontSize:12, padding:"0 2px" }}>×</button>
                         </div>
                       </td>
                       {/* Barras Gantt */}
                       {calCols.map((c,ci)=>(
                         <td key={ci} style={{ width:cellW, minWidth:cellW, maxWidth:cellW, padding:0, position:"relative", height:32,
-                          background: c.date===today?`${COLORS.accent}18`:c.isWeekend?`${COLORS.border}22`:"transparent",
-                          borderRight:`1px solid ${COLORS.border}11` }}>
+                          background: c.date===today?`${C.accent}18`:c.isWeekend?`${C.border}22`:"transparent",
+                          borderRight:`1px solid ${C.border}11` }}>
                           {ci===0 && t.depende && filaVisible[t.depende] !== undefined && (
                             <FlechaDependencia pred={vistaPorId[t.depende]} tarea={t} dy={(filaVisible[t.depende]-idxVisible)*32}
                               calStart={viewStart} calDays={calDays} cellW={cellW} incumple={incumpleDependencia(t, vistaPorId[t.depende])} />
@@ -1107,7 +1107,7 @@ export function GanttView({ isMobile }) {
                             colapsable={isFase && (ganttMeta.phaseChildren[t.id]||[]).length ? { collapsed: isCollapsed, onToggle: ()=>toggleCollapse(t.id) } : null}
                             resumen={isCollapsed ? (ganttMeta.phaseChildren[t.id]||[]).map(id=>vistaPorId[id]).filter(Boolean) : null}
                             onArrastrar={(modo, dias)=>arrastrarBarra(t, modo, dias)} soloMover={!!t.derivada} />}
-                          {c.date===today && <div title="Hoy" style={{ position:"absolute", left:cellW/2 - 1, top:0, bottom:0, width:2, background:`${COLORS.accent}88`, zIndex:3, pointerEvents:"none" }} />}
+                          {c.date===today && <div title="Hoy" style={{ position:"absolute", left:cellW/2 - 1, top:0, bottom:0, width:2, background:`${C.accent}88`, zIndex:3, pointerEvents:"none" }} />}
                         </td>
                       ))}
                     </tr>
@@ -1123,18 +1123,18 @@ export function GanttView({ isMobile }) {
               { label:"Total Tareas", val: tasks.filter(t=>t.tipo==="T").length, color:GANTT_COLORS.tarea },
               { label:"Completadas", val: tasks.filter(t=>t.tipo==="T"&&Number(t.pctAvance)===100).length, color:GANTT_COLORS.done },
               { label:"Atrasadas", val: vista.filter(t=>atrasada(t, today)).length, color:GANTT_COLORS.late },
-              { label:"HH Presup.", val: tasks.reduce((s,t)=>s+Number(t.hhPresup),0), color:COLORS.textMuted, suffix:"HH" },
+              { label:"HH Presup.", val: tasks.reduce((s,t)=>s+Number(t.hhPresup),0), color:C.textMuted, suffix:"HH" },
               { label:"HH Real", val: tasks.reduce((s,t)=>s+Number(t.hhReal),0), color:"#39ff14", suffix:"HH" },
-              { label:"HH 3ros", val: tasks.reduce((s,t)=>s+Number(t.hhTerceros||0),0), color:COLORS.purple, suffix:"HH" },
-              { label:"Avance", val: avanceTotal, color:COLORS.accent, suffix:"%" },
+              { label:"HH 3ros", val: tasks.reduce((s,t)=>s+Number(t.hhTerceros||0),0), color:C.purple, suffix:"HH" },
+              { label:"Avance", val: avanceTotal, color:C.accent, suffix:"%" },
             ].map(k=>(
-              <div key={k.label} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 16px", flex:1, minWidth:100 }}>
-                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:4 }}>{k.label}</div>
+              <div key={k.label} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 16px", flex:1, minWidth:100 }}>
+                <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:4 }}>{k.label}</div>
                 <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:k.color }}>{k.val}{k.suffix||""}</div>
               </div>
             ))}
           </div>
-          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:8 }}>
+          <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginTop:8 }}>
             💡 Doble clic en una fila para editar · Arrastra una barra para moverla o estira sus bordes para cambiar la duración (con "Empuje en cadena", lo que viene después y lo que depende de ella se corre) · Columna Dep.: la actividad empieza después de que termine su predecesora, con flecha en el calendario · Enter en el campo cotización para cargar
           </div>
         </>

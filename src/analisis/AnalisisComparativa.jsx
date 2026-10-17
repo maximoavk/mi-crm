@@ -1,6 +1,6 @@
 // Vista comparativa (ficha técnica) de un análisis de precios.
 import { fmt } from "../shared/format.js";
-import { FONT, COLORS, FONT_DISPLAY } from "../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
 import { EMPRESA, EMPRESA_RUT } from "../shared/empresa.js";
 
 // ── Comparativa visual (segunda hoja / vista de ficha técnica) ────────────────
@@ -112,42 +112,42 @@ export function AnalisisComparativa({ analysis, onBack, onEdit }) {
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20, flexWrap:"wrap", gap:10 }}>
         <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-          <button onClick={onBack} style={{ padding:"6px 12px", borderRadius:7, fontFamily:FONT, fontSize:12, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.border}`, color:COLORS.textMuted }}>← Volver</button>
+          <button onClick={onBack} style={{ padding:"6px 12px", borderRadius:7, fontFamily:FONT, fontSize:12, cursor:"pointer", background:"transparent", border:`1px solid ${C.border}`, color:C.textMuted }}>← Volver</button>
           <div>
-            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.1em" }}>Comparativa</div>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text }}>{analysis.titulo}</div>
-            {analysis.descripcion && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{analysis.descripcion}</div>}
+            <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.1em" }}>Comparativa</div>
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:C.text }}>{analysis.titulo}</div>
+            {analysis.descripcion && <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>{analysis.descripcion}</div>}
           </div>
         </div>
         <div style={{ display:"flex", gap:8 }}>
-          <button onClick={onEdit} style={{ padding:"7px 16px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${COLORS.accent}22`, border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>✏️ Editar</button>
-          <button onClick={printComparativa} style={{ padding:"7px 16px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:COLORS.accent, border:"none", color:"#fff" }}>🖨 PDF Comparativa</button>
+          <button onClick={onEdit} style={{ padding:"7px 16px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${C.accent}22`, border:`1px solid ${C.accent}44`, color:C.accent }}>✏️ Editar</button>
+          <button onClick={printComparativa} style={{ padding:"7px 16px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:C.accent, border:"none", color:"#fff" }}>🖨 PDF Comparativa</button>
         </div>
       </div>
 
       {items.length < 2 ? (
-        <div style={{ textAlign:"center", padding:40, fontFamily:FONT, color:COLORS.textMuted, background:COLORS.card, borderRadius:12, border:`1px solid ${COLORS.border}` }}>
+        <div style={{ textAlign:"center", padding:40, fontFamily:FONT, color:C.textMuted, background:C.card, borderRadius:12, border:`1px solid ${C.border}` }}>
           Agrega al menos 2 productos para ver la comparativa.
         </div>
       ) : (
         <>
           {/* Gráfico de barras de precios */}
-          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:"18px 22px", marginBottom:16 }}>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text, marginBottom:14, borderBottom:`2px solid ${COLORS.border}`, paddingBottom:8 }}>
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"18px 22px", marginBottom:16 }}>
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:C.text, marginBottom:14, borderBottom:`2px solid ${C.border}`, paddingBottom:8 }}>
               📊 Comparativa de precios (neto)
             </div>
             {items.map((it,i)=>{
               const pct = Math.round((Number(it.precio_venta||0))/maxPrice*100);
-              const c = it.recomendado?COLORS.green:COLORS.secondary;
+              const c = it.recomendado?C.green:C.secondary;
               return (
                 <div key={i} style={{ marginBottom:12 }}>
                   <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                    <span style={{ fontFamily:FONT, fontSize:12, color:it.recomendado?COLORS.green:COLORS.text }}>
-                      {it.recomendado?"⭐ ":""}{it.nombre} <span style={{ color:COLORS.textMuted, fontSize:10 }}>{it.codigo}</span>
+                    <span style={{ fontFamily:FONT, fontSize:12, color:it.recomendado?C.green:C.text }}>
+                      {it.recomendado?"⭐ ":""}{it.nombre} <span style={{ color:C.textMuted, fontSize:10 }}>{it.codigo}</span>
                     </span>
-                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:c }}>{fmt(it.precio_venta)} <span style={{ color:COLORS.textMuted, fontSize:10, fontWeight:400 }}>neto</span></span>
+                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:c }}>{fmt(it.precio_venta)} <span style={{ color:C.textMuted, fontSize:10, fontWeight:400 }}>neto</span></span>
                   </div>
-                  <div style={{ height:20, background:COLORS.bg, borderRadius:6, overflow:"hidden", border:`1px solid ${COLORS.border}` }}>
+                  <div style={{ height:20, background:C.bg, borderRadius:6, overflow:"hidden", border:`1px solid ${C.border}` }}>
                     <div style={{ height:"100%", width:`${pct}%`, background:c, borderRadius:6, transition:"width 0.4s", display:"flex", alignItems:"center", paddingLeft:8 }}>
                       {pct>15 && <span style={{ fontFamily:FONT, fontSize:10, color:"#fff", fontWeight:700 }}>{fmt(Math.round(it.precio_venta*1.19))} c/IVA</span>}
                     </div>
@@ -158,25 +158,25 @@ export function AnalisisComparativa({ analysis, onBack, onEdit }) {
           </div>
 
           {/* Tabla comparativa */}
-          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, overflow:"hidden", marginBottom:16 }}>
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, overflow:"hidden", marginBottom:16 }}>
             <div style={{ overflowX:"auto" }}>
               <table style={{ width:"100%", borderCollapse:"collapse" }}>
                 <thead>
-                  <tr style={{ background:COLORS.bg }}>
-                    <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", padding:"10px 14px", textAlign:"left", width:150, borderBottom:`2px solid ${COLORS.border}` }}>Característica</th>
+                  <tr style={{ background:C.bg }}>
+                    <th style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", padding:"10px 14px", textAlign:"left", width:150, borderBottom:`2px solid ${C.border}` }}>Característica</th>
                     {items.map((it,i)=>(
-                      <th key={i} style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, padding:"10px 14px", textAlign:"center", borderBottom:`2px solid ${it.recomendado?COLORS.green:COLORS.border}`, color:it.recomendado?COLORS.green:COLORS.text, background:it.recomendado?`${COLORS.green}08`:"transparent", minWidth:160 }}>
-                        {it.recomendado && <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.green, marginBottom:2 }}>⭐ RECOMENDADO</div>}
+                      <th key={i} style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, padding:"10px 14px", textAlign:"center", borderBottom:`2px solid ${it.recomendado?C.green:C.border}`, color:it.recomendado?C.green:C.text, background:it.recomendado?`${C.green}08`:"transparent", minWidth:160 }}>
+                        {it.recomendado && <div style={{ fontFamily:FONT, fontSize:9, color:C.green, marginBottom:2 }}>⭐ RECOMENDADO</div>}
                         {it.nombre}
-                        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, fontWeight:400 }}>{it.codigo}</div>
+                        <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, fontWeight:400 }}>{it.codigo}</div>
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {/* Precio */}
-                  <tr style={{ background:`${COLORS.accent}08` }}>
-                    <td style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"6px 14px", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.05em", borderBottom:`1px solid ${COLORS.border}` }} colSpan={items.length+1}>Precios</td>
+                  <tr style={{ background:`${C.accent}08` }}>
+                    <td style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, padding:"6px 14px", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.05em", borderBottom:`1px solid ${C.border}` }} colSpan={items.length+1}>Precios</td>
                   </tr>
                   {[
                     ["Proveedor", it=>it.proveedor||"—", false],
@@ -185,56 +185,56 @@ export function AnalisisComparativa({ analysis, onBack, onEdit }) {
                     ["Precio c/IVA", it=>fmt(Math.round(it.precio_venta*1.19)), true],
                     ["Margen", it=>it.precio_costo>0?`${Math.round((it.precio_venta-it.precio_costo)/it.precio_venta*100)}%`:"—", false],
                   ].map(([label,fn,isHighlight],ri)=>(
-                    <tr key={ri} style={{ background:ri%2===0?COLORS.bg:"transparent" }}>
-                      <td style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}` }}>{label}</td>
+                    <tr key={ri} style={{ background:ri%2===0?C.bg:"transparent" }}>
+                      <td style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, padding:"7px 14px", borderBottom:`1px solid ${C.border}` }}>{label}</td>
                       {items.map((it,i)=>(
-                        <td key={i} style={{ fontFamily:isHighlight?FONT_DISPLAY:FONT, fontSize:isHighlight?14:12, fontWeight:isHighlight?700:400, color:isHighlight?COLORS.green:COLORS.text, textAlign:"center", padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}`, background:it.recomendado?`${COLORS.green}06`:"transparent" }}>
+                        <td key={i} style={{ fontFamily:isHighlight?FONT_DISPLAY:FONT, fontSize:isHighlight?14:12, fontWeight:isHighlight?700:400, color:isHighlight?C.green:C.text, textAlign:"center", padding:"7px 14px", borderBottom:`1px solid ${C.border}`, background:it.recomendado?`${C.green}06`:"transparent" }}>
                           {fn(it)}
                         </td>
                       ))}
                     </tr>
                   ))}
                   {/* Ficha técnica links row */}
-                  <tr style={{ background:COLORS.bg }}>
-                    <td style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}` }}>🔗 Ficha técnica</td>
+                  <tr style={{ background:C.bg }}>
+                    <td style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, padding:"7px 14px", borderBottom:`1px solid ${C.border}` }}>🔗 Ficha técnica</td>
                     {items.map((it,i)=>(
-                      <td key={i} style={{ textAlign:"center", padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}`, background:it.recomendado?`${COLORS.green}06`:"transparent" }}>
+                      <td key={i} style={{ textAlign:"center", padding:"7px 14px", borderBottom:`1px solid ${C.border}`, background:it.recomendado?`${C.green}06`:"transparent" }}>
                         {it.ficha_tecnica_url
-                          ? <a href={it.ficha_tecnica_url} target="_blank" rel="noreferrer" style={{ fontFamily:FONT, fontSize:11, color:COLORS.secondary, textDecoration:"none" }}>↗ Ver ficha</a>
-                          : <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textDim }}>—</span>}
+                          ? <a href={it.ficha_tecnica_url} target="_blank" rel="noreferrer" style={{ fontFamily:FONT, fontSize:11, color:C.secondary, textDecoration:"none" }}>↗ Ver ficha</a>
+                          : <span style={{ fontFamily:FONT, fontSize:11, color:C.textDim }}>—</span>}
                       </td>
                     ))}
                   </tr>
 
                   {/* Specs */}
                   {allSpecs.length > 0 && <>
-                    <tr style={{ background:`${COLORS.secondary}08` }}>
-                      <td style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"6px 14px", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.05em", borderBottom:`1px solid ${COLORS.border}` }} colSpan={items.length+1}>Especificaciones técnicas</td>
+                    <tr style={{ background:`${C.secondary}08` }}>
+                      <td style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, padding:"6px 14px", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.05em", borderBottom:`1px solid ${C.border}` }} colSpan={items.length+1}>Especificaciones técnicas</td>
                     </tr>
                     {allSpecs.map((k,ri)=>(
-                      <tr key={k} style={{ background:ri%2===0?COLORS.bg:"transparent" }}>
-                        <td style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}` }}>{k}</td>
+                      <tr key={k} style={{ background:ri%2===0?C.bg:"transparent" }}>
+                        <td style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, padding:"7px 14px", borderBottom:`1px solid ${C.border}` }}>{k}</td>
                         {items.map((it,i)=>{
                           const val = it.specs?.[k];
-                          return <td key={i} style={{ fontFamily:FONT, fontSize:12, color:val?COLORS.text:COLORS.textDim, textAlign:"center", padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}`, background:it.recomendado?`${COLORS.green}06`:"transparent" }}>{val||"—"}</td>;
+                          return <td key={i} style={{ fontFamily:FONT, fontSize:12, color:val?C.text:C.textDim, textAlign:"center", padding:"7px 14px", borderBottom:`1px solid ${C.border}`, background:it.recomendado?`${C.green}06`:"transparent" }}>{val||"—"}</td>;
                         })}
                       </tr>
                     ))}
                   </>}
 
                   {/* Ventajas / Desventajas */}
-                  <tr style={{ background:`${COLORS.green}08` }}>
-                    <td style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"6px 14px", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.05em", borderBottom:`1px solid ${COLORS.border}` }} colSpan={items.length+1}>Análisis cualitativo</td>
+                  <tr style={{ background:`${C.green}08` }}>
+                    <td style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, padding:"6px 14px", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.05em", borderBottom:`1px solid ${C.border}` }} colSpan={items.length+1}>Análisis cualitativo</td>
                   </tr>
-                  {[["✓ Ventajas","ventajas",COLORS.green],["✗ Desventajas","desventajas",COLORS.red]].map(([label,field,c])=>(
+                  {[["✓ Ventajas","ventajas",C.green],["✗ Desventajas","desventajas",C.red]].map(([label,field,c])=>(
                     <tr key={label}>
-                      <td style={{ fontFamily:FONT, fontSize:11, color:c, padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}`, verticalAlign:"top", fontWeight:600 }}>{label}</td>
+                      <td style={{ fontFamily:FONT, fontSize:11, color:c, padding:"7px 14px", borderBottom:`1px solid ${C.border}`, verticalAlign:"top", fontWeight:600 }}>{label}</td>
                       {items.map((it,i)=>(
-                        <td key={i} style={{ fontFamily:FONT, fontSize:11, color:COLORS.text, padding:"7px 14px", borderBottom:`1px solid ${COLORS.border}`, verticalAlign:"top", background:it.recomendado?`${COLORS.green}06`:"transparent" }}>
+                        <td key={i} style={{ fontFamily:FONT, fontSize:11, color:C.text, padding:"7px 14px", borderBottom:`1px solid ${C.border}`, verticalAlign:"top", background:it.recomendado?`${C.green}06`:"transparent" }}>
                           {(it[field]||"").split("\n").filter(Boolean).map((v,vi)=>(
                             <div key={vi} style={{ color:c, marginBottom:2 }}>• {v}</div>
                           ))}
-                          {!it[field] && <span style={{ color:COLORS.textDim }}>—</span>}
+                          {!it[field] && <span style={{ color:C.textDim }}>—</span>}
                         </td>
                       ))}
                     </tr>

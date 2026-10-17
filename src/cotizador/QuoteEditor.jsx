@@ -1,6 +1,6 @@
 // Editor de cotizaciones: cliente, líneas, totales y guardado.
 import { useState, useEffect } from "react";
-import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { supabase, must, replaceRows } from "../supabaseClient.js";
 import { mapProduct, mapQuoteLine, mapQuoteToDb, mapQuoteLineToDb, mapQuote } from "../shared/mappers.js";
 import { subtotalLinea, totalCotizacion } from "../calculos.js";
@@ -30,19 +30,19 @@ function ContactSearchBox({ contacts, onSelect }) {
         onFocus={()=>setOpen(true)}
         onBlur={()=>setTimeout(()=>setOpen(false),180)}
         placeholder="Buscar por nombre, RUT o empresa…"
-        style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:7,
-          color:COLORS.text, fontFamily:FONT, fontSize:13, padding:"9px 12px", outline:"none", boxSizing:"border-box" }}
+        style={{ width:"100%", background:C.bg, border:`1px solid ${C.border}`, borderRadius:7,
+          color:C.text, fontFamily:FONT, fontSize:13, padding:"9px 12px", outline:"none", boxSizing:"border-box" }}
       />
       {open && results.length > 0 && (
-        <div style={{ position:"absolute", left:0, right:0, top:"100%", marginTop:3, background:COLORS.surface,
-          border:`1px solid ${COLORS.border}`, borderRadius:8, zIndex:200, boxShadow:"0 4px 16px #0006" }}>
+        <div style={{ position:"absolute", left:0, right:0, top:"100%", marginTop:3, background:C.surface,
+          border:`1px solid ${C.border}`, borderRadius:8, zIndex:200, boxShadow:"0 4px 16px #0006" }}>
           {results.map(c=>(
             <div key={c.id} onMouseDown={()=>{ onSelect(c); setQ(""); setOpen(false); }}
-              style={{ padding:"10px 14px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}22` }}
-              onMouseEnter={e=>e.currentTarget.style.background=COLORS.card}
+              style={{ padding:"10px 14px", cursor:"pointer", borderBottom:`1px solid ${C.border}22` }}
+              onMouseEnter={e=>e.currentTarget.style.background=C.card}
               onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-              <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text }}>{c.name}</div>
-              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{c.company} · {c.rut}</div>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:C.text }}>{c.name}</div>
+              <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>{c.company} · {c.rut}</div>
             </div>
           ))}
         </div>
@@ -221,8 +221,8 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
         <div>
-          <button onClick={onCancel} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12, marginBottom:4 }}>← Volver</button>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:COLORS.text }}>
+          <button onClick={onCancel} style={{ background:"none", border:"none", color:C.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12, marginBottom:4 }}>← Volver</button>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:C.text }}>
             {isEdit?"Editar":"Nueva"} Cotización{" "}
             <span style={{ color:(header.serie||"COT")==="COT"?"#06b6d4":"#f59e0b" }}>
               {header.serie||"COT"}-{String(header.number||"").padStart(3,"0")}
@@ -238,20 +238,20 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
               {asignandoSIN ? "Asignando…" : `📋 Asignar SIN-${String(nextSIN).padStart(3,"0")}`}
             </button>
           )}
-          <button onClick={save} disabled={saving} style={{ padding:"10px 24px", background:COLORS.accent, border:"none", borderRadius:7, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+          <button onClick={save} disabled={saving} style={{ padding:"10px 24px", background:C.accent, border:"none", borderRadius:7, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>
             {saving?"Guardando…":"💾 Guardar"}
           </button>
         </div>
       </div>
 
       {/* ENCABEZADO */}
-      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20, marginBottom:16 }}>
-        <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Encabezado</div>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:20, marginBottom:16 }}>
+        <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:C.text, marginBottom:16, fontSize:14 }}>Encabezado</div>
 
         {/* Selector de Serie */}
         {!isEdit && (
           <div style={{ marginBottom:14 }}>
-            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>Serie de Cotización</div>
+            <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>Serie de Cotización</div>
             <div style={{ display:"flex", gap:10 }}>
               {[
                 { k:"COT", label:"COT · Con IVA", sub:`${EMPRESA.razonSocial} · Factura`, color:"#06b6d4", ivaMode:"empresa", hasIva:true,  num: nextCOT },
@@ -267,9 +267,9 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
                   }}
                     style={{ flex:1, padding:"12px 16px", borderRadius:8, cursor:"pointer", textAlign:"left",
                       background:active?opt.color+"22":"transparent",
-                      border:`2px solid ${active?opt.color:COLORS.border}` }}>
-                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:active?opt.color:COLORS.text }}>{opt.label}</div>
-                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:2 }}>{opt.sub}</div>
+                      border:`2px solid ${active?opt.color:C.border}` }}>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:active?opt.color:C.text }}>{opt.label}</div>
+                    <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginTop:2 }}>{opt.sub}</div>
                     <div style={{ fontFamily:FONT, fontSize:11, color:opt.color, marginTop:4, fontWeight:600 }}>Próximo: {opt.k}-{String(opt.num).padStart(3,"0")}</div>
                   </button>
                 );
@@ -280,34 +280,34 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
 
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px,1fr))", gap:12 }}>
           <div>
-            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>N° Cotización</div>
+            <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>N° Cotización</div>
             <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-              <div style={{ padding:"8px 10px", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6,
+              <div style={{ padding:"8px 10px", background:C.bg, border:`1px solid ${C.border}`, borderRadius:6,
                 fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700,
                 color: (header.serie||"COT")==="COT"?"#06b6d4":"#f59e0b" }}>
                 {header.serie||"COT"}-{String(header.number||"").padStart(3,"0")}
               </div>
               <input type="number" value={header.number} onChange={e=>hf("number",e.target.value)}
-                style={{ width:70, background:COLORS.bg, border:`1px solid ${COLORS.border}44`, borderRadius:6,
-                  padding:"8px 10px", fontFamily:FONT, fontSize:12, color:COLORS.textMuted, outline:"none" }} />
+                style={{ width:70, background:C.bg, border:`1px solid ${C.border}44`, borderRadius:6,
+                  padding:"8px 10px", fontFamily:FONT, fontSize:12, color:C.textMuted, outline:"none" }} />
             </div>
           </div>
-          <Input label="Fecha" value={header.date} onChange={e=>hf("date",e.target.value)} type="date" />
-          <Select label="Tipo" value={header.type} onChange={e=>hf("type",e.target.value)}>
+          <Input label="Fecha" value={header.date} onChange={e=>hf("date",e.target.value)} type="date" theme={LIGHT_THEME} />
+          <Select label="Tipo" value={header.type} onChange={e=>hf("type",e.target.value)} theme={LIGHT_THEME}>
             <option value="productos">Productos y Servicios</option>
             <option value="proyecto">Proyecto</option>
           </Select>
-          <Select label="Estado" value={header.status} onChange={e=>hf("status",e.target.value)}>
+          <Select label="Estado" value={header.status} onChange={e=>hf("status",e.target.value)} theme={LIGHT_THEME}>
             <option value="borrador">Borrador</option>
             <option value="enviada">Enviada</option>
             <option value="aprobada">Aprobada</option>
             <option value="rechazada">Rechazada</option>
           </Select>
-          <Select label="Rubro" value={header.rubro} onChange={e=>hf("rubro",e.target.value)}>
+          <Select label="Rubro" value={header.rubro} onChange={e=>hf("rubro",e.target.value)} theme={LIGHT_THEME}>
             <option value="">Sin clasificar</option>
             {RUBRO_OPTIONS.map(r=><option key={r} value={r}>{r}</option>)}
           </Select>
-          <Select label="Tipo de trabajo" value={header.tipoTrabajo} onChange={e=>hf("tipoTrabajo",e.target.value)}>
+          <Select label="Tipo de trabajo" value={header.tipoTrabajo} onChange={e=>hf("tipoTrabajo",e.target.value)} theme={LIGHT_THEME}>
             <option value="">Sin clasificar</option>
             {TIPO_TRABAJO_OPTIONS.map(t=><option key={t} value={t}>{t}</option>)}
           </Select>
@@ -315,21 +315,21 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
       </div>
 
       {/* CLIENTE */}
-      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20, marginBottom:16 }}>
-        <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:16, fontSize:14 }}>Cliente</div>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:20, marginBottom:16 }}>
+        <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:C.text, marginBottom:16, fontSize:14 }}>Cliente</div>
 
         {/* Buscador CRM */}
         <div style={{ marginBottom:14, position:"relative" }}>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Vincular Contacto CRM</div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Vincular Contacto CRM</div>
           {(() => {
             const linked = header.contactId ? contacts.find(c=>c.id===header.contactId) : null;
             if(linked) return (
-              <div style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 14px", background:COLORS.accentDim, border:`1px solid ${COLORS.accent}44`, borderRadius:8 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 14px", background:C.accentDim, border:`1px solid ${C.accent}44`, borderRadius:8 }}>
                 <div style={{ flex:1 }}>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.accent }}>{linked.name}</div>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{linked.company} · {linked.rut}</div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:C.accent }}>{linked.name}</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>{linked.company} · {linked.rut}</div>
                 </div>
-                <button onClick={()=>hf("contactId","")} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:16 }}>×</button>
+                <button onClick={()=>hf("contactId","")} style={{ background:"none", border:"none", color:C.textMuted, cursor:"pointer", fontSize:16 }}>×</button>
               </div>
             );
             return <ContactSearchBox contacts={contacts} onSelect={c=>{
@@ -345,12 +345,12 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
         </div>
 
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px,1fr))", gap:12 }}>
-          <Input label="Nombre cliente" value={header.clientName} onChange={e=>hf("clientName",e.target.value)} />
-          <Input label="RUT" value={header.clientRut} onChange={e=>hf("clientRut",formatRut(e.target.value))} maxLength={12} />
-          <Input label="Razón social" value={header.clientCompany} onChange={e=>hf("clientCompany",e.target.value)} />
-          <Input label="Teléfono" value={header.clientPhone} onChange={e=>hf("clientPhone",e.target.value)} />
-          <Input label="Dirección" value={header.clientAddress} onChange={e=>hf("clientAddress",e.target.value)} />
-          <Select label="Forma de pago" value={header.paymentMethod} onChange={e=>hf("paymentMethod",e.target.value)}>
+          <Input label="Nombre cliente" value={header.clientName} onChange={e=>hf("clientName",e.target.value)} theme={LIGHT_THEME} />
+          <Input label="RUT" value={header.clientRut} onChange={e=>hf("clientRut",formatRut(e.target.value))} maxLength={12} theme={LIGHT_THEME} />
+          <Input label="Razón social" value={header.clientCompany} onChange={e=>hf("clientCompany",e.target.value)} theme={LIGHT_THEME} />
+          <Input label="Teléfono" value={header.clientPhone} onChange={e=>hf("clientPhone",e.target.value)} theme={LIGHT_THEME} />
+          <Input label="Dirección" value={header.clientAddress} onChange={e=>hf("clientAddress",e.target.value)} theme={LIGHT_THEME} />
+          <Select label="Forma de pago" value={header.paymentMethod} onChange={e=>hf("paymentMethod",e.target.value)} theme={LIGHT_THEME}>
             <option>Al finalizar</option>
             <option>50% anticipo y saldo al finalizar</option>
             <option>0 a 30 días</option>
@@ -362,22 +362,22 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
           {(header.paymentMethod==="% personalizado"||header.paymentMethod==="0 a 30 días") && (
             <div style={{ display:"flex", gap:10, marginTop:8 }}>
               <div style={{ flex:1 }}>
-                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>% Anticipo</div>
+                <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>% Anticipo</div>
                 <input type="number" min="0" max="100" value={header.pctAnticipo||50}
                   onChange={e=>hf("pctAnticipo",Number(e.target.value))}
-                  style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none" }} />
+                  style={{ width:"100%", background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:C.text, outline:"none" }} />
               </div>
               <div style={{ flex:1 }}>
-                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>Días plazo saldo</div>
+                <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>Días plazo saldo</div>
                 <input type="number" min="0" value={header.diasPlazo||30}
                   onChange={e=>hf("diasPlazo",Number(e.target.value))}
-                  style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none" }} />
+                  style={{ width:"100%", background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:13, color:C.text, outline:"none" }} />
               </div>
             </div>
           )}
         </div>
         <div style={{ marginTop:12 }}>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>IVA y Cuenta de Pago</div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>IVA y Cuenta de Pago</div>
           <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
             {[
               { value:"empresa",  label:"Con IVA",  sub:`${EMPRESA.razonSocial} · RUT: ${EMPRESA.rut}` },
@@ -385,9 +385,9 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
             ].map(opt=>{
               const active = header.ivaMode===opt.value;
               return (
-                <button key={opt.value} onClick={()=>{ hf("ivaMode",opt.value); hf("hasIva",opt.value==="empresa"); }} style={{ flex:1, minWidth:160, padding:"10px 14px", borderRadius:8, cursor:"pointer", background:active?COLORS.accentDim:COLORS.bg, border:`1px solid ${active?COLORS.accent:COLORS.border}`, textAlign:"left" }}>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:active?COLORS.accent:COLORS.text }}>{opt.label}</div>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:2 }}>{opt.sub}</div>
+                <button key={opt.value} onClick={()=>{ hf("ivaMode",opt.value); hf("hasIva",opt.value==="empresa"); }} style={{ flex:1, minWidth:160, padding:"10px 14px", borderRadius:8, cursor:"pointer", background:active?C.accentDim:C.bg, border:`1px solid ${active?C.accent:C.border}`, textAlign:"left" }}>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:active?C.accent:C.text }}>{opt.label}</div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginTop:2 }}>{opt.sub}</div>
                 </button>
               );
             })}
@@ -396,20 +396,20 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
       </div>
 
       {/* LÍNEAS */}
-      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20, marginBottom:16 }}>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:20, marginBottom:16 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-          <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, fontSize:14 }}>
+          <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:C.text, fontSize:14 }}>
             {header.type==="proyecto" ? "Ítems del Proyecto" : "Detalle de Productos/Servicios"}
           </div>
-          <button onClick={addLine} style={{ padding:"6px 14px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>+ Agregar línea</button>
+          <button onClick={addLine} style={{ padding:"6px 14px", background:C.accent, border:"none", borderRadius:6, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer" }}>+ Agregar línea</button>
         </div>
 
         <div style={{ overflowX:"auto" }}>
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12, fontFamily:FONT }}>
             <thead>
-              <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+              <tr style={{ borderBottom:`1px solid ${C.border}` }}>
                 {["Producto/Servicio","Código","Descripción","Cant.","Precio Unit.","Desc.%","Subtotal",""].map(h=>(
-                  <th key={h} style={{ padding:"8px 10px", textAlign:"left", color:COLORS.textMuted, fontSize:10, letterSpacing:"0.07em", textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
+                  <th key={h} style={{ padding:"8px 10px", textAlign:"left", color:C.textMuted, fontSize:10, letterSpacing:"0.07em", textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -423,7 +423,7 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
                   ? (() => { const p=products.find(x=>x.id===line.productId); return p ? Math.round((p.price||0)/1.19) : 0; })()
                   : 0;
                 return (
-                <tr key={line.id} style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                <tr key={line.id} style={{ borderBottom:`1px solid ${C.border}` }}>
                   {/* Buscador de producto */}
                   <td style={{ padding:"6px 8px", minWidth:200, position:"relative" }}>
                     <input
@@ -431,11 +431,11 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
                       onChange={e=>searchProductsForLine(idx,e.target.value)}
                       onFocus={()=>setLineDropOpen(s=>({...s,[idx]:true}))}
                       placeholder="Buscar producto..."
-                      style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none", boxSizing:"border-box" }}
+                      style={{ width:"100%", background:C.bg, border:`1px solid ${C.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:C.text, outline:"none", boxSizing:"border-box" }}
                     />
                     {/* Margen inline debajo del buscador */}
                     <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:3 }}>
-                      <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>Margen %:</span>
+                      <span style={{ fontFamily:FONT, fontSize:9, color:C.textMuted }}>Margen %:</span>
                       <input type="number" value={lineMargen[idx]||0}
                         onChange={e=>{
                           const m = Number(e.target.value)||0;
@@ -445,47 +445,47 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
                             updateLine(idx,"unitPrice",newPrice);
                           }
                         }}
-                        style={{ width:48, background:COLORS.bg, border:`1px solid ${COLORS.accent}44`, borderRadius:4, padding:"2px 5px", fontFamily:FONT, fontSize:10, color:COLORS.accent, outline:"none" }}
+                        style={{ width:48, background:C.bg, border:`1px solid ${C.accent}44`, borderRadius:4, padding:"2px 5px", fontFamily:FONT, fontSize:10, color:C.accent, outline:"none" }}
                       />
-                      {costoNetoProd>0 && <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>Costo: ${costoNetoProd.toLocaleString("es-CL")}</span>}
+                      {costoNetoProd>0 && <span style={{ fontFamily:FONT, fontSize:9, color:C.textMuted }}>Costo: ${costoNetoProd.toLocaleString("es-CL")}</span>}
                     </div>
                     {/* URL Ficha Técnica */}
                     <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:4 }}>
-                      <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, whiteSpace:"nowrap" }}>🔗 Ficha:</span>
+                      <span style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, whiteSpace:"nowrap" }}>🔗 Ficha:</span>
                       <input
                         value={line.fichaUrl||""}
                         onChange={e=>updateLine(idx,"fichaUrl",e.target.value)}
                         placeholder="https://..."
-                        style={{ flex:1, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"2px 6px", fontFamily:FONT, fontSize:10, color:COLORS.accent, outline:"none" }}
+                        style={{ flex:1, background:C.bg, border:`1px solid ${C.border}`, borderRadius:4, padding:"2px 6px", fontFamily:FONT, fontSize:10, color:C.accent, outline:"none" }}
                       />
                       {line.fichaUrl && (
                         <a href={line.fichaUrl} target="_blank" rel="noopener noreferrer"
                           title="Abrir ficha técnica"
-                          style={{ color:COLORS.accent, fontSize:12, textDecoration:"none", flexShrink:0 }}>↗</a>
+                          style={{ color:C.accent, fontSize:12, textDecoration:"none", flexShrink:0 }}>↗</a>
                       )}
                       <GuardarFichaBtn productId={line.productId} url={line.fichaUrl} productos={products}
-                        onSaved={(id, url)=>setProducts(prev=>prev.map(p=>String(p.id)===String(id)?{...p, fichaUrl:url}:p))} />
+                        onSaved={(id, url)=>setProducts(prev=>prev.map(p=>String(p.id)===String(id)?{...p, fichaUrl:url}:p))} theme={LIGHT_THEME} />
                     </div>
                     {/* Dropdown resultados */}
                     {lineDropOpen[idx] && resultados.length>0 && (
-                      <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:300, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:6, boxShadow:"0 4px 20px #0008", marginTop:2 }}>
+                      <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:300, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, boxShadow:"0 4px 20px #0008", marginTop:2 }}>
                         {resultados.map(p=>(
                           <div key={p.id} onClick={()=>selectProductForLine(idx,p)}
-                            style={{ padding:"7px 10px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}22`, display:"flex", justifyContent:"space-between", alignItems:"center" }}
-                            onMouseEnter={e=>e.currentTarget.style.background=COLORS.card}
+                            style={{ padding:"7px 10px", cursor:"pointer", borderBottom:`1px solid ${C.border}22`, display:"flex", justifyContent:"space-between", alignItems:"center" }}
+                            onMouseEnter={e=>e.currentTarget.style.background=C.card}
                             onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                             <div>
-                              <div style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:600, color:COLORS.text }}>{p.name}</div>
-                              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>{p.code}{p.skuProveedor ? ` · SKU: ${p.skuProveedor}` : ""} · {p.provider||""} · {p.category||""}</div>
+                              <div style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:600, color:C.text }}>{p.name}</div>
+                              <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted }}>{p.code}{p.skuProveedor ? ` · SKU: ${p.skuProveedor}` : ""} · {p.provider||""} · {p.category||""}</div>
                             </div>
                             <div style={{ textAlign:"right", minWidth:120 }}>
-                              <div style={{ fontFamily:FONT, fontSize:11, fontWeight:700, color:COLORS.text }}>{fmt(p.price)}</div>
+                              <div style={{ fontFamily:FONT_NUM, fontSize:11, fontWeight:700, color:C.text }}>{fmt(p.price)}</div>
                               <div style={{ display:"flex", gap:6, justifyContent:"flex-end" }}>
-                                <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.green }}>Neto: {fmt(Math.round(p.price/1.19))}</span>
-                                <span style={{ fontFamily:FONT, fontSize:9, color:"#ef4444" }}>IVA: {fmt(p.price - Math.round(p.price/1.19))}</span>
+                                <span style={{ fontFamily:FONT_NUM, fontSize:9, color:C.green }}>Neto: {fmt(Math.round(p.price/1.19))}</span>
+                                <span style={{ fontFamily:FONT_NUM, fontSize:9, color:"#ef4444" }}>IVA: {fmt(p.price - Math.round(p.price/1.19))}</span>
                               </div>
-                              {p.updatedAt && <div style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted }}>Act: {new Date(p.updatedAt).toLocaleDateString("es-CL",{day:"2-digit",month:"short"})}</div>}
-                              {p.url && <a href={p.url} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{ fontFamily:FONT, fontSize:8, color:COLORS.accent, textDecoration:"none" }}>🔗 ver producto</a>}
+                              {p.updatedAt && <div style={{ fontFamily:FONT, fontSize:8, color:C.textMuted }}>Act: {new Date(p.updatedAt).toLocaleDateString("es-CL",{day:"2-digit",month:"short"})}</div>}
+                              {p.url && <a href={p.url} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{ fontFamily:FONT, fontSize:8, color:C.accent, textDecoration:"none" }}>🔗 ver producto</a>}
                             </div>
                           </div>
                         ))}
@@ -493,48 +493,48 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
                     )}
                   </td>
                   <td style={{ padding:"6px 8px", minWidth:80 }}>
-                    <input value={line.code} onChange={e=>updateLine(idx,"code",e.target.value)} style={{ width:70, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:COLORS.accent, outline:"none" }} />
+                    <input value={line.code} onChange={e=>updateLine(idx,"code",e.target.value)} style={{ width:70, background:C.bg, border:`1px solid ${C.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:C.accent, outline:"none" }} />
                   </td>
                   <td style={{ padding:"6px 8px", minWidth:200 }}>
-                    <input value={line.description} onChange={e=>updateLine(idx,"description",e.target.value)} style={{ width:200, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none" }} />
+                    <input value={line.description} onChange={e=>updateLine(idx,"description",e.target.value)} style={{ width:200, background:C.bg, border:`1px solid ${C.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:C.text, outline:"none" }} />
                   </td>
                   <td style={{ padding:"6px 8px", minWidth:60 }}>
-                    <input value={line.qty} onChange={e=>updateLine(idx,"qty",e.target.value)} type="number" style={{ width:55, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none" }} />
+                    <input value={line.qty} onChange={e=>updateLine(idx,"qty",e.target.value)} type="number" style={{ width:55, background:C.bg, border:`1px solid ${C.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:C.text, outline:"none" }} />
                   </td>
                   <td style={{ padding:"6px 8px", minWidth:110 }}>
-                    <input value={line.unitPrice} onChange={e=>updateLine(idx,"unitPrice",e.target.value)} type="number" style={{ width:100, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none" }} />
+                    <input value={line.unitPrice} onChange={e=>updateLine(idx,"unitPrice",e.target.value)} type="number" style={{ width:100, background:C.bg, border:`1px solid ${C.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:C.text, outline:"none" }} />
                   </td>
                   <td style={{ padding:"6px 8px", minWidth:60 }}>
-                    <input value={line.discount} onChange={e=>updateLine(idx,"discount",e.target.value)} type="number" style={{ width:50, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none" }} />
+                    <input value={line.discount} onChange={e=>updateLine(idx,"discount",e.target.value)} type="number" style={{ width:50, background:C.bg, border:`1px solid ${C.border}`, borderRadius:4, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:C.text, outline:"none" }} />
                   </td>
-                  <td style={{ padding:"6px 8px", color:COLORS.green, fontWeight:600, whiteSpace:"nowrap" }}>{fmt(line.subtotal)}</td>
+                  <td style={{ padding:"6px 8px", color:C.green, fontWeight:600, whiteSpace:"nowrap", fontFamily:FONT_NUM }}>{fmt(line.subtotal)}</td>
                   <td style={{ padding:"6px 8px" }}>
-                    <button onClick={()=>removeLine(idx)} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>✕</button>
+                    <button onClick={()=>removeLine(idx)} style={{ background:"none", border:"none", color:C.red, cursor:"pointer", fontSize:14 }}>✕</button>
                   </td>
                 </tr>
                 );
               })}
             </tbody>
           </table>
-          {lines.length===0 && <div style={{ textAlign:"center", padding:30, fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Sin líneas. Haz clic en "+ Agregar línea".</div>}
+          {lines.length===0 && <div style={{ textAlign:"center", padding:30, fontFamily:FONT, fontSize:12, color:C.textMuted }}>Sin líneas. Haz clic en "+ Agregar línea".</div>}
         </div>
 
         {/* TOTALES */}
         <div style={{ display:"flex", justifyContent:"flex-end", marginTop:16 }}>
-          <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"14px 20px", minWidth:220 }}>
+          <div style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, padding:"14px 20px", minWidth:220 }}>
             <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
-              <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Total Neto</span>
-              <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.text }}>{fmt(neto)}</span>
+              <span style={{ fontFamily:FONT, fontSize:12, color:C.textMuted }}>Total Neto</span>
+              <span style={{ fontFamily:FONT_NUM, fontSize:12, color:C.text }}>{fmt(neto)}</span>
             </div>
             {header.hasIva && (
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
-                <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>IVA (19%)</span>
-                <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.text }}>{fmt(iva)}</span>
+                <span style={{ fontFamily:FONT, fontSize:12, color:C.textMuted }}>IVA (19%)</span>
+                <span style={{ fontFamily:FONT_NUM, fontSize:12, color:C.text }}>{fmt(iva)}</span>
               </div>
             )}
-            <div style={{ display:"flex", justifyContent:"space-between", borderTop:`1px solid ${COLORS.border}`, paddingTop:8 }}>
-              <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text }}>Total</span>
-              <span style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.green }}>{fmt(total)}</span>
+            <div style={{ display:"flex", justifyContent:"space-between", borderTop:`1px solid ${C.border}`, paddingTop:8 }}>
+              <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:C.text }}>Total</span>
+              <span style={{ fontFamily:FONT_NUM, fontSize:16, fontWeight:700, color:C.green }}>{fmt(total)}</span>
             </div>
           </div>
         </div>
@@ -542,13 +542,13 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
 
       {/* COMENTARIOS Y TÉRMINOS */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:16 }}>
-        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20 }}>
-          <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:12, fontSize:14 }}>Comentarios</div>
-          <textarea value={header.comments} onChange={e=>hf("comments",e.target.value)} rows={4} placeholder="Notas adicionales..." style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", resize:"vertical", boxSizing:"border-box" }} />
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:20 }}>
+          <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:C.text, marginBottom:12, fontSize:14 }}>Comentarios</div>
+          <textarea value={header.comments} onChange={e=>hf("comments",e.target.value)} rows={4} placeholder="Notas adicionales..." style={{ width:"100%", background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:C.text, outline:"none", resize:"vertical", boxSizing:"border-box" }} />
         </div>
-        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:20 }}>
-          <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:COLORS.text, marginBottom:12, fontSize:14 }}>Términos y Condiciones</div>
-          <textarea value={header.terms} onChange={e=>hf("terms",e.target.value)} rows={4} style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", resize:"vertical", boxSizing:"border-box" }} />
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:20 }}>
+          <div style={{ fontFamily:FONT_DISPLAY, fontWeight:600, color:C.text, marginBottom:12, fontSize:14 }}>Términos y Condiciones</div>
+          <textarea value={header.terms} onChange={e=>hf("terms",e.target.value)} rows={4} style={{ width:"100%", background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:C.text, outline:"none", resize:"vertical", boxSizing:"border-box" }} />
         </div>
       </div>
     </div>

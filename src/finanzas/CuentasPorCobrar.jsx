@@ -5,7 +5,7 @@ import { IVA_RATE } from "./constants.js";
 import { calcEstado } from "./estadoPago.js";
 import { SecTitle, BtnPrimary, KpiCard, FinModal, LabelInput, LabelSelect, BtnSec } from "./ui.jsx";
 import { fmtClp, fmtFecha } from "../shared/format.js";
-import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { badgePago } from "./badgePago.jsx";
 import { codigoCot, sugerirCotizacion } from "../compras/proyecto/calculos.js";
 import { vincularFactura } from "./facturaCotizacion.js";
@@ -177,44 +177,44 @@ export function CuentasPorCobrar({ isMobile }) {
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start",
         marginBottom:20, flexWrap:"wrap", gap:12 }}>
-        <SecTitle sub="Facturas que emites a clientes · seguimiento de cobros">
+        <SecTitle sub="Facturas que emites a clientes · seguimiento de cobros" theme={LIGHT_THEME}>
           Cuentas por Cobrar
         </SecTitle>
         <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
           {porVincular.length > 0 && (
-            <BtnSec onClick={vincularTodas}>🔗 Vincular por referencia ({porVincular.length})</BtnSec>
+            <BtnSec onClick={vincularTodas} theme={LIGHT_THEME}>🔗 Vincular por referencia ({porVincular.length})</BtnSec>
           )}
-          <BtnPrimary onClick={abrirModal}>+ Nueva Factura Emitida</BtnPrimary>
+          <BtnPrimary onClick={abrirModal} theme={LIGHT_THEME}>+ Nueva Factura Emitida</BtnPrimary>
         </div>
       </div>
 
       {/* KPIs */}
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)", gap:12, marginBottom:24 }}>
-        <KpiCard label="Total Facturado" value={fmtClp(totalEmitido)} color={COLORS.text} icon="📋" />
-        <KpiCard label="Total Cobrado"   value={fmtClp(totalCobrado)} color={COLORS.green} icon="✅" />
-        <KpiCard label="Por Cobrar"      value={fmtClp(totalPendiente)} color={COLORS.yellow} icon="⏳"
-          sub={`${facturas.filter(f=>{const p=(f.pagos_recibidos||[]).reduce((a,x)=>a+x.monto,0); return p<f.monto_total;}).length} facturas activas`} />
+        <KpiCard label="Total Facturado" value={fmtClp(totalEmitido)} color={C.text} icon="📋" theme={LIGHT_THEME} />
+        <KpiCard label="Total Cobrado"   value={fmtClp(totalCobrado)} color={C.green} icon="✅" theme={LIGHT_THEME} />
+        <KpiCard label="Por Cobrar"      value={fmtClp(totalPendiente)} color={C.yellow} icon="⏳"
+          sub={`${facturas.filter(f=>{const p=(f.pagos_recibidos||[]).reduce((a,x)=>a+x.monto,0); return p<f.monto_total;}).length} facturas activas`} theme={LIGHT_THEME} />
         <KpiCard label="Facturas Vencidas" value={vencidas}
-          color={vencidas>0?COLORS.red:COLORS.green} icon={vencidas>0?"🚨":"🎉"} />
+          color={vencidas>0?C.red:C.green} icon={vencidas>0?"🚨":"🎉"} theme={LIGHT_THEME} />
       </div>
 
       {/* Tabla */}
       {loading ? (
-        <div style={{ textAlign:"center", padding:40, fontFamily:FONT, color:COLORS.textMuted }}>Cargando…</div>
+        <div style={{ textAlign:"center", padding:40, fontFamily:FONT, color:C.textMuted }}>Cargando…</div>
       ) : (
-        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, overflow:"hidden" }}>
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, overflow:"hidden" }}>
           {facturas.length === 0 ? (
-            <div style={{ padding:40, textAlign:"center", fontFamily:FONT, fontSize:13, color:COLORS.textMuted }}>
+            <div style={{ padding:40, textAlign:"center", fontFamily:FONT, fontSize:13, color:C.textMuted }}>
               Sin facturas registradas. Agrega la primera con el botón de arriba.
             </div>
           ) : (
             <div style={{ overflowX:"auto" }}>
               <table style={{ width:"100%", borderCollapse:"collapse" }}>
                 <thead>
-                  <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                  <tr style={{ borderBottom:`1px solid ${C.border}` }}>
                     {["N° Doc","Cliente","Emisión","Vencim.","Neto","IVA","Total","Cobrado","Saldo","Estado",""].map(h=>(
                       <th key={h} style={{ padding:"10px 12px", textAlign:"left", fontFamily:FONT,
-                        fontSize:10, color:COLORS.textMuted, letterSpacing:"0.07em",
+                        fontSize:10, color:C.textMuted, letterSpacing:"0.07em",
                         textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
                     ))}
                   </tr>
@@ -225,8 +225,8 @@ export function CuentasPorCobrar({ isMobile }) {
                     const saldo   = f.monto_total - cobrado;
                     const estado  = calcEstado(f.monto_total, cobrado, f.vencimiento, f.estado_manual);
                     return (
-                      <tr key={f.id} style={{ borderBottom:`1px solid ${COLORS.border}` }}>
-                        <td style={{ padding:"9px 12px", color:COLORS.accent, fontWeight:700, fontFamily:FONT }}>
+                      <tr key={f.id} style={{ borderBottom:`1px solid ${C.border}` }}>
+                        <td style={{ padding:"9px 12px", color:C.accent, fontWeight:700, fontFamily:FONT }}>
                           {f.numero_documento}
                           {(() => {
                             const q = cotDe(f);
@@ -234,32 +234,32 @@ export function CuentasPorCobrar({ isMobile }) {
                               cotizacionId: String(q?.id ?? sugerirCotizacion(f.referencia_cotizacion, cotizaciones)?.id ?? "") });
                             const chip = { display:"block", marginTop:3, padding:0, background:"none", border:"none",
                               fontFamily:FONT, fontSize:10, fontWeight:400, cursor:"pointer", whiteSpace:"nowrap" };
-                            if (q) return <button onClick={abrir} title="Cambiar la cotización vinculada" style={{ ...chip, color:COLORS.green }}>🔗 {codigoCot(q)}</button>;
-                            if (f.referencia_cotizacion) return <button onClick={abrir} title="Sin vínculo: solo tiene el texto de referencia" style={{ ...chip, color:COLORS.yellow }}>Ref. {f.referencia_cotizacion} · vincular</button>;
-                            return <button onClick={abrir} style={{ ...chip, color:COLORS.textMuted }}>+ cotización</button>;
+                            if (q) return <button onClick={abrir} title="Cambiar la cotización vinculada" style={{ ...chip, color:C.green }}>🔗 {codigoCot(q)}</button>;
+                            if (f.referencia_cotizacion) return <button onClick={abrir} title="Sin vínculo: solo tiene el texto de referencia" style={{ ...chip, color:C.yellow }}>Ref. {f.referencia_cotizacion} · vincular</button>;
+                            return <button onClick={abrir} style={{ ...chip, color:C.textMuted }}>+ cotización</button>;
                           })()}
                         </td>
                         <td style={{ padding:"9px 12px" }}>
-                          <div style={{ fontWeight:600, color:COLORS.text, fontSize:13 }}>{f.razon_social_cliente||"—"}</div>
-                          <div style={{ fontSize:10, color:COLORS.textMuted }}>{f.rut_cliente}</div>
+                          <div style={{ fontWeight:600, color:C.text, fontSize:13 }}>{f.razon_social_cliente||"—"}</div>
+                          <div style={{ fontSize:10, color:C.textMuted }}>{f.rut_cliente}</div>
                         </td>
-                        <td style={{ padding:"9px 12px", color:COLORS.textMuted, fontFamily:FONT, fontSize:12 }}>{fmtFecha(f.fecha_emision)}</td>
-                        <td style={{ padding:"9px 12px", color:COLORS.textMuted, fontFamily:FONT, fontSize:12 }}>{fmtFecha(f.vencimiento)}</td>
-                        <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.text }}>{fmtClp(f.monto_neto)}</td>
+                        <td style={{ padding:"9px 12px", color:C.textMuted, fontFamily:FONT, fontSize:12 }}>{fmtFecha(f.fecha_emision)}</td>
+                        <td style={{ padding:"9px 12px", color:C.textMuted, fontFamily:FONT, fontSize:12 }}>{fmtFecha(f.vencimiento)}</td>
+                        <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:C.text }}>{fmtClp(f.monto_neto)}</td>
                         <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12,
-                          color:f.aplica_iva?COLORS.yellow:COLORS.textMuted }}>
+                          color:f.aplica_iva?C.yellow:C.textMuted }}>
                           {f.aplica_iva ? fmtClp(f.monto_iva) : "—"}
                         </td>
-                        <td style={{ padding:"9px 12px", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text }}>{fmtClp(f.monto_total)}</td>
-                        <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.green }}>{fmtClp(cobrado)}</td>
+                        <td style={{ padding:"9px 12px", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:C.text }}>{fmtClp(f.monto_total)}</td>
+                        <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:C.green }}>{fmtClp(cobrado)}</td>
                         <td style={{ padding:"9px 12px", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700,
-                          color:saldo>0?COLORS.yellow:COLORS.green }}>{fmtClp(saldo)}</td>
+                          color:saldo>0?C.yellow:C.green }}>{fmtClp(saldo)}</td>
                         <td style={{ padding:"9px 12px" }}>{badgePago(estado)}</td>
                         <td style={{ padding:"9px 12px" }}>
                           {saldo > 0 && (
                             <button onClick={()=>{ setPagoModal({facturaId:f.id, facturaN:f.numero_documento}); setFormPago(emptyPago); }}
-                              style={{ padding:"5px 10px", background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`,
-                                borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+                              style={{ padding:"5px 10px", background:C.accentDim, border:`1px solid ${C.accentGlow}`,
+                                borderRadius:6, color:C.accent, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
                               + Cobro
                             </button>
                           )}
@@ -276,11 +276,11 @@ export function CuentasPorCobrar({ isMobile }) {
 
       {/* Modal nueva factura emitida */}
       {modal === "nueva" && (
-        <FinModal title="Nueva Factura Emitida" onClose={()=>setModal(null)} width={560}>
+        <FinModal title="Nueva Factura Emitida" onClose={()=>setModal(null)} width={560} theme={LIGHT_THEME}>
 
           {/* ── BUSCADOR DE CLIENTE ── */}
           <div style={{ marginBottom:18 }}>
-            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+            <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
               letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>
               Buscar Cliente por Nombre, Empresa o RUT
             </div>
@@ -299,10 +299,10 @@ export function CuentasPorCobrar({ isMobile }) {
                 onFocus={() => setShowSugerencias(true)}
                 onBlur={() => setTimeout(()=>setShowSugerencias(false), 150)}
                 placeholder="Ej: Constructora Pérez o 76.XXX.XXX-X"
-                style={{ width:"100%", background:COLORS.bg,
-                  border:`1px solid ${clienteSel ? COLORS.green : COLORS.border}`,
+                style={{ width:"100%", background:C.bg,
+                  border:`1px solid ${clienteSel ? C.green : C.border}`,
                   borderRadius:8, padding:"10px 40px 10px 14px",
-                  fontFamily:FONT, fontSize:13, color:COLORS.text,
+                  fontFamily:FONT, fontSize:13, color:C.text,
                   outline:"none", boxSizing:"border-box" }}
               />
               <div style={{ position:"absolute", right:12, top:"50%",
@@ -313,34 +313,34 @@ export function CuentasPorCobrar({ isMobile }) {
               {/* Dropdown sugerencias */}
               {showSugerencias && sugerencias.length > 0 && (
                 <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0,
-                  background:COLORS.surface, border:`1px solid ${COLORS.border}`,
+                  background:C.surface, border:`1px solid ${C.border}`,
                   borderRadius:8, zIndex:300, maxHeight:260, overflowY:"auto",
                   boxShadow:"0 8px 24px #0006" }}>
                   {sugerencias.map(c => (
                     <div key={c.id}
                       onMouseDown={() => seleccionarCliente(c)}
                       style={{ padding:"10px 16px", cursor:"pointer",
-                        borderBottom:`1px solid ${COLORS.border}`,
+                        borderBottom:`1px solid ${C.border}`,
                         display:"flex", justifyContent:"space-between", alignItems:"center" }}
-                      onMouseEnter={e=>e.currentTarget.style.background=COLORS.card}
+                      onMouseEnter={e=>e.currentTarget.style.background=C.card}
                       onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                       <div>
                         <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600,
-                          color:COLORS.text }}>
+                          color:C.text }}>
                           {c.empresa || c.nombre}
                           {c.empresa && c.nombre !== c.empresa &&
-                            <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+                            <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
                               marginLeft:8 }}>({c.nombre})</span>}
                         </div>
-                        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:2 }}>
+                        <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, marginTop:2 }}>
                           {c.rut && <span style={{ marginRight:10 }}>RUT: {c.rut}</span>}
                           {c.email && <span style={{ marginRight:10 }}>{c.email}</span>}
                           {c.telefono && <span>{c.telefono}</span>}
                         </div>
                       </div>
                       <span style={{ fontSize:10, padding:"2px 8px", borderRadius:4,
-                        background:COLORS.accentDim, color:COLORS.accent,
-                        border:`1px solid ${COLORS.accentGlow}`, whiteSpace:"nowrap" }}>
+                        background:C.accentDim, color:C.accent,
+                        border:`1px solid ${C.accentGlow}`, whiteSpace:"nowrap" }}>
                         Seleccionar →
                       </span>
                     </div>
@@ -350,9 +350,9 @@ export function CuentasPorCobrar({ isMobile }) {
 
               {showSugerencias && busqueda.length >= 2 && sugerencias.length === 0 && (
                 <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0,
-                  background:COLORS.surface, border:`1px solid ${COLORS.border}`,
+                  background:C.surface, border:`1px solid ${C.border}`,
                   borderRadius:8, zIndex:300, padding:"12px 16px",
-                  fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>
+                  fontFamily:FONT, fontSize:12, color:C.textMuted }}>
                   No encontrado — puedes ingresarlo manualmente abajo
                 </div>
               )}
@@ -360,21 +360,21 @@ export function CuentasPorCobrar({ isMobile }) {
 
             {/* Chip cliente seleccionado */}
             {clienteSel && (
-              <div style={{ marginTop:8, padding:"8px 14px", background:COLORS.green+"18",
-                border:`1px solid ${COLORS.green}44`, borderRadius:8,
+              <div style={{ marginTop:8, padding:"8px 14px", background:C.green+"18",
+                border:`1px solid ${C.green}44`, borderRadius:8,
                 display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <div>
                   <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600,
-                    color:COLORS.green }}>{clienteSel.empresa || clienteSel.nombre}</span>
-                  <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+                    color:C.green }}>{clienteSel.empresa || clienteSel.nombre}</span>
+                  <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
                     marginLeft:10 }}>RUT: {clienteSel.rut}</span>
                   {clienteSel.email && <span style={{ fontFamily:FONT, fontSize:11,
-                    color:COLORS.textMuted, marginLeft:10 }}>{clienteSel.email}</span>}
+                    color:C.textMuted, marginLeft:10 }}>{clienteSel.email}</span>}
                 </div>
                 <button onClick={()=>{ setClienteSel(null); setBusqueda("");
                     setF("razon_social_cliente",""); setF("rut_cliente",""); }}
                   style={{ background:"transparent", border:"none",
-                    color:COLORS.textMuted, cursor:"pointer", fontSize:14 }}>✕</button>
+                    color:C.textMuted, cursor:"pointer", fontSize:14 }}>✕</button>
               </div>
             )}
           </div>
@@ -382,47 +382,47 @@ export function CuentasPorCobrar({ isMobile }) {
           {/* Ingreso manual si no hay cliente seleccionado */}
           {!clienteSel && (
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 14px",
-              padding:"12px 14px", background:COLORS.bg, borderRadius:8,
-              border:`1px solid ${COLORS.border}`, marginBottom:14 }}>
+              padding:"12px 14px", background:C.bg, borderRadius:8,
+              border:`1px solid ${C.border}`, marginBottom:14 }}>
               <div style={{ gridColumn:"1/-1", fontFamily:FONT, fontSize:10,
-                color:COLORS.textMuted, marginBottom:8, textTransform:"uppercase",
+                color:C.textMuted, marginBottom:8, textTransform:"uppercase",
                 letterSpacing:"0.07em" }}>O ingresa manualmente</div>
               <LabelInput label="Razón Social Cliente" value={form.razon_social_cliente}
                 onChange={e=>setF("razon_social_cliente",e.target.value)}
-                placeholder="Empresa S.A." />
+                placeholder="Empresa S.A." theme={LIGHT_THEME} />
               <LabelInput label="RUT Cliente" value={form.rut_cliente}
                 onChange={e=>setF("rut_cliente",e.target.value)}
-                placeholder="76.XXX.XXX-X" />
+                placeholder="76.XXX.XXX-X" theme={LIGHT_THEME} />
             </div>
           )}
 
           {/* Resto del formulario */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 14px" }}>
             <LabelInput label="N° Documento" value={form.numero_documento}
-              onChange={e=>setF("numero_documento",e.target.value)} placeholder="Ej: 1234" />
+              onChange={e=>setF("numero_documento",e.target.value)} placeholder="Ej: 1234" theme={LIGHT_THEME} />
             <LabelSelect label="Tipo Documento" value={form.tipo_documento}
-              onChange={e=>setF("tipo_documento",e.target.value)}>
+              onChange={e=>setF("tipo_documento",e.target.value)} theme={LIGHT_THEME}>
               <option>Factura</option>
               <option>Guía de Despacho</option>
               <option>Nota de Crédito</option>
               <option>Nota de Débito</option>
             </LabelSelect>
             <LabelInput label="Fecha Emisión" type="date" value={form.fecha_emision}
-              onChange={e=>setF("fecha_emision",e.target.value)} />
+              onChange={e=>setF("fecha_emision",e.target.value)} theme={LIGHT_THEME} />
             <LabelInput label="Vencimiento" type="date" value={form.vencimiento}
-              onChange={e=>setF("vencimiento",e.target.value)} />
+              onChange={e=>setF("vencimiento",e.target.value)} theme={LIGHT_THEME} />
             <LabelInput label="Monto Neto (sin IVA)" type="number" value={form.monto_neto}
-              onChange={e=>setF("monto_neto",e.target.value)} placeholder="0" />
+              onChange={e=>setF("monto_neto",e.target.value)} placeholder="0" theme={LIGHT_THEME} />
             <div style={{ marginBottom:14 }}>
-              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+              <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
                 letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>¿Aplica IVA?</div>
               <div style={{ display:"flex", gap:10, marginTop:4 }}>
                 {[true,false].map(v=>(
                   <button key={String(v)} onClick={()=>setF("aplica_iva",v)}
                     style={{ flex:1, padding:"9px 0", borderRadius:6,
-                      background:form.aplica_iva===v ? COLORS.accentDim : "transparent",
-                      border:`1px solid ${form.aplica_iva===v ? COLORS.accent : COLORS.border}`,
-                      color:form.aplica_iva===v ? COLORS.accent : COLORS.textMuted,
+                      background:form.aplica_iva===v ? C.accentDim : "transparent",
+                      border:`1px solid ${form.aplica_iva===v ? C.accent : C.border}`,
+                      color:form.aplica_iva===v ? C.accent : C.textMuted,
                       fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
                     {v ? "Sí (19%)" : "No (Exenta)"}
                   </button>
@@ -436,7 +436,7 @@ export function CuentasPorCobrar({ isMobile }) {
                 const q = cotizaciones.find(c => String(c.id) === e.target.value);
                 setForm(p=>({ ...p, cotizacion_id: e.target.value,
                   referencia_cotizacion: q ? codigoCot(q) : "" }));
-              }}>
+              }} theme={LIGHT_THEME}>
               <option value="">— Sin cotización —</option>
               {cotizaciones.map(q => (
                 <option key={q.id} value={String(q.id)}>
@@ -448,30 +448,30 @@ export function CuentasPorCobrar({ isMobile }) {
 
           {/* Preview cálculo */}
           {netoNum > 0 && (
-            <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8,
+            <div style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:8,
               padding:"12px 16px", marginBottom:16, fontFamily:FONT, fontSize:12 }}>
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                <span style={{ color:COLORS.textMuted }}>Neto:</span>
-                <span style={{ color:COLORS.text }}>{fmtClp(netoNum)}</span>
+                <span style={{ color:C.textMuted }}>Neto:</span>
+                <span style={{ color:C.text }}>{fmtClp(netoNum)}</span>
               </div>
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                <span style={{ color:COLORS.textMuted }}>IVA 19%:</span>
-                <span style={{ color:COLORS.yellow }}>{form.aplica_iva ? fmtClp(ivaCalc) : "—"}</span>
+                <span style={{ color:C.textMuted }}>IVA 19%:</span>
+                <span style={{ color:C.yellow }}>{form.aplica_iva ? fmtClp(ivaCalc) : "—"}</span>
               </div>
               <div style={{ display:"flex", justifyContent:"space-between",
-                borderTop:`1px solid ${COLORS.border}`, paddingTop:6, marginTop:2 }}>
-                <span style={{ color:COLORS.text, fontWeight:700 }}>Total:</span>
-                <span style={{ color:COLORS.accent, fontWeight:700, fontSize:14 }}>{fmtClp(totalCalc)}</span>
+                borderTop:`1px solid ${C.border}`, paddingTop:6, marginTop:2 }}>
+                <span style={{ color:C.text, fontWeight:700 }}>Total:</span>
+                <span style={{ color:C.accent, fontWeight:700, fontSize:14 }}>{fmtClp(totalCalc)}</span>
               </div>
             </div>
           )}
           <LabelInput label="Notas (opcional)" value={form.notas}
-            onChange={e=>setF("notas",e.target.value)} placeholder="Referencia proyecto, OC cliente…" />
+            onChange={e=>setF("notas",e.target.value)} placeholder="Referencia proyecto, OC cliente…" theme={LIGHT_THEME} />
           <div style={{ display:"flex", gap:10, marginTop:4 }}>
-            <BtnSec onClick={()=>setModal(null)}>Cancelar</BtnSec>
+            <BtnSec onClick={()=>setModal(null)} theme={LIGHT_THEME}>Cancelar</BtnSec>
             <BtnPrimary onClick={saveFactura}
               disabled={saving||!form.numero_documento||!form.monto_neto||
-                (!form.razon_social_cliente&&!clienteSel)}>
+                (!form.razon_social_cliente&&!clienteSel)} theme={LIGHT_THEME}>
               {saving ? "Guardando…" : "Guardar Factura"}
             </BtnPrimary>
           </div>
@@ -480,23 +480,23 @@ export function CuentasPorCobrar({ isMobile }) {
 
       {/* Modal registrar cobro */}
       {pagoModal && (
-        <FinModal title={`Registrar Cobro — Doc ${pagoModal.facturaN}`} onClose={()=>setPagoModal(null)} width={400}>
+        <FinModal title={`Registrar Cobro — Doc ${pagoModal.facturaN}`} onClose={()=>setPagoModal(null)} width={400} theme={LIGHT_THEME}>
           <LabelInput label="Fecha de Pago" type="date" value={formPago.fecha_pago}
-            onChange={e=>setFP("fecha_pago",e.target.value)} />
+            onChange={e=>setFP("fecha_pago",e.target.value)} theme={LIGHT_THEME} />
           <LabelInput label="Monto Cobrado" type="number" value={formPago.monto}
-            onChange={e=>setFP("monto",e.target.value)} placeholder="0" />
+            onChange={e=>setFP("monto",e.target.value)} placeholder="0" theme={LIGHT_THEME} />
           <LabelSelect label="Método de Pago" value={formPago.metodo}
-            onChange={e=>setFP("metodo",e.target.value)}>
+            onChange={e=>setFP("metodo",e.target.value)} theme={LIGHT_THEME}>
             <option>Transferencia</option>
             <option>Cheque</option>
             <option>Efectivo</option>
             <option>Otro</option>
           </LabelSelect>
           <LabelInput label="Referencia (opcional)" value={formPago.referencia}
-            onChange={e=>setFP("referencia",e.target.value)} placeholder="N° transferencia, folio…" />
+            onChange={e=>setFP("referencia",e.target.value)} placeholder="N° transferencia, folio…" theme={LIGHT_THEME} />
           <div style={{ display:"flex", gap:10, marginTop:4 }}>
-            <BtnSec onClick={()=>setPagoModal(null)}>Cancelar</BtnSec>
-            <BtnPrimary onClick={savePago} disabled={saving||!formPago.monto||!formPago.fecha_pago}>
+            <BtnSec onClick={()=>setPagoModal(null)} theme={LIGHT_THEME}>Cancelar</BtnSec>
+            <BtnPrimary onClick={savePago} disabled={saving||!formPago.monto||!formPago.fecha_pago} theme={LIGHT_THEME}>
               {saving?"Guardando…":"Registrar Cobro"}
             </BtnPrimary>
           </div>
@@ -505,14 +505,14 @@ export function CuentasPorCobrar({ isMobile }) {
 
       {/* Modal vincular factura ↔ cotización */}
       {vinculo && (
-        <FinModal title={`Cotización de la factura ${vinculo.factura.numero_documento}`} onClose={()=>setVinculo(null)} width={460}>
+        <FinModal title={`Cotización de la factura ${vinculo.factura.numero_documento}`} onClose={()=>setVinculo(null)} width={460} theme={LIGHT_THEME}>
           {vinculo.factura.referencia_cotizacion && !vinculo.factura.cotizacion_id && (
-            <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:12 }}>
-              Referencia escrita: <b style={{ color:COLORS.text }}>{vinculo.factura.referencia_cotizacion}</b>
+            <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted, marginBottom:12 }}>
+              Referencia escrita: <b style={{ color:C.text }}>{vinculo.factura.referencia_cotizacion}</b>
             </div>
           )}
           <LabelSelect label="Cotización" value={vinculo.cotizacionId}
-            onChange={e=>setVinculo(v=>({ ...v, cotizacionId: e.target.value }))}>
+            onChange={e=>setVinculo(v=>({ ...v, cotizacionId: e.target.value }))} theme={LIGHT_THEME}>
             <option value="">— Sin cotización —</option>
             {cotizaciones.map(q => (
               <option key={q.id} value={String(q.id)}>
@@ -520,12 +520,12 @@ export function CuentasPorCobrar({ isMobile }) {
               </option>
             ))}
           </LabelSelect>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:14 }}>
+          <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, marginBottom:14 }}>
             Los cobros de esta factura suman al saldo del proyecto en Compras → Por proyecto.
           </div>
           <div style={{ display:"flex", gap:10 }}>
-            <BtnSec onClick={()=>setVinculo(null)}>Cancelar</BtnSec>
-            <BtnPrimary onClick={guardarVinculo} disabled={saving}>{saving?"Guardando…":"Guardar vínculo"}</BtnPrimary>
+            <BtnSec onClick={()=>setVinculo(null)} theme={LIGHT_THEME}>Cancelar</BtnSec>
+            <BtnPrimary onClick={guardarVinculo} disabled={saving} theme={LIGHT_THEME}>{saving?"Guardando…":"Guardar vínculo"}</BtnPrimary>
           </div>
         </FinModal>
       )}

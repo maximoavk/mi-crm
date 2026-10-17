@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { exportPNGBlob, exportPDFBlob, downloadBlob } from "./exportUtils.js";
-import { COLORS, FONT } from "../theme.js";
-
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../theme.js";
 export function ExportPanel({ svgRef, exportMeta }) {
   const [status, setStatus] = useState("");
 
@@ -30,13 +29,13 @@ export function ExportPanel({ svgRef, exportMeta }) {
 
   return (
     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-      <button onClick={handleExportPNG} style={{ flex: "1 1 160px", padding: "10px", borderRadius: 8, border: `1px solid ${COLORS.border}`, background: "transparent", color: COLORS.text, fontSize: 12, fontFamily: FONT, cursor: "pointer" }}>
+      <button onClick={handleExportPNG} style={{ flex: "1 1 160px", padding: "10px", borderRadius: 8, border: `1px solid ${C.border}`, background: "transparent", color: C.text, fontSize: 12, fontFamily: FONT, cursor: "pointer" }}>
         ⬇️ Exportar PNG
       </button>
-      <button onClick={handleExportPDF} style={{ flex: "1 1 160px", padding: "10px", borderRadius: 8, border: `1px solid ${COLORS.border}`, background: "transparent", color: COLORS.text, fontSize: 12, fontFamily: FONT, cursor: "pointer" }}>
+      <button onClick={handleExportPDF} style={{ flex: "1 1 160px", padding: "10px", borderRadius: 8, border: `1px solid ${C.border}`, background: "transparent", color: C.text, fontSize: 12, fontFamily: FONT, cursor: "pointer" }}>
         ⬇️ Exportar PDF
       </button>
-      {status && <span style={{ fontSize: 11, color: COLORS.textMuted, fontFamily: FONT }}>{status}</span>}
+      {status && <span style={{ fontSize: 11, color: C.textMuted, fontFamily: FONT }}>{status}</span>}
     </div>
   );
 }

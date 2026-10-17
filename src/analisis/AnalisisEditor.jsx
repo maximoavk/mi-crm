@@ -1,7 +1,7 @@
 // Editor de un análisis de precios (comparación de productos y proveedores).
 import { useState } from "react";
 import { supabase } from "../supabaseClient.js";
-import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
 import { fmt } from "../shared/format.js";
 
 // ── Editor de análisis ────────────────────────────────────────────────────────
@@ -94,8 +94,8 @@ export function AnalisisEditor({ analysis, products, onBack }) {
     onBack();
   };
 
-  const inp = { background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 12px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", width:"100%", boxSizing:"border-box" };
-  const lbl = { fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:3, display:"block", fontWeight:600 };
+  const inp = { background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 12px", fontFamily:FONT, fontSize:12, color:C.text, outline:"none", width:"100%", boxSizing:"border-box" };
+  const lbl = { fontFamily:FONT, fontSize:10, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:3, display:"block", fontWeight:600 };
 
   const filteredProds = (products||[]).filter(p=>{
     const s = search.toLowerCase();
@@ -106,15 +106,15 @@ export function AnalisisEditor({ analysis, products, onBack }) {
     <div>
       {/* Header */}
       <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
-        <button onClick={onBack} style={{ padding:"6px 12px", borderRadius:7, fontFamily:FONT, fontSize:12, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.border}`, color:COLORS.textMuted }}>← Volver</button>
+        <button onClick={onBack} style={{ padding:"6px 12px", borderRadius:7, fontFamily:FONT, fontSize:12, cursor:"pointer", background:"transparent", border:`1px solid ${C.border}`, color:C.textMuted }}>← Volver</button>
         <div>
-          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.1em" }}>{isNew?"Nuevo análisis":"Editar análisis"}</div>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text }}>{titulo||"Sin título"}</div>
+          <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.1em" }}>{isNew?"Nuevo análisis":"Editar análisis"}</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:C.text }}>{titulo||"Sin título"}</div>
         </div>
       </div>
 
       {/* Meta */}
-      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:"16px 20px", marginBottom:16 }}>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"16px 20px", marginBottom:16 }}>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
           <div><label style={lbl}>Título del análisis</label><input value={titulo} onChange={e=>setTitulo(e.target.value)} placeholder="Ej: Motores de portón corredizo 2026" style={inp} /></div>
           <div>
@@ -128,12 +128,12 @@ export function AnalisisEditor({ analysis, products, onBack }) {
 
       {/* Productos */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-        <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text }}>Productos a comparar ({items.length})</div>
+        <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:C.text }}>Productos a comparar ({items.length})</div>
         <div style={{ display:"flex", gap:8 }}>
-          <button onClick={()=>setShowPicker(!showPicker)} style={{ padding:"6px 14px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${COLORS.secondary}22`, border:`1px solid ${COLORS.secondary}44`, color:COLORS.secondary }}>
+          <button onClick={()=>setShowPicker(!showPicker)} style={{ padding:"6px 14px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${C.secondary}22`, border:`1px solid ${C.secondary}44`, color:C.secondary }}>
             📦 Desde catálogo
           </button>
-          <button onClick={addManual} style={{ padding:"6px 14px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${COLORS.border}`, border:"none", color:COLORS.textMuted }}>
+          <button onClick={addManual} style={{ padding:"6px 14px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${C.border}`, border:"none", color:C.textMuted }}>
             + Manual
           </button>
         </div>
@@ -141,37 +141,37 @@ export function AnalisisEditor({ analysis, products, onBack }) {
 
       {/* Product picker */}
       {showPicker && (
-        <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.secondary}44`, borderRadius:10, padding:14, marginBottom:14 }}>
+        <div style={{ background:C.bg, border:`1px solid ${C.secondary}44`, borderRadius:10, padding:14, marginBottom:14 }}>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar en catálogo por nombre o código..." style={{...inp, marginBottom:10}} autoFocus />
           <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))", gap:8, maxHeight:240, overflowY:"auto" }}>
             {filteredProds.map(p=>{
               const already = items.find(i=>i.producto_id===p.id);
               return (
                 <div key={p.id} onClick={()=>!already&&addProduct(p)}
-                  style={{ padding:"8px 12px", borderRadius:7, border:`1px solid ${already?COLORS.green+"44":COLORS.border}`, background:already?`${COLORS.green}08`:COLORS.card, cursor:already?"default":"pointer", opacity:already?0.6:1 }}>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:already?COLORS.green:COLORS.text }}>{p.nombre||p.name}</div>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{p.codigo||p.code} · {fmt(Number(p.precio||p.price||0))}</div>
-                  {already && <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.green }}>✓ Ya agregado</div>}
+                  style={{ padding:"8px 12px", borderRadius:7, border:`1px solid ${already?C.green+"44":C.border}`, background:already?`${C.green}08`:C.card, cursor:already?"default":"pointer", opacity:already?0.6:1 }}>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:already?C.green:C.text }}>{p.nombre||p.name}</div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>{p.codigo||p.code} · {fmt(Number(p.precio||p.price||0))}</div>
+                  {already && <div style={{ fontFamily:FONT, fontSize:9, color:C.green }}>✓ Ya agregado</div>}
                 </div>
               );
             })}
-            {filteredProds.length===0 && <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, gridColumn:"span 3", textAlign:"center", padding:20 }}>Sin resultados</div>}
+            {filteredProds.length===0 && <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, gridColumn:"span 3", textAlign:"center", padding:20 }}>Sin resultados</div>}
           </div>
         </div>
       )}
 
       {/* Items */}
       {items.length===0 ? (
-        <div style={{ textAlign:"center", padding:40, fontFamily:FONT, color:COLORS.textMuted, background:COLORS.card, borderRadius:12, border:`1px dashed ${COLORS.border}` }}>
+        <div style={{ textAlign:"center", padding:40, fontFamily:FONT, color:C.textMuted, background:C.card, borderRadius:12, border:`1px dashed ${C.border}` }}>
           Agrega productos desde el catálogo o manualmente para comenzar la comparativa
         </div>
       ) : (
         <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
           {items.map((it,idx)=>(
-            <div key={idx} style={{ background:COLORS.card, border:`1px solid ${it.recomendado?COLORS.green+"66":COLORS.border}`, borderRadius:12, padding:"16px 20px", position:"relative" }}>
+            <div key={idx} style={{ background:C.card, border:`1px solid ${it.recomendado?C.green+"66":C.border}`, borderRadius:12, padding:"16px 20px", position:"relative" }}>
               {/* Recomendado badge */}
-              {it.recomendado && <div style={{ position:"absolute", top:12, right:50, fontFamily:FONT, fontSize:9, color:COLORS.green, background:`${COLORS.green}20`, padding:"2px 8px", borderRadius:10, border:`1px solid ${COLORS.green}44` }}>⭐ Recomendado</div>}
-              <button onClick={()=>delItem(idx)} style={{ position:"absolute", top:12, right:12, background:"transparent", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>✕</button>
+              {it.recomendado && <div style={{ position:"absolute", top:12, right:50, fontFamily:FONT, fontSize:9, color:C.green, background:`${C.green}20`, padding:"2px 8px", borderRadius:10, border:`1px solid ${C.green}44` }}>⭐ Recomendado</div>}
+              <button onClick={()=>delItem(idx)} style={{ position:"absolute", top:12, right:12, background:"transparent", border:"none", color:C.red, cursor:"pointer", fontSize:14 }}>✕</button>
 
               {/* Nombre + código + proveedor */}
               <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr", gap:10, marginBottom:12 }}>
@@ -190,14 +190,14 @@ export function AnalisisEditor({ analysis, products, onBack }) {
                   <label style={lbl}>Precio venta (neto)</label>
                   <input type="number" value={it.precio_venta} onChange={e=>updItem(idx,"precio_venta",Number(e.target.value))} style={inp} />
                   {it.precio_costo>0 && it.precio_venta>0 && (
-                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.green, marginTop:3 }}>
+                    <div style={{ fontFamily:FONT, fontSize:10, color:C.green, marginTop:3 }}>
                       Margen: {Math.round((it.precio_venta-it.precio_costo)/it.precio_venta*100)}%
                     </div>
                   )}
                 </div>
                 <div>
                   <label style={lbl}>Precio venta c/IVA</label>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.green, padding:"8px 0" }}>{fmt(Math.round(it.precio_venta*1.19))}</div>
+                  <div style={{ fontFamily:FONT_NUM, fontSize:16, fontWeight:700, color:C.green, padding:"8px 0" }}>{fmt(Math.round(it.precio_venta*1.19))}</div>
                 </div>
               </div>
 
@@ -211,18 +211,18 @@ export function AnalisisEditor({ analysis, products, onBack }) {
               <div style={{ marginBottom:12 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
                   <label style={{...lbl, marginBottom:0}}>Especificaciones técnicas</label>
-                  <button onClick={()=>addSpec(idx)} style={{ padding:"3px 10px", borderRadius:5, fontFamily:FONT, fontSize:10, cursor:"pointer", background:`${COLORS.secondary}22`, border:`1px solid ${COLORS.secondary}44`, color:COLORS.secondary }}>+ Agregar</button>
+                  <button onClick={()=>addSpec(idx)} style={{ padding:"3px 10px", borderRadius:5, fontFamily:FONT, fontSize:10, cursor:"pointer", background:`${C.secondary}22`, border:`1px solid ${C.secondary}44`, color:C.secondary }}>+ Agregar</button>
                 </div>
                 <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
                   {Object.entries(it.specs||{}).map(([k,v])=>(
                     <div key={k} style={{ display:"grid", gridTemplateColumns:"1fr 1fr auto", gap:6, alignItems:"center" }}>
                       <input value={k} onChange={e=>updSpec(idx,k,e.target.value,v)} placeholder="Característica" style={{...inp, fontSize:11}} />
                       <input value={v} onChange={e=>updSpec(idx,k,k,e.target.value)} placeholder="Valor" style={{...inp, fontSize:11}} />
-                      <button onClick={()=>delSpec(idx,k)} style={{ background:"transparent", border:"none", color:COLORS.red, cursor:"pointer" }}>✕</button>
+                      <button onClick={()=>delSpec(idx,k)} style={{ background:"transparent", border:"none", color:C.red, cursor:"pointer" }}>✕</button>
                     </div>
                   ))}
                   {Object.keys(it.specs||{}).length===0 && (
-                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textDim, fontStyle:"italic" }}>Sin especificaciones — agrega características técnicas para la comparativa</div>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:C.textDim, fontStyle:"italic" }}>Sin especificaciones — agrega características técnicas para la comparativa</div>
                   )}
                 </div>
               </div>
@@ -230,12 +230,12 @@ export function AnalisisEditor({ analysis, products, onBack }) {
               {/* Ventajas / Desventajas */}
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
                 <div>
-                  <label style={{...lbl, color:COLORS.green}}>✓ Ventajas</label>
-                  <textarea value={it.ventajas} onChange={e=>updItem(idx,"ventajas",e.target.value)} rows={2} placeholder="Una por línea..." style={{...inp, resize:"vertical", borderColor:`${COLORS.green}33`}} />
+                  <label style={{...lbl, color:C.green}}>✓ Ventajas</label>
+                  <textarea value={it.ventajas} onChange={e=>updItem(idx,"ventajas",e.target.value)} rows={2} placeholder="Una por línea..." style={{...inp, resize:"vertical", borderColor:`${C.green}33`}} />
                 </div>
                 <div>
-                  <label style={{...lbl, color:COLORS.red}}>✗ Desventajas</label>
-                  <textarea value={it.desventajas} onChange={e=>updItem(idx,"desventajas",e.target.value)} rows={2} placeholder="Una por línea..." style={{...inp, resize:"vertical", borderColor:`${COLORS.red}33`}} />
+                  <label style={{...lbl, color:C.red}}>✗ Desventajas</label>
+                  <textarea value={it.desventajas} onChange={e=>updItem(idx,"desventajas",e.target.value)} rows={2} placeholder="Una por línea..." style={{...inp, resize:"vertical", borderColor:`${C.red}33`}} />
                 </div>
               </div>
 
@@ -248,14 +248,14 @@ export function AnalisisEditor({ analysis, products, onBack }) {
                 <div>
                   <label style={lbl}>🔗 Link ficha técnica (fabricante)</label>
                   <input value={it.ficha_tecnica_url||""} onChange={e=>updItem(idx,"ficha_tecnica_url",e.target.value)} placeholder="https://..." style={inp} />
-                  {it.ficha_tecnica_url && <a href={it.ficha_tecnica_url} target="_blank" rel="noreferrer" style={{ fontFamily:FONT, fontSize:10, color:COLORS.secondary, textDecoration:"none" }}>↗ Ver ficha técnica</a>}
+                  {it.ficha_tecnica_url && <a href={it.ficha_tecnica_url} target="_blank" rel="noreferrer" style={{ fontFamily:FONT, fontSize:10, color:C.secondary, textDecoration:"none" }}>↗ Ver ficha técnica</a>}
                 </div>
               </div>
 
               {/* Recomendado toggle */}
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                 <button onClick={()=>{ setItems(prev=>prev.map((it2,i)=>({...it2,recomendado:i===idx}))); }}
-                  style={{ padding:"4px 12px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:it.recomendado?`${COLORS.green}22`:"transparent", border:`1px solid ${it.recomendado?COLORS.green:COLORS.border}44`, color:it.recomendado?COLORS.green:COLORS.textMuted }}>
+                  style={{ padding:"4px 12px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:it.recomendado?`${C.green}22`:"transparent", border:`1px solid ${it.recomendado?C.green:C.border}44`, color:it.recomendado?C.green:C.textMuted }}>
                   ⭐ {it.recomendado?"Recomendado":"Marcar como recomendado"}
                 </button>
               </div>
@@ -265,10 +265,10 @@ export function AnalisisEditor({ analysis, products, onBack }) {
       )}
 
       {/* Footer */}
-      <div style={{ display:"flex", gap:8, marginTop:20, paddingTop:16, borderTop:`1px solid ${COLORS.border}` }}>
-        <button onClick={onBack} style={{ padding:"9px 20px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.border}`, color:COLORS.textMuted }}>Cancelar</button>
+      <div style={{ display:"flex", gap:8, marginTop:20, paddingTop:16, borderTop:`1px solid ${C.border}` }}>
+        <button onClick={onBack} style={{ padding:"9px 20px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:"transparent", border:`1px solid ${C.border}`, color:C.textMuted }}>Cancelar</button>
         <button onClick={save} disabled={saving}
-          style={{ padding:"9px 24px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:COLORS.accent, border:"none", color:"#fff", marginLeft:"auto" }}>
+          style={{ padding:"9px 24px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:C.accent, border:"none", color:"#fff", marginLeft:"auto" }}>
           {saving?"Guardando…":"💾 Guardar análisis"}
         </button>
       </div>

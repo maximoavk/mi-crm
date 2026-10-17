@@ -1,7 +1,7 @@
 // Tarjeta de cotización con sus servicios, gastos directos y rendimiento.
 import { useState } from "react";
 import { TreeCaret } from "../../shared/TreeCaret.jsx";
-import { COLORS, FONT, FONT_DISPLAY } from "../../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../../theme.js";
 import { LabelInput, BtnSec, BtnPrimary } from "../ui.jsx";
 import { fmtClp, fmtFecha } from "../../shared/format.js";
 import { supabase } from "../../supabaseClient.js";
@@ -11,31 +11,31 @@ import { ModalGastoDirecto } from "./ModalGastoDirecto.jsx";
 // ── COMPONENTE FILA DE SERVICIO/PRODUCTO (reutilizable) ──────────────────────
 function SlRow({ sl, products, editSl, setEditSl, savingEdit, setSavingEdit, cot, setDetail, onRefresh, color }) {
   const prod = products.find(p => p.id === sl.product_id);
-  const accentColor = color || COLORS.red;
+  const accentColor = color || C.red;
 
   if (editSl?.id === sl.id) {
     return (
-      <div style={{ padding:"12px", background:COLORS.accentDim,
-        borderRadius:8, marginBottom:5, border:`1px solid ${COLORS.accent}44` }}>
+      <div style={{ padding:"12px", background:C.accentDim,
+        borderRadius:8, marginBottom:5, border:`1px solid ${C.accent}44` }}>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 10px" }}>
           <LabelInput label="Descripción" value={editSl.descripcion}
-            onChange={e=>setEditSl(p=>({...p,descripcion:e.target.value}))} />
+            onChange={e=>setEditSl(p=>({...p,descripcion:e.target.value}))} theme={LIGHT_THEME} />
           <LabelInput label="Código" value={editSl.codigo}
-            onChange={e=>setEditSl(p=>({...p,codigo:e.target.value}))} />
+            onChange={e=>setEditSl(p=>({...p,codigo:e.target.value}))} theme={LIGHT_THEME} />
           <LabelInput label="Cantidad" type="number" value={editSl.cantidad}
-            onChange={e=>setEditSl(p=>({...p,cantidad:e.target.value}))} />
+            onChange={e=>setEditSl(p=>({...p,cantidad:e.target.value}))} theme={LIGHT_THEME} />
           <LabelInput label="Precio neto unitario" type="number" value={editSl.precio_unitario}
-            onChange={e=>setEditSl(p=>({...p,precio_unitario:e.target.value}))} />
+            onChange={e=>setEditSl(p=>({...p,precio_unitario:e.target.value}))} theme={LIGHT_THEME} />
         </div>
         {Number(editSl.precio_unitario) > 0 && (
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:10 }}>
+          <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, marginBottom:10 }}>
             Neto: {fmtClp(Number(editSl.cantidad||1)*Number(editSl.precio_unitario))} ·
             IVA: {fmtClp(Math.round(Number(editSl.cantidad||1)*Number(editSl.precio_unitario)*0.19))} ·
             Total: {fmtClp(Math.round(Number(editSl.cantidad||1)*Number(editSl.precio_unitario)*1.19))}
           </div>
         )}
         <div style={{ display:"flex", gap:8 }}>
-          <BtnSec onClick={()=>setEditSl(null)}>Cancelar</BtnSec>
+          <BtnSec onClick={()=>setEditSl(null)} theme={LIGHT_THEME}>Cancelar</BtnSec>
           <BtnPrimary disabled={savingEdit} onClick={async ()=>{
             setSavingEdit(true);
             await supabase.from("cot_service_lines").update({
@@ -53,7 +53,7 @@ function SlRow({ sl, products, editSl, setEditSl, savingEdit, setSavingEdit, cot
             setEditSl(null);
             setSavingEdit(false);
             onRefresh();
-          }}>
+          }} theme={LIGHT_THEME}>
             {savingEdit?"Guardando…":"Guardar cambios"}
           </BtnPrimary>
         </div>
@@ -63,14 +63,14 @@ function SlRow({ sl, products, editSl, setEditSl, savingEdit, setSavingEdit, cot
 
   return (
     <div style={{ display:"flex", justifyContent:"space-between",
-      alignItems:"center", padding:"8px 12px", background:COLORS.surface,
+      alignItems:"center", padding:"8px 12px", background:C.surface,
       borderRadius:7, marginBottom:5,
-      border:`1px solid ${color ? color+"33" : COLORS.border}` }}>
+      border:`1px solid ${color ? color+"33" : C.border}` }}>
       <div style={{ flex:1, minWidth:0 }}>
         <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600,
-          color:COLORS.text, overflow:"hidden", textOverflow:"ellipsis",
+          color:C.text, overflow:"hidden", textOverflow:"ellipsis",
           whiteSpace:"nowrap" }}>{sl.descripcion}</div>
-        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+        <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>
           {sl.suppliers?.nombre || (color ? "Directo" : "Sin subcontratista")}
           {sl.codigo ? ` · ${sl.codigo}` : ""}
           {prod && <span style={{ marginLeft:6, fontSize:10,
@@ -82,7 +82,7 @@ function SlRow({ sl, products, editSl, setEditSl, savingEdit, setSavingEdit, cot
         <div style={{ textAlign:"right" }}>
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700,
             color:accentColor }}>{fmtClp(sl.subtotal_neto)}</div>
-          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>neto</div>
+          <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>neto</div>
         </div>
         <button onClick={()=>setEditSl({
             id: sl.id, descripcion: sl.descripcion, codigo: sl.codigo||"",
@@ -90,9 +90,9 @@ function SlRow({ sl, products, editSl, setEditSl, savingEdit, setSavingEdit, cot
             precio_unitario: String(sl.precio_unitario||0),
             aplica_iva: sl.aplica_iva, notas: sl.notas||"",
           })}
-          style={{ padding:"4px 8px", background:COLORS.accentDim,
-            border:`1px solid ${COLORS.accentGlow}`, borderRadius:5,
-            color:COLORS.accent, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>
+          style={{ padding:"4px 8px", background:C.accentDim,
+            border:`1px solid ${C.accentGlow}`, borderRadius:5,
+            color:C.accent, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>
           ✏️
         </button>
         <button onClick={async ()=>{
@@ -101,9 +101,9 @@ function SlRow({ sl, products, editSl, setEditSl, savingEdit, setSavingEdit, cot
             setDetail(p=>({...p, sls: p.sls.filter(x=>x.id!==sl.id)}));
             onRefresh();
           }}
-          style={{ padding:"4px 8px", background:COLORS.red+"18",
-            border:`1px solid ${COLORS.red}44`, borderRadius:5,
-            color:COLORS.red, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>
+          style={{ padding:"4px 8px", background:C.red+"18",
+            border:`1px solid ${C.red}44`, borderRadius:5,
+            color:C.red, fontFamily:FONT, fontSize:10, cursor:"pointer" }}>
           ✕
         </button>
       </div>
@@ -132,12 +132,12 @@ export function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
 
   const margen     = Number(cot.margen_neto) || 0;
   const pctMargen  = Number(cot.pct_margen)  || 0;
-  const margenColor = margen >= 0 ? COLORS.green : COLORS.red;
+  const margenColor = margen >= 0 ? C.green : C.red;
 
   const estadoColor = {
     aprobada:"#00C2FF", enviada:"#FFB800", cerrado:"#00E5A0",
     por_facturar:"#A855F7", facturada:"#00E5A0",
-  }[cot.estado_cotizacion] || COLORS.textMuted;
+  }[cot.estado_cotizacion] || C.textMuted;
 
   const loadDetail = async () => {
     if (detail) return;
@@ -170,7 +170,7 @@ export function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
   };
 
   const SubHeader = ({ label, count, color }) => (
-    <div style={{ fontFamily:FONT, fontSize:10, color:color||COLORS.textMuted,
+    <div style={{ fontFamily:FONT, fontSize:10, color:color||C.textMuted,
       letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8,
       display:"flex", alignItems:"center", gap:8 }}>
       {label}
@@ -180,23 +180,23 @@ export function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
   );
 
   const EmptyRow = ({ msg }) => (
-    <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textDim,
+    <div style={{ fontFamily:FONT, fontSize:12, color:C.textDim,
       padding:"8px 0", fontStyle:"italic" }}>{msg}</div>
   );
 
   return (
-    <div style={{ background:COLORS.card, border:`1px solid ${open?COLORS.accent:COLORS.border}`,
+    <div style={{ background:C.card, border:`1px solid ${open?C.accent:C.border}`,
       borderRadius:12, marginBottom:12, overflow:"hidden",
       transition:"border-color 0.15s" }}>
 
       {/* ── CABECERA TARJETA ── */}
       <div onClick={toggle} style={{ padding:"16px 20px", cursor:"pointer",
         display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>
-        <TreeCaret collapsed={!open} size={12} />
+        <TreeCaret collapsed={!open} size={12} color={C.textMuted} />
 
         {/* COT badge */}
-        <div style={{ fontFamily:FONT, fontSize:13, fontWeight:700, color:COLORS.accent,
-          background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`,
+        <div style={{ fontFamily:FONT, fontSize:13, fontWeight:700, color:C.accent,
+          background:C.accentDim, border:`1px solid ${C.accentGlow}`,
           borderRadius:6, padding:"4px 12px", flexShrink:0 }}>
           COT-{cot.numero_cotizacion}
         </div>
@@ -204,7 +204,7 @@ export function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
         {/* Cliente + estado */}
         <div style={{ flex:1, minWidth:120 }}>
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700,
-            color:COLORS.text }}>{cot.cliente || "—"}</div>
+            color:C.text }}>{cot.cliente || "—"}</div>
           <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:2 }}>
             <span style={{ fontFamily:FONT, fontSize:10, color:estadoColor,
               background:estadoColor+"18", border:`1px solid ${estadoColor}33`,
@@ -217,13 +217,13 @@ export function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
         {!isMobile && (
           <div style={{ width:140, flexShrink:0 }}>
             <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-              <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Ejecutado</span>
+              <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>Ejecutado</span>
               <span style={{ fontFamily:FONT, fontSize:10, fontWeight:700,
-                color:pct>90?COLORS.red:COLORS.text }}>{pct}%</span>
+                color:pct>90?C.red:C.text }}>{pct}%</span>
             </div>
-            <div style={{ height:6, background:COLORS.border, borderRadius:3 }}>
+            <div style={{ height:6, background:C.border, borderRadius:3 }}>
               <div style={{ height:6, borderRadius:3, width:`${pct}%`,
-                background:pct>90?COLORS.red:pct>70?COLORS.yellow:COLORS.green,
+                background:pct>90?C.red:pct>70?C.yellow:C.green,
                 transition:"width 0.3s" }} />
             </div>
           </div>
@@ -231,12 +231,12 @@ export function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
 
         {/* Montos clave */}
         <div style={{ textAlign:"right", flexShrink:0 }}>
-          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Presupuesto</div>
+          <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>Presupuesto</div>
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700,
-            color:COLORS.text }}>{fmtClp(cot.presupuesto_total)}</div>
+            color:C.text }}>{fmtClp(cot.presupuesto_total)}</div>
         </div>
         <div style={{ textAlign:"right", flexShrink:0 }}>
-          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Margen</div>
+          <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>Margen</div>
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700,
             color:margenColor }}>
             {Number(cot.total_neto_emitido)>0 ? `${pctMargen}%` : "—"}
@@ -247,9 +247,9 @@ export function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
 
       {/* ── DETALLE EXPANDIDO ── */}
       {open && (
-        <div className="tree-row-in" style={{ borderTop:`1px solid ${COLORS.border}`, padding:"18px 20px" }}>
+        <div className="tree-row-in" style={{ borderTop:`1px solid ${C.border}`, padding:"18px 20px" }}>
           {loadingDetail ? (
-            <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted,
+            <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted,
               textAlign:"center", padding:20 }}>Cargando detalle…</div>
           ) : detail && (
             <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:20 }}>
@@ -257,7 +257,7 @@ export function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
               {/* ── COL IZQ: EGRESOS ── */}
               <div>
                 {/* OC de compras */}
-                <SubHeader label="Órdenes de compra" count={detail.ocs.length} color={COLORS.accent} />
+                <SubHeader label="Órdenes de compra" count={detail.ocs.length} color={C.accent} />
                 {detail.ocs.length === 0
                   ? <EmptyRow msg="Sin OC vinculadas" />
                   : detail.ocs.map(oc => {
@@ -265,19 +265,19 @@ export function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
                       .reduce((s,l)=>s+(l.cantidad*l.precio_unitario),0);
                     return (
                       <div key={oc.id} style={{ display:"flex", justifyContent:"space-between",
-                        alignItems:"center", padding:"8px 12px", background:COLORS.surface,
-                        borderRadius:7, marginBottom:5, border:`1px solid ${COLORS.border}` }}>
+                        alignItems:"center", padding:"8px 12px", background:C.surface,
+                        borderRadius:7, marginBottom:5, border:`1px solid ${C.border}` }}>
                         <div>
                           <div style={{ fontFamily:FONT, fontSize:12, fontWeight:700,
-                            color:COLORS.accent }}>{oc.numero_oc}</div>
-                          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                            color:C.accent }}>{oc.numero_oc}</div>
+                          <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>
                             {oc.suppliers?.nombre || "—"}
                           </div>
                         </div>
                         <div style={{ textAlign:"right" }}>
                           <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700,
-                            color:COLORS.text }}>{fmtClp(Math.round(totalOC/1.19))}</div>
-                          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>neto</div>
+                            color:C.text }}>{fmtClp(Math.round(totalOC/1.19))}</div>
+                          <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>neto</div>
                         </div>
                       </div>
                     );
@@ -289,18 +289,18 @@ export function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
                     marginBottom:8 }}>
                     <SubHeader label="Servicios / Subcontratistas"
-                      count={detail.sls.filter(s=>!s._isProd).length} color={COLORS.purple} />
+                      count={detail.sls.filter(s=>!s._isProd).length} color={C.purple} />
                     <div style={{ display:"flex", gap:6, marginBottom:8 }}>
                       <button onClick={()=>setModalServicio(true)}
-                        style={{ padding:"4px 10px", background:COLORS.purple+"22",
-                          border:`1px solid ${COLORS.purple}44`, borderRadius:6,
-                          color:COLORS.purple, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+                        style={{ padding:"4px 10px", background:C.purple+"22",
+                          border:`1px solid ${C.purple}44`, borderRadius:6,
+                          color:C.purple, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
                         + Servicio
                       </button>
                       <button onClick={()=>setModalProducto(true)}
-                        style={{ padding:"4px 10px", background:COLORS.yellow+"22",
-                          border:`1px solid ${COLORS.yellow}44`, borderRadius:6,
-                          color:COLORS.yellow, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+                        style={{ padding:"4px 10px", background:C.yellow+"22",
+                          border:`1px solid ${C.yellow}44`, borderRadius:6,
+                          color:C.yellow, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
                         + Producto
                       </button>
                     </div>
@@ -327,11 +327,11 @@ export function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
                       count={detail.sls.filter(sl => {
                         const p = products.find(p => p.id === sl.product_id);
                         return p && p.tipo === "producto";
-                      }).length} color={COLORS.yellow} />
+                      }).length} color={C.yellow} />
                     {detail.sls.filter(sl => {
                       const p = products.find(p => p.id === sl.product_id);
                       return p && p.tipo === "producto";
-                    }).map(sl => <SlRow key={sl.id} sl={sl} products={products} editSl={editSl} setEditSl={setEditSl} savingEdit={savingEdit} setSavingEdit={setSavingEdit} cot={cot} setDetail={setDetail} onRefresh={onRefresh} color={COLORS.yellow} />)}
+                    }).map(sl => <SlRow key={sl.id} sl={sl} products={products} editSl={editSl} setEditSl={setEditSl} savingEdit={savingEdit} setSavingEdit={setSavingEdit} cot={cot} setDetail={setDetail} onRefresh={onRefresh} color={C.yellow} />)}
                   </div>
                 )}
 
@@ -353,7 +353,7 @@ export function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
                     ? <EmptyRow msg="Sin gastos de terreno registrados" />
                     : detail.gds.map(gd => (
                       <div key={gd.id} style={{ display:"flex", justifyContent:"space-between",
-                        alignItems:"center", padding:"8px 12px", background:COLORS.surface,
+                        alignItems:"center", padding:"8px 12px", background:C.surface,
                         borderRadius:7, marginBottom:5,
                         border:"1px solid #F9731622" }}>
                         <div style={{ flex:1, minWidth:0 }}>
@@ -362,15 +362,15 @@ export function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
                               background:"#F9731618", borderRadius:3, padding:"1px 6px" }}>
                               {gd.categoria}
                             </span>
-                            <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
+                            <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>
                               {fmtFecha(gd.fecha)}
                             </span>
                           </div>
                           <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600,
-                            color:COLORS.text, overflow:"hidden", textOverflow:"ellipsis",
+                            color:C.text, overflow:"hidden", textOverflow:"ellipsis",
                             whiteSpace:"nowrap" }}>{gd.descripcion}</div>
                           {gd.proveedor && (
-                            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                            <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>
                               {gd.proveedor}
                               {gd.numero_documento ? ` · N° ${gd.numero_documento}` : ""}
                             </div>
@@ -383,7 +383,7 @@ export function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
                               fontWeight:700, color:"#F97316" }}>{fmtClp(gd.monto_neto)}</div>
                             {gd.aplica_iva && (
                               <div style={{ fontFamily:FONT, fontSize:10,
-                                color:COLORS.green }}>IVA: {fmtClp(gd.monto_iva)}</div>
+                                color:C.green }}>IVA: {fmtClp(gd.monto_iva)}</div>
                             )}
                           </div>
                           <button onClick={async ()=>{
@@ -392,9 +392,9 @@ export function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
                               setDetail(p=>({...p, gds: p.gds.filter(x=>x.id!==gd.id)}));
                               onRefresh();
                             }}
-                            style={{ padding:"4px 8px", background:COLORS.red+"18",
-                              border:`1px solid ${COLORS.red}44`, borderRadius:5,
-                              color:COLORS.red, fontFamily:FONT, fontSize:10,
+                            style={{ padding:"4px 8px", background:C.red+"18",
+                              border:`1px solid ${C.red}44`, borderRadius:5,
+                              color:C.red, fontFamily:FONT, fontSize:10,
                               cursor:"pointer" }}>✕</button>
                         </div>
                       </div>
@@ -406,28 +406,28 @@ export function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
               <div>
                 {/* Facturas emitidas */}
                 <SubHeader label="Facturas emitidas al cliente"
-                  count={detail.fes.length} color={COLORS.green} />
+                  count={detail.fes.length} color={C.green} />
                 {detail.fes.length === 0
                   ? <EmptyRow msg="Sin facturas emitidas vinculadas" />
                   : detail.fes.map(fe => {
                     const cobrado = (fe.pagos_recibidos||[]).reduce((s,p)=>s+p.monto,0);
                     const saldo   = fe.monto_total - cobrado;
                     return (
-                      <div key={fe.id} style={{ padding:"8px 12px", background:COLORS.surface,
-                        borderRadius:7, marginBottom:5, border:`1px solid ${COLORS.border}` }}>
+                      <div key={fe.id} style={{ padding:"8px 12px", background:C.surface,
+                        borderRadius:7, marginBottom:5, border:`1px solid ${C.border}` }}>
                         <div style={{ display:"flex", justifyContent:"space-between" }}>
                           <div>
                             <div style={{ fontFamily:FONT, fontSize:12, fontWeight:700,
-                              color:COLORS.green }}>N° {fe.numero_documento}</div>
-                            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                              color:C.green }}>N° {fe.numero_documento}</div>
+                            <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>
                               {fmtFecha(fe.fecha_emision)}
                             </div>
                           </div>
                           <div style={{ textAlign:"right" }}>
                             <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700,
-                              color:COLORS.text }}>{fmtClp(fe.monto_total)}</div>
+                              color:C.text }}>{fmtClp(fe.monto_total)}</div>
                             {saldo > 0 && (
-                              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.yellow }}>
+                              <div style={{ fontFamily:FONT, fontSize:10, color:C.yellow }}>
                                 Saldo: {fmtClp(saldo)}
                               </div>
                             )}
@@ -439,19 +439,19 @@ export function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
                 }
 
                 {/* Panel IVA neteo */}
-                <div style={{ marginTop:16, background:COLORS.bg, borderRadius:8,
-                  border:`1px solid ${COLORS.border}`, padding:"12px 16px" }}>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent,
+                <div style={{ marginTop:16, background:C.bg, borderRadius:8,
+                  border:`1px solid ${C.border}`, padding:"12px 16px" }}>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:C.accent,
                     letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>
                     IVA — Neteo por cotización
                   </div>
                   {[
-                    { l:"Débito fiscal (IVA venta)",    v: Number(cot.total_debito_fiscal),  c:COLORS.red   },
-                    { l:"Crédito fiscal (IVA compras)", v: Number(cot.total_credito_fiscal), c:COLORS.green },
+                    { l:"Débito fiscal (IVA venta)",    v: Number(cot.total_debito_fiscal),  c:C.red   },
+                    { l:"Crédito fiscal (IVA compras)", v: Number(cot.total_credito_fiscal), c:C.green },
                   ].map((r,i)=>(
                     <div key={i} style={{ display:"flex", justifyContent:"space-between",
-                      padding:"6px 0", borderBottom:`1px solid ${COLORS.border}` }}>
-                      <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{r.l}</span>
+                      padding:"6px 0", borderBottom:`1px solid ${C.border}` }}>
+                      <span style={{ fontFamily:FONT, fontSize:12, color:C.textMuted }}>{r.l}</span>
                       <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600,
                         color:r.c }}>{fmtClp(r.v)}</span>
                     </div>
@@ -461,40 +461,40 @@ export function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
                     return (
                       <div style={{ display:"flex", justifyContent:"space-between", paddingTop:8 }}>
                         <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700,
-                          color:COLORS.text }}>{neto>=0?"IVA neto a pagar":"Remanente"}</span>
+                          color:C.text }}>{neto>=0?"IVA neto a pagar":"Remanente"}</span>
                         <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700,
-                          color:neto>=0?COLORS.yellow:COLORS.green }}>{fmtClp(Math.abs(neto))}</span>
+                          color:neto>=0?C.yellow:C.green }}>{fmtClp(Math.abs(neto))}</span>
                       </div>
                     );
                   })()}
                 </div>
 
                 {/* P&L */}
-                <div style={{ marginTop:12, background:COLORS.bg, borderRadius:8,
-                  border:`1px solid ${COLORS.border}`, padding:"12px 16px" }}>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent,
+                <div style={{ marginTop:12, background:C.bg, borderRadius:8,
+                  border:`1px solid ${C.border}`, padding:"12px 16px" }}>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:C.accent,
                     letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>
                     P&L — Margen bruto
                   </div>
                   {[
-                    { l:"Ingreso neto (facturado)", v: Number(cot.total_neto_emitido)||0,    c:COLORS.green },
-                    { l:"Compras (neto)",            v: Number(cot.total_neto_compras)||0,    c:COLORS.red   },
-                    { l:"Flete (neto)",               v: Number(cot.total_neto_flete)||0,      c:COLORS.red, always:true },
-                    { l:"Servicios (neto)",           v: Number(cot.total_neto_servicios)||0, c:COLORS.red   },
+                    { l:"Ingreso neto (facturado)", v: Number(cot.total_neto_emitido)||0,    c:C.green },
+                    { l:"Compras (neto)",            v: Number(cot.total_neto_compras)||0,    c:C.red   },
+                    { l:"Flete (neto)",               v: Number(cot.total_neto_flete)||0,      c:C.red, always:true },
+                    { l:"Servicios (neto)",           v: Number(cot.total_neto_servicios)||0, c:C.red   },
                     { l:"Materiales / Terreno (neto)",v: Number(cot.total_neto_gastos)||0,    c:"#F97316"    },
-                    { l:"Fact. recibidas (neto)",     v: Number(cot.total_neto_fr)||0,        c:COLORS.red   },
+                    { l:"Fact. recibidas (neto)",     v: Number(cot.total_neto_fr)||0,        c:C.red   },
                   ].filter(r => r.always || r.v > 0).map((r,i)=>(
                     <div key={i} style={{ display:"flex", justifyContent:"space-between",
-                      padding:"5px 0", borderBottom:`1px solid ${COLORS.border}` }}>
-                      <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{r.l}</span>
+                      padding:"5px 0", borderBottom:`1px solid ${C.border}` }}>
+                      <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>{r.l}</span>
                       <span style={{ fontFamily:FONT, fontSize:11, fontWeight:600,
-                        color:r.v>0?r.c:COLORS.textDim }}>{r.v>0?fmtClp(r.v):"—"}</span>
+                        color:r.v>0?r.c:C.textDim }}>{r.v>0?fmtClp(r.v):"—"}</span>
                     </div>
                   ))}
                   <div style={{ display:"flex", justifyContent:"space-between",
                     alignItems:"center", paddingTop:8, marginTop:2 }}>
                     <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700,
-                      color:COLORS.text }}>Margen bruto</span>
+                      color:C.text }}>Margen bruto</span>
                     <div style={{ textAlign:"right" }}>
                       <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700,
                         color:margenColor }}>{fmtClp(margen)}</div>

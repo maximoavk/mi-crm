@@ -1,6 +1,6 @@
 // Modal para emitir un comprobante de prestación o pre-factura a partir de cotizaciones.
 import { useState, useEffect } from "react";
-import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { supabase } from "../supabaseClient.js";
 import { fmt, hoyISO } from "../shared/format.js";
 import { DeclararCambioPanel } from "./DeclararCambioPanel.jsx";
@@ -9,7 +9,7 @@ import { EMPRESA_RUT } from "../shared/empresa.js";
 export function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved }) {
   const isPF     = tab==="pf";
   const isReprint= !!(existing?._reprint);
-  const AC       = isPF ? COLORS.secondary : COLORS.accent;
+  const AC       = isPF ? C.secondary : C.accent;
   const prefix   = isPF ? "PF" : "CP";
 
   const emptyTx = () => ({ id:Date.now()+Math.random(), fecha:hoyISO(), codigo:"", monto:"" });
@@ -288,14 +288,14 @@ export function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, 
     }catch(e){alert("Error: "+e.message);setSaving(false);}
   };
 
-  const inp={width:"100%",background:COLORS.bg,border:`1px solid ${COLORS.border}`,borderRadius:6,padding:"9px 12px",fontFamily:FONT,fontSize:13,color:COLORS.text,outline:"none",boxSizing:"border-box"};
-  const lbl={fontFamily:FONT,fontSize:10,color:COLORS.textMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:5,fontWeight:600,display:"block"};
+  const inp={width:"100%",background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 12px",fontFamily:FONT,fontSize:13,color:C.text,outline:"none",boxSizing:"border-box"};
+  const lbl={fontFamily:FONT,fontSize:10,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:5,fontWeight:600,display:"block"};
   const txsValidos=transacciones.filter(t=>Number(t.monto)>0);
   const txsCheck=transacciones.reduce((s,t)=>s+Number(t.monto||0),0);
 
   return (
     <div style={{position:"fixed",inset:0,background:"#000b",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-      <div style={{background:COLORS.surface,border:`1px solid ${isPF?COLORS.secondary:COLORS.accent}44`,borderRadius:14,width:"100%",maxWidth:680,maxHeight:"92vh",overflowY:"auto",padding:28}}>
+      <div style={{background:C.surface,border:`1px solid ${isPF?C.secondary:C.accent}44`,borderRadius:14,width:"100%",maxWidth:680,maxHeight:"92vh",overflowY:"auto",padding:28}}>
 
         {/* Header modal */}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
@@ -303,39 +303,39 @@ export function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, 
             <div style={{fontFamily:FONT,fontSize:10,color:AC,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:3}}>
               {isPF?"Con IVA · Documento interno NO legal":"Sin IVA · Prestación de Servicios"}
             </div>
-            <div style={{fontFamily:FONT_DISPLAY,fontSize:18,fontWeight:700,color:COLORS.text}}>
+            <div style={{fontFamily:FONT_DISPLAY,fontSize:18,fontWeight:700,color:C.text}}>
               {isReprint?`🖨 Reimprimir ${existing?.numero}`:isPF?"🧾 Nueva Pre-Factura":"📋 Nuevo Comprobante"}
             </div>
           </div>
-          <button onClick={onClose} style={{background:"transparent",border:"none",color:COLORS.textMuted,fontSize:20,cursor:"pointer"}}>✕</button>
+          <button onClick={onClose} style={{background:"transparent",border:"none",color:C.textMuted,fontSize:20,cursor:"pointer"}}>✕</button>
         </div>
 
         {/* Info sistema PF */}
         {isPF && !isReprint && (
-          <div style={{marginBottom:14,padding:"5px 12px",borderLeft:`3px solid ${COLORS.secondary}`,background:`${COLORS.secondary}08`}}>
-            <span style={{fontFamily:FONT,fontSize:11,color:COLORS.textMuted}}>Sistema de Pre-Facturación Interna · No válido como documento legal</span>
+          <div style={{marginBottom:14,padding:"5px 12px",borderLeft:`3px solid ${C.secondary}`,background:`${C.secondary}08`}}>
+            <span style={{fontFamily:FONT,fontSize:11,color:C.textMuted}}>Sistema de Pre-Facturación Interna · No válido como documento legal</span>
           </div>
         )}
 
         {/* Cotizaciones */}
         <div style={{marginBottom:18}}>
-          <label style={lbl}>Cotizaciones {isPF?"con IVA":"sin IVA"} <span style={{fontWeight:400,color:COLORS.textMuted}}>({quotes.length} disponibles)</span></label>
+          <label style={lbl}>Cotizaciones {isPF?"con IVA":"sin IVA"} <span style={{fontWeight:400,color:C.textMuted}}>({quotes.length} disponibles)</span></label>
           {quotes.length===0
-            ?<div style={{padding:"12px 14px",background:`${COLORS.yellow}10`,border:`1px solid ${COLORS.yellow}30`,borderRadius:8,fontFamily:FONT,fontSize:12,color:COLORS.yellow}}>⚠ No hay cotizaciones {isPF?"con":"sin"} IVA.</div>
+            ?<div style={{padding:"12px 14px",background:`${C.yellow}10`,border:`1px solid ${C.yellow}30`,borderRadius:8,fontFamily:FONT,fontSize:12,color:C.yellow}}>⚠ No hay cotizaciones {isPF?"con":"sin"} IVA.</div>
             :(
             <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:180,overflowY:"auto"}}>
               {displayQuotes.map(q=>{const sel=selectedQuoteIds.includes(q.id);return(
-                <label key={q.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",background:sel?`${COLORS.green}12`:COLORS.bg,border:`1px solid ${sel?COLORS.green:COLORS.border}`,borderRadius:8,cursor:"pointer"}}>
-                  <input type="checkbox" checked={sel} onChange={()=>toggleQuote(q.id)} style={{accentColor:COLORS.green,width:15,height:15,flexShrink:0}} />
+                <label key={q.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",background:sel?`${C.green}12`:C.bg,border:`1px solid ${sel?C.green:C.border}`,borderRadius:8,cursor:"pointer"}}>
+                  <input type="checkbox" checked={sel} onChange={()=>toggleQuote(q.id)} style={{accentColor:C.green,width:15,height:15,flexShrink:0}} />
                   <div style={{flex:1,minWidth:0}}>
-                    <span style={{fontFamily:FONT_DISPLAY,fontSize:12,fontWeight:700,color:COLORS.text}}>COT °{q.number}</span>
-                    <span style={{fontFamily:FONT,fontSize:11,color:COLORS.textMuted,marginLeft:8}}>{q.clientCompany||q.clientName}</span>
-                    {isPF && q.clientRut && <span style={{fontFamily:FONT,fontSize:10,color:COLORS.textMuted,marginLeft:6}}>{q.clientRut}</span>}
+                    <span style={{fontFamily:FONT_DISPLAY,fontSize:12,fontWeight:700,color:C.text}}>COT °{q.number}</span>
+                    <span style={{fontFamily:FONT,fontSize:11,color:C.textMuted,marginLeft:8}}>{q.clientCompany||q.clientName}</span>
+                    {isPF && q.clientRut && <span style={{fontFamily:FONT,fontSize:10,color:C.textMuted,marginLeft:6}}>{q.clientRut}</span>}
                   </div>
                   <div style={{textAlign:"right",flexShrink:0}}>
-                    {isPF && <div style={{fontFamily:FONT,fontSize:9,color:COLORS.textMuted}}>Neto: {fmt(Math.round(q.total/1.19))}</div>}
-                    <span style={{fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,color:COLORS.green}}>{fmt(q.total)}</span>
-                    {isPF && <div style={{fontFamily:FONT,fontSize:9,color:COLORS.textMuted}}>c/IVA</div>}
+                    {isPF && <div style={{fontFamily:FONT,fontSize:9,color:C.textMuted}}>Neto: {fmt(Math.round(q.total/1.19))}</div>}
+                    <span style={{fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,color:C.green}}>{fmt(q.total)}</span>
+                    {isPF && <div style={{fontFamily:FONT,fontSize:9,color:C.textMuted}}>c/IVA</div>}
                   </div>
                 </label>
               );})}
@@ -345,22 +345,22 @@ export function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, 
 
         {/* Saldo real pendiente — descuenta lo ya cobrado en documentos anteriores de estas cotizaciones */}
         {selQuotes.length>0 && (
-          <div style={{marginBottom:18,background:COLORS.bg,border:`1px solid ${COLORS.border}`,borderRadius:8,padding:"12px 14px",display:"flex",flexDirection:"column",gap:6}}>
+          <div style={{marginBottom:18,background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,padding:"12px 14px",display:"flex",flexDirection:"column",gap:6}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <span style={{fontFamily:FONT,fontSize:10,color:COLORS.textMuted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Total cotización{selQuotes.length>1?"es":""}</span>
-              <span style={{fontFamily:FONT_DISPLAY,fontSize:12,color:COLORS.text}}>{fmt(cotTotal)}</span>
+              <span style={{fontFamily:FONT,fontSize:10,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Total cotización{selQuotes.length>1?"es":""}</span>
+              <span style={{fontFamily:FONT_DISPLAY,fontSize:12,color:C.text}}>{fmt(cotTotal)}</span>
             </div>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <span style={{fontFamily:FONT,fontSize:10,color:COLORS.textMuted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Ya cobrado en documentos anteriores</span>
-              <span style={{fontFamily:FONT_DISPLAY,fontSize:12,color:totalPagadoPrevio>0?COLORS.yellow:COLORS.textMuted}}>{fmt(totalPagadoPrevio)}</span>
+              <span style={{fontFamily:FONT,fontSize:10,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Ya cobrado en documentos anteriores</span>
+              <span style={{fontFamily:FONT_DISPLAY,fontSize:12,color:totalPagadoPrevio>0?C.yellow:C.textMuted}}>{fmt(totalPagadoPrevio)}</span>
             </div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:6,borderTop:`1px solid ${COLORS.border}`}}>
-              <span style={{fontFamily:FONT,fontSize:11,color:COLORS.text,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.08em"}}>Saldo real pendiente</span>
-              <span style={{fontFamily:FONT_DISPLAY,fontSize:15,fontWeight:700,color:saldoRealPendiente>0?COLORS.green:COLORS.textMuted}}>{fmt(saldoRealPendiente)}</span>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:6,borderTop:`1px solid ${C.border}`}}>
+              <span style={{fontFamily:FONT,fontSize:11,color:C.text,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.08em"}}>Saldo real pendiente</span>
+              <span style={{fontFamily:FONT_DISPLAY,fontSize:15,fontWeight:700,color:saldoRealPendiente>0?C.green:C.textMuted}}>{fmt(saldoRealPendiente)}</span>
             </div>
             {selectedQuoteIds.length===1 && (
               <button onClick={()=>setShowDeclarar(true)}
-                style={{marginTop:2,padding:"7px 10px",background:"transparent",border:`1px dashed ${COLORS.accent}88`,borderRadius:6,color:COLORS.accent,fontFamily:FONT,fontSize:11,cursor:"pointer"}}>
+                style={{marginTop:2,padding:"7px 10px",background:"transparent",border:`1px dashed ${C.accent}88`,borderRadius:6,color:C.accent,fontFamily:FONT,fontSize:11,cursor:"pointer"}}>
                 🌳 Declarar cambio de alcance (agregar/quitar items)
               </button>
             )}
@@ -389,12 +389,12 @@ export function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, 
 
         {/* Líneas */}
         {allLinesRaw.length>0&&(
-          <div style={{marginBottom:18,background:COLORS.bg,border:`1px solid ${COLORS.border}`,borderRadius:8,overflow:"hidden"}}>
-            <div style={{padding:"7px 14px",borderBottom:`1px solid ${COLORS.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <span style={{fontFamily:FONT,fontSize:10,color:COLORS.textMuted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Líneas — selecciona las que incluir</span>
+          <div style={{marginBottom:18,background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
+            <div style={{padding:"7px 14px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontFamily:FONT,fontSize:10,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Líneas — selecciona las que incluir</span>
               <div style={{display:"flex",gap:10}}>
-                <button onClick={()=>setSelectedLineKeys(null)} style={{fontFamily:FONT,fontSize:10,color:selectedLineKeys===null?COLORS.green:COLORS.textMuted,background:"transparent",border:"none",cursor:"pointer",textDecoration:"underline"}}>Todas</button>
-                <button onClick={()=>setSelectedLineKeys([])} style={{fontFamily:FONT,fontSize:10,color:selectedLineKeys!==null&&selectedLineKeys.length===0?COLORS.red:COLORS.textMuted,background:"transparent",border:"none",cursor:"pointer",textDecoration:"underline"}}>Ninguna</button>
+                <button onClick={()=>setSelectedLineKeys(null)} style={{fontFamily:FONT,fontSize:10,color:selectedLineKeys===null?C.green:C.textMuted,background:"transparent",border:"none",cursor:"pointer",textDecoration:"underline"}}>Todas</button>
+                <button onClick={()=>setSelectedLineKeys([])} style={{fontFamily:FONT,fontSize:10,color:selectedLineKeys!==null&&selectedLineKeys.length===0?C.red:C.textMuted,background:"transparent",border:"none",cursor:"pointer",textDecoration:"underline"}}>Ninguna</button>
               </div>
             </div>
             {allLinesRaw.map((l,i)=>{
@@ -404,10 +404,10 @@ export function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, 
               const unitNeto=Number(l.unitPrice||l.precio_unitario||0);
               const disc=Number(l.discount||l.descuento||0);
               return(
-                <label key={i} style={{display:"flex",alignItems:"center",gap:0,borderBottom:i<allLinesRaw.length-1?`1px solid ${COLORS.border}`:"none",cursor:"pointer",background:isSel?"transparent":`${COLORS.red}08`}}>
+                <label key={i} style={{display:"flex",alignItems:"center",gap:0,borderBottom:i<allLinesRaw.length-1?`1px solid ${C.border}`:"none",cursor:"pointer",background:isSel?"transparent":`${C.red}08`}}>
                   {/* Número ítem */}
-                  <div style={{width:36,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",alignSelf:"stretch",borderRight:`1px solid ${COLORS.border}`,background:isSel?`${AC}11`:`${COLORS.border}22`}}>
-                    <span style={{fontFamily:FONT_DISPLAY,fontSize:11,fontWeight:700,color:isSel?AC:COLORS.textDim}}>#{i+1}</span>
+                  <div style={{width:36,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",alignSelf:"stretch",borderRight:`1px solid ${C.border}`,background:isSel?`${AC}11`:`${C.border}22`}}>
+                    <span style={{fontFamily:FONT_DISPLAY,fontSize:11,fontWeight:700,color:isSel?AC:C.textDim}}>#{i+1}</span>
                   </div>
                   {/* Checkbox */}
                   <div style={{padding:"10px 10px",flexShrink:0}}>
@@ -415,29 +415,29 @@ export function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, 
                   </div>
                   {/* Descripción + código */}
                   <div style={{flex:1,minWidth:0,padding:"10px 4px"}}>
-                    <div style={{fontFamily:FONT_DISPLAY,fontSize:12,color:isSel?COLORS.text:COLORS.textMuted,fontWeight:isSel?600:400,lineHeight:1.3}}>{l.description||l.descripcion||"—"}</div>
+                    <div style={{fontFamily:FONT_DISPLAY,fontSize:12,color:isSel?C.text:C.textMuted,fontWeight:isSel?600:400,lineHeight:1.3}}>{l.description||l.descripcion||"—"}</div>
                     <div style={{display:"flex",gap:10,marginTop:2,flexWrap:"wrap"}}>
-                      {(l.code||l.codigo) && <span style={{fontFamily:FONT,fontSize:9,color:COLORS.accent}}>{l.code||l.codigo}</span>}
-                      <span style={{fontFamily:FONT,fontSize:9,color:COLORS.textMuted}}>{qty} UN{disc>0?` · ${disc}% desc.`:""}</span>
-                      {selQuotes.length>1 && <span style={{fontFamily:FONT,fontSize:9,color:COLORS.textMuted,fontStyle:"italic"}}>COT °{l.quoteNum}</span>}
+                      {(l.code||l.codigo) && <span style={{fontFamily:FONT,fontSize:9,color:C.accent}}>{l.code||l.codigo}</span>}
+                      <span style={{fontFamily:FONT,fontSize:9,color:C.textMuted}}>{qty} UN{disc>0?` · ${disc}% desc.`:""}</span>
+                      {selQuotes.length>1 && <span style={{fontFamily:FONT,fontSize:9,color:C.textMuted,fontStyle:"italic"}}>COT °{l.quoteNum}</span>}
                     </div>
                   </div>
                   {/* Precios */}
                   <div style={{textAlign:"right",flexShrink:0,padding:"10px 14px"}}>
-                    <div style={{fontFamily:FONT,fontSize:9,color:COLORS.textMuted,marginBottom:1}}>
+                    <div style={{fontFamily:FONT,fontSize:9,color:C.textMuted,marginBottom:1}}>
                       {fmt(unitNeto)} × {qty}{disc>0?` −${disc}%`:""}
                     </div>
-                    {isPF && <div style={{fontFamily:FONT,fontSize:9,color:COLORS.textMuted}}>Neto: {fmt(subNeto)}</div>}
-                    <div style={{fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,color:isSel?COLORS.green:COLORS.textMuted}}>{fmt(sub)}{isPF?" c/IVA":""}</div>
+                    {isPF && <div style={{fontFamily:FONT,fontSize:9,color:C.textMuted}}>Neto: {fmt(subNeto)}</div>}
+                    <div style={{fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,color:isSel?C.green:C.textMuted}}>{fmt(sub)}{isPF?" c/IVA":""}</div>
                   </div>
                 </label>
               );
             })}
-            <div style={{padding:"8px 14px",borderTop:`1px solid ${COLORS.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <span style={{fontFamily:FONT,fontSize:11,color:COLORS.textMuted}}>{allLines.length} de {allLinesRaw.length} líneas</span>
+            <div style={{padding:"8px 14px",borderTop:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontFamily:FONT,fontSize:11,color:C.textMuted}}>{allLines.length} de {allLinesRaw.length} líneas</span>
               <div style={{textAlign:"right"}}>
-                {isPF&&<div style={{fontFamily:FONT,fontSize:9,color:COLORS.textMuted}}>Neto: {fmt(Math.round(lineTotal/1.19))}</div>}
-                <span style={{fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,color:COLORS.green}}>{fmt(lineTotal)}{isPF?" c/IVA":""}</span>
+                {isPF&&<div style={{fontFamily:FONT,fontSize:9,color:C.textMuted}}>Neto: {fmt(Math.round(lineTotal/1.19))}</div>}
+                <span style={{fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,color:C.green}}>{fmt(lineTotal)}{isPF?" c/IVA":""}</span>
               </div>
             </div>
           </div>
@@ -463,22 +463,22 @@ export function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, 
               const p1=lineTotal>0&&monto>0?(monto/lineTotal)*100:0;
               const p2=cotTotal>0&&monto>0?Math.max(cotTotal-monto,0)/cotTotal*100:0;
               return(
-                <div key={tx.id} style={{background:COLORS.bg,border:`1px solid ${COLORS.border}`,borderRadius:8,padding:"10px 12px"}}>
+                <div key={tx.id} style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
                   <div style={{display:"grid",gridTemplateColumns:"140px 1fr 130px auto",gap:8,alignItems:"center"}}>
                     <input type="date" value={tx.fecha} onChange={e=>updateTx(tx.id,"fecha",e.target.value)} style={{...inp,fontSize:12,padding:"7px 10px"}} />
                     <input value={tx.codigo} onChange={e=>updateTx(tx.id,"codigo",e.target.value)} placeholder="Código operación bancaria" style={{...inp,fontSize:12,padding:"7px 10px"}} />
                     <input type="number" min="0" value={tx.monto} onChange={e=>updateTx(tx.id,"monto",e.target.value)} placeholder="Monto CLP" style={{...inp,fontSize:12,padding:"7px 10px"}} />
-                    {transacciones.length>1&&<button onClick={()=>removeTx(tx.id)} style={{background:"transparent",border:"none",color:COLORS.red,cursor:"pointer",fontSize:16,padding:"0 4px"}}>✕</button>}
+                    {transacciones.length>1&&<button onClick={()=>removeTx(tx.id)} style={{background:"transparent",border:"none",color:C.red,cursor:"pointer",fontSize:16,padding:"0 4px"}}>✕</button>}
                   </div>
                   {monto>0&&(
                     <div style={{marginTop:7,display:"flex",flexDirection:"column",gap:4}}>
                       {[
-                        {pct:p1,color:`linear-gradient(90deg,${AC},${COLORS.green})`,label:"Pagado / líneas selec."},
-                        {pct:p2,color:`linear-gradient(90deg,${COLORS.yellow},${COLORS.red})`,label:"Saldo pendiente / COT"},
+                        {pct:p1,color:`linear-gradient(90deg,${AC},${C.green})`,label:"Pagado / líneas selec."},
+                        {pct:p2,color:`linear-gradient(90deg,${C.yellow},${C.red})`,label:"Saldo pendiente / COT"},
                       ].map(({pct,color,label})=>(
                         <div key={label} style={{display:"flex",alignItems:"center",gap:8}}>
-                          <span style={{fontFamily:FONT,fontSize:9,color:COLORS.textMuted,width:140,flexShrink:0}}>{label}</span>
-                          <div style={{height:4,flex:1,background:COLORS.border,borderRadius:99,overflow:"hidden"}}>
+                          <span style={{fontFamily:FONT,fontSize:9,color:C.textMuted,width:140,flexShrink:0}}>{label}</span>
+                          <div style={{height:4,flex:1,background:C.border,borderRadius:99,overflow:"hidden"}}>
                             <div style={{height:"100%",width:`${Math.min(pct,100)}%`,background:color,borderRadius:99,transition:"width 0.3s"}} />
                           </div>
                           <span style={{fontFamily:FONT,fontSize:9,color:AC,flexShrink:0,minWidth:35,textAlign:"right"}}>{pct.toFixed(1)}%</span>
@@ -491,31 +491,31 @@ export function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, 
             })}
           </div>
           {txsCheck>0&&lineTotal>0&&(
-            <div style={{marginTop:8,padding:"8px 12px",background:Math.abs(txsCheck-lineTotal)<10?`${COLORS.green}10`:`${COLORS.yellow}10`,border:`1px solid ${Math.abs(txsCheck-lineTotal)<10?COLORS.green:COLORS.yellow}30`,borderRadius:8,display:"flex",justifyContent:"space-between"}}>
-              <span style={{fontFamily:FONT,fontSize:11,color:COLORS.textMuted}}>{Math.abs(txsCheck-lineTotal)<10?"✓ Cuadran":`⚠ Diferencia: ${fmt(Math.abs(txsCheck-lineTotal))}`}</span>
-              <span style={{fontFamily:FONT_DISPLAY,fontSize:12,fontWeight:700,color:COLORS.text}}>{fmt(txsCheck)} / {fmt(lineTotal)}</span>
+            <div style={{marginTop:8,padding:"8px 12px",background:Math.abs(txsCheck-lineTotal)<10?`${C.green}10`:`${C.yellow}10`,border:`1px solid ${Math.abs(txsCheck-lineTotal)<10?C.green:C.yellow}30`,borderRadius:8,display:"flex",justifyContent:"space-between"}}>
+              <span style={{fontFamily:FONT,fontSize:11,color:C.textMuted}}>{Math.abs(txsCheck-lineTotal)<10?"✓ Cuadran":`⚠ Diferencia: ${fmt(Math.abs(txsCheck-lineTotal))}`}</span>
+              <span style={{fontFamily:FONT_DISPLAY,fontSize:12,fontWeight:700,color:C.text}}>{fmt(txsCheck)} / {fmt(lineTotal)}</span>
             </div>
           )}
         </div>
 
         {/* Totalizador */}
         {totalMonto>0&&(
-          <div style={{marginBottom:20,padding:"12px 16px",background:`${COLORS.green}10`,border:`1px solid ${COLORS.green}30`,borderRadius:10}}>
+          <div style={{marginBottom:20,padding:"12px 16px",background:`${C.green}10`,border:`1px solid ${C.green}30`,borderRadius:10}}>
             {isPF?(
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-                <div><div style={{fontFamily:FONT,fontSize:9,color:COLORS.textMuted,textTransform:"uppercase",marginBottom:2}}>Neto</div><div style={{fontFamily:FONT_DISPLAY,fontSize:15,fontWeight:700,color:COLORS.textMuted}}>{fmt(Math.round(totalMonto/1.19))}</div></div>
-                <div><div style={{fontFamily:FONT,fontSize:9,color:COLORS.red,textTransform:"uppercase",marginBottom:2}}>IVA 19%</div><div style={{fontFamily:FONT_DISPLAY,fontSize:15,fontWeight:700,color:COLORS.red}}>{fmt(totalMonto-Math.round(totalMonto/1.19))}</div></div>
-                <div><div style={{fontFamily:FONT,fontSize:9,color:COLORS.green,textTransform:"uppercase",marginBottom:2}}>Total c/IVA</div><div style={{fontFamily:FONT_DISPLAY,fontSize:18,fontWeight:700,color:COLORS.green}}>{fmt(totalMonto)}</div></div>
+                <div><div style={{fontFamily:FONT,fontSize:9,color:C.textMuted,textTransform:"uppercase",marginBottom:2}}>Neto</div><div style={{fontFamily:FONT_DISPLAY,fontSize:15,fontWeight:700,color:C.textMuted}}>{fmt(Math.round(totalMonto/1.19))}</div></div>
+                <div><div style={{fontFamily:FONT,fontSize:9,color:C.red,textTransform:"uppercase",marginBottom:2}}>IVA 19%</div><div style={{fontFamily:FONT_DISPLAY,fontSize:15,fontWeight:700,color:C.red}}>{fmt(totalMonto-Math.round(totalMonto/1.19))}</div></div>
+                <div><div style={{fontFamily:FONT,fontSize:9,color:C.green,textTransform:"uppercase",marginBottom:2}}>Total c/IVA</div><div style={{fontFamily:FONT_DISPLAY,fontSize:18,fontWeight:700,color:C.green}}>{fmt(totalMonto)}</div></div>
               </div>
             ):(
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div>
-                  <div style={{fontFamily:FONT,fontSize:10,color:COLORS.textMuted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Total comprobante · Sin IVA</div>
-                  <div style={{fontFamily:FONT_DISPLAY,fontSize:22,fontWeight:700,color:COLORS.green}}>{fmt(totalMonto)}</div>
+                  <div style={{fontFamily:FONT,fontSize:10,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Total comprobante · Sin IVA</div>
+                  <div style={{fontFamily:FONT_DISPLAY,fontSize:22,fontWeight:700,color:C.green}}>{fmt(totalMonto)}</div>
                 </div>
                 <div style={{textAlign:"right"}}>
-                  <div style={{fontFamily:FONT,fontSize:10,color:COLORS.textMuted}}>{txsValidos.length} transacción{txsValidos.length!==1?"es":""}</div>
-                  <div style={{fontFamily:FONT,fontSize:11,color:COLORS.textMuted}}>{allLines.length} línea{allLines.length!==1?"s":""}</div>
+                  <div style={{fontFamily:FONT,fontSize:10,color:C.textMuted}}>{txsValidos.length} transacción{txsValidos.length!==1?"es":""}</div>
+                  <div style={{fontFamily:FONT,fontSize:11,color:C.textMuted}}>{allLines.length} línea{allLines.length!==1?"s":""}</div>
                 </div>
               </div>
             )}
@@ -525,14 +525,14 @@ export function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, 
         {/* Botones */}
         {isReprint?(
           <div style={{display:"flex",gap:10}}>
-            <button onClick={onClose} style={{flex:1,padding:"11px 0",background:"transparent",border:`1px solid ${COLORS.border}`,borderRadius:8,color:COLORS.textMuted,fontFamily:FONT_DISPLAY,fontSize:13,cursor:"pointer"}}>Cerrar</button>
-            <button onClick={()=>doPrint(existing?.numero)} style={{flex:2,padding:"11px 0",background:COLORS.green,border:"none",borderRadius:8,color:"#fff",fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,cursor:"pointer"}}>🖨 Reimprimir PDF</button>
+            <button onClick={onClose} style={{flex:1,padding:"11px 0",background:"transparent",border:`1px solid ${C.border}`,borderRadius:8,color:C.textMuted,fontFamily:FONT_DISPLAY,fontSize:13,cursor:"pointer"}}>Cerrar</button>
+            <button onClick={()=>doPrint(existing?.numero)} style={{flex:2,padding:"11px 0",background:C.green,border:"none",borderRadius:8,color:"#fff",fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,cursor:"pointer"}}>🖨 Reimprimir PDF</button>
           </div>
         ):(
           <div style={{display:"flex",gap:10}}>
-            <button onClick={onClose} style={{flex:1,padding:"11px 0",background:"transparent",border:`1px solid ${COLORS.border}`,borderRadius:8,color:COLORS.textMuted,fontFamily:FONT_DISPLAY,fontSize:13,cursor:"pointer"}}>Cancelar</button>
+            <button onClick={onClose} style={{flex:1,padding:"11px 0",background:"transparent",border:`1px solid ${C.border}`,borderRadius:8,color:C.textMuted,fontFamily:FONT_DISPLAY,fontSize:13,cursor:"pointer"}}>Cancelar</button>
             <button onClick={saveAndPrint} disabled={saving||selectedQuoteIds.length===0}
-              style={{flex:2,padding:"11px 0",background:saving||selectedQuoteIds.length===0?COLORS.border:AC,border:"none",borderRadius:8,color:saving||selectedQuoteIds.length===0?COLORS.textMuted:"#fff",fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,cursor:saving?"not-allowed":"pointer"}}>
+              style={{flex:2,padding:"11px 0",background:saving||selectedQuoteIds.length===0?C.border:AC,border:"none",borderRadius:8,color:saving||selectedQuoteIds.length===0?C.textMuted:"#fff",fontFamily:FONT_DISPLAY,fontSize:13,fontWeight:700,cursor:saving?"not-allowed":"pointer"}}>
               {saving?"Guardando...":isPF?"💾 Guardar y Generar Pre-Factura":"💾 Guardar y Generar PDF"}
             </button>
           </div>

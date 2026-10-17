@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
 import { IVA_RATE, CENTROS_COSTO, SUBCATEGORIAS_CC, LINEAS_NEGOCIO } from "./constants.js";
 import { SecTitle, BtnPrimary, KpiCard, FinModal, LabelInput, LabelSelect, BtnSec } from "./ui.jsx";
-import { FONT, COLORS, FONT_DISPLAY } from "../theme.js";
+import { FONT_BODY as FONT, COLORS_LIGHT as C, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { fmtClp, fmtFecha, hoyISO } from "../shared/format.js";
 import { calcEstado } from "./estadoPago.js";
 import { badgePago } from "./badgePago.jsx";
@@ -249,10 +249,10 @@ export function CuentasPorPagar({ isMobile }) {
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start",
         marginBottom:20, flexWrap:"wrap", gap:12 }}>
-        <SecTitle sub="Facturas de proveedores y subcontratistas · control de pagos">
+        <SecTitle sub="Facturas de proveedores y subcontratistas · control de pagos" theme={LIGHT_THEME}>
           Cuentas por Pagar
         </SecTitle>
-        <BtnPrimary onClick={abrirModal}>+ Registrar Factura Recibida</BtnPrimary>
+        <BtnPrimary onClick={abrirModal} theme={LIGHT_THEME}>+ Registrar Factura Recibida</BtnPrimary>
       </div>
 
       {/* Filtro tipo */}
@@ -260,9 +260,9 @@ export function CuentasPorPagar({ isMobile }) {
         {["todos","Proveedor","Subcontratista","Gasto General"].map(t=>(
           <button key={t} onClick={()=>setFiltroTipo(t)}
             style={{ padding:"6px 14px", borderRadius:20, fontFamily:FONT, fontSize:12, cursor:"pointer",
-              background:filtroTipo===t?COLORS.accentDim:"transparent",
-              border:`1px solid ${filtroTipo===t?COLORS.accent:COLORS.border}`,
-              color:filtroTipo===t?COLORS.accent:COLORS.textMuted }}>
+              background:filtroTipo===t?C.accentDim:"transparent",
+              border:`1px solid ${filtroTipo===t?C.accent:C.border}`,
+              color:filtroTipo===t?C.accent:C.textMuted }}>
             {t==="todos"?"Todos":t}
           </button>
         ))}
@@ -270,31 +270,31 @@ export function CuentasPorPagar({ isMobile }) {
 
       {/* KPIs */}
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)", gap:12, marginBottom:24 }}>
-        <KpiCard label="Total Comprometido" value={fmtClp(totalFacturado)} color={COLORS.text} icon="📋" />
-        <KpiCard label="Total Pagado"        value={fmtClp(totalPagado)}   color={COLORS.green} icon="✅" />
-        <KpiCard label="Por Pagar"           value={fmtClp(totalPendiente)} color={COLORS.red} icon="⏳"
-          sub={`${filtradas.filter(f=>pagadoDe(f)<f.monto_total).length} pendientes`} />
-        <KpiCard label="Crédito Fiscal IVA"  value={fmtClp(creditoFiscal)} color={COLORS.green} icon="🧾"
-          sub="Usado en F29" />
+        <KpiCard label="Total Comprometido" value={fmtClp(totalFacturado)} color={C.text} icon="📋" theme={LIGHT_THEME} />
+        <KpiCard label="Total Pagado"        value={fmtClp(totalPagado)}   color={C.green} icon="✅" theme={LIGHT_THEME} />
+        <KpiCard label="Por Pagar"           value={fmtClp(totalPendiente)} color={C.red} icon="⏳"
+          sub={`${filtradas.filter(f=>pagadoDe(f)<f.monto_total).length} pendientes`} theme={LIGHT_THEME} />
+        <KpiCard label="Crédito Fiscal IVA"  value={fmtClp(creditoFiscal)} color={C.green} icon="🧾"
+          sub="Usado en F29" theme={LIGHT_THEME} />
       </div>
 
       {/* Tabla */}
       {loading ? (
-        <div style={{ textAlign:"center", padding:40, fontFamily:FONT, color:COLORS.textMuted }}>Cargando…</div>
+        <div style={{ textAlign:"center", padding:40, fontFamily:FONT, color:C.textMuted }}>Cargando…</div>
       ) : (
-        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, overflow:"hidden" }}>
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, overflow:"hidden" }}>
           {filtradas.length === 0 ? (
-            <div style={{ padding:40, textAlign:"center", fontFamily:FONT, fontSize:13, color:COLORS.textMuted }}>
+            <div style={{ padding:40, textAlign:"center", fontFamily:FONT, fontSize:13, color:C.textMuted }}>
               Sin facturas registradas.
             </div>
           ) : (
             <div style={{ overflowX:"auto" }}>
               <table style={{ width:"100%", borderCollapse:"collapse" }}>
                 <thead>
-                  <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                  <tr style={{ borderBottom:`1px solid ${C.border}` }}>
                     {["N° Doc","Proveedor / Sub.","Tipo","Recepción","Vencim.","Neto","IVA","Total","Pagado","Saldo","Estado",""].map(h=>(
                       <th key={h} style={{ padding:"10px 12px", textAlign:"left", fontFamily:FONT,
-                        fontSize:10, color:COLORS.textMuted, letterSpacing:"0.07em",
+                        fontSize:10, color:C.textMuted, letterSpacing:"0.07em",
                         textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
                     ))}
                   </tr>
@@ -307,96 +307,96 @@ export function CuentasPorPagar({ isMobile }) {
                     const estado = calcEstado(f.monto_total, pagado, f.vencimiento, f.estado_manual);
                     return (
                       <React.Fragment key={f.id}>
-                      <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
-                        <td style={{ padding:"9px 12px", color:COLORS.accent, fontWeight:700, fontFamily:FONT }}>
+                      <tr style={{ borderBottom:`1px solid ${C.border}` }}>
+                        <td style={{ padding:"9px 12px", color:C.accent, fontWeight:700, fontFamily:FONT }}>
                           {f.numero_documento}
                           {oc && (
-                            <div title="Factura vinculada a esta orden de compra" style={{ marginTop:3, fontSize:10, fontWeight:400, color:COLORS.green, whiteSpace:"nowrap" }}>
+                            <div title="Factura vinculada a esta orden de compra" style={{ marginTop:3, fontSize:10, fontWeight:400, color:C.green, whiteSpace:"nowrap" }}>
                               📦 {oc.numero_oc}
                             </div>
                           )}
                         </td>
                         <td style={{ padding:"9px 12px" }}>
-                          <div style={{ fontWeight:600, color:COLORS.text, fontSize:13 }}>{f.razon_social_proveedor||"—"}</div>
-                          <div style={{ fontSize:10, color:COLORS.textMuted }}>{f.rut_proveedor}</div>
+                          <div style={{ fontWeight:600, color:C.text, fontSize:13 }}>{f.razon_social_proveedor||"—"}</div>
+                          <div style={{ fontSize:10, color:C.textMuted }}>{f.rut_proveedor}</div>
                         </td>
                         <td style={{ padding:"9px 12px" }}>
                           <span style={{ fontSize:10, padding:"2px 8px", borderRadius:4,
-                            background:f.tipo_proveedor==="Subcontratista"?COLORS.accentDim:COLORS.card,
-                            color:f.tipo_proveedor==="Subcontratista"?COLORS.accent:COLORS.textMuted,
-                            border:`1px solid ${COLORS.border}` }}>
+                            background:f.tipo_proveedor==="Subcontratista"?C.accentDim:C.card,
+                            color:f.tipo_proveedor==="Subcontratista"?C.accent:C.textMuted,
+                            border:`1px solid ${C.border}` }}>
                             {f.tipo_proveedor}
                           </span>
                           {f.centro_costo && (()=>{ const cc=CENTROS_COSTO.find(c=>c.key===f.centro_costo); return (
                             <div style={{ marginTop:4 }}>
-                              <span style={{ fontSize:9, padding:"2px 7px", borderRadius:3, fontWeight:700, background:`${cc?.color||COLORS.textMuted}18`, color:cc?.color||COLORS.textMuted, border:`1px solid ${cc?.color||COLORS.textMuted}33` }}>{f.centro_costo}</span>
-                              {f.subcategoria && <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim, marginTop:2 }}>{f.subcategoria}</div>}
+                              <span style={{ fontSize:9, padding:"2px 7px", borderRadius:3, fontWeight:700, background:`${cc?.color||C.textMuted}18`, color:cc?.color||C.textMuted, border:`1px solid ${cc?.color||C.textMuted}33` }}>{f.centro_costo}</span>
+                              {f.subcategoria && <div style={{ fontFamily:FONT, fontSize:9, color:C.textDim, marginTop:2 }}>{f.subcategoria}</div>}
                             </div>
                           );})()}
                         </td>
-                        <td style={{ padding:"9px 12px", color:COLORS.textMuted, fontFamily:FONT, fontSize:12 }}>{fmtFecha(f.fecha_recepcion)}</td>
-                        <td style={{ padding:"9px 12px", color:COLORS.textMuted, fontFamily:FONT, fontSize:12 }}>{fmtFecha(f.vencimiento)}</td>
-                        <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.text }}>{fmtClp(f.monto_neto)}</td>
+                        <td style={{ padding:"9px 12px", color:C.textMuted, fontFamily:FONT, fontSize:12 }}>{fmtFecha(f.fecha_recepcion)}</td>
+                        <td style={{ padding:"9px 12px", color:C.textMuted, fontFamily:FONT, fontSize:12 }}>{fmtFecha(f.vencimiento)}</td>
+                        <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:C.text }}>{fmtClp(f.monto_neto)}</td>
                         <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12,
-                          color:f.aplica_iva?COLORS.yellow:COLORS.textMuted }}>
+                          color:f.aplica_iva?C.yellow:C.textMuted }}>
                           {f.aplica_iva?fmtClp(f.monto_iva):"—"}
                         </td>
-                        <td style={{ padding:"9px 12px", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text }}>{fmtClp(f.monto_total)}</td>
-                        <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.green }}>
+                        <td style={{ padding:"9px 12px", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:C.text }}>{fmtClp(f.monto_total)}</td>
+                        <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:C.green }}>
                           {fmtClp(pagado)}
                           {asignadoOC[f.id] > 0 && (
-                            <div title="Pagado a la OC desde Compras → Por proyecto" style={{ fontSize:9, color:COLORS.textMuted, whiteSpace:"nowrap" }}>
+                            <div title="Pagado a la OC desde Compras → Por proyecto" style={{ fontSize:9, color:C.textMuted, whiteSpace:"nowrap" }}>
                               incl. {fmtClp(asignadoOC[f.id])} de la OC
                             </div>
                           )}
                         </td>
                         <td style={{ padding:"9px 12px", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700,
-                          color:saldo>0?COLORS.red:COLORS.green }}>{fmtClp(saldo)}</td>
+                          color:saldo>0?C.red:C.green }}>{fmtClp(saldo)}</td>
                         <td style={{ padding:"9px 12px" }}>{badgePago(estado)}</td>
                         <td style={{ padding:"9px 12px" }}>
                           <div style={{ display:"flex", gap:6, alignItems:"center" }}>
                             {saldo > 0 && (
                               <button onClick={()=>{ setPagoModal({facturaId:f.id, facturaN:f.numero_documento, oc: conOC ? oc : null}); setFormPago(emptyPago); }}
-                                style={{ padding:"5px 10px", background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`,
-                                  borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+                                style={{ padding:"5px 10px", background:C.accentDim, border:`1px solid ${C.accentGlow}`,
+                                  borderRadius:6, color:C.accent, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
                                 + Pago
                               </button>
                             )}
                             <button onClick={()=>printComprobanteCPP(f)}
-                              style={{ padding:"5px 8px", background:"transparent", border:`1px solid ${COLORS.border}`,
-                                borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}
+                              style={{ padding:"5px 8px", background:"transparent", border:`1px solid ${C.border}`,
+                                borderRadius:6, color:C.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}
                               title="Imprimir comprobante">
                               🖨
                             </button>
                             <button onClick={()=>editingRow===f.id?setEditingRow(null):openEdit(f)}
-                              style={{ padding:"5px 8px", background:editingRow===f.id?`${COLORS.accent}22`:"transparent",
-                                border:`1px solid ${editingRow===f.id?COLORS.accent:COLORS.border}`,
-                                borderRadius:6, color:editingRow===f.id?COLORS.accent:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+                              style={{ padding:"5px 8px", background:editingRow===f.id?`${C.accent}22`:"transparent",
+                                border:`1px solid ${editingRow===f.id?C.accent:C.border}`,
+                                borderRadius:6, color:editingRow===f.id?C.accent:C.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
                               ✏️
                             </button>
                             <button onClick={async()=>{ if(!window.confirm(`¿Eliminar la entrada "${f.numero_documento}"?`)) return; const { error } = await supabase.from("facturas_recibidas").delete().eq("id",f.id); if(error) return; setFacturas(prev=>prev.filter(x=>x.id!==f.id)); }}
-                              style={{ padding:"5px 8px", background:"transparent", border:`1px solid ${COLORS.red}44`,
-                                borderRadius:6, color:COLORS.red, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+                              style={{ padding:"5px 8px", background:"transparent", border:`1px solid ${C.red}44`,
+                                borderRadius:6, color:C.red, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
                               ✕
                             </button>
                           </div>
                         </td>
                       </tr>
                       {editingRow===f.id && (
-                        <tr style={{ background:`${COLORS.accent}08`, borderBottom:`1px solid ${COLORS.border}` }}>
+                        <tr style={{ background:`${C.accent}08`, borderBottom:`1px solid ${C.border}` }}>
                           <td colSpan={12} style={{ padding:"12px 18px" }}>
                             <div style={{ display:"flex", gap:12, alignItems:"flex-end", flexWrap:"wrap" }}>
                               <div>
-                                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4 }}>Fecha vencimiento</div>
+                                <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4 }}>Fecha vencimiento</div>
                                 <input type="date" value={editForm.vencimiento}
                                   onChange={e=>setEditForm(p=>({...p,vencimiento:e.target.value}))}
-                                  style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"6px 10px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none" }} />
+                                  style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 10px", fontFamily:FONT, fontSize:12, color:C.text, outline:"none" }} />
                               </div>
                               <div>
-                                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4 }}>Estado</div>
+                                <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4 }}>Estado</div>
                                 <select value={editForm.estado_manual}
                                   onChange={e=>setEditForm(p=>({...p,estado_manual:e.target.value}))}
-                                  style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"6px 10px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none" }}>
+                                  style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 10px", fontFamily:FONT, fontSize:12, color:C.text, outline:"none" }}>
                                   <option value="">— Auto —</option>
                                   <option value="pendiente">Pendiente</option>
                                   <option value="pagado">Pagado</option>
@@ -405,21 +405,21 @@ export function CuentasPorPagar({ isMobile }) {
                               </div>
                               {conOC && (
                                 <div>
-                                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4 }}>Orden de compra</div>
+                                  <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4 }}>Orden de compra</div>
                                   <select value={editForm.purchase_order_id}
                                     onChange={e=>setEditForm(p=>({...p,purchase_order_id:e.target.value}))}
-                                    style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"6px 10px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", maxWidth:280 }}>
+                                    style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 10px", fontFamily:FONT, fontSize:12, color:C.text, outline:"none", maxWidth:280 }}>
                                     <option value="">— Sin OC —</option>
                                     {ocs.map(o => <option key={o.id} value={String(o.id)}>{o.numero_oc} · {o.suppliers?.nombre||"—"}</option>)}
                                   </select>
                                 </div>
                               )}
                               <button onClick={()=>saveEdit(f.id)}
-                                style={{ padding:"7px 18px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT, fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                                style={{ padding:"7px 18px", background:C.accent, border:"none", borderRadius:6, color:C.bg, fontFamily:FONT, fontSize:12, fontWeight:700, cursor:"pointer" }}>
                                 Guardar
                               </button>
                               <button onClick={()=>setEditingRow(null)}
-                                style={{ padding:"7px 14px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
+                                style={{ padding:"7px 14px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, color:C.textMuted, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
                                 Cancelar
                               </button>
                             </div>
@@ -438,24 +438,24 @@ export function CuentasPorPagar({ isMobile }) {
 
       {/* OC sin factura del proveedor (Compras → Por proyecto) */}
       {!loading && sinFactura.length > 0 && (filtroTipo==="todos" || filtroTipo==="Proveedor") && (
-        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, overflow:"hidden", marginTop:20 }}>
-          <div style={{ padding:"14px 16px", display:"flex", justifyContent:"space-between", alignItems:"baseline", gap:12, flexWrap:"wrap", borderBottom:`1px solid ${COLORS.border}` }}>
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, overflow:"hidden", marginTop:20 }}>
+          <div style={{ padding:"14px 16px", display:"flex", justifyContent:"space-between", alignItems:"baseline", gap:12, flexWrap:"wrap", borderBottom:`1px solid ${C.border}` }}>
             <div>
-              <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text }}>Órdenes de compra sin factura</div>
-              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:2 }}>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:C.text }}>Órdenes de compra sin factura</div>
+              <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, marginTop:2 }}>
                 Se pagan desde Compras → Por proyecto. Registra la factura del proveedor para el crédito fiscal: lo ya pagado a la OC cuenta como pagado.
               </div>
             </div>
-            <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, whiteSpace:"nowrap" }}>
-              Por pagar <b style={{ color:COLORS.red }}>{fmtClp(sinFactura.reduce((a,x)=>a+x.pendiente,0))}</b>
+            <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted, whiteSpace:"nowrap" }}>
+              Por pagar <b style={{ color:C.red }}>{fmtClp(sinFactura.reduce((a,x)=>a+x.pendiente,0))}</b>
             </div>
           </div>
           <div style={{ overflowX:"auto" }}>
             <table style={{ width:"100%", borderCollapse:"collapse" }}>
               <thead>
-                <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                <tr style={{ borderBottom:`1px solid ${C.border}` }}>
                   {["OC","Proveedor","Proyecto","Total","Pagado","Por pagar",""].map(h=>(
-                    <th key={h} style={{ padding:"10px 12px", textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, letterSpacing:"0.07em", textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
+                    <th key={h} style={{ padding:"10px 12px", textAlign:"left", fontFamily:FONT, fontSize:10, color:C.textMuted, letterSpacing:"0.07em", textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -463,18 +463,18 @@ export function CuentasPorPagar({ isMobile }) {
                 {sinFactura.map(({ oc, total, pagado, pendiente }) => {
                   const cot = cotizaciones.find(q => String(q.id) === String(oc.cotizacion_id));
                   return (
-                    <tr key={oc.id} style={{ borderBottom:`1px solid ${COLORS.border}` }}>
-                      <td style={{ padding:"9px 12px", fontFamily:FONT, fontWeight:700, color:COLORS.accent }}>{oc.numero_oc}</td>
-                      <td style={{ padding:"9px 12px", fontSize:13, color:COLORS.text }}>{oc.suppliers?.nombre||"—"}</td>
-                      <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{cot ? codigoCot(cot) : "—"}</td>
-                      <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.text }}>{fmtClp(total)}</td>
-                      <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.green }}>{fmtClp(pagado)}</td>
-                      <td style={{ padding:"9px 12px", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:pendiente>0?COLORS.red:COLORS.green }}>
+                    <tr key={oc.id} style={{ borderBottom:`1px solid ${C.border}` }}>
+                      <td style={{ padding:"9px 12px", fontFamily:FONT, fontWeight:700, color:C.accent }}>{oc.numero_oc}</td>
+                      <td style={{ padding:"9px 12px", fontSize:13, color:C.text }}>{oc.suppliers?.nombre||"—"}</td>
+                      <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:C.textMuted }}>{cot ? codigoCot(cot) : "—"}</td>
+                      <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:C.text }}>{fmtClp(total)}</td>
+                      <td style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:C.green }}>{fmtClp(pagado)}</td>
+                      <td style={{ padding:"9px 12px", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:pendiente>0?C.red:C.green }}>
                         {pendiente > 0 ? fmtClp(pendiente) : "✓ Pagada"}
                       </td>
                       <td style={{ padding:"9px 12px" }}>
                         <button onClick={()=>abrirModalDesdeOC(oc)}
-                          style={{ padding:"5px 10px", background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`, borderRadius:6, color:COLORS.accent, fontFamily:FONT, fontSize:11, cursor:"pointer", whiteSpace:"nowrap" }}>
+                          style={{ padding:"5px 10px", background:C.accentDim, border:`1px solid ${C.accentGlow}`, borderRadius:6, color:C.accent, fontFamily:FONT, fontSize:11, cursor:"pointer", whiteSpace:"nowrap" }}>
                           + Registrar factura
                         </button>
                       </td>
@@ -489,11 +489,11 @@ export function CuentasPorPagar({ isMobile }) {
 
       {/* Modal nueva factura recibida */}
       {modal === "nueva" && (
-        <FinModal title="Registrar Factura Recibida" onClose={()=>setModal(null)} width={560}>
+        <FinModal title="Registrar Factura Recibida" onClose={()=>setModal(null)} width={560} theme={LIGHT_THEME}>
 
           {/* ── BUSCADOR DE PROVEEDOR ── */}
           <div style={{ marginBottom:18 }}>
-            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+            <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
               letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>
               Buscar Proveedor por Nombre o RUT
             </div>
@@ -513,10 +513,10 @@ export function CuentasPorPagar({ isMobile }) {
                 onFocus={() => setShowSugerencias(true)}
                 onBlur={() => setTimeout(()=>setShowSugerencias(false), 150)}
                 placeholder="Ej: Constructora o 76.XXX.XXX-X"
-                style={{ width:"100%", background:COLORS.bg,
-                  border:`1px solid ${proveedorSel ? COLORS.green : COLORS.border}`,
+                style={{ width:"100%", background:C.bg,
+                  border:`1px solid ${proveedorSel ? C.green : C.border}`,
                   borderRadius:8, padding:"10px 40px 10px 14px",
-                  fontFamily:FONT, fontSize:13, color:COLORS.text,
+                  fontFamily:FONT, fontSize:13, color:C.text,
                   outline:"none", boxSizing:"border-box" }}
               />
               {/* Icono estado */}
@@ -528,21 +528,21 @@ export function CuentasPorPagar({ isMobile }) {
               {/* Sugerencias dropdown */}
               {showSugerencias && sugerencias.length > 0 && (
                 <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0,
-                  background:COLORS.surface, border:`1px solid ${COLORS.border}`,
+                  background:C.surface, border:`1px solid ${C.border}`,
                   borderRadius:8, zIndex:300, maxHeight:260, overflowY:"auto",
                   boxShadow:"0 8px 24px #0006" }}>
                   {sugerencias.map(s => (
                     <div key={s.id}
                       onMouseDown={() => seleccionarProveedor(s)}
-                      style={{ padding:"10px 16px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}`,
+                      style={{ padding:"10px 16px", cursor:"pointer", borderBottom:`1px solid ${C.border}`,
                         display:"flex", justifyContent:"space-between", alignItems:"center",
                         transition:"background 0.1s" }}
-                      onMouseEnter={e=>e.currentTarget.style.background=COLORS.card}
+                      onMouseEnter={e=>e.currentTarget.style.background=C.card}
                       onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                       <div>
                         <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600,
-                          color:COLORS.text }}>{s.nombre}</div>
-                        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+                          color:C.text }}>{s.nombre}</div>
+                        <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
                           marginTop:2 }}>
                           {s.rut && <span style={{ marginRight:10 }}>RUT: {s.rut}</span>}
                           {s.email && <span style={{ marginRight:10 }}>{s.email}</span>}
@@ -550,8 +550,8 @@ export function CuentasPorPagar({ isMobile }) {
                         </div>
                       </div>
                       <span style={{ fontSize:10, padding:"2px 8px", borderRadius:4,
-                        background:COLORS.accentDim, color:COLORS.accent,
-                        border:`1px solid ${COLORS.accentGlow}`, whiteSpace:"nowrap" }}>
+                        background:C.accentDim, color:C.accent,
+                        border:`1px solid ${C.accentGlow}`, whiteSpace:"nowrap" }}>
                         Seleccionar →
                       </span>
                     </div>
@@ -562,9 +562,9 @@ export function CuentasPorPagar({ isMobile }) {
               {/* Sin resultados */}
               {showSugerencias && busqueda.length >= 2 && sugerencias.length === 0 && (
                 <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0,
-                  background:COLORS.surface, border:`1px solid ${COLORS.border}`,
+                  background:C.surface, border:`1px solid ${C.border}`,
                   borderRadius:8, zIndex:300, padding:"12px 16px",
-                  fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>
+                  fontFamily:FONT, fontSize:12, color:C.textMuted }}>
                   No encontrado — puedes ingresarlo manualmente abajo
                 </div>
               )}
@@ -572,20 +572,20 @@ export function CuentasPorPagar({ isMobile }) {
 
             {/* Chip proveedor seleccionado */}
             {proveedorSel && (
-              <div style={{ marginTop:8, padding:"8px 14px", background:COLORS.green+"18",
-                border:`1px solid ${COLORS.green}44`, borderRadius:8,
+              <div style={{ marginTop:8, padding:"8px 14px", background:C.green+"18",
+                border:`1px solid ${C.green}44`, borderRadius:8,
                 display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <div>
                   <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600,
-                    color:COLORS.green }}>{proveedorSel.nombre}</span>
-                  <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+                    color:C.green }}>{proveedorSel.nombre}</span>
+                  <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
                     marginLeft:10 }}>RUT: {proveedorSel.rut}</span>
                   {proveedorSel.email && <span style={{ fontFamily:FONT, fontSize:11,
-                    color:COLORS.textMuted, marginLeft:10 }}>{proveedorSel.email}</span>}
+                    color:C.textMuted, marginLeft:10 }}>{proveedorSel.email}</span>}
                 </div>
                 <button onClick={()=>{ setProveedorSel(null); setBusqueda("");
                     setF("razon_social_proveedor",""); setF("rut_proveedor",""); }}
-                  style={{ background:"transparent", border:"none", color:COLORS.textMuted,
+                  style={{ background:"transparent", border:"none", color:C.textMuted,
                     cursor:"pointer", fontSize:14 }}>✕</button>
               </div>
             )}
@@ -594,58 +594,58 @@ export function CuentasPorPagar({ isMobile }) {
           {/* Datos manuales si no hay proveedor seleccionado */}
           {!proveedorSel && (
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 14px",
-              padding:"12px 14px", background:COLORS.bg, borderRadius:8,
-              border:`1px solid ${COLORS.border}`, marginBottom:14 }}>
+              padding:"12px 14px", background:C.bg, borderRadius:8,
+              border:`1px solid ${C.border}`, marginBottom:14 }}>
               <div style={{ gridColumn:"1/-1", fontFamily:FONT, fontSize:10,
-                color:COLORS.textMuted, marginBottom:8, textTransform:"uppercase",
+                color:C.textMuted, marginBottom:8, textTransform:"uppercase",
                 letterSpacing:"0.07em" }}>O ingresa manualmente</div>
               <LabelInput label="Razón Social" value={form.razon_social_proveedor}
                 onChange={e=>setF("razon_social_proveedor",e.target.value)}
-                placeholder="Empresa S.A." />
+                placeholder="Empresa S.A." theme={LIGHT_THEME} />
               <LabelInput label="RUT" value={form.rut_proveedor}
                 onChange={e=>setF("rut_proveedor",e.target.value)}
-                placeholder="76.XXX.XXX-X" />
+                placeholder="76.XXX.XXX-X" theme={LIGHT_THEME} />
             </div>
           )}
 
           {/* Resto del formulario */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 14px" }}>
             <LabelInput label="N° Documento" value={form.numero_documento}
-              onChange={e=>setF("numero_documento",e.target.value)} placeholder="Ej: 9876" />
+              onChange={e=>setF("numero_documento",e.target.value)} placeholder="Ej: 9876" theme={LIGHT_THEME} />
             <LabelSelect label="Tipo Documento" value={form.tipo_documento}
-              onChange={e=>setF("tipo_documento",e.target.value)}>
+              onChange={e=>setF("tipo_documento",e.target.value)} theme={LIGHT_THEME}>
               <option>Factura</option>
               <option>Boleta</option>
               <option>Guía de Despacho</option>
               <option>Nota de Crédito</option>
             </LabelSelect>
             <LabelSelect label="Tipo Proveedor" value={form.tipo_proveedor}
-              onChange={e=>setF("tipo_proveedor",e.target.value)}>
+              onChange={e=>setF("tipo_proveedor",e.target.value)} theme={LIGHT_THEME}>
               <option>Proveedor</option>
               <option>Subcontratista</option>
               <option>Gasto General</option>
             </LabelSelect>
             {/* Bloque Centro de Costo — solo para Gasto General */}
             {form.tipo_proveedor === "Gasto General" && (
-              <div style={{ gridColumn:"1 / -1", background:COLORS.bg, border:`1px solid ${COLORS.accent}33`, borderRadius:8, padding:"12px 14px", marginBottom:8 }}>
-                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>Clasificación del gasto</div>
+              <div style={{ gridColumn:"1 / -1", background:C.bg, border:`1px solid ${C.accent}33`, borderRadius:8, padding:"12px 14px", marginBottom:8 }}>
+                <div style={{ fontFamily:FONT, fontSize:9, color:C.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>Clasificación del gasto</div>
                 <div style={{ marginBottom:10 }}>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Centro de costo *</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Centro de costo *</div>
                   <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
                     {CENTROS_COSTO.map(cc=>(
                       <button key={cc.key} onClick={()=>{ setF("centro_costo",cc.key); setF("subcategoria",""); }}
-                        style={{ padding:"6px 12px", borderRadius:6, fontFamily:FONT, fontSize:10, fontWeight:700, cursor:"pointer", background:form.centro_costo===cc.key?`${cc.color}22`:"transparent", border:`1px solid ${form.centro_costo===cc.key?cc.color+"66":COLORS.border}`, color:form.centro_costo===cc.key?cc.color:COLORS.textMuted, transition:"all 0.15s" }}>
+                        style={{ padding:"6px 12px", borderRadius:6, fontFamily:FONT, fontSize:10, fontWeight:700, cursor:"pointer", background:form.centro_costo===cc.key?`${cc.color}22`:"transparent", border:`1px solid ${form.centro_costo===cc.key?cc.color+"66":C.border}`, color:form.centro_costo===cc.key?cc.color:C.textMuted, transition:"all 0.15s" }}>
                         {cc.key}
                       </button>
                     ))}
                   </div>
-                  {form.centro_costo && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textDim, marginTop:4 }}>{CENTROS_COSTO.find(c=>c.key===form.centro_costo)?.desc}</div>}
+                  {form.centro_costo && <div style={{ fontFamily:FONT, fontSize:10, color:C.textDim, marginTop:4 }}>{CENTROS_COSTO.find(c=>c.key===form.centro_costo)?.desc}</div>}
                 </div>
                 {form.centro_costo && SUBCATEGORIAS_CC[form.centro_costo] && (
                   <div>
-                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Subcategoría</div>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Subcategoría</div>
                     <select value={form.subcategoria} onChange={e=>setF("subcategoria",e.target.value)}
-                      style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:form.subcategoria?COLORS.text:COLORS.textMuted, outline:"none" }}>
+                      style={{ width:"100%", background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:form.subcategoria?C.text:C.textMuted, outline:"none" }}>
                       <option value="">— Selecciona subcategoría —</option>
                       {SUBCATEGORIAS_CC[form.centro_costo].map(s=><option key={s} value={s}>{s}</option>)}
                     </select>
@@ -654,21 +654,21 @@ export function CuentasPorPagar({ isMobile }) {
               </div>
             )}
             <LabelInput label="Fecha Recepción" type="date" value={form.fecha_recepcion}
-              onChange={e=>setF("fecha_recepcion",e.target.value)} />
+              onChange={e=>setF("fecha_recepcion",e.target.value)} theme={LIGHT_THEME} />
             <LabelInput label="Vencimiento" type="date" value={form.vencimiento}
-              onChange={e=>setF("vencimiento",e.target.value)} />
+              onChange={e=>setF("vencimiento",e.target.value)} theme={LIGHT_THEME} />
             <LabelInput label="Monto Neto (sin IVA)" type="number" value={form.monto_neto}
-              onChange={e=>setF("monto_neto",e.target.value)} placeholder="0" />
+              onChange={e=>setF("monto_neto",e.target.value)} placeholder="0" theme={LIGHT_THEME} />
             <div style={{ marginBottom:14 }}>
-              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+              <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
                 letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>¿Aplica IVA?</div>
               <div style={{ display:"flex", gap:10, marginTop:4 }}>
                 {[true,false].map(v=>(
                   <button key={String(v)} onClick={()=>setF("aplica_iva",v)}
                     style={{ flex:1, padding:"9px 0", borderRadius:6,
-                      background:form.aplica_iva===v?COLORS.accentDim:"transparent",
-                      border:`1px solid ${form.aplica_iva===v?COLORS.accent:COLORS.border}`,
-                      color:form.aplica_iva===v?COLORS.accent:COLORS.textMuted,
+                      background:form.aplica_iva===v?C.accentDim:"transparent",
+                      border:`1px solid ${form.aplica_iva===v?C.accent:C.border}`,
+                      color:form.aplica_iva===v?C.accent:C.textMuted,
                       fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
                     {v?"Sí (19%)":"No (Exenta)"}
                   </button>
@@ -676,53 +676,53 @@ export function CuentasPorPagar({ isMobile }) {
               </div>
             </div>
             {conOC ? (
-              <LabelSelect label="Orden de Compra" value={form.purchase_order_id} onChange={e=>elegirOC(e.target.value)}>
+              <LabelSelect label="Orden de Compra" value={form.purchase_order_id} onChange={e=>elegirOC(e.target.value)} theme={LIGHT_THEME}>
                 <option value="">— Sin OC —</option>
                 {[...ocs].sort((a,b)=>(String(b.supplier_id)===String(proveedorSel?.id))-(String(a.supplier_id)===String(proveedorSel?.id)))
                   .map(o => <option key={o.id} value={String(o.id)}>{o.numero_oc} · {o.suppliers?.nombre||"—"}</option>)}
               </LabelSelect>
             ) : (
               <LabelInput label="Ref. Orden de Compra" value={form.referencia_oc}
-                onChange={e=>setF("referencia_oc",e.target.value)} placeholder="OC-001" />
+                onChange={e=>setF("referencia_oc",e.target.value)} placeholder="OC-001" theme={LIGHT_THEME} />
             )}
             <LabelInput label="Ref. Proyecto / Cotización" value={form.referencia_proyecto}
-              onChange={e=>setF("referencia_proyecto",e.target.value)} placeholder="COT-005" />
+              onChange={e=>setF("referencia_proyecto",e.target.value)} placeholder="COT-005" theme={LIGHT_THEME} />
           </div>
 
           {/* Preview IVA */}
           {netoNum > 0 && (
-            <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8,
+            <div style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:8,
               padding:"12px 16px", marginBottom:16, fontFamily:FONT, fontSize:12 }}>
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                <span style={{ color:COLORS.textMuted }}>Neto:</span>
-                <span style={{ color:COLORS.text }}>{fmtClp(netoNum)}</span>
+                <span style={{ color:C.textMuted }}>Neto:</span>
+                <span style={{ color:C.text }}>{fmtClp(netoNum)}</span>
               </div>
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                <span style={{ color:COLORS.textMuted }}>IVA 19%:</span>
-                <span style={{ color:form.aplica_iva?COLORS.green:COLORS.textMuted }}>
+                <span style={{ color:C.textMuted }}>IVA 19%:</span>
+                <span style={{ color:form.aplica_iva?C.green:C.textMuted }}>
                   {form.aplica_iva ? `+ ${fmtClp(ivaCalc)} ← crédito fiscal` : "—"}
                 </span>
               </div>
               <div style={{ display:"flex", justifyContent:"space-between",
-                borderTop:`1px solid ${COLORS.border}`, paddingTop:6, marginTop:2 }}>
-                <span style={{ color:COLORS.text, fontWeight:700 }}>Total a Pagar:</span>
-                <span style={{ color:COLORS.red, fontWeight:700, fontSize:14 }}>{fmtClp(totalCalc)}</span>
+                borderTop:`1px solid ${C.border}`, paddingTop:6, marginTop:2 }}>
+                <span style={{ color:C.text, fontWeight:700 }}>Total a Pagar:</span>
+                <span style={{ color:C.red, fontWeight:700, fontSize:14 }}>{fmtClp(totalCalc)}</span>
               </div>
             </div>
           )}
           <LabelInput label="Notas (opcional)" value={form.notas}
-            onChange={e=>setF("notas",e.target.value)} placeholder="Descripción del gasto…" />
+            onChange={e=>setF("notas",e.target.value)} placeholder="Descripción del gasto…" theme={LIGHT_THEME} />
 
           {/* Línea de negocio */}
           <div style={{ marginBottom:14 }}>
-            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Línea de negocio</div>
+            <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Línea de negocio</div>
             <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
               {LINEAS_NEGOCIO.map(ln=>(
                 <button key={ln} onClick={()=>setF("linea_negocio", form.linea_negocio===ln?"":ln)}
                   style={{ padding:"5px 12px", borderRadius:6, cursor:"pointer", fontFamily:FONT, fontSize:11,
-                    background: form.linea_negocio===ln ? `${COLORS.purple}22` : "transparent",
-                    border:`1px solid ${form.linea_negocio===ln ? COLORS.purple : COLORS.border}`,
-                    color: form.linea_negocio===ln ? COLORS.purple : COLORS.textMuted }}>
+                    background: form.linea_negocio===ln ? `${C.purple}22` : "transparent",
+                    border:`1px solid ${form.linea_negocio===ln ? C.purple : C.border}`,
+                    color: form.linea_negocio===ln ? C.purple : C.textMuted }}>
                   {ln}
                 </button>
               ))}
@@ -730,10 +730,10 @@ export function CuentasPorPagar({ isMobile }) {
           </div>
 
           <div style={{ display:"flex", gap:10, marginTop:4 }}>
-            <BtnSec onClick={()=>setModal(null)}>Cancelar</BtnSec>
+            <BtnSec onClick={()=>setModal(null)} theme={LIGHT_THEME}>Cancelar</BtnSec>
             <BtnPrimary onClick={saveFactura}
               disabled={saving||!form.numero_documento||!form.monto_neto||
-                (!form.razon_social_proveedor&&!proveedorSel)}>
+                (!form.razon_social_proveedor&&!proveedorSel)} theme={LIGHT_THEME}>
               {saving?"Guardando…":"Guardar Factura"}
             </BtnPrimary>
           </div>
@@ -742,28 +742,28 @@ export function CuentasPorPagar({ isMobile }) {
 
       {/* Modal registrar pago */}
       {pagoModal && (
-        <FinModal title={`Registrar Pago — Doc ${pagoModal.facturaN}`} onClose={()=>setPagoModal(null)} width={400}>
+        <FinModal title={`Registrar Pago — Doc ${pagoModal.facturaN}`} onClose={()=>setPagoModal(null)} width={400} theme={LIGHT_THEME}>
           {pagoModal.oc && (
-            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"8px 12px", marginBottom:14 }}>
-              Se registra como pago de la <b style={{ color:COLORS.text }}>{pagoModal.oc.numero_oc}</b> y descuenta del saldo de su proyecto en Compras → Por proyecto.
+            <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, padding:"8px 12px", marginBottom:14 }}>
+              Se registra como pago de la <b style={{ color:C.text }}>{pagoModal.oc.numero_oc}</b> y descuenta del saldo de su proyecto en Compras → Por proyecto.
             </div>
           )}
           <LabelInput label="Fecha de Pago" type="date" value={formPago.fecha_pago}
-            onChange={e=>setFP("fecha_pago",e.target.value)} />
+            onChange={e=>setFP("fecha_pago",e.target.value)} theme={LIGHT_THEME} />
           <LabelInput label="Monto Pagado" type="number" value={formPago.monto}
-            onChange={e=>setFP("monto",e.target.value)} placeholder="0" />
+            onChange={e=>setFP("monto",e.target.value)} placeholder="0" theme={LIGHT_THEME} />
           <LabelSelect label="Método de Pago" value={formPago.metodo}
-            onChange={e=>setFP("metodo",e.target.value)}>
+            onChange={e=>setFP("metodo",e.target.value)} theme={LIGHT_THEME}>
             <option>Transferencia</option>
             <option>Cheque</option>
             <option>Efectivo</option>
             <option>Otro</option>
           </LabelSelect>
           <LabelInput label="Referencia (opcional)" value={formPago.referencia}
-            onChange={e=>setFP("referencia",e.target.value)} placeholder="N° transferencia…" />
+            onChange={e=>setFP("referencia",e.target.value)} placeholder="N° transferencia…" theme={LIGHT_THEME} />
           <div style={{ display:"flex", gap:10, marginTop:4 }}>
-            <BtnSec onClick={()=>setPagoModal(null)}>Cancelar</BtnSec>
-            <BtnPrimary onClick={savePago} disabled={saving||!formPago.monto||!formPago.fecha_pago}>
+            <BtnSec onClick={()=>setPagoModal(null)} theme={LIGHT_THEME}>Cancelar</BtnSec>
+            <BtnPrimary onClick={savePago} disabled={saving||!formPago.monto||!formPago.fecha_pago} theme={LIGHT_THEME}>
               {saving?"Guardando…":"Registrar Pago"}
             </BtnPrimary>
           </div>

@@ -1,7 +1,7 @@
 // Registra un pago (total o parcial) a una OC del proyecto. Si el pago deja
 // el proyecto con saldo negativo se advierte, pero se permite pagar.
 import { useState } from "react";
-import { COLORS, FONT } from "../../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../../theme.js";
 import { fmt, hoyISO } from "../../shared/format.js";
 import { Ventana } from "../../shared/Ventana.jsx";
 import { campo, etiqueta } from "./estilos.js";
@@ -87,15 +87,15 @@ export function PagarOCModal({ oc, total, pagado, saldoDisponible, codigo, cuent
       )}
 
       <div style={{ marginTop:14, padding:"10px 12px", borderRadius:8, fontFamily:FONT, fontSize:12,
-        background: excede ? `${COLORS.yellow}14` : COLORS.card, border:`1px solid ${excede ? `${COLORS.yellow}66` : COLORS.border}`,
-        color: excede ? COLORS.yellow : COLORS.textMuted }}>
+        background: excede ? `${C.yellow}14` : C.card, border:`1px solid ${excede ? `${C.yellow}66` : C.border}`,
+        color: excede ? C.yellow : C.textMuted }}>
         {excede
           ? <>⚠ Este pago deja el proyecto en <b>{fmt(saldoDespues)}</b>: lo cobrado al cliente ({fmt(saldoDisponible)} disponible) no alcanza. Se puede pagar igual; la diferencia sale de otra caja.</>
-          : <>Saldo del proyecto después del pago: <b style={{ color:COLORS.text }}>{fmt(saldoDespues)}</b></>}
+          : <>Saldo del proyecto después del pago: <b style={{ color:C.text }}>{fmt(saldoDespues)}</b></>}
       </div>
 
       {completa && oc.estado !== "PAGADA" && (
-        <label style={{ display:"flex", alignItems:"center", gap:8, marginTop:12, fontFamily:FONT, fontSize:12, color:COLORS.textMuted, cursor:"pointer" }}>
+        <label style={{ display:"flex", alignItems:"center", gap:8, marginTop:12, fontFamily:FONT, fontSize:12, color:C.textMuted, cursor:"pointer" }}>
           <input type="checkbox" checked={marcarPagada} onChange={e => setMarcarPagada(e.target.checked)} />
           Marcar la OC como PAGADA (queda totalmente pagada)
         </label>

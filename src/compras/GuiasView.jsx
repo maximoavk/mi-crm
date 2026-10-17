@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
 import { Loader } from "../shared/ui.jsx";
-import { FONT, COLORS, FONT_DISPLAY } from "../theme.js";
+import { FONT_BODY as FONT, COLORS_LIGHT as C, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { fmt } from "../shared/format.js";
 import { EMPRESA_RUT } from "../shared/empresa.js";
 
@@ -126,18 +126,18 @@ export function GuiasView({ isMobile }) {
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:20, flexWrap:"wrap", gap:12 }}>
         <div>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Compras</div>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Guías de Despacho</div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Compras</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:C.text }}>Guías de Despacho</div>
         </div>
         <div style={{ position:"relative" }}>
           <input
             value={search} onChange={e=>setSearch(e.target.value)}
             placeholder="GD, OC, destinatario, tracking…"
-            style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 14px 8px 34px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", width:isMobile?160:240 }}
+            style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 14px 8px 34px", fontFamily:FONT, fontSize:12, color:C.text, outline:"none", width:isMobile?160:240 }}
           />
-          <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", fontSize:13, color:COLORS.textMuted }}>🔍</span>
+          <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", fontSize:13, color:C.textMuted }}>🔍</span>
           {search && (
-            <button onClick={()=>setSearch("")} style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:13 }}>✕</button>
+            <button onClick={()=>setSearch("")} style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:C.textMuted, cursor:"pointer", fontSize:13 }}>✕</button>
           )}
         </div>
       </div>
@@ -145,13 +145,13 @@ export function GuiasView({ isMobile }) {
       {/* KPIs */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4, minmax(0,1fr))", gap:10, marginBottom:16 }}>
         {[
-          { label:"En tránsito",  value:statsEnTransito, color:COLORS.purple,   accent:COLORS.purple  },
-          { label:"Entregadas",   value:statsEntregadas, color:COLORS.green,    accent:COLORS.green   },
-          { label:"Generadas",    value:statsGeneradas,  color:COLORS.textMuted, accent:COLORS.border },
-          { label:"Total fletes", value:fmt(totalFlete), color:COLORS.yellow,   accent:COLORS.yellow  },
+          { label:"En tránsito",  value:statsEnTransito, color:C.purple,   accent:C.purple  },
+          { label:"Entregadas",   value:statsEntregadas, color:C.green,    accent:C.green   },
+          { label:"Generadas",    value:statsGeneradas,  color:C.textMuted, accent:C.border },
+          { label:"Total fletes", value:fmt(totalFlete), color:C.yellow,   accent:C.yellow  },
         ].map(k=>(
-          <div key={k.label} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderLeft:`3px solid ${k.accent}`, borderRadius:10, padding:"14px 16px" }}>
-            <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>{k.label}</div>
+          <div key={k.label} style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`3px solid ${k.accent}`, borderRadius:10, padding:"14px 16px" }}>
+            <div style={{ fontFamily:FONT, fontSize:9, color:C.textDim, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:6 }}>{k.label}</div>
             <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:k.color }}>{k.value}</div>
           </div>
         ))}
@@ -165,9 +165,9 @@ export function GuiasView({ isMobile }) {
           return (
             <button key={key} onClick={()=>setFilterEstado(key)} style={{
               padding:"6px 12px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer",
-              background: filterEstado===key ? `${cfg?.color||COLORS.accent}22` : COLORS.card,
-              color: filterEstado===key ? (cfg?.color||COLORS.accent) : COLORS.textMuted,
-              border: `1px solid ${filterEstado===key ? (cfg?.color||COLORS.accent)+"44" : COLORS.border}`,
+              background: filterEstado===key ? `${cfg?.color||C.accent}22` : C.card,
+              color: filterEstado===key ? (cfg?.color||C.accent) : C.textMuted,
+              border: `1px solid ${filterEstado===key ? (cfg?.color||C.accent)+"44" : C.border}`,
             }}>
               {cfg?.icon||""} {key==="TODOS"?"Todas":cfg?.label} ({count})
             </button>
@@ -177,7 +177,7 @@ export function GuiasView({ isMobile }) {
 
       {/* Listado */}
       {filtered.length===0 && (
-        <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>
+        <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:C.textMuted }}>
           {search ? `Sin resultados para "${search}"` : "Sin guías de despacho aún."}
         </div>
       )}
@@ -185,14 +185,14 @@ export function GuiasView({ isMobile }) {
       <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
         {filtered.map(s=>{
           const estadoCfg  = SHIP_ESTADOS.find(e=>e.key===s.estado)||SHIP_ESTADOS[0];
-          const courierCfg = COURIERS_LIST_GV.find(c=>c.key===s.courier)||{ color:COLORS.textMuted };
+          const courierCfg = COURIERS_LIST_GV.find(c=>c.key===s.courier)||{ color:C.textMuted };
           const oc         = s.purchase_orders;
           const trackingUrl = COURIER_URLS[s.courier];
 
           return (
             <div key={s.id} style={{
-              background: COLORS.card,
-              border: `1px solid ${COLORS.border}`,
+              background: C.card,
+              border: `1px solid ${C.border}`,
               borderLeft: `3px solid ${estadoCfg.color}`,
               borderRadius: 10,
               padding: "12px 16px",
@@ -200,7 +200,7 @@ export function GuiasView({ isMobile }) {
               <div style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
 
                 {/* Número GD */}
-                <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.accent, minWidth:65 }}>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:C.accent, minWidth:65 }}>
                   {s.numero_guia}
                 </div>
 
@@ -215,19 +215,19 @@ export function GuiasView({ isMobile }) {
 
                 {/* OC referencia */}
                 {oc && (
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
-                    <span style={{ color:COLORS.textDim }}>OC: </span>
-                    <span style={{ color:COLORS.text }}>{oc.numero_oc}</span>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>
+                    <span style={{ color:C.textDim }}>OC: </span>
+                    <span style={{ color:C.text }}>{oc.numero_oc}</span>
                     {oc.suppliers?.nombre && (
-                      <span style={{ color:COLORS.textDim }}> · {oc.suppliers.nombre}</span>
+                      <span style={{ color:C.textDim }}> · {oc.suppliers.nombre}</span>
                     )}
                   </div>
                 )}
 
                 {/* Destinatario */}
-                <div style={{ flex:1, fontFamily:FONT, fontSize:11, color:COLORS.textMuted, minWidth:120 }}>
+                <div style={{ flex:1, fontFamily:FONT, fontSize:11, color:C.textMuted, minWidth:120 }}>
                   {s.destinatario_nombre||"—"}
-                  {s.ciudad && <span style={{ color:COLORS.textDim }}> · {s.ciudad}</span>}
+                  {s.ciudad && <span style={{ color:C.textDim }}> · {s.ciudad}</span>}
                 </div>
 
                 {/* Estado selector */}
@@ -247,9 +247,9 @@ export function GuiasView({ isMobile }) {
 
                 {/* Costo flete */}
                 {s.costo_despacho && (
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.yellow, flexShrink:0 }}>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:C.yellow, flexShrink:0 }}>
                     {fmt(s.costo_despacho)}
-                    {s.aplica_iva_despacho && <span style={{ fontSize:9, color:COLORS.textDim }}> +IVA</span>}
+                    {s.aplica_iva_despacho && <span style={{ fontSize:9, color:C.textDim }}> +IVA</span>}
                   </div>
                 )}
 
@@ -257,15 +257,15 @@ export function GuiasView({ isMobile }) {
                 <button
                   onClick={()=>printLabel(s)}
                   disabled={printingId===s.id}
-                  style={{ padding:"3px 10px", background:`${COLORS.purple}22`, border:`1px solid ${COLORS.purple}44`, borderRadius:5, color:COLORS.purple, fontFamily:FONT, fontSize:10, cursor:"pointer", fontWeight:600, flexShrink:0, opacity:printingId===s.id?0.5:1 }}>
+                  style={{ padding:"3px 10px", background:`${C.purple}22`, border:`1px solid ${C.purple}44`, borderRadius:5, color:C.purple, fontFamily:FONT, fontSize:10, cursor:"pointer", fontWeight:600, flexShrink:0, opacity:printingId===s.id?0.5:1 }}>
                   {printingId===s.id ? "…" : "📄 PDF"}
                 </button>
 
               </div>
 
               {/* Segunda fila — tracking */}
-              <div style={{ marginTop:10, paddingTop:10, borderTop:`1px solid ${COLORS.border}`, display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
-                <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim, textTransform:"uppercase", letterSpacing:"0.08em" }}>Tracking</span>
+              <div style={{ marginTop:10, paddingTop:10, borderTop:`1px solid ${C.border}`, display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
+                <span style={{ fontFamily:FONT, fontSize:9, color:C.textDim, textTransform:"uppercase", letterSpacing:"0.08em" }}>Tracking</span>
 
                 {editingTracking===s.id ? (
                   <div style={{ display:"flex", gap:6, alignItems:"center" }}>
@@ -274,10 +274,10 @@ export function GuiasView({ isMobile }) {
                       onKeyDown={e=>{ if(e.key==="Enter") saveTracking(s.id); if(e.key==="Escape") setEditingTracking(null); }}
                       placeholder="Código de tracking…"
                       autoFocus
-                      style={{ background:COLORS.bg, border:`1px solid ${COLORS.accent}`, borderRadius:5, padding:"4px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none", width:200 }}
+                      style={{ background:C.bg, border:`1px solid ${C.accent}`, borderRadius:5, padding:"4px 8px", fontFamily:FONT, fontSize:11, color:C.text, outline:"none", width:200 }}
                     />
-                    <button onClick={()=>saveTracking(s.id)} style={{ background:COLORS.accent, border:"none", borderRadius:5, padding:"4px 10px", color:COLORS.bg, fontFamily:FONT, fontSize:11, fontWeight:700, cursor:"pointer" }}>✓</button>
-                    <button onClick={()=>setEditingTracking(null)} style={{ background:"none", border:`1px solid ${COLORS.border}`, borderRadius:5, padding:"4px 8px", color:COLORS.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>✕</button>
+                    <button onClick={()=>saveTracking(s.id)} style={{ background:C.accent, border:"none", borderRadius:5, padding:"4px 10px", color:C.bg, fontFamily:FONT, fontSize:11, fontWeight:700, cursor:"pointer" }}>✓</button>
+                    <button onClick={()=>setEditingTracking(null)} style={{ background:"none", border:`1px solid ${C.border}`, borderRadius:5, padding:"4px 8px", color:C.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>✕</button>
                   </div>
                 ) : s.tracking_code ? (
                   <div style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -288,27 +288,27 @@ export function GuiasView({ isMobile }) {
                     >
                       🔗 {s.tracking_code}
                     </a>
-                    <button onClick={()=>{ setEditingTracking(s.id); setTrackingVal(s.tracking_code); }} style={{ background:"none", border:`1px solid ${COLORS.border}`, borderRadius:4, color:COLORS.textMuted, cursor:"pointer", fontSize:10, padding:"2px 6px" }}>✏️</button>
+                    <button onClick={()=>{ setEditingTracking(s.id); setTrackingVal(s.tracking_code); }} style={{ background:"none", border:`1px solid ${C.border}`, borderRadius:4, color:C.textMuted, cursor:"pointer", fontSize:10, padding:"2px 6px" }}>✏️</button>
                   </div>
                 ) : (
-                  <button onClick={()=>{ setEditingTracking(s.id); setTrackingVal(""); }} style={{ background:"none", border:`1px dashed ${COLORS.border}`, borderRadius:4, color:COLORS.textDim, cursor:"pointer", fontSize:10, padding:"2px 8px", fontFamily:FONT }}>
+                  <button onClick={()=>{ setEditingTracking(s.id); setTrackingVal(""); }} style={{ background:"none", border:`1px dashed ${C.border}`, borderRadius:4, color:C.textDim, cursor:"pointer", fontSize:10, padding:"2px 8px", fontFamily:FONT }}>
                     + agregar tracking
                   </button>
                 )}
 
-                <span style={{ marginLeft:"auto", fontFamily:FONT, fontSize:10, color:COLORS.textDim }}>
+                <span style={{ marginLeft:"auto", fontFamily:FONT, fontSize:10, color:C.textDim }}>
                   {s.created_at ? new Date(s.created_at).toLocaleDateString("es-CL",{ day:"2-digit", month:"short", year:"numeric" }) : "—"}
                 </span>
               </div>
 
               {/* Productos de la OC */}
               {s.ocLines?.length > 0 && (
-                <div style={{ marginTop:8, paddingTop:8, borderTop:`1px solid ${COLORS.border}`, display:"flex", flexWrap:"wrap", gap:6 }}>
+                <div style={{ marginTop:8, paddingTop:8, borderTop:`1px solid ${C.border}`, display:"flex", flexWrap:"wrap", gap:6 }}>
                   {s.ocLines.map((l,i)=>(
-                    <span key={i} style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4, padding:"2px 8px" }}>
-                      <span style={{ color:COLORS.accent, fontWeight:700 }}>{l.cantidad}×</span>{" "}
+                    <span key={i} style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, background:C.bg, border:`1px solid ${C.border}`, borderRadius:4, padding:"2px 8px" }}>
+                      <span style={{ color:C.accent, fontWeight:700 }}>{l.cantidad}×</span>{" "}
                       {l.products?.nombre||"—"}
-                      {l.products?.codigo && <span style={{ color:COLORS.textDim }}> · {l.products.codigo}</span>}
+                      {l.products?.codigo && <span style={{ color:C.textDim }}> · {l.products.codigo}</span>}
                     </span>
                   ))}
                 </div>

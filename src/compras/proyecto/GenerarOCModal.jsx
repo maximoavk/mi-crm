@@ -2,7 +2,7 @@
 // comprar del Costeo: una OC por proveedor, con proveedor y precio del
 // maestro (el preferido) sugeridos. Precios BRUTOS (con IVA).
 import { useMemo, useState } from "react";
-import { COLORS, FONT, FONT_DISPLAY } from "../../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../../theme.js";
 import { fmt } from "../../shared/format.js";
 import { Ventana } from "../../shared/Ventana.jsx";
 import { campo, etiqueta } from "./estilos.js";
@@ -81,14 +81,14 @@ export function GenerarOCModal({ quote, codigo, items, suppliers, prices, saldoP
               const conPrecio = prices.filter(p => String(p.product_id) === String(f.productId));
               const idsConPrecio = new Set(conPrecio.map(p => String(p.supplier_id)));
               return (
-                <tr key={f.productId} style={{ borderTop:`1px solid ${COLORS.border}` }}>
-                  <td style={{ padding:"8px 6px", fontFamily:FONT, fontSize:12, color:COLORS.text }}>
+                <tr key={f.productId} style={{ borderTop:`1px solid ${C.border}` }}>
+                  <td style={{ padding:"8px 6px", fontFamily:FONT, fontSize:12, color:C.text }}>
                     {f.descripcion}
-                    {f.modelo && <div style={{ fontSize:10, color:COLORS.textMuted }}>{f.modelo}</div>}
+                    {f.modelo && <div style={{ fontSize:10, color:C.textMuted }}>{f.modelo}</div>}
                   </td>
                   <td style={{ padding:"8px 6px", width:190 }}>
                     <select aria-label="Proveedor" value={f.supplier_id} onChange={e => cambiarProveedor(i, e.target.value)}
-                      style={{ ...campo, borderColor: f.supplier_id ? COLORS.border : COLORS.yellow }}>
+                      style={{ ...campo, borderColor: f.supplier_id ? C.border : C.yellow }}>
                       <option value="">— Elegir proveedor —</option>
                       {conPrecio.length > 0 && (
                         <optgroup label="Con precio en el maestro">
@@ -109,12 +109,12 @@ export function GenerarOCModal({ quote, codigo, items, suppliers, prices, saldoP
                   <td style={{ padding:"8px 6px", width:110 }}>
                     <input aria-label="Precio bruto" type="number" min="0" value={f.precio} onChange={e => setFila(i, { precio: e.target.value })} style={campo} />
                   </td>
-                  <td style={{ padding:"8px 6px", fontFamily:FONT, fontSize:12, color:COLORS.text, textAlign:"right", whiteSpace:"nowrap" }}>
+                  <td style={{ padding:"8px 6px", fontFamily:FONT, fontSize:12, color:C.text, textAlign:"right", whiteSpace:"nowrap" }}>
                     {fmt((Number(f.qty) || 0) * (Number(f.precio) || 0))}
                   </td>
                   <td style={{ padding:"8px 2px", width:24 }}>
                     <button onClick={() => setFilas(p => p.filter((_, j) => j !== i))} title="Quitar de esta compra"
-                      style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:14 }}>✕</button>
+                      style={{ background:"none", border:"none", color:C.textMuted, cursor:"pointer", fontSize:14 }}>✕</button>
                   </td>
                 </tr>
               );
@@ -129,24 +129,24 @@ export function GenerarOCModal({ quote, codigo, items, suppliers, prices, saldoP
       </div>
 
       {grupos.length > 0 && (
-        <div style={{ marginTop:14, padding:"10px 12px", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8 }}>
+        <div style={{ marginTop:14, padding:"10px 12px", background:C.card, border:`1px solid ${C.border}`, borderRadius:8 }}>
           {grupos.map(g => (
-            <div key={g.supplier_id} style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:12, color:COLORS.textMuted, padding:"2px 0" }}>
+            <div key={g.supplier_id} style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:12, color:C.textMuted, padding:"2px 0" }}>
               <span>OC a {nombreProveedor(g.supplier_id)} · {g.filas.length} ítem{g.filas.length === 1 ? "" : "s"}</span>
-              <span style={{ color:COLORS.text }}>{fmt(g.total)}</span>
+              <span style={{ color:C.text }}>{fmt(g.total)}</span>
             </div>
           ))}
-          <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text, borderTop:`1px solid ${COLORS.border}`, marginTop:6, paddingTop:6 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:C.text, borderTop:`1px solid ${C.border}`, marginTop:6, paddingTop:6 }}>
             <span>Total a comprometer</span><span>{fmt(totalNuevo)}</span>
           </div>
-          <div style={{ fontFamily:FONT, fontSize:11, marginTop:4, color: saldoDespues < 0 ? COLORS.yellow : COLORS.textMuted }}>
+          <div style={{ fontFamily:FONT, fontSize:11, marginTop:4, color: saldoDespues < 0 ? C.yellow : C.textMuted }}>
             Saldo proyectado del proyecto después: {fmt(saldoDespues)}
             {saldoDespues < 0 && " — lo cobrado todavía no alcanza para todas las OC emitidas"}
           </div>
         </div>
       )}
       {incompletas > 0 && (
-        <div style={{ marginTop:10, fontFamily:FONT, fontSize:11, color:COLORS.yellow }}>
+        <div style={{ marginTop:10, fontFamily:FONT, fontSize:11, color:C.yellow }}>
           {incompletas} ítem{incompletas === 1 ? "" : "s"} sin proveedor, cantidad o precio.
         </div>
       )}

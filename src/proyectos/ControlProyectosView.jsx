@@ -1,6 +1,6 @@
 // Control de proyectos: avance, cobros y partidas de los costeos en ejecución.
 import { useState, useEffect } from "react";
-import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { supabase } from "../supabaseClient.js";
 import { calcFase, partidaCobrado } from "../calculos.js";
 import { fmtDate, fmt } from "../shared/format.js";
@@ -26,7 +26,7 @@ export function ControlProyectosView({ contacts }) {
     activo:       { label:"Activo",       color:"#22c55e" },
     en_ejecucion: { label:"En Ejecución", color:"#06b6d4" },
     pausado:      { label:"Pausado",      color:"#f59e0b" },
-    cerrado:      { label:"Cerrado",      color:COLORS.textMuted },
+    cerrado:      { label:"Cerrado",      color:C.textMuted },
   };
 
   // Carga proyectos + enriquece con gantt y costeo
@@ -138,9 +138,9 @@ export function ControlProyectosView({ contacts }) {
     }));
   };
 
-  const inp = { width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`,
+  const inp = { width:"100%", background:C.bg, border:`1px solid ${C.border}`,
     borderRadius:6, padding:"8px 12px", fontFamily:FONT, fontSize:13,
-    color:COLORS.text, outline:"none", boxSizing:"border-box" };
+    color:C.text, outline:"none", boxSizing:"border-box" };
 
   const proySeleccionado = proyectos.find(p=>p.id===selected);
 
@@ -156,46 +156,46 @@ export function ControlProyectosView({ contacts }) {
         {/* Header */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20, flexWrap:"wrap", gap:10 }}>
           <div>
-            <button onClick={()=>setSelected(null)} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12, marginBottom:4 }}>← Volver</button>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>{pr.codigo}</div>
-            <div style={{ fontFamily:FONT, fontSize:14, color:COLORS.textMuted }}>{pr.nombre}</div>
+            <button onClick={()=>setSelected(null)} style={{ background:"none", border:"none", color:C.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12, marginBottom:4 }}>← Volver</button>
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:C.text }}>{pr.codigo}</div>
+            <div style={{ fontFamily:FONT, fontSize:14, color:C.textMuted }}>{pr.nombre}</div>
           </div>
           <div style={{ display:"flex", gap:8 }}>
             <div style={{ padding:"4px 12px", borderRadius:20, background:ec.color+"22", border:`1px solid ${ec.color}44`, fontFamily:FONT, fontSize:12, color:ec.color, fontWeight:600 }}>{ec.label}</div>
             <button onClick={()=>{ setForm({...pr, numero_cotizacion:pr.numero_cotizacion||"", fecha_inicio:pr.fecha_inicio||"", fecha_fin:pr.fecha_fin||""}); setCotSearch(pr.numero_cotizacion||""); setModal(pr); }}
-              style={{ padding:"6px 16px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.text, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>✏️ Editar</button>
+              style={{ padding:"6px 16px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, color:C.text, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>✏️ Editar</button>
           </div>
         </div>
 
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:14, marginBottom:16 }}>
           {/* Info cliente */}
-          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16 }}>
-            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>Cliente</div>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text, marginBottom:4 }}>{pr.cliente||pr.cot?.nombre_cliente||"—"}</div>
-            <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{pr.rut_cliente||"—"}</div>
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:16 }}>
+            <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>Cliente</div>
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:C.text, marginBottom:4 }}>{pr.cliente||pr.cot?.nombre_cliente||"—"}</div>
+            <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted }}>{pr.rut_cliente||"—"}</div>
             {(pr.fecha_inicio||pr.fecha_fin) && (
               <div style={{ marginTop:10, display:"flex", gap:12 }}>
-                {pr.fecha_inicio && <div><div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>INICIO</div><div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text }}>{fmtDate(pr.fecha_inicio)}</div></div>}
-                {pr.fecha_fin && <div><div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>TÉRMINO</div><div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text }}>{fmtDate(pr.fecha_fin)}</div></div>}
+                {pr.fecha_inicio && <div><div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>INICIO</div><div style={{ fontFamily:FONT, fontSize:12, color:C.text }}>{fmtDate(pr.fecha_inicio)}</div></div>}
+                {pr.fecha_fin && <div><div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>TÉRMINO</div><div style={{ fontFamily:FONT, fontSize:12, color:C.text }}>{fmtDate(pr.fecha_fin)}</div></div>}
               </div>
             )}
             {pr.cot && (
-              <div style={{ marginTop:10, padding:"6px 10px", background:COLORS.bg, borderRadius:6, fontFamily:FONT, fontSize:11, color:COLORS.accent }}>
+              <div style={{ marginTop:10, padding:"6px 10px", background:C.bg, borderRadius:6, fontFamily:FONT, fontSize:11, color:C.accent }}>
                 📄 {pr.cot.serie||"COT"}-{String(pr.cot.numero).padStart(3,"0")} · {fmt(pr.cot.total||0)}
               </div>
             )}
           </div>
 
           {/* % Avance Gantt */}
-          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16 }}>
-            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>Avance Gantt</div>
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:16 }}>
+            <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>Avance Gantt</div>
             {pr.totalT > 0 ? (<>
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
-                <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.text }}>{pr.totalT} tareas</span>
-                <span style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:pctGantt>=100?COLORS.green:pctGantt>=50?COLORS.accent:COLORS.yellow }}>{pctGantt}%</span>
+                <span style={{ fontFamily:FONT, fontSize:12, color:C.text }}>{pr.totalT} tareas</span>
+                <span style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:pctGantt>=100?C.green:pctGantt>=50?C.accent:C.yellow }}>{pctGantt}%</span>
               </div>
-              <div style={{ background:COLORS.bg, borderRadius:20, height:10, overflow:"hidden" }}>
-                <div style={{ width:`${pctGantt}%`, height:"100%", borderRadius:20, background:pctGantt>=100?COLORS.green:pctGantt>=50?COLORS.accent:COLORS.yellow, transition:"width 0.4s" }}/>
+              <div style={{ background:C.bg, borderRadius:20, height:10, overflow:"hidden" }}>
+                <div style={{ width:`${pctGantt}%`, height:"100%", borderRadius:20, background:pctGantt>=100?C.green:pctGantt>=50?C.accent:C.yellow, transition:"width 0.4s" }}/>
               </div>
               {/* Mini lista por tipo */}
               {["planificacion","ejecucion","cierre"].map(tipo=>{
@@ -204,64 +204,64 @@ export function ControlProyectosView({ contacts }) {
                 const pct = Math.round(tt.reduce((s,t)=>s+Number(t.pct_avance||0),0)/tt.length);
                 return (
                   <div key={tipo} style={{ display:"flex", justifyContent:"space-between", marginTop:6 }}>
-                    <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"capitalize" }}>{tipo}</span>
-                    <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}>{pct}% ({tt.length})</span>
+                    <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"capitalize" }}>{tipo}</span>
+                    <span style={{ fontFamily:FONT, fontSize:11, color:C.text }}>{pct}% ({tt.length})</span>
                   </div>
                 );
               })}
             </>) : (
-              <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, padding:"10px 0" }}>Sin Gantt vinculado a COT-{pr.numero_cotizacion||"?"}</div>
+              <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted, padding:"10px 0" }}>Sin Gantt vinculado a COT-{pr.numero_cotizacion||"?"}</div>
             )}
           </div>
 
           {/* Resumen financiero */}
-          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16 }}>
-            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>Financiero</div>
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:16 }}>
+            <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>Financiero</div>
             {[
-              { label:"Cotizado", val: pr.cot?.total||pr.totalVenta, color:COLORS.text },
-              { label:"Cobrado",  val: pr.totalCobrado, color:COLORS.green },
-              { label:"Saldo",    val: pr.saldo, color:pr.saldo>0?COLORS.yellow:COLORS.green },
+              { label:"Cotizado", val: pr.cot?.total||pr.totalVenta, color:C.text },
+              { label:"Cobrado",  val: pr.totalCobrado, color:C.green },
+              { label:"Saldo",    val: pr.saldo, color:pr.saldo>0?C.yellow:C.green },
             ].map(({label,val,color})=>(
               <div key={label} style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
-                <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{label}</span>
+                <span style={{ fontFamily:FONT, fontSize:12, color:C.textMuted }}>{label}</span>
                 <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color }}>{fmt(val||0)}</span>
               </div>
             ))}
             {pr.totalPartidas > 0 && (<>
-              <div style={{ background:COLORS.bg, borderRadius:20, height:8, overflow:"hidden", marginTop:4 }}>
-                <div style={{ width:`${pctCobro}%`, height:"100%", borderRadius:20, background:COLORS.green, transition:"width 0.4s" }}/>
+              <div style={{ background:C.bg, borderRadius:20, height:8, overflow:"hidden", marginTop:4 }}>
+                <div style={{ width:`${pctCobro}%`, height:"100%", borderRadius:20, background:C.green, transition:"width 0.4s" }}/>
               </div>
-              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:4, textAlign:"right" }}>{pctCobro}% cobrado</div>
+              <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginTop:4, textAlign:"right" }}>{pctCobro}% cobrado</div>
             </>)}
           </div>
         </div>
 
         {/* Fases del Proyecto */}
         {pr.fases.length > 0 && (
-          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16, marginBottom:16 }}>
-            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12 }}>Fases del Proyecto</div>
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:16, marginBottom:16 }}>
+            <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12 }}>Fases del Proyecto</div>
             <div style={{ display:"grid", gap:8 }}>
               {pr.fases.map(fa=>{
                 const FASE_ESTADOS = [
-                  { k:"pendiente",   label:"Pendiente",   color:COLORS.textMuted },
-                  { k:"en_curso",    label:"En Curso",    color:COLORS.accent },
-                  { k:"terminado",   label:"Terminado",   color:COLORS.green },
+                  { k:"pendiente",   label:"Pendiente",   color:C.textMuted },
+                  { k:"en_curso",    label:"En Curso",    color:C.accent },
+                  { k:"terminado",   label:"Terminado",   color:C.green },
                 ];
                 const est = FASE_ESTADOS.find(e=>e.k===fa.estado)||FASE_ESTADOS[0];
                 return (
-                  <div key={fa.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 14px", background:COLORS.bg, borderRadius:8, border:`1px solid ${COLORS.border}` }}>
+                  <div key={fa.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 14px", background:C.bg, borderRadius:8, border:`1px solid ${C.border}` }}>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text }}>{fa.nombre}</div>
-                      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{fmt(fa.ventaTotal)}</div>
+                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:C.text }}>{fa.nombre}</div>
+                      <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>{fmt(fa.ventaTotal)}</div>
                     </div>
                     {/* Selector estado manual/automático */}
                     <div style={{ display:"flex", gap:4 }}>
                       {FASE_ESTADOS.map(e=>(
                         <button key={e.k} onClick={()=>updateFaseEstado(pr.id, fa.id, e.k)}
                           style={{ padding:"3px 10px", borderRadius:20, fontFamily:FONT, fontSize:10, fontWeight:600,
-                            cursor:"pointer", border:`1px solid ${fa.estado===e.k?e.color:COLORS.border}`,
+                            cursor:"pointer", border:`1px solid ${fa.estado===e.k?e.color:C.border}`,
                             background:fa.estado===e.k?e.color+"22":"transparent",
-                            color:fa.estado===e.k?e.color:COLORS.textMuted }}>
+                            color:fa.estado===e.k?e.color:C.textMuted }}>
                           {e.label}
                         </button>
                       ))}
@@ -275,9 +275,9 @@ export function ControlProyectosView({ contacts }) {
 
         {/* Notas */}
         {pr.notas && (
-          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16 }}>
-            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Notas</div>
-            <div style={{ fontFamily:FONT, fontSize:13, color:COLORS.text, whiteSpace:"pre-wrap" }}>{pr.notas}</div>
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:16 }}>
+            <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Notas</div>
+            <div style={{ fontFamily:FONT, fontSize:13, color:C.text, whiteSpace:"pre-wrap" }}>{pr.notas}</div>
           </div>
         )}
       </div>
@@ -289,17 +289,17 @@ export function ControlProyectosView({ contacts }) {
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
         <div>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Proyectos</div>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Control de Proyectos</div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Proyectos</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:C.text }}>Control de Proyectos</div>
         </div>
         <button onClick={()=>{ setForm(EMPTY); setCotSearch(""); setCotMatches([]); setModal("new"); }}
-          style={{ padding:"10px 20px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+          style={{ padding:"10px 20px", background:C.accent, border:"none", borderRadius:8, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>
           + Nuevo Proyecto
         </button>
       </div>
 
       {loading ? <Loader /> : (<>
-        {proyectos.length===0 && <div style={{ textAlign:"center", color:COLORS.textMuted, fontFamily:FONT, padding:60 }}>Sin proyectos. ¡Crea el primero!</div>}
+        {proyectos.length===0 && <div style={{ textAlign:"center", color:C.textMuted, fontFamily:FONT, padding:60 }}>Sin proyectos. ¡Crea el primero!</div>}
         <div style={{ display:"grid", gap:12 }}>
           {proyectos.map(pr=>{
             const ec = ESTADO_COLORS[pr.estado]||ESTADO_COLORS.activo;
@@ -307,46 +307,46 @@ export function ControlProyectosView({ contacts }) {
             const pctCobro = pr.totalPartidas > 0 ? Math.round((pr.totalCobrado/pr.totalPartidas)*100) : null;
             return (
               <div key={pr.id} onClick={()=>setSelected(pr.id)}
-                style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`,
+                style={{ background:C.card, border:`1px solid ${C.border}`,
                   borderLeft:`3px solid ${ec.color}`, borderRadius:10,
                   padding:"16px 20px", cursor:"pointer", transition:"border-color 0.2s" }}
-                onMouseEnter={e=>e.currentTarget.style.borderColor=COLORS.accent}
-                onMouseLeave={e=>e.currentTarget.style.borderColor=COLORS.border}>
+                onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent}
+                onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12 }}>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
-                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.accent }}>{pr.codigo}</span>
+                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:C.accent }}>{pr.codigo}</span>
                       <div style={{ padding:"2px 8px", borderRadius:10, background:ec.color+"22", border:`1px solid ${ec.color}44`, fontFamily:FONT, fontSize:10, color:ec.color }}>{ec.label}</div>
-                      {pr.cot && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>📄 {pr.cot.serie||"COT"}-{String(pr.cot.numero).padStart(3,"0")}</div>}
+                      {pr.cot && <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>📄 {pr.cot.serie||"COT"}-{String(pr.cot.numero).padStart(3,"0")}</div>}
                     </div>
-                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:600, color:COLORS.text, marginBottom:2 }}>{pr.nombre}</div>
-                    <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{pr.cliente} {pr.fecha_inicio?`· Inicio: ${fmtDate(pr.fecha_inicio)}`:""}</div>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:600, color:C.text, marginBottom:2 }}>{pr.nombre}</div>
+                    <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted }}>{pr.cliente} {pr.fecha_inicio?`· Inicio: ${fmtDate(pr.fecha_inicio)}`:""}</div>
                   </div>
                   <div style={{ display:"flex", gap:20, flexShrink:0 }}>
                     {pctGantt !== null && (
                       <div style={{ textAlign:"center" }}>
-                        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:2 }}>GANTT</div>
-                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:pctGantt>=100?COLORS.green:pctGantt>=50?COLORS.accent:COLORS.yellow }}>{pctGantt}%</div>
+                        <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginBottom:2 }}>GANTT</div>
+                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:pctGantt>=100?C.green:pctGantt>=50?C.accent:C.yellow }}>{pctGantt}%</div>
                       </div>
                     )}
                     {pctCobro !== null && (
                       <div style={{ textAlign:"center" }}>
-                        <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:2 }}>COBRO</div>
-                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.green }}>{pctCobro}%</div>
+                        <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginBottom:2 }}>COBRO</div>
+                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:C.green }}>{pctCobro}%</div>
                       </div>
                     )}
                     <div style={{ textAlign:"right" }}>
-                      <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:2 }}>COTIZADO</div>
-                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>{fmt(pr.cot?.total||pr.totalVenta||0)}</div>
+                      <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginBottom:2 }}>COTIZADO</div>
+                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:C.text }}>{fmt(pr.cot?.total||pr.totalVenta||0)}</div>
                     </div>
                   </div>
                 </div>
                 {/* Barra Gantt mini */}
                 {pctGantt !== null && (
                   <div style={{ marginTop:10 }}>
-                    <div style={{ background:COLORS.bg, borderRadius:20, height:4, overflow:"hidden" }}>
+                    <div style={{ background:C.bg, borderRadius:20, height:4, overflow:"hidden" }}>
                       <div style={{ width:`${pctGantt}%`, height:"100%", borderRadius:20,
-                        background:pctGantt>=100?COLORS.green:pctGantt>=50?COLORS.accent:COLORS.yellow }}/>
+                        background:pctGantt>=100?C.green:pctGantt>=50?C.accent:C.yellow }}/>
                     </div>
                   </div>
                 )}
@@ -359,23 +359,23 @@ export function ControlProyectosView({ contacts }) {
       {/* Modal nuevo/editar */}
       {modal && (
         <div style={{ position:"fixed", inset:0, background:"#000a", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center" }}>
-          <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:28, width:"100%", maxWidth:540, maxHeight:"90vh", overflowY:"auto" }}>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text, marginBottom:20 }}>
+          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, padding:28, width:"100%", maxWidth:540, maxHeight:"90vh", overflowY:"auto" }}>
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:C.text, marginBottom:20 }}>
               {modal==="new" ? "Nuevo Proyecto" : `Editar ${modal.codigo}`}
             </div>
             <div style={{ display:"grid", gap:12 }}>
               {/* Nombre */}
               <div>
-                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Nombre del Proyecto *</div>
+                <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Nombre del Proyecto *</div>
                 <input value={form.nombre} onChange={e=>f("nombre",e.target.value)} placeholder="Ej: Sistema CCTV Condominio..." style={inp}/>
               </div>
               {/* Cotización vinculada */}
               <div>
-                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Cotización Vinculada (N°)</div>
+                <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Cotización Vinculada (N°)</div>
                 <input value={cotSearch} onChange={e=>{ setCotSearch(e.target.value); f("numero_cotizacion",e.target.value); }}
                   placeholder="Ej: 81 o nombre cliente..." style={inp}/>
                 {cotMatches.length > 0 && (
-                  <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, marginTop:4 }}>
+                  <div style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, marginTop:4 }}>
                     {cotMatches.map(c=>(
                       <div key={c.id} onMouseDown={()=>{
                         f("numero_cotizacion", c.numero);
@@ -383,9 +383,9 @@ export function ControlProyectosView({ contacts }) {
                         f("cliente", c.razon_social||c.nombre_cliente||"");
                         setCotSearch(String(c.numero));
                         setCotMatches([]);
-                      }} style={{ padding:"8px 12px", cursor:"pointer", fontFamily:FONT, fontSize:12, color:COLORS.text,
-                        borderBottom:`1px solid ${COLORS.border}22` }}
-                        onMouseEnter={e=>e.currentTarget.style.background=COLORS.card}
+                      }} style={{ padding:"8px 12px", cursor:"pointer", fontFamily:FONT, fontSize:12, color:C.text,
+                        borderBottom:`1px solid ${C.border}22` }}
+                        onMouseEnter={e=>e.currentTarget.style.background=C.card}
                         onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                         ✓ {c.serie||"COT"}-{String(c.numero).padStart(3,"0")} — {c.razon_social||c.nombre_cliente} · {fmt(c.total||0)}
                       </div>
@@ -396,35 +396,35 @@ export function ControlProyectosView({ contacts }) {
               {/* Cliente + RUT */}
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
                 <div>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Cliente</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Cliente</div>
                   <input value={form.cliente} onChange={e=>f("cliente",e.target.value)} placeholder="Nombre o razón social" style={inp}/>
                 </div>
                 <div>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>RUT Cliente</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>RUT Cliente</div>
                   <input value={form.rut_cliente} onChange={e=>f("rut_cliente",e.target.value)} placeholder="Ej: 65.066.845-6" style={inp}/>
                 </div>
               </div>
               {/* Fechas */}
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
                 <div>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Fecha Inicio</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Fecha Inicio</div>
                   <input type="date" value={form.fecha_inicio||""} onChange={e=>f("fecha_inicio",e.target.value)} style={inp}/>
                 </div>
                 <div>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Fecha Término</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Fecha Término</div>
                   <input type="date" value={form.fecha_fin||""} onChange={e=>f("fecha_fin",e.target.value)} style={inp}/>
                 </div>
               </div>
               {/* Estado */}
               <div>
-                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>Estado</div>
+                <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>Estado</div>
                 <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
                   {Object.entries(ESTADO_COLORS).map(([k,{label,color}])=>(
                     <button key={k} onClick={()=>f("estado",k)}
                       style={{ padding:"6px 14px", borderRadius:20, fontFamily:FONT, fontSize:11, fontWeight:600,
-                        cursor:"pointer", border:`1px solid ${form.estado===k?color:COLORS.border}`,
+                        cursor:"pointer", border:`1px solid ${form.estado===k?color:C.border}`,
                         background:form.estado===k?color+"22":"transparent",
-                        color:form.estado===k?color:COLORS.textMuted }}>
+                        color:form.estado===k?color:C.textMuted }}>
                       {label}
                     </button>
                   ))}
@@ -432,14 +432,14 @@ export function ControlProyectosView({ contacts }) {
               </div>
               {/* Notas */}
               <div>
-                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Notas</div>
+                <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Notas</div>
                 <textarea value={form.notas} onChange={e=>f("notas",e.target.value)} rows={3}
                   placeholder="Observaciones, alcance, condiciones..." style={{...inp, resize:"vertical"}}/>
               </div>
             </div>
             <div style={{ display:"flex", justifyContent:"flex-end", gap:10, marginTop:20 }}>
-              <button onClick={()=>setModal(null)} style={{ padding:"9px 20px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.text, fontFamily:FONT, fontSize:13, cursor:"pointer" }}>Cancelar</button>
-              <button onClick={saveProyecto} disabled={saving} style={{ padding:"9px 24px", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+              <button onClick={()=>setModal(null)} style={{ padding:"9px 20px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, color:C.text, fontFamily:FONT, fontSize:13, cursor:"pointer" }}>Cancelar</button>
+              <button onClick={saveProyecto} disabled={saving} style={{ padding:"9px 24px", background:C.accent, border:"none", borderRadius:6, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>
                 {saving ? "Guardando…" : modal==="new" ? "Crear Proyecto" : "Guardar Cambios"}
               </button>
             </div>

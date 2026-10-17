@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { supabase } from "../../supabaseClient.js";
 import { FinModal, LabelInput, BtnSec, BtnPrimary } from "../ui.jsx";
-import { FONT, COLORS, FONT_DISPLAY } from "../../theme.js";
+import { FONT_BODY as FONT, COLORS_LIGHT as C, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../../theme.js";
 import { CATS_GASTO_DIRECTO } from "../constants.js";
 import { fmtClp, hoyISO } from "../../shared/format.js";
 
@@ -42,11 +42,11 @@ export function ModalGastoDirecto({ cotizacion, onClose, onSaved }) {
 
   return (
     <FinModal title={`Gasto de terreno — COT-${cotizacion.numero_cotizacion}`}
-      onClose={onClose} width={460}>
+      onClose={onClose} width={460} theme={LIGHT_THEME}>
 
       {/* Categoría */}
       <div style={{ marginBottom:14 }}>
-        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+        <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
           textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>
           Categoría
         </div>
@@ -56,8 +56,8 @@ export function ModalGastoDirecto({ cotizacion, onClose, onSaved }) {
               style={{ padding:"6px 12px", borderRadius:6, cursor:"pointer",
                 fontFamily:FONT, fontSize:11,
                 background: form.categoria===cat ? "#F9731622" : "transparent",
-                border: `1px solid ${form.categoria===cat ? "#F97316" : COLORS.border}`,
-                color: form.categoria===cat ? "#F97316" : COLORS.textMuted }}>
+                border: `1px solid ${form.categoria===cat ? "#F97316" : C.border}`,
+                color: form.categoria===cat ? "#F97316" : C.textMuted }}>
               {cat}
             </button>
           ))}
@@ -68,38 +68,38 @@ export function ModalGastoDirecto({ cotizacion, onClose, onSaved }) {
         <div style={{ gridColumn:"1/-1" }}>
           <LabelInput label="Descripción *" value={form.descripcion}
             onChange={e=>setF("descripcion",e.target.value)}
-            placeholder="Ej: Tornillos 1/4, Silicona, Cinta…" />
+            placeholder="Ej: Tornillos 1/4, Silicona, Cinta…" theme={LIGHT_THEME} />
         </div>
         <LabelInput label="Proveedor / Lugar" value={form.proveedor}
           onChange={e=>setF("proveedor",e.target.value)}
-          placeholder="Ej: Easy, Copec, Sodimac…" />
+          placeholder="Ej: Easy, Copec, Sodimac…" theme={LIGHT_THEME} />
         <LabelInput label="N° Boleta / Factura" value={form.numero_documento}
           onChange={e=>setF("numero_documento",e.target.value)}
-          placeholder="Opcional" />
+          placeholder="Opcional" theme={LIGHT_THEME} />
         <div style={{ marginBottom:14 }}>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+          <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
             textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>
             Fecha
           </div>
           <input type="date" value={form.fecha} onChange={e=>setF("fecha",e.target.value)}
-            style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`,
+            style={{ width:"100%", background:C.bg, border:`1px solid ${C.border}`,
               borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13,
-              color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+              color:C.text, outline:"none", boxSizing:"border-box" }} />
         </div>
         <div style={{ marginBottom:14 }}>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+          <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
             textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>
             Monto neto *
           </div>
           <input type="number" value={form.monto_neto}
             onChange={e=>setF("monto_neto",e.target.value)}
             placeholder="0"
-            style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`,
+            style={{ width:"100%", background:C.bg, border:`1px solid ${C.border}`,
               borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13,
-              color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+              color:C.text, outline:"none", boxSizing:"border-box" }} />
         </div>
         <div style={{ gridColumn:"1/-1", marginBottom:14 }}>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+          <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
             textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>
             ¿Aplica IVA?
           </div>
@@ -107,9 +107,9 @@ export function ModalGastoDirecto({ cotizacion, onClose, onSaved }) {
             {[true,false].map(v=>(
               <button key={String(v)} onClick={()=>setF("aplica_iva",v)}
                 style={{ flex:1, padding:"8px 0", borderRadius:6, cursor:"pointer",
-                  background:form.aplica_iva===v?COLORS.accentDim:"transparent",
-                  border:`1px solid ${form.aplica_iva===v?COLORS.accent:COLORS.border}`,
-                  color:form.aplica_iva===v?COLORS.accent:COLORS.textMuted,
+                  background:form.aplica_iva===v?C.accentDim:"transparent",
+                  border:`1px solid ${form.aplica_iva===v?C.accent:C.border}`,
+                  color:form.aplica_iva===v?C.accent:C.textMuted,
                   fontFamily:FONT, fontSize:12 }}>
                 {v?"Sí (19%)":"No (Exenta / Boleta)"}
               </button>
@@ -120,23 +120,23 @@ export function ModalGastoDirecto({ cotizacion, onClose, onSaved }) {
 
       {/* Preview */}
       {neto > 0 && (
-        <div style={{ background:COLORS.bg, border:"1px solid #F9731633",
+        <div style={{ background:C.bg, border:"1px solid #F9731633",
           borderRadius:8, padding:"10px 16px", marginBottom:14,
           fontFamily:FONT, fontSize:12 }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
-            <span style={{ color:COLORS.textMuted }}>Neto:</span>
-            <span style={{ color:COLORS.text }}>{fmtClp(neto)}</span>
+            <span style={{ color:C.textMuted }}>Neto:</span>
+            <span style={{ color:C.text }}>{fmtClp(neto)}</span>
           </div>
           {form.aplica_iva && (
             <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
-              <span style={{ color:COLORS.textMuted }}>IVA 19% (crédito fiscal):</span>
-              <span style={{ color:COLORS.green }}>{fmtClp(iva)}</span>
+              <span style={{ color:C.textMuted }}>IVA 19% (crédito fiscal):</span>
+              <span style={{ color:C.green }}>{fmtClp(iva)}</span>
             </div>
           )}
           <div style={{ display:"flex", justifyContent:"space-between",
-            borderTop:`1px solid ${COLORS.border}`, paddingTop:6, marginTop:2 }}>
+            borderTop:`1px solid ${C.border}`, paddingTop:6, marginTop:2 }}>
             <span style={{ fontFamily:FONT_DISPLAY, fontWeight:700,
-              color:COLORS.text }}>Total:</span>
+              color:C.text }}>Total:</span>
             <span style={{ fontFamily:FONT_DISPLAY, fontWeight:700,
               fontSize:14, color:"#F97316" }}>{fmtClp(total)}</span>
           </div>
@@ -145,12 +145,12 @@ export function ModalGastoDirecto({ cotizacion, onClose, onSaved }) {
 
       <LabelInput label="Notas (opcional)" value={form.notas}
         onChange={e=>setF("notas",e.target.value)}
-        placeholder="Observaciones…" />
+        placeholder="Observaciones…" theme={LIGHT_THEME} />
 
       <div style={{ display:"flex", gap:10 }}>
-        <BtnSec onClick={onClose}>Cancelar</BtnSec>
+        <BtnSec onClick={onClose} theme={LIGHT_THEME}>Cancelar</BtnSec>
         <BtnPrimary onClick={save}
-          disabled={saving || !form.descripcion || !neto}>
+          disabled={saving || !form.descripcion || !neto} theme={LIGHT_THEME}>
           {saving ? "Guardando…" : "Registrar gasto"}
         </BtnPrimary>
       </div>

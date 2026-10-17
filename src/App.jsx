@@ -1,6 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { LogOut } from "lucide-react";
-import { COLORS, FONT, FONT_DISPLAY } from "./theme.js";
+import { COLORS, FONT, FONT_DISPLAY, SIDEBAR, COLORS_LIGHT } from "./theme.js";
 import { supabase } from "./supabaseClient.js";
 import { LOGO_B64 } from "./shared/assets.js";
 import { useIsMobile } from "./shared/useIsMobile.js";
@@ -44,9 +44,23 @@ function Cargando() {
 
 const VALID_ROLES = ["admin", "colaborador", "prueba"];
 
+// Pantallas ya migradas al rediseño "Modo Claro" — se les da el fondo
+// claro del <main>; el resto de la app sigue con el tema oscuro de siempre.
+const LIGHT_VIEWS = new Set([
+  "dashboard", "contacts", "pipeline", "quotes",
+  "prestaciones", "products", "proveedores", "compras_proyecto", "purchase", "guias",
+  "control_proyectos", "costeo", "design", "gantt", "operaciones", "analisis",
+  "tasks", "incidencias", "proposals", "reports", "finanzas_dashboard", "cxc", "cxp", "presupuesto",
+]);
+
 export default function CRM() {
   const [view, setView] = useState("dashboard");
   const [openCosteoId, setOpenCosteoId] = useState(null);
+  // Accesos directos del Dashboard ("Nuevo contacto", "Nuevo producto"...):
+  // abre directo el formulario de creación de la vista de destino, en vez de
+  // solo navegar a su pantalla general. Se consume una sola vez (la vista lo
+  // limpia con onAutoNewHandled apenas abre el formulario).
+  const [autoNew, setAutoNew] = useState(false);
   const [openDesignProjectId, setOpenDesignProjectId] = useState(null);
   // "Ver en maestro" desde un ítem del Costeo: producto a abrir y costeo al que volver
   const [openProductId, setOpenProductId] = useState(null);
@@ -116,7 +130,7 @@ export default function CRM() {
     return () => { cancelled = true; };
   },[userId]);
 
-  const navigate = (key) => { setView(key); setMenuOpen(false); setVolverACosteo(null); };
+  const navigate = (key, opts) => { setView(key); setMenuOpen(false); setVolverACosteo(null); setAutoNew(!!opts?.autoNew); };
   const logout = () => supabase.auth.signOut();
 
   // Nav items visible por rol
@@ -181,26 +195,26 @@ export default function CRM() {
 
   return (
     <div style={{ display:"flex", flexDirection:isMobile?"column":"row", minHeight:"100vh", background:COLORS.bg, fontFamily:FONT_DISPLAY }}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet" />
+      <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;600;700&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 
       {isMobile && (
-        <header style={{ background:COLORS.surface, borderBottom:`1px solid ${COLORS.border}`, padding:"12px 18px", display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, zIndex:150 }}>
+        <header style={{ background:SIDEBAR.bg, borderBottom:`1px solid ${SIDEBAR.border}`, padding:"12px 18px", display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, zIndex:150 }}>
           <div>
-            <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.accent, letterSpacing:"0.18em", textTransform:"uppercase" }}>ERP Empresarial</div>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>Polygonos <span style={{color:COLORS.accent}}>360</span></div>
+            <div style={{ fontFamily:FONT, fontSize:9, color:SIDEBAR.accent, letterSpacing:"0.18em", textTransform:"uppercase" }}>ERP Empresarial</div>
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:SIDEBAR.text }}>Polygonos <span style={{color:SIDEBAR.accent}}>360</span></div>
           </div>
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-            <button onClick={()=>setMenuOpen(p=>!p)} style={{ background:"none", border:`1px solid ${COLORS.border}`, borderRadius:7, color:COLORS.text, cursor:"pointer", padding:"7px 11px", fontSize:17 }}>{menuOpen?"✕":"☰"}</button>
+            <button onClick={()=>setMenuOpen(p=>!p)} style={{ background:"none", border:`1px solid ${SIDEBAR.border}`, borderRadius:7, color:SIDEBAR.text, cursor:"pointer", padding:"7px 11px", fontSize:17 }}>{menuOpen?"✕":"☰"}</button>
           </div>
         </header>
       )}
 
       {isMobile && menuOpen && (
-        <div style={{ position:"fixed", top:58, left:0, right:0, background:COLORS.surface, borderBottom:`1px solid ${COLORS.border}`, zIndex:140, padding:"10px", maxHeight:"80vh", overflowY:"auto" }}>
+        <div style={{ position:"fixed", top:58, left:0, right:0, background:SIDEBAR.bg, borderBottom:`1px solid ${SIDEBAR.border}`, zIndex:140, padding:"10px", maxHeight:"80vh", overflowY:"auto" }}>
           {NAV.map(n=>{
             const active=view===n.key;
             return (
-              <button key={n.key} onClick={()=>navigate(n.key)} style={{ display:"flex", alignItems:"center", gap:12, width:"100%", padding:"13px 16px", borderRadius:8, marginBottom:4, background:active?COLORS.accentDim:"transparent", border:`1px solid ${active?COLORS.accentGlow:"transparent"}`, cursor:"pointer", color:active?COLORS.accent:COLORS.text, fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:active?600:400, textAlign:"left" }}>
+              <button key={n.key} onClick={()=>navigate(n.key)} style={{ display:"flex", alignItems:"center", gap:12, width:"100%", padding:"13px 16px", borderRadius:8, marginBottom:4, background:active?SIDEBAR.accentDim:"transparent", border:`1px solid ${active?SIDEBAR.accentGlow:"transparent"}`, cursor:"pointer", color:active?SIDEBAR.accent:SIDEBAR.text, fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:active?600:400, textAlign:"left" }}>
                 <n.Icon size={17} />{n.label}
               </button>
             );
@@ -209,10 +223,10 @@ export default function CRM() {
       )}
 
       {!isMobile && (
-        <aside style={{ width:224, background:COLORS.surface, borderRight:`1px solid ${COLORS.border}`, padding:"28px 0", display:"flex", flexDirection:"column", flexShrink:0, position:"sticky", top:0, height:"100vh" }}>
-          <div style={{ padding:"0 24px 28px", borderBottom:`1px solid ${COLORS.border}` }}>
-            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, letterSpacing:"0.18em", textTransform:"uppercase", marginBottom:2 }}>CLAUDE ERP</div>
-            <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text }}>Polygonos <span style={{color:COLORS.accent}}>360</span></div>
+        <aside style={{ width:224, background:SIDEBAR.bg, borderRight:`1px solid ${SIDEBAR.border}`, padding:"28px 0", display:"flex", flexDirection:"column", flexShrink:0, position:"sticky", top:0, height:"100vh" }}>
+          <div style={{ padding:"0 24px 28px", borderBottom:`1px solid ${SIDEBAR.border}` }}>
+            <div style={{ fontFamily:FONT, fontSize:10, color:SIDEBAR.accent, letterSpacing:"0.18em", textTransform:"uppercase", marginBottom:2 }}>CLAUDE ERP</div>
+            <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:SIDEBAR.text }}>Polygonos <span style={{color:SIDEBAR.accent}}>360</span></div>
           </div>
           <nav style={{ padding:"10px 8px", flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:1 }}>
             {NAV_GROUPS.map(g=>{
@@ -221,17 +235,17 @@ export default function CRM() {
                 return (
                   <button key={g.key} onClick={()=>navigate(g.key)}
                     style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"9px 12px", borderRadius:10,
-                      background: active?"linear-gradient(120deg,#AC3AB322,#2954EC22)":"transparent",
-                      border: active?"1px solid #AC3AB333":"1px solid transparent",
+                      background: active?SIDEBAR.accentDim:"transparent",
+                      border: active?`1px solid ${SIDEBAR.accentGlow}`:"1px solid transparent",
                       cursor:"pointer", textAlign:"left", transition:"all 0.15s",
-                      color: active?COLORS.text:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:active?700:400 }}>
+                      color: active?SIDEBAR.text:SIDEBAR.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:active?700:400 }}>
                     <div style={{ width:28, height:28, borderRadius:8, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center",
-                      background: active?"linear-gradient(135deg,#AC3AB3,#2954EC)":COLORS.bg,
-                      border: active?"none":`1px solid ${COLORS.border}`, color:active?"#fff":COLORS.textMuted }}>
+                      background: active?SIDEBAR.accent:SIDEBAR.activeBg,
+                      border: active?"none":`1px solid ${SIDEBAR.border}`, color:active?"#fff":SIDEBAR.textMuted }}>
                       <g.Icon size={13} strokeWidth={active?2.5:1.8} />
                     </div>
                     {g.label}
-                    {active && <div style={{ marginLeft:"auto", width:5, height:5, borderRadius:"50%", background:"#AC3AB3", flexShrink:0 }} />}
+                    {active && <div style={{ marginLeft:"auto", width:5, height:5, borderRadius:"50%", background:SIDEBAR.accent, flexShrink:0 }} />}
                   </button>
                 );
               }
@@ -239,14 +253,14 @@ export default function CRM() {
               return <NavGroup key={g.key} g={g} view={view} navigate={navigate} />;
             })}
           </nav>
-          <div style={{ padding:"14px 16px", borderTop:`1px solid ${COLORS.border}` }}>
-            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:3 }}>
+          <div style={{ padding:"14px 16px", borderTop:`1px solid ${SIDEBAR.border}` }}>
+            <div style={{ fontFamily:FONT, fontSize:10, color:SIDEBAR.textMuted, marginBottom:3 }}>
               <span style={{ color:"#00C896" }}>●</span> {contacts.length} contactos · {deals.length} deals
             </div>
-            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:10, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+            <div style={{ fontFamily:FONT, fontSize:10, color:SIDEBAR.textMuted, marginBottom:10, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
               {session?.user?.email}
             </div>
-            <button onClick={logout} style={{ width:"100%", padding:"7px 12px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:7 }}>
+            <button onClick={logout} style={{ width:"100%", padding:"7px 12px", background:"transparent", border:`1px solid ${SIDEBAR.border}`, borderRadius:8, color:SIDEBAR.textMuted, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:7 }}>
               <LogOut size={13} />
               Cerrar sesión
             </button>
@@ -254,27 +268,35 @@ export default function CRM() {
         </aside>
       )}
 
-      <main style={{ flex:1, overflowY:"auto", paddingBottom:isMobile?80:0, background:COLORS.bg }}>
+      <main style={{ flex:1, overflowY:"auto", paddingBottom:isMobile?80:0, background: LIGHT_VIEWS.has(view) ? COLORS_LIGHT.bg : COLORS.bg }}>
+        {/* Dashboard maneja su propio layout a pantalla completa (fondo claro,
+            panel de accesos directos flotante) — las demás vistas usan el
+            contenedor estándar con ancho máximo y padding. */}
+        {view==="dashboard" ? (
+          <Suspense fallback={<Cargando />}>
+            <Dashboard contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} navigate={navigate} />
+          </Suspense>
+        ) : (
         <div style={{ maxWidth:1400, margin:"0 auto", padding:isMobile?16:32 }}>
           <Suspense fallback={<Cargando />}>
-          {view==="dashboard" && <Dashboard contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} navigate={navigate} />}
-          {view==="contacts"  && <ContactsView contacts={contacts} setContacts={setContacts} isMobile={isMobile} />}
+          {view==="contacts"  && <ContactsView contacts={contacts} setContacts={setContacts} isMobile={isMobile} autoNew={autoNew} onAutoNewHandled={()=>setAutoNew(false)} />}
           {view==="pipeline"  && <PipelineView deals={deals} setDeals={setDeals} contacts={contacts} tasks={tasks} setTasks={setTasks} isMobile={isMobile} userRole={userRole} session={session} />}
           {view==="quotes"       && <QuotesView contacts={contacts} isMobile={isMobile} setDeals={setDeals} onOpenCosteo={(id)=>{ setOpenCosteoId(id); setView("costeo"); }} />}
           {view==="prestaciones" && <PrestacionesView isMobile={isMobile} />}
           {view==="products"     && <ProductsDB isMobile={isMobile} openProductId={openProductId} onOpenHandled={()=>setOpenProductId(null)}
+            autoNew={autoNew} onAutoNewHandled={()=>setAutoNew(false)}
             onVolver={volverACosteo ? ()=>{ setOpenCosteoId(volverACosteo); setVolverACosteo(null); setView("costeo"); } : undefined} />}
           {view==="proveedores"  && <ProveedoresView isMobile={isMobile} />}
           {view==="compras_proyecto" && <ComprasProyectoView isMobile={isMobile} />}
-          {view==="purchase"     && <PurchaseView isMobile={isMobile} />}
+          {view==="purchase"     && <PurchaseView isMobile={isMobile} autoNew={autoNew} onAutoNewHandled={()=>setAutoNew(false)} />}
           {view==="guias"        && <GuiasView isMobile={isMobile} />}
           {view==="control_proyectos" && <ControlProyectosView contacts={contacts} />}
-          {view==="costeo"    && <CosteoView contacts={contacts} isMobile={isMobile} openId={openCosteoId} onOpenIdHandled={()=>setOpenCosteoId(null)} onOpenProducto={(productId, costeoId)=>{ setOpenProductId(productId); setVolverACosteo(costeoId); setView("products"); }} onOpenDesign={(id)=>{ setOpenDesignProjectId(id); setView("design"); }} />}
+          {view==="costeo"    && <CosteoView contacts={contacts} isMobile={isMobile} openId={openCosteoId} onOpenIdHandled={()=>setOpenCosteoId(null)} autoNew={autoNew} onAutoNewHandled={()=>setAutoNew(false)} onOpenProducto={(productId, costeoId)=>{ setOpenProductId(productId); setVolverACosteo(costeoId); setView("products"); }} onOpenDesign={(id)=>{ setOpenDesignProjectId(id); setView("design"); }} />}
           {view==="design"    && <DesignView designProjectId={openDesignProjectId} onBack={(costeoId)=>{ setOpenCosteoId(costeoId); setOpenDesignProjectId(null); setView("costeo"); }} />}
           {view==="gantt"     && <GanttView isMobile={isMobile} />}
           {view==="operaciones" && <OperacionesView isMobile={isMobile} />}
           {view==="analisis"    && <AnalisisPreciosView isMobile={isMobile} />}
-          {view==="tasks"     && <TasksView tasks={tasks} setTasks={setTasks} contacts={contacts} deals={deals} isMobile={isMobile} />}
+          {view==="tasks"     && <TasksView tasks={tasks} setTasks={setTasks} contacts={contacts} deals={deals} isMobile={isMobile} autoNew={autoNew} onAutoNewHandled={()=>setAutoNew(false)} />}
           {view==="incidencias" && <IncidenciasView contacts={contacts} isMobile={isMobile} />}
           {view==="proposals" && <ProposalsView onOpenCosteo={(id)=>{ setOpenCosteoId(id); setView("costeo"); }} />}
           {view==="reports"   && <ReportsView contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} />}
@@ -284,6 +306,7 @@ export default function CRM() {
           {view==="presupuesto"        && <PresupuestoOperacional isMobile={isMobile} />}
           </Suspense>
         </div>
+        )}
       </main>
 
       {isMobile && (

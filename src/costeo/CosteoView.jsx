@@ -4,7 +4,7 @@ import { supabase } from "../supabaseClient.js";
 import { mapCosteo, mapCosteoToDb } from "./mappers.js";
 import { mapProduct } from "../shared/mappers.js";
 import { syncPartidasConFases, calcFase, redondearTotal, partidaCobrado, codigosPorFase, IVA, totalCotizacion } from "../calculos.js";
-import { FONT_DISPLAY, COLORS, FONT } from "../theme.js";
+import { FONT_DISPLAY, COLORS_LIGHT as C, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { LOGO_PRINT } from "../shared/assets.js";
 import { fmt, hoyISO } from "../shared/format.js";
 import { RUBRO_OPTIONS, TIPO_TRABAJO_OPTIONS } from "../shared/constants.js";
@@ -17,7 +17,7 @@ import { codigoProyecto, numeroParaCotizacion } from "./correlativo.js";
 // La librería de PDF pesa ~1,5 MB: se carga recién al generar un PDF.
 const cargarPdfCosteo = () => Promise.all([import("@react-pdf/renderer"), import("../CosteoPdfDocs.jsx")]);
 
-export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, onOpenProducto }) {
+export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, onOpenProducto, autoNew, onAutoNewHandled }) {
   const [proyectos, setProyectos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
@@ -140,6 +140,10 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
     setSelected(p.id);
   };
 
+  // Acceso directo desde el Dashboard ("Nuevo proyecto"): crea el proyecto
+  // apenas se entra a la pantalla, en vez de solo mostrar la lista.
+  useEffect(() => { if (autoNew) { newProyecto(); onAutoNewHandled?.(); } }, [autoNew]);
+
   const updateProyecto = (p) => {
     setProyectos(prev => prev.map(x=>x.id===p.id?p:x));
     scheduleSave(p);
@@ -245,17 +249,17 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
         <div>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Proyectos</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:C.text }}>Proyectos</div>
         </div>
-        <button onClick={newProyecto} style={{ padding:"10px 20px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>+ Nuevo Proyecto</button>
+        <button onClick={newProyecto} style={{ padding:"10px 20px", background:C.accent, border:"none", borderRadius:8, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>+ Nuevo Proyecto</button>
       </div>
       {localBackup && localBackup.length>0 && (
-        <div style={{ background:`${COLORS.yellow}15`, border:`1px solid ${COLORS.yellow}44`, borderRadius:10, padding:"12px 16px", marginBottom:16, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
-          <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text }}>
+        <div style={{ background:`${C.yellow}15`, border:`1px solid ${C.yellow}44`, borderRadius:10, padding:"12px 16px", marginBottom:16, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
+          <div style={{ fontFamily:FONT, fontSize:12, color:C.text }}>
             📥 Se encontraron <strong>{localBackup.length}</strong> proyecto{localBackup.length===1?"":"s"} de costeo guardados en este navegador que aún no están en la nube.
           </div>
           <button onClick={importLocalBackup} disabled={importing}
-            style={{ padding:"8px 16px", background:COLORS.accent, border:"none", borderRadius:7, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:importing?"default":"pointer", opacity:importing?0.6:1 }}>
+            style={{ padding:"8px 16px", background:C.accent, border:"none", borderRadius:7, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:importing?"default":"pointer", opacity:importing?0.6:1 }}>
             {importing?"Importando…":"Importar a la nube"}
           </button>
         </div>
@@ -263,10 +267,10 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
       <input
         value={search} onChange={e=>setSearch(e.target.value)}
         placeholder="Buscar por nombre o cliente..."
-        style={{ width:"100%", padding:"10px 14px", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.text, fontFamily:FONT, fontSize:13, marginBottom:16, boxSizing:"border-box", outline:"none" }}
+        style={{ width:"100%", padding:"10px 14px", background:C.card, border:`1px solid ${C.border}`, borderRadius:8, color:C.text, fontFamily:FONT, fontSize:13, marginBottom:16, boxSizing:"border-box", outline:"none" }}
       />
-      {loading && <div style={{ textAlign:"center", color:COLORS.textMuted, fontFamily:FONT, padding:60 }}>Cargando…</div>}
-      {!loading && proyectos.length===0 && <div style={{ textAlign:"center", color:COLORS.textMuted, fontFamily:FONT, padding:60 }}>Sin proyectos. ¡Crea el primero!</div>}
+      {loading && <div style={{ textAlign:"center", color:C.textMuted, fontFamily:FONT, padding:60 }}>Cargando…</div>}
+      {!loading && proyectos.length===0 && <div style={{ textAlign:"center", color:C.textMuted, fontFamily:FONT, padding:60 }}>Sin proyectos. ¡Crea el primero!</div>}
       <div style={{ display:"grid", gap:12 }}>
         {proyectos.filter(p=>{
           const q = search.toLowerCase();
@@ -290,30 +294,30 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
           const tm = Math.round(fc.reduce((s,f)=>s+f.ventaNetaConDesc,0) - tc);
           const cod = codigoProyecto(p, p.cotizacionId ? quoteMap[p.cotizacionId] : null); // sin cotizacion_id: proyectos legacy
           return (
-            <div key={p.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"16px 20px", display:"flex", alignItems:"center", gap:16, cursor:"pointer" }} onClick={()=>setSelected(p.id)}>
+            <div key={p.id} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"16px 20px", display:"flex", alignItems:"center", gap:16, cursor:"pointer" }} onClick={()=>setSelected(p.id)}>
               <div style={{ flex:1 }}>
                 {cod && <ChipCot cod={cod} />}
-                <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:C.text }}>
                   {p.nombre}
                 </div>
-                <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{p.cliente} · {p.fecha}</div>
+                <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted }}>{p.cliente} · {p.fecha}</div>
               </div>
               <div style={{ display:"flex", gap:20 }}>
                 <div style={{ textAlign:"right" }}>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>COSTO</div>
-                  <div style={{ fontFamily:FONT, fontSize:13, fontWeight:600, color:COLORS.text }}>${tc.toLocaleString("es-CL")}</div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>COSTO</div>
+                  <div style={{ fontFamily:FONT, fontSize:13, fontWeight:600, color:C.text }}>${tc.toLocaleString("es-CL")}</div>
                 </div>
                 <div style={{ textAlign:"right" }}>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.green }}>MARGEN</div>
-                  <div style={{ fontFamily:FONT, fontSize:13, fontWeight:600, color:COLORS.green }}>${tm.toLocaleString("es-CL")}</div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:C.green }}>MARGEN</div>
+                  <div style={{ fontFamily:FONT, fontSize:13, fontWeight:600, color:C.green }}>${tm.toLocaleString("es-CL")}</div>
                 </div>
                 <div style={{ textAlign:"right" }}>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent }}>VENTA</div>
-                  <div style={{ fontFamily:FONT, fontSize:13, fontWeight:600, color:COLORS.accent }}>${tv.toLocaleString("es-CL")}</div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:C.accent }}>VENTA</div>
+                  <div style={{ fontFamily:FONT, fontSize:13, fontWeight:600, color:C.accent }}>${tv.toLocaleString("es-CL")}</div>
                 </div>
               </div>
-              <button onClick={e=>duplicateProyecto(p,e)} title="Duplicar proyecto" style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:15, padding:"0 4px" }}>⧉</button>
-              <button onClick={e=>{e.stopPropagation();deleteProyecto(p.id);}} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:16 }}>×</button>
+              <button onClick={e=>duplicateProyecto(p,e)} title="Duplicar proyecto" style={{ background:"none", border:"none", color:C.textMuted, cursor:"pointer", fontSize:15, padding:"0 4px" }}>⧉</button>
+              <button onClick={e=>{e.stopPropagation();deleteProyecto(p.id);}} style={{ background:"none", border:"none", color:C.red, cursor:"pointer", fontSize:16 }}>×</button>
             </div>
           );
         })}
@@ -602,39 +606,39 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
       {/* Modal generar cotización */}
       {genModal && (
         <div style={{ position:"fixed", inset:0, background:"#000a", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center" }}>
-          <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:14, padding:28, width:420, maxWidth:"95vw" }}>
+          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:14, padding:28, width:420, maxWidth:"95vw" }}>
             {genDone ? (
               <>
                 <div style={{ textAlign:"center", marginBottom:16 }}>
                   <div style={{ fontSize:36 }}>✅</div>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text, marginTop:8 }}>Cotización #{genDone} creada</div>
-                  <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginTop:4 }}>Ve al módulo Cotizar para revisarla y enviarla</div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:C.text, marginTop:8 }}>Cotización #{genDone} creada</div>
+                  <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted, marginTop:4 }}>Ve al módulo Cotizar para revisarla y enviarla</div>
                 </div>
                 <button onClick={()=>{ setGenModal(false); setGenDone(null); }}
-                  style={{ width:"100%", padding:"10px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+                  style={{ width:"100%", padding:"10px", background:C.accent, border:"none", borderRadius:8, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>
                   Cerrar
                 </button>
               </>
             ) : (
               <>
-                <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text, marginBottom:4 }}>Generar Cotización</div>
-                <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:20 }}>Se creará en borrador con los datos del proyecto.</div>
-                <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:8, fontWeight:600 }}>¿Cómo desglosar las líneas?</div>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:C.text, marginBottom:4 }}>Generar Cotización</div>
+                <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted, marginBottom:20 }}>Se creará en borrador con los datos del proyecto.</div>
+                <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted, marginBottom:8, fontWeight:600 }}>¿Cómo desglosar las líneas?</div>
                 <div style={{ display:"flex", gap:10, marginBottom:20 }}>
                   {[["fases","Por fase","Una línea por cada fase"],["total","Proyecto total","Una sola línea con el total"]].map(([val,lab,desc])=>(
                     <div key={val} onClick={()=>setGenTipo(val)}
-                      style={{ flex:1, border:`2px solid ${genTipo===val?COLORS.accent:COLORS.border}`, borderRadius:9, padding:"12px 10px", cursor:"pointer", background:genTipo===val?`${COLORS.accent}11`:"transparent" }}>
-                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:genTipo===val?COLORS.accent:COLORS.text }}>{lab}</div>
-                      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:3 }}>{desc}</div>
+                      style={{ flex:1, border:`2px solid ${genTipo===val?C.accent:C.border}`, borderRadius:9, padding:"12px 10px", cursor:"pointer", background:genTipo===val?`${C.accent}11`:"transparent" }}>
+                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:genTipo===val?C.accent:C.text }}>{lab}</div>
+                      <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, marginTop:3 }}>{desc}</div>
                     </div>
                   ))}
                 </div>
-                <div style={{ background:COLORS.card, borderRadius:8, padding:"10px 14px", marginBottom:20 }}>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:6, textTransform:"uppercase", letterSpacing:"0.08em" }}>Vista previa</div>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}><strong>Cliente:</strong> {proyecto.clienteNombre||proyecto.cliente||"(sin cliente)"}</div>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}><strong>RUT:</strong> {proyecto.clienteRut||"—"}</div>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text }}><strong>Fecha:</strong> {proyecto.fecha}</div>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.text, marginTop:4 }}><strong>Forma de pago:</strong> {(()=>{
+                <div style={{ background:C.card, borderRadius:8, padding:"10px 14px", marginBottom:20 }}>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginBottom:6, textTransform:"uppercase", letterSpacing:"0.08em" }}>Vista previa</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.text }}><strong>Cliente:</strong> {proyecto.clienteNombre||proyecto.cliente||"(sin cliente)"}</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.text }}><strong>RUT:</strong> {proyecto.clienteRut||"—"}</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.text }}><strong>Fecha:</strong> {proyecto.fecha}</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.text, marginTop:4 }}><strong>Forma de pago:</strong> {(()=>{
                     const ps=proyecto.partidas||[];
                     const tbFinal=fasesCalc.reduce((s,f)=>s+f.ventaConDesc,0);
                     const tb=tbFinal>0?tbFinal:fasesCalc.reduce((s,f)=>s+f.ventaBruta,0);
@@ -651,14 +655,14 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
                     const sinSegmentoIVA = fasesCalc.every(f => (f.items||[]).every(it => !it.aplicaIVA));
                     return (
                       <div style={{ fontFamily:FONT, fontSize:11, marginTop:4 }}>
-                        <strong style={{color:COLORS.text}}>Serie:</strong>{" "}
-                        <span style={{ color: sinSegmentoIVA?COLORS.yellow:COLORS.accent, fontWeight:600 }}>
+                        <strong style={{color:C.text}}>Serie:</strong>{" "}
+                        <span style={{ color: sinSegmentoIVA?C.yellow:C.accent, fontWeight:600 }}>
                           {sinSegmentoIVA ? "SIN · sin IVA (ningún ítem lo aplica)" : "COT · con IVA"}
                         </span>
                       </div>
                     );
                   })()}
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:4 }}>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, marginTop:4 }}>
                     {genTipo==="fases"
                       ? `${(proyecto.fases||[]).length} línea(s) por fase + ${(proyecto.partidas||[]).length} hito(s) de pago`
                       : `1 línea total + ${(proyecto.partidas||[]).length} hito(s) de pago`}
@@ -666,11 +670,11 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
                 </div>
                 <div style={{ display:"flex", gap:10 }}>
                   <button onClick={()=>{ setGenModal(false); setGenDone(null); }}
-                    style={{ flex:1, padding:"10px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
+                    style={{ flex:1, padding:"10px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:8, color:C.textMuted, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
                     Cancelar
                   </button>
                   <button onClick={generarCotizacion} disabled={genSaving}
-                    style={{ flex:2, padding:"10px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer", opacity:genSaving?0.6:1 }}>
+                    style={{ flex:2, padding:"10px", background:C.accent, border:"none", borderRadius:8, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer", opacity:genSaving?0.6:1 }}>
                     {genSaving?"Creando...":"✦ Crear Cotización"}
                   </button>
                 </div>
@@ -683,61 +687,61 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
       {/* Modal sincronizar con cotización */}
       {syncModal && syncPreview && (
         <div style={{ position:"fixed", inset:0, background:"#000a", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center" }}>
-          <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:14, padding:28, width:520, maxWidth:"95vw", maxHeight:"85vh", overflowY:"auto" }}>
+          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:14, padding:28, width:520, maxWidth:"95vw", maxHeight:"85vh", overflowY:"auto" }}>
             {syncDone ? (
               <>
                 <div style={{ textAlign:"center", marginBottom:16 }}>
                   <div style={{ fontSize:36 }}>✅</div>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text, marginTop:8 }}>Cotización sincronizada</div>
-                  <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginTop:4 }}>El total y las líneas quedaron al día con el costeo actual.</div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:C.text, marginTop:8 }}>Cotización sincronizada</div>
+                  <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted, marginTop:4 }}>El total y las líneas quedaron al día con el costeo actual.</div>
                 </div>
                 <button onClick={()=>{ setSyncModal(false); setSyncPreview(null); setSyncDone(false); }}
-                  style={{ width:"100%", padding:"10px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+                  style={{ width:"100%", padding:"10px", background:C.accent, border:"none", borderRadius:8, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>
                   Cerrar
                 </button>
               </>
             ) : (
               <>
-                <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text, marginBottom:4 }}>Sincronizar con cotización</div>
-                <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:16 }}>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:C.text, marginBottom:4 }}>Sincronizar con cotización</div>
+                <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted, marginBottom:16 }}>
                   Se actualiza el precio de cada línea al valor recalculado del costeo. No se tocan los hitos de pago ni se crean líneas nuevas.
                 </div>
                 <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:16 }}>
                   {syncPreview.rows.map((r,i)=>(
-                    <div key={i} style={{ background:COLORS.card, borderRadius:8, padding:"10px 12px", border:`1px solid ${r.lineaId?COLORS.border:COLORS.yellow+"66"}` }}>
+                    <div key={i} style={{ background:C.card, borderRadius:8, padding:"10px 12px", border:`1px solid ${r.lineaId?C.border:C.yellow+"66"}` }}>
                       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8 }}>
                         <div style={{ minWidth:0 }}>
-                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{r.fase}</div>
-                          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{r.codigo}</div>
+                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{r.fase}</div>
+                          <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>{r.codigo}</div>
                         </div>
                         {r.lineaId ? (
                           <div style={{ textAlign:"right", flexShrink:0 }}>
-                            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textDecoration: r.actual!==r.nuevo?"line-through":"none" }}>{fmt(r.actual)}</div>
-                            <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color: r.actual!==r.nuevo?COLORS.accent:COLORS.text }}>{fmt(r.nuevo)}</div>
+                            <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, textDecoration: r.actual!==r.nuevo?"line-through":"none" }}>{fmt(r.actual)}</div>
+                            <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color: r.actual!==r.nuevo?C.accent:C.text }}>{fmt(r.nuevo)}</div>
                           </div>
                         ) : (
-                          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.yellow, flexShrink:0 }}>⚠ No encontrada — se omite</div>
+                          <div style={{ fontFamily:FONT, fontSize:10, color:C.yellow, flexShrink:0 }}>⚠ No encontrada — se omite</div>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
-                <div style={{ background:COLORS.card, borderRadius:8, padding:"10px 14px", marginBottom:20, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                  <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Total cotización</span>
+                <div style={{ background:C.card, borderRadius:8, padding:"10px 14px", marginBottom:20, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Total cotización</span>
                   <div style={{ textAlign:"right" }}>
                     {syncPreview.totalActual!==syncPreview.totalNuevo && (
-                      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textDecoration:"line-through" }}>{fmt(syncPreview.totalActual)}</div>
+                      <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textDecoration:"line-through" }}>{fmt(syncPreview.totalActual)}</div>
                     )}
-                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.accent }}>{fmt(syncPreview.totalNuevo)}</div>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:C.accent }}>{fmt(syncPreview.totalNuevo)}</div>
                   </div>
                 </div>
                 <div style={{ display:"flex", gap:10 }}>
                   <button onClick={()=>{ setSyncModal(false); setSyncPreview(null); }}
-                    style={{ flex:1, padding:"10px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
+                    style={{ flex:1, padding:"10px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:8, color:C.textMuted, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
                     Cancelar
                   </button>
                   <button onClick={applySync} disabled={syncSaving}
-                    style={{ flex:2, padding:"10px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer", opacity:syncSaving?0.6:1 }}>
+                    style={{ flex:2, padding:"10px", background:C.accent, border:"none", borderRadius:8, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer", opacity:syncSaving?0.6:1 }}>
                     {syncSaving?"Aplicando...":"🔄 Aplicar sincronización"}
                   </button>
                 </div>
@@ -749,30 +753,30 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
 
       {/* Header */}
       <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16, flexWrap:"wrap" }}>
-        <button onClick={()=>{ flushPending(selected); setSelected(null); }} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>← Proyectos</button>
+        <button onClick={()=>{ flushPending(selected); setSelected(null); }} style={{ background:"none", border:"none", color:C.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>← Proyectos</button>
         {codProyecto && <ChipCot cod={codProyecto} grande />}
         <div style={{ flex:1 }}>
           <input value={proyecto.nombre} onChange={e=>updateProyecto({...proyecto,nombre:e.target.value})}
-            style={{ background:"transparent", border:"none", color:COLORS.text, fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, outline:"none", width:"100%" }} />
+            style={{ background:"transparent", border:"none", color:C.text, fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, outline:"none", width:"100%" }} />
         </div>
-        {saveStatus==="saving" && <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Guardando…</span>}
-        {saveStatus==="saved" && <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.green }}>✓ Guardado</span>}
+        {saveStatus==="saving" && <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>Guardando…</span>}
+        {saveStatus==="saved" && <span style={{ fontFamily:FONT, fontSize:11, color:C.green }}>✓ Guardado</span>}
         <input type="date" value={proyecto.fecha} onChange={e=>updateProyecto({...proyecto,fecha:e.target.value})}
-          style={{ background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, fontFamily:FONT, fontSize:12, padding:"5px 10px" }} />
+          style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, color:C.textMuted, fontFamily:FONT, fontSize:12, padding:"5px 10px" }} />
         <button onClick={printInterno} style={{ padding:"8px 14px", background:"#1e293b", border:"none", borderRadius:7, color:"white", fontFamily:FONT, fontSize:11, cursor:"pointer" }}>📋 PDF Interno</button>
-        <button onClick={printCliente} style={{ padding:"8px 14px", background:COLORS.accent, border:"none", borderRadius:7, color:COLORS.bg, fontFamily:FONT, fontSize:11, fontWeight:700, cursor:"pointer" }}>📄 PDF Cliente</button>
+        <button onClick={printCliente} style={{ padding:"8px 14px", background:C.accent, border:"none", borderRadius:7, color:C.bg, fontFamily:FONT, fontSize:11, fontWeight:700, cursor:"pointer" }}>📄 PDF Cliente</button>
         <button onClick={()=>{ setGenModal(true); setGenDone(null); }}
           style={{ padding:"8px 16px", background:"#7c3aed", border:"none", borderRadius:7, color:"white", fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer" }}>
           ✦ Generar Cotización
         </button>
         {proyecto.cotizacionId && (
           <button onClick={openSyncPreview} disabled={syncLoading}
-            style={{ padding:"8px 16px", background:"transparent", border:`1px solid ${COLORS.accent}`, borderRadius:7, color:COLORS.accent, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer", opacity:syncLoading?0.6:1 }}>
+            style={{ padding:"8px 16px", background:"transparent", border:`1px solid ${C.accent}`, borderRadius:7, color:C.accent, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer", opacity:syncLoading?0.6:1 }}>
             {syncLoading?"Cargando…":"🔄 Sincronizar con cotización"}
           </button>
         )}
         <button onClick={()=>{ setVersionModal(true); setVersionNota(""); setVersionSavedNum(null); }}
-          style={{ padding:"8px 16px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:7, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer" }}>
+          style={{ padding:"8px 16px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:7, color:C.textMuted, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer" }}>
           📌 Guardar versión
         </button>
       </div>
@@ -780,35 +784,35 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
       {/* Modal guardar versión manual */}
       {versionModal && (
         <div style={{ position:"fixed", inset:0, background:"#000a", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center" }}>
-          <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:14, padding:28, width:420, maxWidth:"95vw" }}>
+          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:14, padding:28, width:420, maxWidth:"95vw" }}>
             {versionSavedNum ? (
               <>
                 <div style={{ textAlign:"center", marginBottom:16 }}>
                   <div style={{ fontSize:36 }}>📌</div>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:COLORS.text, marginTop:8 }}>Versión {versionSavedNum} guardada</div>
-                  <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginTop:4 }}>Ya aparece en "Historial de Cambios"</div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:C.text, marginTop:8 }}>Versión {versionSavedNum} guardada</div>
+                  <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted, marginTop:4 }}>Ya aparece en "Historial de Cambios"</div>
                 </div>
                 <button onClick={()=>setVersionModal(false)}
-                  style={{ width:"100%", padding:"10px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+                  style={{ width:"100%", padding:"10px", background:C.accent, border:"none", borderRadius:8, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer" }}>
                   Cerrar
                 </button>
               </>
             ) : (
               <>
-                <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text, marginBottom:4 }}>Guardar versión</div>
-                <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:16 }}>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:C.text, marginBottom:4 }}>Guardar versión</div>
+                <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted, marginBottom:16 }}>
                   Guarda una foto del costeo tal como está ahora — queda disponible para comparar contra versiones futuras.
                 </div>
                 <textarea value={versionNota} onChange={e=>setVersionNota(e.target.value)} placeholder="Nota (opcional) — ej: se sacó switch PoE, se agregó pantalla VTH"
                   rows={3}
-                  style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:7, color:COLORS.text, fontFamily:FONT, fontSize:12, padding:"9px 12px", boxSizing:"border-box", marginBottom:20, resize:"vertical" }} />
+                  style={{ width:"100%", background:C.bg, border:`1px solid ${C.border}`, borderRadius:7, color:C.text, fontFamily:FONT, fontSize:12, padding:"9px 12px", boxSizing:"border-box", marginBottom:20, resize:"vertical" }} />
                 <div style={{ display:"flex", gap:10 }}>
                   <button onClick={()=>setVersionModal(false)}
-                    style={{ flex:1, padding:"10px", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
+                    style={{ flex:1, padding:"10px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:8, color:C.textMuted, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
                     Cancelar
                   </button>
                   <button onClick={guardarVersionManual} disabled={versionSaving}
-                    style={{ flex:2, padding:"10px", background:COLORS.accent, border:"none", borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer", opacity:versionSaving?0.6:1 }}>
+                    style={{ flex:2, padding:"10px", background:C.accent, border:"none", borderRadius:8, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer", opacity:versionSaving?0.6:1 }}>
                     {versionSaving?"Guardando...":"📌 Guardar versión"}
                   </button>
                 </div>
@@ -821,12 +825,12 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
       {/* Rubro / Tipo de trabajo */}
       <div style={{ display:"flex", gap:10, marginBottom:16 }}>
         <select value={proyecto.rubro||""} onChange={e=>updateProyecto({...proyecto,rubro:e.target.value})}
-          style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:7, color:proyecto.rubro?COLORS.text:COLORS.textMuted, fontFamily:FONT, fontSize:12, padding:"7px 10px" }}>
+          style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:7, color:proyecto.rubro?C.text:C.textMuted, fontFamily:FONT, fontSize:12, padding:"7px 10px" }}>
           <option value="">Rubro: sin clasificar</option>
           {RUBRO_OPTIONS.map(r=><option key={r} value={r}>{r}</option>)}
         </select>
         <select value={proyecto.tipoTrabajo||""} onChange={e=>updateProyecto({...proyecto,tipoTrabajo:e.target.value})}
-          style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:7, color:proyecto.tipoTrabajo?COLORS.text:COLORS.textMuted, fontFamily:FONT, fontSize:12, padding:"7px 10px" }}>
+          style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:7, color:proyecto.tipoTrabajo?C.text:C.textMuted, fontFamily:FONT, fontSize:12, padding:"7px 10px" }}>
           <option value="">Tipo de trabajo: sin clasificar</option>
           {TIPO_TRABAJO_OPTIONS.map(t=><option key={t} value={t}>{t}</option>)}
         </select>
@@ -836,42 +840,42 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
       <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
         <input value={proyecto.propuestaUrl||""} onChange={e=>updateProyecto({...proyecto,propuestaUrl:e.target.value})}
           placeholder="Enlace de la propuesta (Google Docs)…"
-          style={{ flex:1, background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:7, color:COLORS.text, fontFamily:FONT, fontSize:12, padding:"7px 10px", outline:"none" }} />
+          style={{ flex:1, background:C.card, border:`1px solid ${C.border}`, borderRadius:7, color:C.text, fontFamily:FONT, fontSize:12, padding:"7px 10px", outline:"none" }} />
         {proyecto.propuestaUrl && (
           <a href={proyecto.propuestaUrl} target="_blank" rel="noopener noreferrer"
-            style={{ padding:"7px 14px", background:`${COLORS.accent}14`, border:`1px solid ${COLORS.accent}66`, borderRadius:7, color:COLORS.accent, fontFamily:FONT, fontSize:11, fontWeight:700, textDecoration:"none", whiteSpace:"nowrap" }}>
+            style={{ padding:"7px 14px", background:`${C.accent}14`, border:`1px solid ${C.accent}66`, borderRadius:7, color:C.accent, fontFamily:FONT, fontSize:11, fontWeight:700, textDecoration:"none", whiteSpace:"nowrap" }}>
             📄 Abrir
           </a>
         )}
       </div>
 
       {/* Buscador RUT / Cliente */}
-      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"14px 18px", marginBottom:16, position:"relative" }}>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"14px 18px", marginBottom:16, position:"relative" }}>
         {proyecto.clienteNombre ? (
           <div style={{ display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
             <div style={{ flex:1 }}>
-              <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text }}>{proyecto.clienteNombre}</div>
-              <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>{proyecto.clienteEmpresa} · RUT: {proyecto.clienteRut}</div>
-              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{proyecto.clienteTelefono} · {proyecto.clienteDireccion}</div>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:C.text }}>{proyecto.clienteNombre}</div>
+              <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted }}>{proyecto.clienteEmpresa} · RUT: {proyecto.clienteRut}</div>
+              <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>{proyecto.clienteTelefono} · {proyecto.clienteDireccion}</div>
             </div>
             <button onClick={()=>updateProyecto({...proyecto,clienteNombre:"",clienteEmpresa:"",clienteRut:"",clienteTelefono:"",clienteDireccion:""})}
-              style={{ background:"none", border:`1px solid ${COLORS.border}`, borderRadius:6, color:COLORS.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:11, padding:"4px 10px" }}>✕ Cambiar</button>
+              style={{ background:"none", border:`1px solid ${C.border}`, borderRadius:6, color:C.textMuted, cursor:"pointer", fontFamily:FONT, fontSize:11, padding:"4px 10px" }}>✕ Cambiar</button>
           </div>
         ) : (
           <div>
-            <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:6 }}>Buscar Cliente por RUT o Nombre</div>
+            <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:6 }}>Buscar Cliente por RUT o Nombre</div>
             <input value={rutSearch} onChange={e=>searchRut(e.target.value)}
               placeholder="Ej: 65.066.845-6 o Condominio..."
-              style={{ width:"100%", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:7, color:COLORS.text, fontFamily:FONT, fontSize:13, padding:"8px 12px", boxSizing:"border-box" }} />
+              style={{ width:"100%", background:"transparent", border:`1px solid ${C.border}`, borderRadius:7, color:C.text, fontFamily:FONT, fontSize:13, padding:"8px 12px", boxSizing:"border-box" }} />
             {rutMatches.length>0 && (
-              <div style={{ position:"absolute", left:18, right:18, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:7, zIndex:50, marginTop:4 }}>
+              <div style={{ position:"absolute", left:18, right:18, background:C.surface, border:`1px solid ${C.border}`, borderRadius:7, zIndex:50, marginTop:4 }}>
                 {rutMatches.map(c=>(
                   <div key={c.id} onClick={()=>selectContacto(c)}
-                    style={{ padding:"10px 14px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}22` }}
-                    onMouseEnter={e=>e.currentTarget.style.background=COLORS.card}
+                    style={{ padding:"10px 14px", cursor:"pointer", borderBottom:`1px solid ${C.border}22` }}
+                    onMouseEnter={e=>e.currentTarget.style.background=C.card}
                     onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text }}>{c.name} · {c.company}</div>
-                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>RUT: {c.rut} · {c.phone}</div>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:C.text }}>{c.name} · {c.company}</div>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>RUT: {c.rut} · {c.phone}</div>
                   </div>
                 ))}
               </div>
@@ -881,9 +885,9 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
       </div>
 
       {/* Tabs */}
-      <div style={{ display:"flex", gap:4, marginBottom:20, borderBottom:`1px solid ${COLORS.border}` }}>
+      <div style={{ display:"flex", gap:4, marginBottom:20, borderBottom:`1px solid ${C.border}` }}>
         {["costeo","partidas","historial","diseno"].map(t=>(
-          <button key={t} onClick={()=>setPage(t)} style={{ padding:"8px 20px", background:"none", border:"none", borderBottom:page===t?`2px solid ${COLORS.accent}`:"2px solid transparent", color:page===t?COLORS.accent:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:page===t?700:400, cursor:"pointer", marginBottom:-1 }}>
+          <button key={t} onClick={()=>setPage(t)} style={{ padding:"8px 20px", background:"none", border:"none", borderBottom:page===t?`2px solid ${C.accent}`:"2px solid transparent", color:page===t?C.accent:C.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:page===t?700:400, cursor:"pointer", marginBottom:-1 }}>
             {t==="costeo"?"📊 Control de Costos":t==="partidas"?"💳 Partidas de Pago":t==="historial"?"🌳 Historial de Cambios":"🎥 Planos de Diseño"}
           </button>
         ))}
@@ -893,22 +897,22 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
         <>
           {/* Totales globales — 8 tarjetas */}
           <div style={{ display:"flex", gap:10, marginBottom:24, flexWrap:"wrap" }}>
-            <TotBox label="Costo Neto Total" value={totalCosto}      color={COLORS.textMuted} sub="Sin IVA" />
-            <TotBox label="Costo Bruto"      value={totalCostoBruto} color={COLORS.text}      sub="Neto + IVA compra" />
-            <TotBox label="Margen Total"     value={hayDescuento?totalMargenConDesc:totalMargen}     color={COLORS.green}     sub={hayDescuento?`${margenConDescPct}% sobre costo (con desc.)`:`${margenPct}% sobre costo`} />
-            <TotBox label="Venta Neta"       value={totalVentaNeta}  color={COLORS.text}      sub="Costo + Margen" />
+            <TotBox label="Costo Neto Total" value={totalCosto}      color={C.textMuted} sub="Sin IVA" />
+            <TotBox label="Costo Bruto"      value={totalCostoBruto} color={C.text}      sub="Neto + IVA compra" />
+            <TotBox label="Margen Total"     value={hayDescuento?totalMargenConDesc:totalMargen}     color={C.green}     sub={hayDescuento?`${margenConDescPct}% sobre costo (con desc.)`:`${margenPct}% sobre costo`} />
+            <TotBox label="Venta Neta"       value={totalVentaNeta}  color={C.text}      sub="Costo + Margen" />
             <TotBox label="IVA Compra"       value={totalIvaCompra}  color="#06b6d4"          sub="Crédito fiscal" />
             <TotBox label="IVA Venta"        value={totalIVA}        color="#ef4444"          sub="Débito fiscal" />
             <TotBox label="IVA Neto SII"     value={totalIvaNetoSII} color="#f59e0b"          sub="A pagar al SII" />
             {hayDescuento ? (
               <>
                 <TotBox label="Descuento" value={totalDescuento} color="#f59e0b" />
-                <TotBox label="Venta Neta c/Desc" value={totalVentaNetaConDesc} color={COLORS.text} sub="Neta − descuento" />
+                <TotBox label="Venta Neta c/Desc" value={totalVentaNetaConDesc} color={C.text} sub="Neta − descuento" />
                 <TotBox label="IVA c/Desc" value={totalIvaConDesc} color="#ef4444" sub="Sobre neta con descuento" />
                 <TotBox label="Venta Final c/IVA" value={totalVentaFinal} color="#22c55e" sub={`Margen ${margenFinalPct}% sobre costo`} />
               </>
             ) : (
-              <TotBox label="Venta c/IVA" value={totalVentaBruta} color={COLORS.accent} sub="Precio al cliente" />
+              <TotBox label="Venta c/IVA" value={totalVentaBruta} color={C.accent} sub="Precio al cliente" />
             )}
           </div>
 
@@ -918,7 +922,7 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
               onOpenProducto={onOpenProducto ? (productId)=>onOpenProducto(productId, selected) : undefined}
               onFichaGuardada={(id, url)=>setProductos(prev=>prev.map(p=>String(p.id)===String(id)?{...p, fichaUrl:url}:p))} />
           ))}
-          <button onClick={addFase} style={{ width:"100%", padding:"12px", background:"transparent", border:`1px dashed ${COLORS.border}`, borderRadius:10, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer", marginBottom:16 }}>
+          <button onClick={addFase} style={{ width:"100%", padding:"12px", background:"transparent", border:`1px dashed ${C.border}`, borderRadius:10, color:C.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer", marginBottom:16 }}>
             + Agregar Fase
           </button>
         </>
@@ -928,27 +932,27 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
         <>
           {/* Totales partidas */}
           <div style={{ display:"flex", gap:12, marginBottom:24, flexWrap:"wrap" }}>
-            <TotBox label="Anticipo Total" value={totalAnticipo} color={COLORS.accent} sub={`${totalPartidas>0?(totalAnticipo/totalPartidas*100).toFixed(0):0}% del total`} />
-            <TotBox label="Parciales Total" value={totalParcial} color={COLORS.green} sub={`${totalPartidas>0?(totalParcial/totalPartidas*100).toFixed(0):0}% del total`} />
+            <TotBox label="Anticipo Total" value={totalAnticipo} color={C.accent} sub={`${totalPartidas>0?(totalAnticipo/totalPartidas*100).toFixed(0):0}% del total`} />
+            <TotBox label="Parciales Total" value={totalParcial} color={C.green} sub={`${totalPartidas>0?(totalParcial/totalPartidas*100).toFixed(0):0}% del total`} />
             <TotBox label="Al Finalizar Total" value={totalFinalizar} color="#f59e0b" sub={`${totalPartidas>0?(totalFinalizar/totalPartidas*100).toFixed(0):0}% del total`} />
-            <TotBox label="Total Proyecto" value={totalPartidas} color={COLORS.text} />
-            <TotBox label="Saldo por Cobrar" value={totalSaldo} color={totalSaldo > 0 ? COLORS.red : COLORS.green} sub={`${saldoPct}% pendiente · Cobrado: $${Math.round(totalCobrado).toLocaleString("es-CL")}`} />
+            <TotBox label="Total Proyecto" value={totalPartidas} color={C.text} />
+            <TotBox label="Saldo por Cobrar" value={totalSaldo} color={totalSaldo > 0 ? C.red : C.green} sub={`${saldoPct}% pendiente · Cobrado: $${Math.round(totalCobrado).toLocaleString("es-CL")}`} />
           </div>
 
-          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, overflow:"auto" }}>
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, overflow:"auto" }}>
             <table style={{ width:"100%", borderCollapse:"collapse", minWidth:900 }}>
               <thead>
-                <tr style={{ borderBottom:`1px solid ${COLORS.border}`, background:COLORS.surface }}>
-                  <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"10px 8px", letterSpacing:"0.08em" }}>CONCEPTO / HITO</th>
-                  <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"10px 8px", letterSpacing:"0.08em" }}>FASE</th>
-                  <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"10px 8px", letterSpacing:"0.08em" }}>MONTO</th>
-                  <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"10px 8px", letterSpacing:"0.08em" }}>% ANT. / días</th>
-                  <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"10px 8px", letterSpacing:"0.08em", textAlign:"right" }}>$ ANTICIPO</th>
-                  <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.green, padding:"10px 8px", letterSpacing:"0.08em" }}>% PARC. / días</th>
-                  <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.green, padding:"10px 8px", letterSpacing:"0.08em", textAlign:"right" }}>$ PARCIAL</th>
+                <tr style={{ borderBottom:`1px solid ${C.border}`, background:C.surface }}>
+                  <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:C.textMuted, padding:"10px 8px", letterSpacing:"0.08em" }}>CONCEPTO / HITO</th>
+                  <th style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, padding:"10px 8px", letterSpacing:"0.08em" }}>FASE</th>
+                  <th style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, padding:"10px 8px", letterSpacing:"0.08em" }}>MONTO</th>
+                  <th style={{ fontFamily:FONT, fontSize:10, color:C.accent, padding:"10px 8px", letterSpacing:"0.08em" }}>% ANT. / días</th>
+                  <th style={{ fontFamily:FONT, fontSize:10, color:C.accent, padding:"10px 8px", letterSpacing:"0.08em", textAlign:"right" }}>$ ANTICIPO</th>
+                  <th style={{ fontFamily:FONT, fontSize:10, color:C.green, padding:"10px 8px", letterSpacing:"0.08em" }}>% PARC. / días</th>
+                  <th style={{ fontFamily:FONT, fontSize:10, color:C.green, padding:"10px 8px", letterSpacing:"0.08em", textAlign:"right" }}>$ PARCIAL</th>
                   <th style={{ fontFamily:FONT, fontSize:10, color:"#f59e0b", padding:"10px 8px", letterSpacing:"0.08em" }}>% FIN. / días</th>
                   <th style={{ fontFamily:FONT, fontSize:10, color:"#f59e0b", padding:"10px 8px", letterSpacing:"0.08em", textAlign:"right" }}>$ FINALIZAR</th>
-                  <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.text, padding:"10px 8px", letterSpacing:"0.08em", textAlign:"right" }}>TOTAL HITO</th>
+                  <th style={{ fontFamily:FONT, fontSize:10, color:C.text, padding:"10px 8px", letterSpacing:"0.08em", textAlign:"right" }}>TOTAL HITO</th>
                   <th style={{ fontFamily:FONT, fontSize:10, color:"#22d3ee", padding:"10px 8px", letterSpacing:"0.08em", textAlign:"center" }}>% COBRADO</th>
                   <th style={{ fontFamily:FONT, fontSize:10, color:"#22d3ee", padding:"10px 8px", letterSpacing:"0.08em", textAlign:"right" }}>$ COBRADO</th>
                   <th style={{ width:30 }}></th>
@@ -960,16 +964,16 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
                 ))}
               </tbody>
               <tfoot>
-                <tr style={{ borderTop:`2px solid ${COLORS.border}`, background:COLORS.surface }}>
-                  <td colSpan={2} style={{ padding:"10px 8px", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.text }}>TOTALES</td>
-                  <td style={{ padding:"10px 8px", fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.text }}>${totalPartidas.toLocaleString("es-CL")}</td>
+                <tr style={{ borderTop:`2px solid ${C.border}`, background:C.surface }}>
+                  <td colSpan={2} style={{ padding:"10px 8px", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:C.text }}>TOTALES</td>
+                  <td style={{ padding:"10px 8px", fontFamily:FONT, fontSize:12, fontWeight:700, color:C.text }}>${totalPartidas.toLocaleString("es-CL")}</td>
                   <td></td>
-                  <td style={{ padding:"10px 8px", fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.accent, textAlign:"right" }}>${totalAnticipo.toLocaleString("es-CL")}</td>
+                  <td style={{ padding:"10px 8px", fontFamily:FONT, fontSize:12, fontWeight:700, color:C.accent, textAlign:"right" }}>${totalAnticipo.toLocaleString("es-CL")}</td>
                   <td></td>
-                  <td style={{ padding:"10px 8px", fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.green, textAlign:"right" }}>${totalParcial.toLocaleString("es-CL")}</td>
+                  <td style={{ padding:"10px 8px", fontFamily:FONT, fontSize:12, fontWeight:700, color:C.green, textAlign:"right" }}>${totalParcial.toLocaleString("es-CL")}</td>
                   <td></td>
                   <td style={{ padding:"10px 8px", fontFamily:FONT, fontSize:12, fontWeight:700, color:"#f59e0b", textAlign:"right" }}>${totalFinalizar.toLocaleString("es-CL")}</td>
-                  <td style={{ padding:"10px 8px", fontFamily:FONT, fontSize:13, fontWeight:700, color:COLORS.accent, textAlign:"right" }}>${totalPartidas.toLocaleString("es-CL")}</td>
+                  <td style={{ padding:"10px 8px", fontFamily:FONT, fontSize:13, fontWeight:700, color:C.accent, textAlign:"right" }}>${totalPartidas.toLocaleString("es-CL")}</td>
                   <td></td>
                   <td style={{ padding:"10px 8px", fontFamily:FONT, fontSize:13, fontWeight:700, color:"#22d3ee", textAlign:"right" }}>${Math.round(partidas.reduce((s,p)=>s+partidaCobrado(p),0)).toLocaleString("es-CL")}</td>
                   <td></td>
@@ -977,7 +981,7 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
               </tfoot>
             </table>
           </div>
-          <button onClick={addPartida} style={{ width:"100%", marginTop:12, padding:"12px", background:"transparent", border:`1px dashed ${COLORS.border}`, borderRadius:10, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>
+          <button onClick={addPartida} style={{ width:"100%", marginTop:12, padding:"12px", background:"transparent", border:`1px dashed ${C.border}`, borderRadius:10, color:C.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>
             + Agregar Hito
           </button>
         </>
@@ -997,7 +1001,7 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
 // Código de la cotización del proyecto; en amarillo si no coincide con el
 // número escrito en el nombre (p. ej. "Cot 149 …" vinculado a COT-150).
 function ChipCot({ cod, grande }) {
-  const color = cod.distinto != null ? COLORS.yellow : COLORS.accent;
+  const color = cod.distinto != null ? C.yellow : C.accent;
   return (
     <span title={cod.distinto != null ? `El nombre dice Cot ${cod.distinto}, pero el proyecto está vinculado a ${cod.codigo}` : undefined}
       style={{ display:"inline-block", fontFamily: grande ? FONT_DISPLAY : FONT, fontSize: grande ? 12 : 10, fontWeight:700, color,

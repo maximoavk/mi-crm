@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { TreeCaret } from "../shared/TreeCaret.jsx";
 import { supabase } from "../supabaseClient.js";
 import { mapQuote, mapDeal } from "../shared/mappers.js";
-import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { QuoteEditor } from "./QuoteEditor.jsx";
 import { QuotePDF } from "./QuotePDF.jsx";
 import { AddBtn, Loader, Badge } from "../shared/ui.jsx";
@@ -59,10 +59,10 @@ export function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCo
   };
 
   const STATUS_QUOTE = {
-    borrador:  { label:"Borrador",  color:COLORS.textMuted },
-    enviada:   { label:"Enviada",   color:COLORS.yellow },
-    aprobada:  { label:"Aprobada",  color:COLORS.green },
-    rechazada: { label:"Rechazada", color:COLORS.red },
+    borrador:  { label:"Borrador",  color:C.textMuted },
+    enviada:   { label:"Enviada",   color:C.yellow },
+    aprobada:  { label:"Aprobada",  color:C.green },
+    rechazada: { label:"Rechazada", color:C.red },
   };
 
   const refreshDealForQuote = async (quoteId) => {
@@ -185,25 +185,25 @@ export function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCo
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:12, flexWrap:"wrap", gap:10 }}>
         <div>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Comercial</div>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Cotizaciones</div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Comercial</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:C.text }}>Cotizaciones</div>
         </div>
-        {subTab==="cotizaciones" && <AddBtn onClick={()=>setView("new")} label="Nueva cotización" />}
+        {subTab==="cotizaciones" && <AddBtn onClick={()=>setView("new")} label="Nueva cotización" theme={LIGHT_THEME} />}
       </div>
       {loading ? <Loader /> : (
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           {/* Buscador */}
           <div style={{ position:"relative", marginBottom:4 }}>
-            <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:COLORS.textMuted, fontSize:14 }}>🔍</span>
+            <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:C.textMuted, fontSize:14 }}>🔍</span>
             <input value={search} onChange={e=>setSearch(e.target.value)}
               placeholder="Buscar por N° cotización, RUT o nombre cliente..."
-              style={{ width:"100%", background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 36px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
-            {search && <button onClick={()=>setSearch("")} style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:14 }}>✕</button>}
+              style={{ width:"100%", background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 36px", fontFamily:FONT, fontSize:12, color:C.text, outline:"none", boxSizing:"border-box" }} />
+            {search && <button onClick={()=>setSearch("")} style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:C.textMuted, cursor:"pointer", fontSize:14 }}>✕</button>}
           </div>
           {/* Filtro Serie */}
           <div style={{ display:"flex", gap:8, marginBottom:4 }}>
             {[
-              { k:"todos", label:"Todas", color:COLORS.textMuted },
+              { k:"todos", label:"Todas", color:C.textMuted },
               { k:"COT",   label:`COT · Con IVA (${quotes.filter(q=>(q.serie||"COT")==="COT").length})`, color:"#06b6d4" },
               { k:"SIN",   label:`SIN · Sin IVA (${quotes.filter(q=>q.serie==="SIN").length})`,          color:"#f59e0b" },
             ].map(opt=>{
@@ -212,25 +212,25 @@ export function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCo
                 <button key={opt.k} onClick={()=>setFilterSerie(opt.k)}
                   style={{ padding:"6px 14px", borderRadius:20, fontFamily:FONT, fontSize:11, fontWeight:active?700:400,
                     background:active?opt.color+"22":"transparent",
-                    border:`1px solid ${active?opt.color:COLORS.border}`,
-                    color:active?opt.color:COLORS.textMuted, cursor:"pointer" }}>
+                    border:`1px solid ${active?opt.color:C.border}`,
+                    color:active?opt.color:C.textMuted, cursor:"pointer" }}>
                   {opt.label}
                 </button>
               );
             })}
             <select value={filterRubro} onChange={e=>setFilterRubro(e.target.value)}
-              style={{ padding:"6px 10px", borderRadius:20, fontFamily:FONT, fontSize:11, background:"transparent", border:`1px solid ${COLORS.border}`, color:COLORS.textMuted, cursor:"pointer" }}>
+              style={{ padding:"6px 10px", borderRadius:20, fontFamily:FONT, fontSize:11, background:"transparent", border:`1px solid ${C.border}`, color:C.textMuted, cursor:"pointer" }}>
               <option value="todos">Rubro: todos</option>
               {RUBRO_OPTIONS.map(r=><option key={r} value={r}>{r}</option>)}
             </select>
             <select value={filterTipo} onChange={e=>setFilterTipo(e.target.value)}
-              style={{ padding:"6px 10px", borderRadius:20, fontFamily:FONT, fontSize:11, background:"transparent", border:`1px solid ${COLORS.border}`, color:COLORS.textMuted, cursor:"pointer" }}>
+              style={{ padding:"6px 10px", borderRadius:20, fontFamily:FONT, fontSize:11, background:"transparent", border:`1px solid ${C.border}`, color:C.textMuted, cursor:"pointer" }}>
               <option value="todos">Tipo: todos</option>
               {TIPO_TRABAJO_OPTIONS.map(t=><option key={t} value={t}>{t}</option>)}
             </select>
           </div>
-          {quotes.length===0 && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>Sin cotizaciones aún.</div>}
-          {quotes.length>0 && filteredQuotes.length===0 && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>Sin resultados para este filtro.</div>}
+          {quotes.length===0 && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:C.textMuted }}>Sin cotizaciones aún.</div>}
+          {quotes.length>0 && filteredQuotes.length===0 && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:C.textMuted }}>Sin resultados para este filtro.</div>}
           {pagedQuotes.map(q=>{
             const sc = STATUS_QUOTE[q.status]||STATUS_QUOTE.borrador;
             const isOpen = !!collapsed[q.id];
@@ -239,35 +239,35 @@ export function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCo
             const serieLabel = serie==="COT" ? "COT · Con IVA" : "SIN · Sin IVA";
             const codigoDisplay = `${serie}-${String(q.number).padStart(3,"0")}`;
             return (
-              <div key={q.id} style={{ background:COLORS.card, border:`1px solid ${isOpen?COLORS.accent+"44":COLORS.border}`, borderLeft:`3px solid ${serieColor}`, borderRadius:10, overflow:"hidden", transition:"border-color 0.2s" }}>
+              <div key={q.id} style={{ background:C.card, border:`1px solid ${isOpen?C.accent+"44":C.border}`, borderLeft:`3px solid ${serieColor}`, borderRadius:10, overflow:"hidden", transition:"border-color 0.2s" }}>
                 {/* ── Header siempre visible ── */}
                 <div onClick={()=>toggleQ(q.id)} style={{ padding:"14px 20px", cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center", gap:10 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:10, flex:1, minWidth:0, flexWrap:"wrap" }}>
-                    <TreeCaret collapsed={!isOpen} color={COLORS.accent} size={12} />
+                    <TreeCaret collapsed={!isOpen} color={C.accent} size={12} />
                     <div style={{ fontFamily:FONT, fontSize:13, color:serieColor, fontWeight:700, flexShrink:0 }}>{codigoDisplay}</div>
-                    <Badge color={sc.color}>{sc.label}</Badge>
-                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, flexShrink:0 }}>{fmtDate(q.date)}</div>
+                    <Badge color={sc.color} theme={LIGHT_THEME}>{sc.label}</Badge>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, flexShrink:0 }}>{fmtDate(q.date)}</div>
                     <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
-                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:600, color:COLORS.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{q.clientCompany||q.clientName}</div>
-                      {q.clientRut && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{q.clientName!==q.clientCompany&&q.clientName?q.clientName+" · ":""}{q.clientRut}</div>}
+                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{q.clientCompany||q.clientName}</div>
+                      {q.clientRut && <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>{q.clientName!==q.clientCompany&&q.clientName?q.clientName+" · ":""}{q.clientRut}</div>}
                       <div onClick={e=>e.stopPropagation()}>
                         {editingTag===q.id ? (
                           <div style={{ display:"flex", gap:4, marginTop:3 }}>
                             <select autoFocus value={q.rubro||""} onChange={e=>updateTag(q.id,"rubro",e.target.value)}
-                              style={{ fontFamily:FONT, fontSize:10, padding:"2px 4px", borderRadius:4, background:COLORS.bg, border:`1px solid ${COLORS.border}`, color:COLORS.text }}>
+                              style={{ fontFamily:FONT, fontSize:10, padding:"2px 4px", borderRadius:4, background:C.bg, border:`1px solid ${C.border}`, color:C.text }}>
                               <option value="">Rubro</option>
                               {RUBRO_OPTIONS.map(r=><option key={r} value={r}>{r}</option>)}
                             </select>
                             <select value={q.tipoTrabajo||""} onChange={e=>updateTag(q.id,"tipoTrabajo",e.target.value)}
-                              style={{ fontFamily:FONT, fontSize:10, padding:"2px 4px", borderRadius:4, background:COLORS.bg, border:`1px solid ${COLORS.border}`, color:COLORS.text }}>
+                              style={{ fontFamily:FONT, fontSize:10, padding:"2px 4px", borderRadius:4, background:C.bg, border:`1px solid ${C.border}`, color:C.text }}>
                               <option value="">Tipo</option>
                               {TIPO_TRABAJO_OPTIONS.map(t=><option key={t} value={t}>{t}</option>)}
                             </select>
-                            <button onClick={()=>setEditingTag(null)} style={{ fontFamily:FONT, fontSize:10, padding:"2px 6px", borderRadius:4, background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent, cursor:"pointer" }}>✓</button>
+                            <button onClick={()=>setEditingTag(null)} style={{ fontFamily:FONT, fontSize:10, padding:"2px 6px", borderRadius:4, background:"transparent", border:`1px solid ${C.accent}44`, color:C.accent, cursor:"pointer" }}>✓</button>
                           </div>
                         ) : (
                           <div onClick={()=>setEditingTag(q.id)}
-                            style={{ fontFamily:FONT, fontSize:10, color:q.rubro?COLORS.accent:COLORS.textMuted, cursor:"pointer", marginTop:2 }}>
+                            style={{ fontFamily:FONT, fontSize:10, color:q.rubro?C.accent:C.textMuted, cursor:"pointer", marginTop:2 }}>
                             {q.rubro ? `${RUBRO_ICON[q.rubro]||"🏷️"} ${q.rubro}${q.tipoTrabajo?" · "+q.tipoTrabajo:""}` : "+ Clasificar"}
                           </div>
                         )}
@@ -275,33 +275,33 @@ export function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCo
                     </div>
                   </div>
                   <div style={{ textAlign:"right", flexShrink:0 }}>
-                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, color:COLORS.green, fontWeight:700 }}>{fmt(q.total)}</div>
+                    <div style={{ fontFamily:FONT_NUM, fontSize:16, color:C.green, fontWeight:700 }}>{fmt(q.total)}</div>
                     <div style={{ fontFamily:FONT, fontSize:10, color:serieColor, fontWeight:600 }}>{serie==="COT"?"Con factura":"Sin factura"}</div>
                   </div>
                 </div>
                 {/* ── Cuerpo expandible ── */}
                 {isOpen && (
-                  <div className="tree-row-in" style={{ borderTop:`1px solid ${COLORS.border}`, padding:"12px 20px" }}>
-                    <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, marginBottom:10 }}>
+                  <div className="tree-row-in" style={{ borderTop:`1px solid ${C.border}`, padding:"12px 20px" }}>
+                    <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted, marginBottom:10 }}>
                       {q.clientName} · RUT: {q.clientRut}
                       {q.paymentMethod && <span style={{marginLeft:10}}>· {q.paymentMethod}</span>}
                     </div>
                     <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                      <button onClick={(e)=>{ e.stopPropagation(); setSelectedQuote(q); setView("detail"); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>✏️ Editar</button>
-                      <button onClick={(e)=>{ e.stopPropagation(); setSelectedQuote(q); setView("pdf"); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.green}44`, color:COLORS.green }}>📄 Ver PDF</button>
+                      <button onClick={(e)=>{ e.stopPropagation(); setSelectedQuote(q); setView("detail"); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${C.accent}44`, color:C.accent }}>✏️ Editar</button>
+                      <button onClick={(e)=>{ e.stopPropagation(); setSelectedQuote(q); setView("pdf"); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${C.green}44`, color:C.green }}>📄 Ver PDF</button>
                       {costeoMap[q.id] && onOpenCosteo && (
-                        <button onClick={(e)=>{ e.stopPropagation(); onOpenCosteo(costeoMap[q.id].id); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>📐 Ver proyecto origen</button>
+                        <button onClick={(e)=>{ e.stopPropagation(); onOpenCosteo(costeoMap[q.id].id); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${C.accent}44`, color:C.accent }}>📐 Ver proyecto origen</button>
                       )}
                       {costeoMap[q.id]?.propuestaUrl && (
                         <a href={costeoMap[q.id].propuestaUrl} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()}
-                          style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent, textDecoration:"none" }}>📄 Ver propuesta</a>
+                          style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${C.accent}44`, color:C.accent, textDecoration:"none" }}>📄 Ver propuesta</a>
                       )}
                       {["enviada","aprobada","rechazada"].map(s=>(
                         <button key={s} onClick={(e)=>{ e.stopPropagation(); updateStatus(q.id,s); }} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:q.status===s?STATUS_QUOTE[s].color+"22":"transparent", border:`1px solid ${STATUS_QUOTE[s].color}44`, color:STATUS_QUOTE[s].color }}>
                           {STATUS_QUOTE[s].label}
                         </button>
                       ))}
-                      <button onClick={(e)=>{ e.stopPropagation(); del(q.id); }} style={{ padding:"6px 12px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red, marginLeft:"auto" }}>✕</button>
+                      <button onClick={(e)=>{ e.stopPropagation(); del(q.id); }} style={{ padding:"6px 12px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${C.red}44`, color:C.red, marginLeft:"auto" }}>✕</button>
                     </div>
                   </div>
                 )}
@@ -310,9 +310,9 @@ export function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCo
           })}
           {totalPages>1 && (
             <div style={{ display:"flex", justifyContent:"center", alignItems:"center", gap:16, marginTop:8, padding:"10px 0" }}>
-              <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page<=1} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:12, cursor:page<=1?"default":"pointer", background:"transparent", border:`1px solid ${COLORS.border}`, color:page<=1?COLORS.textMuted:COLORS.text, opacity:page<=1?0.5:1 }}>← Anterior</button>
-              <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>Página {page} de {totalPages}</div>
-              <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page>=totalPages} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:12, cursor:page>=totalPages?"default":"pointer", background:"transparent", border:`1px solid ${COLORS.border}`, color:page>=totalPages?COLORS.textMuted:COLORS.text, opacity:page>=totalPages?0.5:1 }}>Siguiente →</button>
+              <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page<=1} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:12, cursor:page<=1?"default":"pointer", background:"transparent", border:`1px solid ${C.border}`, color:page<=1?C.textMuted:C.text, opacity:page<=1?0.5:1 }}>← Anterior</button>
+              <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted }}>Página {page} de {totalPages}</div>
+              <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page>=totalPages} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:12, cursor:page>=totalPages?"default":"pointer", background:"transparent", border:`1px solid ${C.border}`, color:page>=totalPages?C.textMuted:C.text, opacity:page>=totalPages?0.5:1 }}>Siguiente →</button>
             </div>
           )}
         </div>

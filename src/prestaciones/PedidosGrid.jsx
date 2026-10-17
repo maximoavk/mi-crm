@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { TreeCaret } from "../shared/TreeCaret.jsx";
 import { TreeBranch } from "../shared/TreeBranch.jsx";
-import { FONT_DISPLAY, COLORS, FONT } from "../theme.js";
+import { FONT_DISPLAY, COLORS_LIGHT as C, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { Badge } from "../shared/ui.jsx";
 import { printResumenPedido } from "./printResumenPedido.js";
 import { fmtDate } from "../shared/format.js";
@@ -70,10 +70,10 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
     return (
       <div style={{ textAlign:"center", padding:70 }}>
         <div style={{ fontSize:32, marginBottom:10 }}>{isPF?"🧾":"📦"}</div>
-        <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, color:COLORS.textMuted, marginBottom:6 }}>
+        <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, color:C.textMuted, marginBottom:6 }}>
           Sin {isPF?"pre-facturas":"pedidos"} aún
         </div>
-        <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>
+        <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted }}>
           {isPF ? "Crea una Pre-Factura para agrupar cotizaciones COT." : "Crea tu primer Pedido y vincula cotizaciones SIN."}
         </div>
       </div>
@@ -89,36 +89,36 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
         const dashSaldo  = (1-pagadoPct)*circum;
 
         return (
-          <div key={ped.id} style={{ background:COLORS.card, border:`1px solid ${isPaid?COLORS.green+"55":COLORS.border}`, borderRadius:16, overflow:"hidden" }}>
+          <div key={ped.id} style={{ background:C.card, border:`1px solid ${isPaid?C.green+"55":C.border}`, borderRadius:16, overflow:"hidden" }}>
 
             {/* ── HEADER ── */}
-            <div style={{ borderLeft:`4px solid ${isPaid?COLORS.green:AC}`, display:"flex", alignItems:"center" }}>
+            <div style={{ borderLeft:`4px solid ${isPaid?C.green:AC}`, display:"flex", alignItems:"center" }}>
 
               {/* Área expandible */}
               <div onClick={()=>toggle(ped.id)} style={{ flex:1, display:"flex", alignItems:"center", gap:12, padding:"13px 14px", cursor:"pointer", userSelect:"none", minWidth:0 }}>
-                <TreeCaret collapsed={!isOpen} />
+                <TreeCaret collapsed={!isOpen} color={C.textMuted} />
                 <div style={{ flexShrink:0 }}>
-                  <div style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase" }}>{isPF?"Pre-Factura":"Pedido"}</div>
+                  <div style={{ fontFamily:FONT, fontSize:8, color:C.textMuted, letterSpacing:"0.1em", textTransform:"uppercase" }}>{isPF?"Pre-Factura":"Pedido"}</div>
                   <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:AC }}>{ped.nombre}</div>
                 </div>
                 <div style={{ flex:1, overflow:"hidden", minWidth:0 }}>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                     {ped.cliente||cotCompensated[0]?.quote.clientCompany||cotCompensated[0]?.quote.clientName||""}
                   </div>
-                  <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginTop:1 }}>
+                  <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, marginTop:1 }}>
                     {cotCompensated.map(c=>qPrefix(c.quote)).join(" · ")}
                   </div>
                 </div>
-                <Badge color={isPaid?COLORS.green:pedidoPct>0?COLORS.yellow:COLORS.textMuted}>
+                <Badge color={isPaid?C.green:pedidoPct>0?C.yellow:C.textMuted} theme={LIGHT_THEME}>
                   {isPaid?"Pagado":pedidoPct>0?"Parcial":"Pendiente"}
                 </Badge>
                 <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0, width:95 }}>
-                  <MiniBar pct={pedidoPct} color={isPaid?COLORS.green:`linear-gradient(90deg,${AC},${COLORS.green})`} h={4}/>
-                  <span style={{ fontFamily:FONT, fontSize:10, color:isPaid?COLORS.green:AC, minWidth:26, textAlign:"right" }}>{pedidoPct.toFixed(0)}%</span>
+                  <MiniBar pct={pedidoPct} color={isPaid?C.green:`linear-gradient(90deg,${AC},${C.green})`} h={4}/>
+                  <span style={{ fontFamily:FONT, fontSize:10, color:isPaid?C.green:AC, minWidth:26, textAlign:"right" }}>{pedidoPct.toFixed(0)}%</span>
                 </div>
                 <div style={{ textAlign:"right", flexShrink:0 }}>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:isPaid?COLORS.green:COLORS.text }}>{fmt(pedidoPagado)}</div>
-                  <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>de {fmt(pedidoTotal)}</div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:isPaid?C.green:C.text }}>{fmt(pedidoPagado)}</div>
+                  <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted }}>de {fmt(pedidoTotal)}</div>
                 </div>
                 <div style={{ background:`${AC}22`, border:`1px solid ${AC}33`, borderRadius:20, padding:"2px 9px", fontFamily:FONT, fontSize:9, color:AC, flexShrink:0 }}>
                   {cotCompensated.length} {serieLabel}
@@ -134,9 +134,9 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
                     onClick={()=>onRegistrarFactura && onRegistrarFactura(ped, cotCompensated)}
                     style={{ padding:"6px 10px", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:11,
                       fontWeight:700, cursor:"pointer",
-                      background: ped.numero_factura ? `${COLORS.green}22` : `${COLORS.accent}22`,
-                      border: `1px solid ${ped.numero_factura ? COLORS.green : COLORS.accent}55`,
-                      color: ped.numero_factura ? COLORS.green : COLORS.accent }}>
+                      background: ped.numero_factura ? `${C.green}22` : `${C.accent}22`,
+                      border: `1px solid ${ped.numero_factura ? C.green : C.accent}55`,
+                      color: ped.numero_factura ? C.green : C.accent }}>
                     {ped.numero_factura ? `✓ ${ped.numero_factura}` : "+ N° Fact."}
                   </button>
                 )}
@@ -149,13 +149,13 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
                 <button
                   title="Editar pedido"
                   onClick={()=>onEditPedido(ped)}
-                  style={{ padding:"6px 10px", borderRadius:7, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.secondary}44`, color:COLORS.secondary }}>
+                  style={{ padding:"6px 10px", borderRadius:7, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${C.secondary}44`, color:C.secondary }}>
                   ✏️
                 </button>
                 <button
                   title="Eliminar pedido"
                   onClick={()=>onDeletePedido(ped.id)}
-                  style={{ padding:"6px 9px", borderRadius:7, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red }}>
+                  style={{ padding:"6px 9px", borderRadius:7, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${C.red}44`, color:C.red }}>
                   ✕
                 </button>
               </div>
@@ -163,13 +163,13 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
 
             {/* ── EXPANDIDO ── */}
             {isOpen && (
-              <div className="tree-row-in" style={{ borderTop:`1px solid ${COLORS.border}22`, padding:"16px 20px 20px", background:COLORS.surface+"28" }}>
+              <div className="tree-row-in" style={{ borderTop:`1px solid ${C.border}22`, padding:"16px 20px 20px", background:C.surface+"28" }}>
                 <div style={{ display:"flex", gap:18, alignItems:"flex-start", flexWrap:"wrap" }}>
 
                   {/* Dona */}
                   <div style={{ flexShrink:0, width:130 }}>
                     <svg width={120} height={120} viewBox="0 0 120 120">
-                      <circle cx={cx} cy={cy} r={r} fill="none" stroke={COLORS.border} strokeWidth={R-r}/>
+                      <circle cx={cx} cy={cy} r={r} fill="none" stroke={C.border} strokeWidth={R-r}/>
                       {(1-pagadoPct)>0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke="url(#pgSaldo)" strokeWidth={R-r}
                         strokeDasharray={`${dashSaldo} ${circum-dashSaldo}`} strokeDashoffset={-(pagadoPct*circum)}
                         strokeLinecap="butt" transform={`rotate(-90 ${cx} ${cy})`}/>}
@@ -177,21 +177,21 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
                         strokeDasharray={`${dashPagado} ${circum-dashPagado}`}
                         strokeLinecap="butt" transform={`rotate(-90 ${cx} ${cy})`}/>}
                       <defs>
-                        <linearGradient id="pgPagado" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor={AC}/><stop offset="100%" stopColor={COLORS.green}/></linearGradient>
-                        <linearGradient id="pgSaldo"  x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor={COLORS.yellow}/><stop offset="100%" stopColor={COLORS.red}/></linearGradient>
+                        <linearGradient id="pgPagado" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor={AC}/><stop offset="100%" stopColor={C.green}/></linearGradient>
+                        <linearGradient id="pgSaldo"  x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor={C.yellow}/><stop offset="100%" stopColor={C.red}/></linearGradient>
                       </defs>
-                      <text x={cx} y={cy-6} textAnchor="middle" fill={COLORS.text} fontSize="14" fontWeight="700" fontFamily="Space Grotesk,sans-serif">{pedidoPct.toFixed(0)}%</text>
-                      <text x={cx} y={cy+10} textAnchor="middle" fill={COLORS.textMuted} fontSize="8" fontFamily="DM Mono,monospace">PAGADO</text>
+                      <text x={cx} y={cy-6} textAnchor="middle" fill={C.text} fontSize="14" fontWeight="700" fontFamily="Space Grotesk,sans-serif">{pedidoPct.toFixed(0)}%</text>
+                      <text x={cx} y={cy+10} textAnchor="middle" fill={C.textMuted} fontSize="8" fontFamily="DM Mono,monospace">PAGADO</text>
                     </svg>
                     <div style={{ display:"flex", flexDirection:"column", gap:3, marginTop:4 }}>
                       {[
-                        {label:"Pagado", val:pedidoPagado, color:COLORS.green,  grad:`linear-gradient(135deg,${AC},${COLORS.green})`},
-                        {label:"Saldo",  val:pedidoSaldo,  color:COLORS.yellow, grad:`linear-gradient(135deg,${COLORS.yellow},${COLORS.red})`},
-                        {label:"Total",  val:pedidoTotal,  color:COLORS.text,   grad:COLORS.border},
+                        {label:"Pagado", val:pedidoPagado, color:C.green,  grad:`linear-gradient(135deg,${AC},${C.green})`},
+                        {label:"Saldo",  val:pedidoSaldo,  color:C.yellow, grad:`linear-gradient(135deg,${C.yellow},${C.red})`},
+                        {label:"Total",  val:pedidoTotal,  color:C.text,   grad:C.border},
                       ].map(({label,val,color,grad})=>(
                         <div key={label} style={{ display:"flex", alignItems:"center", gap:5 }}>
                           <div style={{ width:8,height:8,borderRadius:99,background:grad,flexShrink:0 }}/>
-                          <span style={{ fontFamily:FONT,fontSize:8,color:COLORS.textMuted }}>{label}</span>
+                          <span style={{ fontFamily:FONT,fontSize:8,color:C.textMuted }}>{label}</span>
                           <span style={{ fontFamily:FONT_DISPLAY,fontSize:9,color,marginLeft:"auto",fontWeight:700 }}>{fmt(val)}</span>
                         </div>
                       ))}
@@ -206,30 +206,30 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
                   {/* COTs */}
                   <div style={{ flex:1, display:"flex", flexDirection:"column", gap:10, minWidth:280 }}>
                     {/* Árbol: las cotizaciones del pedido cuelgan de una misma línea */}
-                    <TreeBranch x={7} anchor={20}>
+                    <TreeBranch x={7} anchor={20} color={C.border}>
                     {cotCompensated.map(({ quote:q, docs:qDocs, qTotal, efectivo, saldo, pct }) => {
                       const cotKey = `cot-${ped.id}-${q.id}`;
                       const isCotOpen = !!collapsed[cotKey];
                       const qPaid = saldo<=0 && qTotal>0;
                       const isComp = efectivo > qDocs.reduce((s,d)=>s+Number(d.monto_pagado||0),0);
                       return (
-                        <div key={q.id} style={{ background:COLORS.card, border:`1px solid ${qPaid?COLORS.green+"44":COLORS.border}`, borderRadius:10, overflow:"hidden", marginBottom:10 }}>
+                        <div key={q.id} style={{ background:C.card, border:`1px solid ${qPaid?C.green+"44":C.border}`, borderRadius:10, overflow:"hidden", marginBottom:10 }}>
                           {/* COT row */}
-                          <div style={{ display:"flex", alignItems:"stretch", borderLeft:`3px solid ${qPaid?COLORS.green:AC+"88"}` }}>
+                          <div style={{ display:"flex", alignItems:"stretch", borderLeft:`3px solid ${qPaid?C.green:AC+"88"}` }}>
                             <div onClick={()=>toggle(cotKey)}
                               style={{ flex:1, display:"flex", alignItems:"center", gap:10, padding:"9px 12px", cursor:"pointer", userSelect:"none", minWidth:0 }}>
-                              <TreeCaret collapsed={!isCotOpen} />
+                              <TreeCaret collapsed={!isCotOpen} color={C.textMuted} />
                               <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:AC, flexShrink:0 }}>{qPrefix(q)}</span>
-                              <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{q.clientCompany||q.clientName}</span>
+                              <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{q.clientCompany||q.clientName}</span>
                               {isComp && <span style={{ fontFamily:FONT, fontSize:8, color:AC, background:`${AC}22`, borderRadius:4, padding:"1px 5px", flexShrink:0 }}>⇄ comp.</span>}
-                              <Badge color={qPaid?COLORS.green:COLORS.yellow} size="sm">{qPaid?"Pagado":"Pendiente"}</Badge>
+                              <Badge color={qPaid?C.green:C.yellow} size="sm" theme={LIGHT_THEME}>{qPaid?"Pagado":"Pendiente"}</Badge>
                               <div style={{ display:"flex", alignItems:"center", gap:5, width:85, flexShrink:0 }}>
-                                <MiniBar pct={pct} color={qPaid?COLORS.green:`linear-gradient(90deg,${AC},${COLORS.green})`} h={4}/>
-                                <span style={{ fontFamily:FONT, fontSize:9, color:qPaid?COLORS.green:AC, minWidth:24, textAlign:"right" }}>{pct.toFixed(0)}%</span>
+                                <MiniBar pct={pct} color={qPaid?C.green:`linear-gradient(90deg,${AC},${C.green})`} h={4}/>
+                                <span style={{ fontFamily:FONT, fontSize:9, color:qPaid?C.green:AC, minWidth:24, textAlign:"right" }}>{pct.toFixed(0)}%</span>
                               </div>
                               <div style={{ textAlign:"right", flexShrink:0 }}>
-                                <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:qPaid?COLORS.green:COLORS.text }}>{fmt(efectivo)}</div>
-                                <div style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted }}>de {fmt(qTotal)}</div>
+                                <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:qPaid?C.green:C.text }}>{fmt(efectivo)}</div>
+                                <div style={{ fontFamily:FONT, fontSize:8, color:C.textMuted }}>de {fmt(qTotal)}</div>
                               </div>
                               <div style={{ background:`${AC}22`, border:`1px solid ${AC}33`, borderRadius:20, padding:"1px 8px", fontFamily:FONT, fontSize:9, color:AC, flexShrink:0 }}>
                                 {qDocs.length} {docLabel}
@@ -239,7 +239,7 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
 
                           {/* Documentos dentro de la COT */}
                           {isCotOpen && (
-                            <div className="tree-row-in" style={{ borderTop:`1px solid ${COLORS.border}22`, padding:"14px 14px 14px", background:COLORS.surface+"44" }}>
+                            <div className="tree-row-in" style={{ borderTop:`1px solid ${C.border}22`, padding:"14px 14px 14px", background:C.surface+"44" }}>
                               <div style={{ display:"flex", gap:14, alignItems:"flex-start", flexWrap:"wrap" }}>
 
                                 {/* Dona COT */}
@@ -252,7 +252,7 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
                                     return (
                                       <>
                                         <svg width={104} height={104} viewBox="0 0 104 104">
-                                          <circle cx={cx2} cy={cy2} r={r2} fill="none" stroke={COLORS.border} strokeWidth={R2-r2}/>
+                                          <circle cx={cx2} cy={cy2} r={r2} fill="none" stroke={C.border} strokeWidth={R2-r2}/>
                                           {(1-pPct)>0 && <circle cx={cx2} cy={cy2} r={r2} fill="none" stroke="url(#cotSaldo)" strokeWidth={R2-r2}
                                             strokeDasharray={`${dS} ${circ2-dS}`} strokeDashoffset={-(pPct*circ2)}
                                             strokeLinecap="butt" transform={`rotate(-90 ${cx2} ${cy2})`}/>}
@@ -260,21 +260,21 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
                                             strokeDasharray={`${dP} ${circ2-dP}`}
                                             strokeLinecap="butt" transform={`rotate(-90 ${cx2} ${cy2})`}/>}
                                           <defs>
-                                            <linearGradient id="cotPagado" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor={AC}/><stop offset="100%" stopColor={COLORS.green}/></linearGradient>
-                                            <linearGradient id="cotSaldo"  x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor={COLORS.yellow}/><stop offset="100%" stopColor={COLORS.red}/></linearGradient>
+                                            <linearGradient id="cotPagado" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor={AC}/><stop offset="100%" stopColor={C.green}/></linearGradient>
+                                            <linearGradient id="cotSaldo"  x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor={C.yellow}/><stop offset="100%" stopColor={C.red}/></linearGradient>
                                           </defs>
-                                          <text x={cx2} y={cy2-5} textAnchor="middle" fill={COLORS.text} fontSize="13" fontWeight="700" fontFamily="Space Grotesk,sans-serif">{(pPct*100).toFixed(0)}%</text>
-                                          <text x={cx2} y={cy2+9} textAnchor="middle" fill={COLORS.textMuted} fontSize="7" fontFamily="DM Mono,monospace">PAGADO</text>
+                                          <text x={cx2} y={cy2-5} textAnchor="middle" fill={C.text} fontSize="13" fontWeight="700" fontFamily="Space Grotesk,sans-serif">{(pPct*100).toFixed(0)}%</text>
+                                          <text x={cx2} y={cy2+9} textAnchor="middle" fill={C.textMuted} fontSize="7" fontFamily="DM Mono,monospace">PAGADO</text>
                                         </svg>
                                         <div style={{ display:"flex", flexDirection:"column", gap:3, width:"100%" }}>
                                           {[
-                                            {label:"Pagado", val:efectivo,           color:COLORS.green,  grad:`linear-gradient(135deg,${AC},${COLORS.green})`},
-                                            {label:"Saldo",  val:Math.max(0,saldo),  color:COLORS.yellow, grad:`linear-gradient(135deg,${COLORS.yellow},${COLORS.red})`},
-                                            {label:"Total",  val:qTotal,             color:COLORS.text,   grad:COLORS.border},
+                                            {label:"Pagado", val:efectivo,           color:C.green,  grad:`linear-gradient(135deg,${AC},${C.green})`},
+                                            {label:"Saldo",  val:Math.max(0,saldo),  color:C.yellow, grad:`linear-gradient(135deg,${C.yellow},${C.red})`},
+                                            {label:"Total",  val:qTotal,             color:C.text,   grad:C.border},
                                           ].map(({label,val,color,grad})=>(
                                             <div key={label} style={{ display:"flex", alignItems:"center", gap:4 }}>
                                               <div style={{ width:7,height:7,borderRadius:99,background:grad,flexShrink:0 }}/>
-                                              <span style={{ fontFamily:FONT,fontSize:8,color:COLORS.textMuted }}>{label}</span>
+                                              <span style={{ fontFamily:FONT,fontSize:8,color:C.textMuted }}>{label}</span>
                                               <span style={{ fontFamily:FONT_DISPLAY,fontSize:8,color,marginLeft:"auto",fontWeight:700 }}>{fmt(val)}</span>
                                             </div>
                                           ))}
@@ -292,20 +292,20 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
                                 {/* Líneas de la COT */}
                                 {(q.lines||[]).length > 0 && (
                                   <div style={{ flexShrink:0, minWidth:200, maxWidth:280 }}>
-                                    <div style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Líneas de cotización</div>
+                                    <div style={{ fontFamily:FONT, fontSize:8, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Líneas de cotización</div>
                                     <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
                                       {q.lines.slice(0,6).map((l,i)=>{
                                         const qty=Number(l.qty||1), p=Number(l.unitPrice||0), d=Number(l.discount||0);
                                         const sub=Math.round(p*(1-d/100)*qty);
                                         return (
-                                          <div key={i} style={{ display:"flex", alignItems:"center", gap:6, padding:"3px 0", borderBottom:`1px solid ${COLORS.border}22` }}>
-                                            <span style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted, width:16, flexShrink:0, textAlign:"right" }}>{qty}×</span>
-                                            <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.text, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{l.description||l.descripcion||"—"}</span>
-                                            <span style={{ fontFamily:FONT_DISPLAY, fontSize:9, color:COLORS.text, flexShrink:0 }}>{fmt(sub)}</span>
+                                          <div key={i} style={{ display:"flex", alignItems:"center", gap:6, padding:"3px 0", borderBottom:`1px solid ${C.border}22` }}>
+                                            <span style={{ fontFamily:FONT, fontSize:8, color:C.textMuted, width:16, flexShrink:0, textAlign:"right" }}>{qty}×</span>
+                                            <span style={{ fontFamily:FONT, fontSize:9, color:C.text, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{l.description||l.descripcion||"—"}</span>
+                                            <span style={{ fontFamily:FONT_DISPLAY, fontSize:9, color:C.text, flexShrink:0 }}>{fmt(sub)}</span>
                                           </div>
                                         );
                                       })}
-                                      {q.lines.length>6 && <div style={{ fontFamily:FONT,fontSize:8,color:COLORS.textMuted,marginTop:2 }}>+{q.lines.length-6} líneas más…</div>}
+                                      {q.lines.length>6 && <div style={{ fontFamily:FONT,fontSize:8,color:C.textMuted,marginTop:2 }}>+{q.lines.length-6} líneas más…</div>}
                                     </div>
                                   </div>
                                 )}
@@ -322,21 +322,21 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
                                     const docPagado= txTot>0;
                                     const docEstado= docPagado ? "Pagado" : "Sin pago";
                                     return (
-                                      <div key={doc.id} style={{ background:COLORS.card, border:`1px solid ${docPagado?COLORS.green+"44":COLORS.yellow+"44"}`, borderRadius:9, padding:"11px 13px", width:215, flexShrink:0 }}>
+                                      <div key={doc.id} style={{ background:C.card, border:`1px solid ${docPagado?C.green+"44":C.yellow+"44"}`, borderRadius:9, padding:"11px 13px", width:215, flexShrink:0 }}>
                                         {/* Header doc */}
                                         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:4 }}>
                                           <div>
                                             <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:AC }}>{doc.numero}</div>
-                                            <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>{fmtDate(doc.fecha_pago)} · {doc.responsable||""}</div>
+                                            <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted }}>{fmtDate(doc.fecha_pago)} · {doc.responsable||""}</div>
                                           </div>
                                           <div style={{ textAlign:"right" }}>
-                                            <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:docPagado?COLORS.green:COLORS.yellow }}>
+                                            <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:docPagado?C.green:C.yellow }}>
                                               {docPagado ? fmt(txTot) : fmt(docNominal)}
                                             </div>
                                             {docPagado && docNominal!==txTot && (
-                                              <div style={{ fontFamily:FONT, fontSize:8, color:COLORS.textMuted }}>decl: {fmt(docNominal)}</div>
+                                              <div style={{ fontFamily:FONT, fontSize:8, color:C.textMuted }}>decl: {fmt(docNominal)}</div>
                                             )}
-                                            <div style={{ fontFamily:FONT, fontSize:8, padding:"1px 5px", borderRadius:4, background:docPagado?`${COLORS.green}22`:`${COLORS.yellow}22`, color:docPagado?COLORS.green:COLORS.yellow, marginTop:2 }}>
+                                            <div style={{ fontFamily:FONT, fontSize:8, padding:"1px 5px", borderRadius:4, background:docPagado?`${C.green}22`:`${C.yellow}22`, color:docPagado?C.green:C.yellow, marginTop:2 }}>
                                               {docEstado}
                                             </div>
                                           </div>
@@ -344,28 +344,28 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
 
                                         {/* Transacciones bancarias */}
                                         {txs.length>0 ? (
-                                          <div style={{ marginBottom:7, padding:"5px 7px", background:COLORS.surface, borderRadius:5 }}>
+                                          <div style={{ marginBottom:7, padding:"5px 7px", background:C.surface, borderRadius:5 }}>
                                             {txs.slice(0,3).map((t,i)=>(
-                                              <div key={i} style={{ fontFamily:FONT,fontSize:8,color:COLORS.textMuted,marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
+                                              <div key={i} style={{ fontFamily:FONT,fontSize:8,color:C.textMuted,marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
                                                 🏦 {t.codigo?t.codigo.slice(0,16)+"…":"—"} · {fmt(Number(t.monto||0))}
                                               </div>
                                             ))}
-                                            {txs.length>3 && <div style={{ fontFamily:FONT,fontSize:8,color:COLORS.textMuted }}>+{txs.length-3} más…</div>}
+                                            {txs.length>3 && <div style={{ fontFamily:FONT,fontSize:8,color:C.textMuted }}>+{txs.length-3} más…</div>}
                                           </div>
                                         ) : (
-                                          <div style={{ marginBottom:7, padding:"5px 7px", background:`${COLORS.yellow}11`, border:`1px dashed ${COLORS.yellow}44`, borderRadius:5 }}>
-                                            <span style={{ fontFamily:FONT, fontSize:8, color:COLORS.yellow }}>⚠ Sin transacciones bancarias</span>
+                                          <div style={{ marginBottom:7, padding:"5px 7px", background:`${C.yellow}11`, border:`1px dashed ${C.yellow}44`, borderRadius:5 }}>
+                                            <span style={{ fontFamily:FONT, fontSize:8, color:C.yellow }}>⚠ Sin transacciones bancarias</span>
                                           </div>
                                         )}
 
                                         {/* Barras — respecto al total de la COT */}
                                         <div style={{ marginBottom:7 }}>
                                           {[
-                                            {label:"Pagado", pct:docPct,   color:`linear-gradient(90deg,${AC},${COLORS.green})`},
-                                            {label:"Saldo",  pct:saldoPct, color:`linear-gradient(90deg,${COLORS.yellow},${COLORS.red})`},
+                                            {label:"Pagado", pct:docPct,   color:`linear-gradient(90deg,${AC},${C.green})`},
+                                            {label:"Saldo",  pct:saldoPct, color:`linear-gradient(90deg,${C.yellow},${C.red})`},
                                           ].map(({label,pct:p,color})=>(
                                             <div key={label} style={{ display:"flex",alignItems:"center",gap:5,marginBottom:3 }}>
-                                              <span style={{ fontFamily:FONT,fontSize:8,color:COLORS.textMuted,width:40,flexShrink:0 }}>{label}</span>
+                                              <span style={{ fontFamily:FONT,fontSize:8,color:C.textMuted,width:40,flexShrink:0 }}>{label}</span>
                                               <MiniBar pct={p} color={color}/>
                                               <span style={{ fontFamily:FONT,fontSize:8,color:AC,flexShrink:0,minWidth:26,textAlign:"right" }}>{p.toFixed(0)}%</span>
                                             </div>
@@ -373,20 +373,20 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
                                         </div>
 
                                         {/* Acciones */}
-                                        <div style={{ display:"flex", gap:5, borderTop:`1px solid ${COLORS.border}`, paddingTop:7 }}>
+                                        <div style={{ display:"flex", gap:5, borderTop:`1px solid ${C.border}`, paddingTop:7 }}>
                                           <button onClick={()=>onEditDoc(doc)}
-                                            style={{ flex:1,padding:"4px 0",borderRadius:5,fontFamily:FONT,fontSize:9,cursor:"pointer",background:docPagado?"transparent":`${COLORS.yellow}22`,border:`1px solid ${docPagado?COLORS.secondary+"44":COLORS.yellow+"66"}`,color:docPagado?COLORS.secondary:COLORS.yellow, fontWeight:docPagado?400:700 }}>
+                                            style={{ flex:1,padding:"4px 0",borderRadius:5,fontFamily:FONT,fontSize:9,cursor:"pointer",background:docPagado?"transparent":`${C.yellow}22`,border:`1px solid ${docPagado?C.secondary+"44":C.yellow+"66"}`,color:docPagado?C.secondary:C.yellow, fontWeight:docPagado?400:700 }}>
                                             {docPagado?"✏️ Editar":"💳 Registrar pago"}
                                           </button>
                                           <button onClick={()=>onReprintDoc(doc)} style={{ flex:1,padding:"4px 0",borderRadius:5,fontFamily:FONT,fontSize:9,cursor:"pointer",background:"transparent",border:`1px solid ${AC}44`,color:AC }}>🖨 PDF</button>
-                                          <button onClick={()=>onDeleteDoc(doc.id)} style={{ padding:"4px 7px",borderRadius:5,fontFamily:FONT,fontSize:10,cursor:"pointer",background:"transparent",border:`1px solid ${COLORS.red}44`,color:COLORS.red }}>✕</button>
+                                          <button onClick={()=>onDeleteDoc(doc.id)} style={{ padding:"4px 7px",borderRadius:5,fontFamily:FONT,fontSize:10,cursor:"pointer",background:"transparent",border:`1px solid ${C.red}44`,color:C.red }}>✕</button>
                                         </div>
                                       </div>
                                     );
                                   })}
                                   {/* + Nuevo doc */}
                                   <div onClick={()=>onNuevoDoc(q.id)}
-                                    style={{ width:90,flexShrink:0,border:`2px dashed ${COLORS.border}`,borderRadius:9,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",padding:12,color:COLORS.textMuted,gap:5,minHeight:80 }}>
+                                    style={{ width:90,flexShrink:0,border:`2px dashed ${C.border}`,borderRadius:9,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",padding:12,color:C.textMuted,gap:5,minHeight:80 }}>
                                     <span style={{ fontSize:20 }}>+</span>
                                     <span style={{ fontFamily:FONT,fontSize:9,textAlign:"center",lineHeight:1.4 }}>Nuevo {docLabel}</span>
                                   </div>
@@ -414,8 +414,8 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
 
       {/* COTs huérfanas */}
       {orphanQuotes.length>0 && (
-        <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:14, padding:"12px 18px" }}>
-          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>
+        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14, padding:"12px 18px" }}>
+          <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>
             Sin {isPF?"pre-factura":"pedido"} asignado
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
@@ -424,12 +424,12 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
               const qTotal  = (q.lines||[]).reduce((s,l)=>s+lineSubtotal(l),0);
               const qPagado = qDocs.reduce((s,d)=>s+Number(d.monto_pagado||0),0);
               return (
-                <div key={q.id} style={{ display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:8,background:COLORS.surface,border:`1px solid ${COLORS.border}` }}>
+                <div key={q.id} style={{ display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:8,background:C.surface,border:`1px solid ${C.border}` }}>
                   <span style={{ fontFamily:FONT_DISPLAY,fontSize:12,fontWeight:700,color:AC }}>{qPrefix(q)}</span>
-                  <span style={{ fontFamily:FONT,fontSize:11,color:COLORS.textMuted,flex:1 }}>{q.clientCompany||q.clientName}</span>
-                  <span style={{ fontFamily:FONT_DISPLAY,fontSize:11,color:COLORS.green }}>{fmt(qPagado)}</span>
-                  <span style={{ fontFamily:FONT,fontSize:10,color:COLORS.textMuted }}>de {fmt(qTotal)}</span>
-                  <span style={{ fontFamily:FONT,fontSize:9,color:COLORS.textMuted,background:COLORS.border+"44",borderRadius:4,padding:"2px 6px" }}>{qDocs.length} {docLabel}</span>
+                  <span style={{ fontFamily:FONT,fontSize:11,color:C.textMuted,flex:1 }}>{q.clientCompany||q.clientName}</span>
+                  <span style={{ fontFamily:FONT_DISPLAY,fontSize:11,color:C.green }}>{fmt(qPagado)}</span>
+                  <span style={{ fontFamily:FONT,fontSize:10,color:C.textMuted }}>de {fmt(qTotal)}</span>
+                  <span style={{ fontFamily:FONT,fontSize:9,color:C.textMuted,background:C.border+"44",borderRadius:4,padding:"2px 6px" }}>{qDocs.length} {docLabel}</span>
                 </div>
               );
             })}

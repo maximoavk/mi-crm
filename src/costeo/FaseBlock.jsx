@@ -1,6 +1,6 @@
 // Bloques de edición del costeo: fases, ítems y partidas de pago.
 import React, { useState } from "react";
-import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { calcItem, IVA, calcFase, codigosPorFase, CAT_TIPOS, partidaCobrado } from "../calculos.js";
 import { newItem, CON_IVA, CAT_COLOR } from "./items.js";
 import { treeLine, TREE_ELBOW } from "../shared/tree.js";
@@ -9,10 +9,10 @@ import { GuardarFichaBtn } from "../productos/GuardarFichaBtn.jsx";
 
 export function TotBox({ label, value, color, sub }) {
   return (
-    <div style={{ background:COLORS.card, border:`1px solid ${color}33`, borderRadius:8, padding:"10px 14px", minWidth:130, flex:1 }}>
-      <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:2 }}>{label}</div>
+    <div style={{ background:C.card, border:`1px solid ${color}33`, borderRadius:8, padding:"10px 14px", minWidth:130, flex:1 }}>
+      <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:2 }}>{label}</div>
       <div style={{ fontFamily:FONT_DISPLAY, fontSize:17, fontWeight:700, color }}>${value.toLocaleString("es-CL")}</div>
-      {sub && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:1 }}>{sub}</div>}
+      {sub && <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginTop:1 }}>{sub}</div>}
     </div>
   );
 }
@@ -43,7 +43,7 @@ function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, pro
   const inp = (k,v) => onChange({ ...item, [k]:v });
   const esMO = item.tipo==="Mano de Obra / HH";
   const esEquipoMat = item.tipo==="Equipos" || item.tipo==="Materiales" || item.tipo==="Ferretería";
-  const style = { background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"4px 6px", width:"100%" };
+  const style = { background:"transparent", border:`1px solid ${C.border}`, borderRadius:5, color:C.text, fontFamily:FONT, fontSize:11, padding:"4px 6px", width:"100%" };
   const fmt = v => v>0 ? "$"+Math.round(v).toLocaleString("es-CL") : "-";
 
   // Badge semaforo margen
@@ -52,7 +52,7 @@ function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, pro
     ? Number(item.ventaUnitNeta)
     : costoUnit * (1 + (Number(item.margen)||0)/100);
   const margenCalc = costoUnit > 0 ? Math.round((ventaUnit - costoUnit) / costoUnit * 100) : 0;
-  const badgeColor = margenCalc <= 0 ? COLORS.red : margenCalc < 15 ? "#f59e0b" : COLORS.green;
+  const badgeColor = margenCalc <= 0 ? C.red : margenCalc < 15 ? "#f59e0b" : C.green;
 
   const resultados = busqueda.length >= 2
     ? (productos||[]).filter(p => {
@@ -76,7 +76,7 @@ function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, pro
       draggable
       onDragStart={e=>{ if(!dragFromHandle.current){ e.preventDefault(); return; } dragFromHandle.current=false; e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain", String(item.id)); }}
       onDragEnd={()=>{ dragFromHandle.current=false; }}
-      onDragOver={e=>{ e.preventDefault(); e.currentTarget.style.borderTop=`2px solid ${COLORS.accent}`; }}
+      onDragOver={e=>{ e.preventDefault(); e.currentTarget.style.borderTop=`2px solid ${C.accent}`; }}
       onDragLeave={e=>{ e.currentTarget.style.borderTop=""; }}
       onDrop={e=>{ e.preventDefault(); e.currentTarget.style.borderTop=""; const fromId=e.dataTransfer.getData("text/plain"); if(onReorder) onReorder(fromId, String(item.id)); }}
       className="tree-row-in"
@@ -91,7 +91,7 @@ function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, pro
       ><ItemTreeLines isLast={isLast} />⠿</td>
       {/* COD — calculado según posición, se recalcula solo al reordenar/duplicar */}
       <td style={{ padding:"6px 4px", width:55 }}>
-        <div style={{ textAlign:"center", color:COLORS.accent, fontWeight:600, fontFamily:FONT, fontSize:11, padding:"4px 2px" }} title={`Código SAP: POL-XXXX-${codigo||""} (se completa al generar cotización)`}>
+        <div style={{ textAlign:"center", color:C.accent, fontWeight:600, fontFamily:FONT, fontSize:11, padding:"4px 2px" }} title={`Código SAP: POL-XXXX-${codigo||""} (se completa al generar cotización)`}>
           {codigo||"—"}
         </div>
       </td>
@@ -102,31 +102,31 @@ function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, pro
           <input style={{...style, flex:1}} value={item.descripcion} onChange={e=>inp("descripcion",e.target.value)} placeholder="Descripción..." />
           {esEquipoMat && (
             <button onClick={()=>{ setShowCat(p=>!p); setBusqueda(""); }}
-              style={{ background: showCat?COLORS.accent:`${COLORS.accent}22`, border:`1px solid ${COLORS.accent}44`, borderRadius:5, color:showCat?COLORS.bg:COLORS.accent, cursor:"pointer", fontSize:11, padding:"2px 7px", whiteSpace:"nowrap", fontFamily:FONT }}>
+              style={{ background: showCat?C.accent:`${C.accent}22`, border:`1px solid ${C.accent}44`, borderRadius:5, color:showCat?C.bg:C.accent, cursor:"pointer", fontSize:11, padding:"2px 7px", whiteSpace:"nowrap", fontFamily:FONT }}>
               🔍
             </button>
           )}
         </div>
         {esEquipoMat && showCat && (
-          <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:200, background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:7, boxShadow:"0 4px 20px #0008", marginTop:2 }}>
-            <div style={{ padding:"6px 8px", borderBottom:`1px solid ${COLORS.border}22` }}>
+          <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:200, background:C.surface, border:`1px solid ${C.border}`, borderRadius:7, boxShadow:"0 4px 20px #0008", marginTop:2 }}>
+            <div style={{ padding:"6px 8px", borderBottom:`1px solid ${C.border}22` }}>
               <input autoFocus value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar por nombre o código..."
                 style={{...style, fontSize:12, padding:"5px 8px"}} />
             </div>
-            {busqueda.length < 2 && <div style={{ padding:"8px 12px", fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Escribe al menos 2 caracteres...</div>}
-            {resultados.length===0 && busqueda.length>=2 && <div style={{ padding:"8px 12px", fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Sin resultados</div>}
+            {busqueda.length < 2 && <div style={{ padding:"8px 12px", fontFamily:FONT, fontSize:11, color:C.textMuted }}>Escribe al menos 2 caracteres...</div>}
+            {resultados.length===0 && busqueda.length>=2 && <div style={{ padding:"8px 12px", fontFamily:FONT, fontSize:11, color:C.textMuted }}>Sin resultados</div>}
             {resultados.map(p=>(
               <div key={p.id} onClick={()=>seleccionarProducto(p)}
-                style={{ padding:"8px 12px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}11`, display:"flex", justifyContent:"space-between", alignItems:"center" }}
-                onMouseEnter={e=>e.currentTarget.style.background=COLORS.card}
+                style={{ padding:"8px 12px", cursor:"pointer", borderBottom:`1px solid ${C.border}11`, display:"flex", justifyContent:"space-between", alignItems:"center" }}
+                onMouseEnter={e=>e.currentTarget.style.background=C.card}
                 onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                 <div>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text }}>{p.name}</div>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{p.code} · {p.description||""}</div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:C.text }}>{p.name}</div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>{p.code} · {p.description||""}</div>
                 </div>
                 <div style={{ textAlign:"right" }}>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Neto: <strong style={{color:COLORS.text}}>${Math.round((p.price||0)/IVA).toLocaleString("es-CL")}</strong></div>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Bruto: ${Math.round(p.price||0).toLocaleString("es-CL")}</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>Neto: <strong style={{color:C.text}}>${Math.round((p.price||0)/IVA).toLocaleString("es-CL")}</strong></div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>Bruto: ${Math.round(p.price||0).toLocaleString("es-CL")}</div>
                 </div>
               </div>
             ))}
@@ -137,7 +137,7 @@ function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, pro
       {/* Modelo solo equipos/materiales */}
       <td style={{ padding:"6px 4px", width:100 }}>
         {esEquipoMat
-          ? <input style={{...style, color:COLORS.textMuted}} value={item.modelo||""} onChange={e=>inp("modelo",e.target.value)} placeholder="Modelo..." />
+          ? <input style={{...style, color:C.textMuted}} value={item.modelo||""} onChange={e=>inp("modelo",e.target.value)} placeholder="Modelo..." />
           : <span />}
       </td>
 
@@ -150,7 +150,7 @@ function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, pro
         <td style={{ padding:"6px 4px", width:70, textAlign:"center" }}>
           <label style={{ display:"flex", alignItems:"center", gap:4, cursor:"pointer", justifyContent:"center" }}>
             <input type="checkbox" checked={!!item.aplicaIVA} onChange={e=>inp("aplicaIVA",e.target.checked)} style={{ cursor:"pointer", accentColor:"#ef4444" }} />
-            <span style={{ fontFamily:FONT, fontSize:10, color: item.aplicaIVA?"#ef4444":COLORS.textMuted }}>IVA</span>
+            <span style={{ fontFamily:FONT, fontSize:10, color: item.aplicaIVA?"#ef4444":C.textMuted }}>IVA</span>
           </label>
         </td>
         <td style={{ padding:"6px 4px" }} />
@@ -165,7 +165,7 @@ function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, pro
         <td style={{ padding:"6px 4px", width:70, textAlign:"center" }}>
           <label style={{ display:"flex", alignItems:"center", gap:4, cursor:"pointer", justifyContent:"center" }}>
             <input type="checkbox" checked={item.aplicaIVA!==false} onChange={e=>inp("aplicaIVA",e.target.checked)} style={{ cursor:"pointer", accentColor:"#ef4444" }} />
-            <span style={{ fontFamily:FONT, fontSize:10, color: item.aplicaIVA!==false?"#ef4444":COLORS.textMuted }}>IVA</span>
+            <span style={{ fontFamily:FONT, fontSize:10, color: item.aplicaIVA!==false?"#ef4444":C.textMuted }}>IVA</span>
           </label>
         </td>
         <td /><td />
@@ -175,7 +175,7 @@ function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, pro
       <td style={{ padding:"6px 4px", width:110 }}>
         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
           <input
-            style={{...style, color:COLORS.accent, fontWeight:600}}
+            style={{...style, color:C.accent, fontWeight:600}}
             type="number"
             value={item.ventaUnitNeta !== undefined && item.ventaUnitNeta !== null ? item.ventaUnitNeta : Math.round(ventaUnit)}
             onChange={e=>{
@@ -196,47 +196,47 @@ function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, pro
         </div>
       </td>
       {/* Costo neto total */}
-      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.textMuted, whiteSpace:"nowrap" }}>{fmt(calc.costoNeto)}</td>
+      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:C.textMuted, whiteSpace:"nowrap" }}>{fmt(calc.costoNeto)}</td>
       {/* Margen $ */}
-      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.green, whiteSpace:"nowrap" }}>{fmt(calc.margenTotal)}</td>
+      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:C.green, whiteSpace:"nowrap" }}>{fmt(calc.margenTotal)}</td>
       {/* Venta neta */}
-      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:COLORS.text, whiteSpace:"nowrap" }}>{fmt(calc.ventaNeta)}</td>
+      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:C.text, whiteSpace:"nowrap" }}>{fmt(calc.ventaNeta)}</td>
       {/* IVA Compra */}
-      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:"#06b6d4", whiteSpace:"nowrap" }}>{calc.ivaCompra > 0 ? fmt(calc.ivaCompra) : <span style={{color:COLORS.border}}>—</span>}</td>
+      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:"#06b6d4", whiteSpace:"nowrap" }}>{calc.ivaCompra > 0 ? fmt(calc.ivaCompra) : <span style={{color:C.border}}>—</span>}</td>
       {/* IVA Venta */}
-      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:"#ef4444", whiteSpace:"nowrap" }}>{calc.ivaVenta > 0 ? fmt(calc.ivaVenta) : <span style={{color:COLORS.border}}>—</span>}</td>
+      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, color:"#ef4444", whiteSpace:"nowrap" }}>{calc.ivaVenta > 0 ? fmt(calc.ivaVenta) : <span style={{color:C.border}}>—</span>}</td>
       {/* Venta bruta */}
-      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.accent, whiteSpace:"nowrap" }}>{fmt(calc.ventaBruta)}</td>
+      <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:12, fontWeight:700, color:C.accent, whiteSpace:"nowrap" }}>{fmt(calc.ventaBruta)}</td>
       <td style={{ padding:"6px 4px", textAlign:"center" }}>
         <div style={{ display:"flex", gap:3, justifyContent:"center", alignItems:"center" }}>
-          <button onClick={onDuplicate} title="Duplicar línea" style={{ background:"none", border:"none", color:COLORS.accent, cursor:"pointer", fontSize:12, opacity:0.6, lineHeight:1 }}>⧉</button>
-          <button onClick={onDelete} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14, lineHeight:1 }}>×</button>
+          <button onClick={onDuplicate} title="Duplicar línea" style={{ background:"none", border:"none", color:C.accent, cursor:"pointer", fontSize:12, opacity:0.6, lineHeight:1 }}>⧉</button>
+          <button onClick={onDelete} style={{ background:"none", border:"none", color:C.red, cursor:"pointer", fontSize:14, lineHeight:1 }}>×</button>
         </div>
       </td>
     </tr>
     {/* Datasheet URL row */}
     {item.tipo==="Equipos" && (
-      <tr className="tree-row-in" style={{ borderBottom:`1px solid ${COLORS.border}22`, background:`${COLORS.accent}05` }}>
+      <tr className="tree-row-in" style={{ borderBottom:`1px solid ${C.border}22`, background:`${C.accent}05` }}>
         <td style={{ position:"relative" }}><ItemTreeLines isLast={isLast} onlyVertical /></td>
         <td colSpan={colCount-2} style={{ padding:"2px 4px 5px 4px" }}>
           <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-            <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, whiteSpace:"nowrap" }}>🔗 Datasheet:</span>
+            <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, whiteSpace:"nowrap" }}>🔗 Datasheet:</span>
             <input
-              style={{ flex:1, background:"transparent", border:`1px solid ${COLORS.border}44`, borderRadius:4, color:COLORS.accent, fontFamily:FONT, fontSize:10, padding:"2px 6px" }}
+              style={{ flex:1, background:"transparent", border:`1px solid ${C.border}44`, borderRadius:4, color:C.accent, fontFamily:FONT, fontSize:10, padding:"2px 6px" }}
               value={item.datasheet_url||""}
               onChange={e=>inp("datasheet_url",e.target.value)}
               placeholder="https://..."
             />
             {item.datasheet_url && (
               <a href={item.datasheet_url} target="_blank" rel="noopener noreferrer"
-                style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, whiteSpace:"nowrap" }}>Ver ↗</a>
+                style={{ fontFamily:FONT, fontSize:10, color:C.accent, whiteSpace:"nowrap" }}>Ver ↗</a>
             )}
-            <GuardarFichaBtn productId={item.productId} url={item.datasheet_url} productos={productos} onSaved={onFichaGuardada} />
+            <GuardarFichaBtn productId={item.productId} url={item.datasheet_url} productos={productos} onSaved={onFichaGuardada} theme={LIGHT_THEME} />
             {/* Solo ítems que vienen del maestro; los nuevos se completan a mano */}
             {item.productId && onOpenProducto && (
               <button onClick={()=>onOpenProducto(item.productId)} title="Abrir la ficha de este producto en el Maestro de productos"
                 style={{ fontFamily:FONT, fontSize:10, whiteSpace:"nowrap", padding:"1px 7px", borderRadius:4, cursor:"pointer",
-                  background:"transparent", border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>📦 Ver en maestro</button>
+                  background:"transparent", border:`1px solid ${C.accent}44`, color:C.accent }}>📦 Ver en maestro</button>
             )}
           </div>
         </td>
@@ -304,25 +304,25 @@ export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, prod
   const finalizar= partidasFase.reduce((s,p)=>s+(Number(p.monto)*(Number(p.pctFinalizar)||0)/100),0);
 
   return (
-    <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, marginBottom:16 }}>
+    <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, marginBottom:16 }}>
       {/* Header fase */}
-      <div style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 18px", borderBottom:`1px solid ${COLORS.border}`, position:"relative" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 18px", borderBottom:`1px solid ${C.border}`, position:"relative" }}>
         {/* Línea que baja desde el triángulo de la fase hacia sus categorías */}
         {!collapsed && <div style={treeLine({ left:18 + TREE_X, top:"calc(50% + 7px)", bottom:-1, borderLeftWidth:1 })} />}
-        <TreeCaret collapsed={collapsed} onToggle={()=>setCollapsed(p=>!p)} size={12} title={collapsed ? "Desplegar fase" : "Contraer fase"} />
+        <TreeCaret collapsed={collapsed} onToggle={()=>setCollapsed(p=>!p)} size={12} title={collapsed ? "Desplegar fase" : "Contraer fase"} color={C.textMuted} />
         <input value={fase.nombre} onChange={e=>onChange({...fase,nombre:e.target.value})}
-          style={{ background:"transparent", border:"none", color:COLORS.text, fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, flex:1, outline:"none" }}
+          style={{ background:"transparent", border:"none", color:C.text, fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, flex:1, outline:"none" }}
           placeholder="Nombre de la fase..." />
         <div style={{ display:"flex", gap:14, flexWrap:"wrap" }}>
-          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Costo neto: <strong style={{color:COLORS.text}}>{fmt(calc.costoNeto)}</strong></span>
-          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Margen: <strong style={{color:COLORS.green}}>{fmt(calc.margenTotal)} ({margenPct}%)</strong></span>
-          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Venta neta: <strong style={{color:COLORS.text}}>{fmt(calc.ventaNeta)}</strong></span>
-          {calc.ivaCompra > 0 && <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>IVA compra: <strong style={{color:"#06b6d4"}}>{fmt(calc.ivaCompra)}</strong></span>}
-          {calc.ivaTotal  > 0 && <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>IVA venta: <strong style={{color:"#ef4444"}}>{fmt(calc.ivaTotal)}</strong></span>}
-          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>Venta c/IVA: <strong style={{color:COLORS.accent}}>{fmt(calc.ventaBruta)}</strong></span>
+          <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>Costo neto: <strong style={{color:C.text}}>{fmt(calc.costoNeto)}</strong></span>
+          <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>Margen: <strong style={{color:C.green}}>{fmt(calc.margenTotal)} ({margenPct}%)</strong></span>
+          <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>Venta neta: <strong style={{color:C.text}}>{fmt(calc.ventaNeta)}</strong></span>
+          {calc.ivaCompra > 0 && <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>IVA compra: <strong style={{color:"#06b6d4"}}>{fmt(calc.ivaCompra)}</strong></span>}
+          {calc.ivaTotal  > 0 && <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>IVA venta: <strong style={{color:"#ef4444"}}>{fmt(calc.ivaTotal)}</strong></span>}
+          <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>Venta c/IVA: <strong style={{color:C.accent}}>{fmt(calc.ventaBruta)}</strong></span>
           {/* Descuento de fase */}
-          <div style={{ display:"flex", alignItems:"center", gap:6, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"3px 8px" }}>
-            <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Desc.</span>
+          <div style={{ display:"flex", alignItems:"center", gap:6, background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"3px 8px" }}>
+            <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>Desc.</span>
             <input
               type="number" min={0} max={100}
               value={fase.descuento||""}
@@ -332,14 +332,14 @@ export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, prod
             />
             <span style={{ fontFamily:FONT, fontSize:10, color:"#f59e0b" }}>%</span>
             {calc.descPct > 0 && (
-              <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.green, fontWeight:700, marginLeft:4 }}>
+              <span style={{ fontFamily:FONT, fontSize:11, color:C.green, fontWeight:700, marginLeft:4 }}>
                 → {fmt(calc.ventaConDesc)}
               </span>
             )}
           </div>
         </div>
-        <button onClick={onDuplicate} title="Duplicar fase" style={{ background:"none", border:`1px solid ${COLORS.accent}44`, borderRadius:5, color:COLORS.accent, cursor:"pointer", fontSize:12, padding:"3px 8px" }}>⧉ Duplicar</button>
-        <button onClick={onDelete} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:16 }}>×</button>
+        <button onClick={onDuplicate} title="Duplicar fase" style={{ background:"none", border:`1px solid ${C.accent}44`, borderRadius:5, color:C.accent, cursor:"pointer", fontSize:12, padding:"3px 8px" }}>⧉ Duplicar</button>
+        <button onClick={onDelete} style={{ background:"none", border:"none", color:C.red, cursor:"pointer", fontSize:16 }}>×</button>
       </div>
 
       {!collapsed && (
@@ -359,14 +359,14 @@ export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, prod
                 {/* Línea que baja desde el triángulo de la categoría hasta sus ítems */}
                 {!secCollapsed && grouped[tipo].length > 0 && <div style={treeLine({ left:SEC_PAD + TREE_X, top:19, height:13, borderLeftWidth:1 })} />}
                 <div style={{ display:"flex", alignItems:"center", gap:8, minHeight:24, marginBottom: secCollapsed ? 0 : 8 }}>
-                  <TreeCaret collapsed={secCollapsed} onToggle={()=>setCollapsedSections(p=>({...p,[tipo]:!p[tipo]}))} title={secCollapsed ? "Desplegar categoría" : "Contraer categoría"} />
+                  <TreeCaret collapsed={secCollapsed} onToggle={()=>setCollapsedSections(p=>({...p,[tipo]:!p[tipo]}))} title={secCollapsed ? "Desplegar categoría" : "Contraer categoría"} color={C.textMuted} />
                   <div style={{ width:3, height:16, background:CAT_COLOR[tipo], borderRadius:2 }} />
                   <span style={{ fontFamily:FONT, fontSize:11, fontWeight:600, color:CAT_COLOR[tipo], letterSpacing:"0.08em", textTransform:"uppercase" }}>{tipo}</span>
-                  <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>({grouped[tipo].length})</span>
-                  {tieneIVA && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.text, background:`${COLORS.border}`, padding:"1px 6px", borderRadius:4 }}>Ingresar neto</span>}
+                  <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>({grouped[tipo].length})</span>
+                  {tieneIVA && <span style={{ fontFamily:FONT, fontSize:10, color:C.text, background:`${C.border}`, padding:"1px 6px", borderRadius:4 }}>Ingresar neto</span>}
                   {grouped[tipo].length>0 && (
                     <label title="Marca o desmarca el IVA en todos los ítems de esta categoría a la vez"
-                      style={{ display:"flex", alignItems:"center", gap:5, cursor:"pointer", fontFamily:FONT, fontSize:11, color: todosConIVA ? "#ef4444" : COLORS.textMuted }}>
+                      style={{ display:"flex", alignItems:"center", gap:5, cursor:"pointer", fontFamily:FONT, fontSize:11, color: todosConIVA ? "#ef4444" : C.textMuted }}>
                       <input type="checkbox" checked={todosConIVA} onChange={e=>bulkSetIVA(tipo, e.target.checked)}
                         style={{ cursor:"pointer", accentColor:"#ef4444" }} />
                       Aplica IVA {esMO ? "a MO" : `a ${tipo}`}
@@ -378,34 +378,34 @@ export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, prod
                   <div style={{ overflowX:"auto" }}>
                     <table style={{ width:"100%", borderCollapse:"collapse", minWidth:700 }}>
                       <thead>
-                        <tr style={{ borderBottom:`1px solid ${COLORS.border}` }}>
+                        <tr style={{ borderBottom:`1px solid ${C.border}` }}>
                           <th style={{ width:14, padding:"4px 4px 4px 20px", position:"relative" }}><ItemTreeLines isLast={false} onlyVertical /></th>
-                          <th style={{ textAlign:"center", fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", width:55 }}>COD</th>
-                          <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px" }}>DESCRIPCIÓN</th>
-                          <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:100 }}>MODELO</th>
+                          <th style={{ textAlign:"center", fontFamily:FONT, fontSize:10, color:C.accent, padding:"4px", width:55 }}>COD</th>
+                          <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:C.textMuted, padding:"4px" }}>DESCRIPCIÓN</th>
+                          <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:C.textMuted, padding:"4px", width:100 }}>MODELO</th>
                           {tipo==="Mano de Obra / HH" ? (<>
-                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:50 }}>HH</th>
-                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:90 }}>$/HH NETO</th>
-                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:40 }}>PERS.</th>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, padding:"4px", width:50 }}>HH</th>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, padding:"4px", width:90 }}>$/HH NETO</th>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, padding:"4px", width:40 }}>PERS.</th>
                             <th style={{ fontFamily:FONT, fontSize:10, color:"#ef4444", padding:"4px", width:70, textAlign:"center" }}>IVA?</th>
                             <th style={{ padding:"4px" }} />
                           </>) : tipo==="Costos Indirectos" ? (<>
-                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:40 }}>QTY</th>
-                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:95 }}>COSTO NETO U.</th>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, padding:"4px", width:40 }}>QTY</th>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, padding:"4px", width:95 }}>COSTO NETO U.</th>
                             <th style={{ padding:"4px" }} /><th style={{ padding:"4px" }} /><th style={{ padding:"4px" }} />
                           </>) : (<>
-                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:40 }}>QTY</th>
-                            <th style={{ fontFamily:FONT, fontSize:10, color:COLORS.text, padding:"4px", width:100 }}>COSTO NETO U.</th>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, padding:"4px", width:40 }}>QTY</th>
+                            <th style={{ fontFamily:FONT, fontSize:10, color:C.text, padding:"4px", width:100 }}>COSTO NETO U.</th>
                             <th style={{ fontFamily:FONT, fontSize:10, color:"#ef4444", padding:"4px", width:70, textAlign:"center" }}>IVA?</th>
                             <th style={{ padding:"4px" }} /><th style={{ padding:"4px" }} />
                           </>)}
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:"#a855f7", padding:"4px", width:110 }}>P.VENTA NETO</th>
-                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"4px", width:90 }}>COSTO NETO</th>
-                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.green, padding:"4px", width:85 }}>MARGEN $</th>
-                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.text, padding:"4px", width:90 }}>VENTA NETA</th>
+                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:C.textMuted, padding:"4px", width:90 }}>COSTO NETO</th>
+                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:C.green, padding:"4px", width:85 }}>MARGEN $</th>
+                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:C.text, padding:"4px", width:90 }}>VENTA NETA</th>
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:"#06b6d4", padding:"4px", width:80 }}>IVA COMPRA</th>
                           <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:"#ef4444", padding:"4px", width:80 }}>IVA VENTA</th>
-                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:COLORS.accent, padding:"4px", width:95 }}>VENTA c/IVA</th>
+                          <th style={{ textAlign:"right", fontFamily:FONT, fontSize:10, color:C.accent, padding:"4px", width:95 }}>VENTA c/IVA</th>
                           <th style={{ width:24 }} />
                         </tr>
                       </thead>
@@ -415,14 +415,14 @@ export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, prod
                         ))}
                       </tbody>
                         <tfoot>
-                          <tr style={{ borderTop:`1px solid ${COLORS.border}`, background:COLORS.surface }}>
-                            <td colSpan={10} style={{ padding:"6px 8px", fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Subtotal {tipo}</td>
-                            <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.textMuted }}>${Math.round(calcItems.reduce((s,i)=>s+i.costoNeto,0)).toLocaleString("es-CL")}</td>
-                            <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.green }}>${Math.round(calcItems.reduce((s,i)=>s+i.margenTotal,0)).toLocaleString("es-CL")}</td>
-                            <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:COLORS.text }}>${Math.round(calcItems.reduce((s,i)=>s+i.ventaNeta,0)).toLocaleString("es-CL")}</td>
+                          <tr style={{ borderTop:`1px solid ${C.border}`, background:C.surface }}>
+                            <td colSpan={10} style={{ padding:"6px 8px", fontFamily:FONT, fontSize:10, color:C.textMuted }}>Subtotal {tipo}</td>
+                            <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:C.textMuted }}>${Math.round(calcItems.reduce((s,i)=>s+i.costoNeto,0)).toLocaleString("es-CL")}</td>
+                            <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:C.green }}>${Math.round(calcItems.reduce((s,i)=>s+i.margenTotal,0)).toLocaleString("es-CL")}</td>
+                            <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:C.text }}>${Math.round(calcItems.reduce((s,i)=>s+i.ventaNeta,0)).toLocaleString("es-CL")}</td>
                             <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:"#06b6d4" }}>{calcItems.some(i=>i.ivaCompra>0)?`$${Math.round(calcItems.reduce((s,i)=>s+i.ivaCompra,0)).toLocaleString("es-CL")}`:""}</td>
                             <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:600, color:"#ef4444" }}>${Math.round(calcItems.reduce((s,i)=>s+i.ivaVenta,0)).toLocaleString("es-CL")}</td>
-                            <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:700, color:COLORS.accent }}>${Math.round(calcItems.reduce((s,i)=>s+i.ventaBruta,0)).toLocaleString("es-CL")}</td>
+                            <td style={{ padding:"6px 4px", textAlign:"right", fontFamily:FONT, fontSize:11, fontWeight:700, color:C.accent }}>${Math.round(calcItems.reduce((s,i)=>s+i.ventaBruta,0)).toLocaleString("es-CL")}</td>
                             <td />
                           </tr>
                         </tfoot>
@@ -436,14 +436,14 @@ export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, prod
       )}
 
       {/* Barra de progreso de pago */}
-      <div style={{ padding:"12px 18px", borderTop:`1px solid ${COLORS.border}22`, background:COLORS.surface, borderRadius:"0 0 10px 10px" }}>
+      <div style={{ padding:"12px 18px", borderTop:`1px solid ${C.border}22`, background:C.surface, borderRadius:"0 0 10px 10px" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
-          <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase" }}>
+          <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase" }}>
             Cobertura de partidas
           </span>
           <div style={{ display:"flex", gap:16, alignItems:"center" }}>
-            <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
-              Cubierto: <strong style={{color: pctCubierto>=100?COLORS.green:COLORS.accent}}>{fmt(totalCubierto)} ({pctCubierto.toFixed(0)}%)</strong>
+            <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>
+              Cubierto: <strong style={{color: pctCubierto>=100?C.green:C.accent}}>{fmt(totalCubierto)} ({pctCubierto.toFixed(0)}%)</strong>
             </span>
             <span style={{ fontFamily:FONT, fontSize:11, color:"#39ff14", fontWeight:700 }}>
               Cobrado: {fmt(totalCobrado)} ({pctCobrado.toFixed(0)}%)
@@ -451,27 +451,27 @@ export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, prod
           </div>
         </div>
         {/* Barra de cobertura (partidas definidas) */}
-        <div style={{ height:8, background:COLORS.border, borderRadius:6, overflow:"hidden", display:"flex", marginBottom:4 }}>
-          {anticipo > 0 && <div style={{ width:`${ventaRef>0?(anticipo/ventaRef*100):0}%`, background:COLORS.accent, transition:"width 0.3s" }} title={`Anticipo: ${fmt(anticipo)}`} />}
-          {parcial  > 0 && <div style={{ width:`${ventaRef>0?(parcial/ventaRef*100):0}%`, background:COLORS.green, transition:"width 0.3s" }} title={`Parcial: ${fmt(parcial)}`} />}
+        <div style={{ height:8, background:C.border, borderRadius:6, overflow:"hidden", display:"flex", marginBottom:4 }}>
+          {anticipo > 0 && <div style={{ width:`${ventaRef>0?(anticipo/ventaRef*100):0}%`, background:C.accent, transition:"width 0.3s" }} title={`Anticipo: ${fmt(anticipo)}`} />}
+          {parcial  > 0 && <div style={{ width:`${ventaRef>0?(parcial/ventaRef*100):0}%`, background:C.green, transition:"width 0.3s" }} title={`Parcial: ${fmt(parcial)}`} />}
           {finalizar> 0 && <div style={{ width:`${ventaRef>0?(finalizar/ventaRef*100):0}%`, background:"#f59e0b", transition:"width 0.3s" }} title={`Al finalizar: ${fmt(finalizar)}`} />}
         </div>
         {/* Barra de cobrado efectivo */}
-        <div style={{ height:6, background:COLORS.border, borderRadius:6, overflow:"hidden", marginBottom:6 }}>
+        <div style={{ height:6, background:C.border, borderRadius:6, overflow:"hidden", marginBottom:6 }}>
           <div style={{ width:`${pctCobrado}%`, background:"#39ff14", borderRadius:6, transition:"width 0.3s", height:"100%", boxShadow: pctCobrado>0?"0 0 8px #39ff1488":"none" }} title={`Cobrado: ${fmt(totalCobrado)}`} />
         </div>
         {partidasFase.length > 0 && (
           <div style={{ display:"flex", gap:14, flexWrap:"wrap" }}>
-            {anticipo>0   && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent }}>● Anticipo {fmt(anticipo)}</span>}
-            {parcial>0    && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.green }}>● Parcial {fmt(parcial)}</span>}
+            {anticipo>0   && <span style={{ fontFamily:FONT, fontSize:10, color:C.accent }}>● Anticipo {fmt(anticipo)}</span>}
+            {parcial>0    && <span style={{ fontFamily:FONT, fontSize:10, color:C.green }}>● Parcial {fmt(parcial)}</span>}
             {finalizar>0  && <span style={{ fontFamily:FONT, fontSize:10, color:"#f59e0b" }}>● Al finalizar {fmt(finalizar)}</span>}
             {totalCobrado>0 && <span style={{ fontFamily:FONT, fontSize:10, color:"#39ff14", fontWeight:700 }}>● Cobrado {fmt(totalCobrado)}</span>}
             {totalCubierto < ventaRef && ventaRef > 0 &&
-              <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.red }}>⚠ Sin cubrir {fmt(ventaRef - totalCubierto)}</span>}
+              <span style={{ fontFamily:FONT, fontSize:10, color:C.red }}>⚠ Sin cubrir {fmt(ventaRef - totalCubierto)}</span>}
           </div>
         )}
         {partidasFase.length === 0 && (
-          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:4 }}>Sin partidas asignadas a esta fase</div>
+          <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginTop:4 }}>Sin partidas asignadas a esta fase</div>
         )}
       </div>
     </div>
@@ -506,7 +506,7 @@ export function PartidaRow({ partida, fases, onChange, onDelete }) {
     if(fase) updates.monto = Math.round(calcFase(fase).ventaConDesc);
     onChange(partida.id, updates);
   };
-  const style = { background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:5, color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"5px 8px" };
+  const style = { background:"transparent", border:`1px solid ${C.border}`, borderRadius:5, color:C.text, fontFamily:FONT, fontSize:11, padding:"5px 8px" };
   const styleSmall = { ...style, width:44, padding:"5px 4px", textAlign:"center" };
   const monto = Number(partida.monto)||0;
   const anticipo = monto*(Number(partida.pctAnticipo)||0)/100;
@@ -524,7 +524,7 @@ export function PartidaRow({ partida, fases, onChange, onDelete }) {
     onChange(partida.id, { montoCobrado: dolares, pctAnticipo, pctFinalizar });
   };
   return (
-    <tr style={{ borderBottom:`1px solid ${COLORS.border}22` }}>
+    <tr style={{ borderBottom:`1px solid ${C.border}22` }}>
       <td style={{ padding:"8px 6px" }}>
         <input style={{...style, width:"100%"}} value={partida.concepto} onChange={e=>inp("concepto",e.target.value)} placeholder="Concepto del hito..." />
       </td>
@@ -536,7 +536,7 @@ export function PartidaRow({ partida, fases, onChange, onDelete }) {
       </td>
       <td style={{ padding:"8px 6px", width:120 }}>
         {partida.faseId ? (
-          <div style={{...style, width:"100%", boxSizing:"border-box", color:COLORS.textMuted, cursor:"default"}} title="Se actualiza solo según el costeo de la fase">
+          <div style={{...style, width:"100%", boxSizing:"border-box", color:C.textMuted, cursor:"default"}} title="Se actualiza solo según el costeo de la fase">
             ${monto.toLocaleString("es-CL")}
           </div>
         ) : (
@@ -546,15 +546,15 @@ export function PartidaRow({ partida, fases, onChange, onDelete }) {
       {/* ANTICIPO */}
       <td style={{ padding:"8px 6px", width:100 }}>
         <div style={{ display:"flex", gap:3, alignItems:"center" }}>
-          <input style={{...styleSmall, color:COLORS.accent}} type="number" value={partida.pctAnticipo} onChange={e=>inpSplit("pctAnticipo",e.target.value)} placeholder="%" />
-          <span style={{ color:COLORS.textMuted, fontSize:10 }}>%</span>
-          <input style={{...styleSmall, color:COLORS.textMuted}} type="number" value={partida.diasAnticipo||0} onChange={e=>inp("diasAnticipo",e.target.value)} placeholder="d" title="Días plazo" />
-          <span style={{ color:COLORS.textMuted, fontSize:9 }}>d</span>
+          <input style={{...styleSmall, color:C.accent}} type="number" value={partida.pctAnticipo} onChange={e=>inpSplit("pctAnticipo",e.target.value)} placeholder="%" />
+          <span style={{ color:C.textMuted, fontSize:10 }}>%</span>
+          <input style={{...styleSmall, color:C.textMuted}} type="number" value={partida.diasAnticipo||0} onChange={e=>inp("diasAnticipo",e.target.value)} placeholder="d" title="Días plazo" />
+          <span style={{ color:C.textMuted, fontSize:9 }}>d</span>
         </div>
       </td>
       <td style={{ padding:"8px 6px", width:100 }}>
         <input
-          style={{ background:"transparent", border:"none", color:COLORS.accent, fontFamily:FONT, fontSize:11, padding:"5px 4px", width:"100%", boxSizing:"border-box", textAlign:"right" }}
+          style={{ background:"transparent", border:"none", color:C.accent, fontFamily:FONT, fontSize:11, padding:"5px 4px", width:"100%", boxSizing:"border-box", textAlign:"right" }}
           type="number" min={0}
           value={anticipoInput !== null ? anticipoInput : (anticipo>0 ? Math.round(anticipo) : "")}
           onChange={e=>setAnticipoInput(e.target.value)}
@@ -573,15 +573,15 @@ export function PartidaRow({ partida, fases, onChange, onDelete }) {
       {/* PARCIAL */}
       <td style={{ padding:"8px 6px", width:100 }}>
         <div style={{ display:"flex", gap:3, alignItems:"center" }}>
-          <input style={{...styleSmall, color:COLORS.green}} type="number" value={partida.pctParcial} onChange={e=>inpSplit("pctParcial",e.target.value)} placeholder="%" />
-          <span style={{ color:COLORS.textMuted, fontSize:10 }}>%</span>
-          <input style={{...styleSmall, color:COLORS.textMuted}} type="number" value={partida.diasParcial||0} onChange={e=>inp("diasParcial",e.target.value)} placeholder="d" title="Días plazo" />
-          <span style={{ color:COLORS.textMuted, fontSize:9 }}>d</span>
+          <input style={{...styleSmall, color:C.green}} type="number" value={partida.pctParcial} onChange={e=>inpSplit("pctParcial",e.target.value)} placeholder="%" />
+          <span style={{ color:C.textMuted, fontSize:10 }}>%</span>
+          <input style={{...styleSmall, color:C.textMuted}} type="number" value={partida.diasParcial||0} onChange={e=>inp("diasParcial",e.target.value)} placeholder="d" title="Días plazo" />
+          <span style={{ color:C.textMuted, fontSize:9 }}>d</span>
         </div>
       </td>
       <td style={{ padding:"8px 6px", width:100 }}>
         <input
-          style={{ background:"transparent", border:"none", color:COLORS.green, fontFamily:FONT, fontSize:11, padding:"5px 4px", width:"100%", boxSizing:"border-box", textAlign:"right" }}
+          style={{ background:"transparent", border:"none", color:C.green, fontFamily:FONT, fontSize:11, padding:"5px 4px", width:"100%", boxSizing:"border-box", textAlign:"right" }}
           type="number" min={0}
           value={parcialInput !== null ? parcialInput : (parcial>0 ? Math.round(parcial) : "")}
           onChange={e=>setParcialInput(e.target.value)}
@@ -599,15 +599,15 @@ export function PartidaRow({ partida, fases, onChange, onDelete }) {
       <td style={{ padding:"8px 6px", width:100 }}>
         <div style={{ display:"flex", gap:3, alignItems:"center" }}>
           <div style={{...styleSmall, color:"#f59e0b", cursor:"default"}} title="El saldo — se calcula solo (100% − Anticipo − Parcial)">{(Number(partida.pctFinalizar)||0).toFixed(1)}</div>
-          <span style={{ color:COLORS.textMuted, fontSize:10 }}>%</span>
-          <input style={{...styleSmall, color:COLORS.textMuted}} type="number" value={partida.diasFinalizar||0} onChange={e=>inp("diasFinalizar",e.target.value)} placeholder="d" title="Días plazo" />
-          <span style={{ color:COLORS.textMuted, fontSize:9 }}>d</span>
+          <span style={{ color:C.textMuted, fontSize:10 }}>%</span>
+          <input style={{...styleSmall, color:C.textMuted}} type="number" value={partida.diasFinalizar||0} onChange={e=>inp("diasFinalizar",e.target.value)} placeholder="d" title="Días plazo" />
+          <span style={{ color:C.textMuted, fontSize:9 }}>d</span>
         </div>
       </td>
       <td style={{ padding:"8px 6px", width:100, fontFamily:FONT, fontSize:11, color:"#f59e0b", textAlign:"right" }} title="El saldo — se calcula solo para que Anticipo+Parcial+Finalizar sumen 100%">
         {finalizar > 0 ? `$${Math.round(finalizar).toLocaleString("es-CL")}` : "-"}
       </td>
-      <td style={{ padding:"8px 6px", width:110, fontFamily:FONT, fontSize:12, fontWeight:700, color:COLORS.text, textAlign:"right" }}>
+      <td style={{ padding:"8px 6px", width:110, fontFamily:FONT, fontSize:12, fontWeight:700, color:C.text, textAlign:"right" }}>
         ${monto.toLocaleString("es-CL")}
       </td>
       {/* % Avance cobrado — solo de referencia, calculado desde el monto Cobrado exacto */}
@@ -630,7 +630,7 @@ export function PartidaRow({ partida, fases, onChange, onDelete }) {
         />
       </td>
       <td style={{ padding:"8px 6px", textAlign:"center" }}>
-        <button onClick={onDelete} style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:14 }}>×</button>
+        <button onClick={onDelete} style={{ background:"none", border:"none", color:C.red, cursor:"pointer", fontSize:14 }}>×</button>
       </td>
     </tr>
   );

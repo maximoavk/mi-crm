@@ -12,7 +12,7 @@
 import { Children } from "react";
 import { TREE_ELBOW, treeLine } from "./tree.js";
 
-export function TreeBranch({ x = 7, anchor = 14, reach = 0, gap = 4, children, style }) {
+export function TreeBranch({ x = 7, anchor = 14, reach = 0, gap = 4, children, style, color }) {
   const hijos = Children.toArray(children).filter(Boolean);
   if (!hijos.length) return null;
   return (
@@ -24,9 +24,9 @@ export function TreeBranch({ x = 7, anchor = 14, reach = 0, gap = 4, children, s
         return (
           // flow-root: contiene los márgenes del hijo, para que la línea no se corte entre hermanos
           <div key={hijo.key ?? i} style={{ position:"relative", display:"flow-root", paddingLeft: x + TREE_ELBOW + gap }}>
-            {!ultimo && <div style={treeLine({ left:x, top:arriba, bottom:0, borderLeftWidth:1 })} />}
+            {!ultimo && <div style={treeLine({ left:x, top:arriba, bottom:0, borderLeftWidth:1 }, color)} />}
             <div style={treeLine({ left:x, top:arriba, height:anchor - arriba, width:TREE_ELBOW,
-              borderLeftWidth:1, borderBottomWidth:1, borderBottomLeftRadius:6 })} />
+              borderLeftWidth:1, borderBottomWidth:1, borderBottomLeftRadius:6 }, color)} />
             {hijo}
           </div>
         );

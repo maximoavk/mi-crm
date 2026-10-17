@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../supabaseClient.js";
 import { mapProduct, mapProductToDb } from "../shared/mappers.js";
-import { FONT, COLORS, FONT_DISPLAY } from "../theme.js";
+import { FONT_BODY as FONT, COLORS_LIGHT as C, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { AddBtn, Loader, Modal, Input, Select } from "../shared/ui.jsx";
 import { CATALOG_CATS } from "../shared/constants.js";
 import { fmt, hoyISO } from "../shared/format.js";
@@ -29,7 +29,7 @@ function siguienteCodigo(prefix, codesLower) {
 // ── BASE DE DATOS DE PRODUCTOS ───────────────────────────────────────────────
 // openProductId: abre directo la ficha de ese producto (desde "Ver en maestro"
 // en el Costeo); onVolver: al cerrarla, regresa a la pantalla de origen.
-export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver }) {
+export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, autoNew, onAutoNewHandled }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -112,6 +112,10 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
     cargarFuentes();
     setShowModal(true);
   };
+
+  // Acceso directo desde el Dashboard ("Nuevo producto"): abre el formulario
+  // de creación apenas se entra a la pantalla.
+  useEffect(() => { if (autoNew) queueMicrotask(() => { openNew(); onAutoNewHandled?.(); }); }, [autoNew]);
 
   // Enlaces a ficha técnica ya escritos en Costeos/cotizaciones para el
   // producto abierto (por vínculo, código, SKU o nombre), si su ficha está vacía.
@@ -276,55 +280,55 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:14, flexWrap:"wrap", gap:10 }}>
         <div>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Catálogo · Maestros</div>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Base de Productos y Servicios</div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Catálogo · Maestros</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:C.text }}>Base de Productos y Servicios</div>
         </div>
         <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
           <div style={{ position:"relative" }}>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Código, nombre…" style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 14px 8px 32px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", width:180 }} />
-            <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", fontSize:12, color:COLORS.textMuted }}>🔍</span>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Código, nombre…" style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 14px 8px 32px", fontFamily:FONT, fontSize:12, color:C.text, outline:"none", width:180 }} />
+            <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", fontSize:12, color:C.textMuted }}>🔍</span>
           </div>
           <button onClick={()=>setShowTraerFichas(true)} title="Trae al maestro los enlaces a ficha técnica ya escritos en Costeos y cotizaciones"
-            style={{ padding:"9px 14px", background:`${COLORS.accent}14`, border:`1px solid ${COLORS.accent}66`, borderRadius:7, color:COLORS.accent, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
+            style={{ padding:"9px 14px", background:`${C.accent}14`, border:`1px solid ${C.accent}66`, borderRadius:7, color:C.accent, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
             📎 Traer fichas técnicas
           </button>
           {duplicateGroups.length > 0 && (
             <button onClick={()=>setShowDupes(v=>!v)} title="Códigos usados por más de un producto"
-              style={{ padding:"9px 14px", background:showDupes?COLORS.red:`${COLORS.red}14`, border:`1px solid ${COLORS.red}66`, borderRadius:7, color:showDupes?COLORS.bg:COLORS.red, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
+              style={{ padding:"9px 14px", background:showDupes?C.red:`${C.red}14`, border:`1px solid ${C.red}66`, borderRadius:7, color:showDupes?C.bg:C.red, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
               ⚠ Duplicados ({duplicateGroups.length})
             </button>
           )}
-          <AddBtn onClick={openNew} label="Nuevo ítem" />
+          <AddBtn onClick={openNew} label="Nuevo ítem" theme={LIGHT_THEME} />
         </div>
       </div>
 
       {avisoFichas && (
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, padding:"10px 14px", marginBottom:14, borderRadius:8,
-          background:`${COLORS.green}14`, border:`1px solid ${COLORS.green}55`, fontFamily:FONT, fontSize:12, color:COLORS.green }}>
+          background:`${C.green}14`, border:`1px solid ${C.green}55`, fontFamily:FONT, fontSize:12, color:C.green }}>
           <span>{avisoFichas}</span>
-          <button onClick={()=>setAvisoFichas("")} style={{ background:"none", border:"none", color:COLORS.green, cursor:"pointer" }}>✕</button>
+          <button onClick={()=>setAvisoFichas("")} style={{ background:"none", border:"none", color:C.green, cursor:"pointer" }}>✕</button>
         </div>
       )}
       {showDupes && duplicateGroups.length > 0 && (
-        <div style={{ marginBottom:16, background:COLORS.card, border:`1px solid ${COLORS.red}44`, borderRadius:10, padding:14 }}>
-          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.red, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>
+        <div style={{ marginBottom:16, background:C.card, border:`1px solid ${C.red}44`, borderRadius:10, padding:14 }}>
+          <div style={{ fontFamily:FONT, fontSize:10, color:C.red, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>
             {duplicateGroups.length} código{duplicateGroups.length===1?"":"s"} repetido{duplicateGroups.length===1?"":"s"}
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
             {duplicateGroups.map(group => (
-              <div key={group[0].product.code} style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"10px 12px" }}>
-                <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.text, marginBottom:6 }}>{group[0].product.code}</div>
+              <div key={group[0].product.code} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 12px" }}>
+                <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:C.text, marginBottom:6 }}>{group[0].product.code}</div>
                 {group.map(({ product, keep, suggestion }) => (
                   <div key={product.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"4px 0" }}>
-                    <div style={{ flex:1, minWidth:0, fontFamily:FONT, fontSize:11, color:COLORS.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{product.name}</div>
+                    <div style={{ flex:1, minWidth:0, fontFamily:FONT, fontSize:11, color:C.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{product.name}</div>
                     {keep ? (
-                      <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textDim }}>mantiene este código</span>
+                      <span style={{ fontFamily:FONT, fontSize:9, color:C.textDim }}>mantiene este código</span>
                     ) : (
                       <>
                         <input value={dupeEdits[product.id] ?? suggestion ?? ""} onChange={e=>setDupeEdits(p=>({...p,[product.id]:e.target.value}))} placeholder="nuevo código"
-                          style={{ width:120, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:5, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none" }} />
+                          style={{ width:120, background:C.bg, border:`1px solid ${C.border}`, borderRadius:5, padding:"5px 8px", fontFamily:FONT, fontSize:11, color:C.text, outline:"none" }} />
                         <button onClick={()=>applyDupeRename(product.id, dupeEdits[product.id] ?? suggestion)} disabled={dupeSaving===product.id || !(dupeEdits[product.id] ?? suggestion)}
-                          style={{ padding:"5px 10px", background:COLORS.accent, border:"none", borderRadius:5, color:COLORS.bg, fontFamily:FONT, fontSize:10, fontWeight:700, cursor:"pointer", opacity:dupeSaving===product.id?0.6:1 }}>
+                          style={{ padding:"5px 10px", background:C.accent, border:"none", borderRadius:5, color:C.bg, fontFamily:FONT, fontSize:10, fontWeight:700, cursor:"pointer", opacity:dupeSaving===product.id?0.6:1 }}>
                           {dupeSaving===product.id?"…":"Aplicar"}
                         </button>
                       </>
@@ -362,9 +366,9 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
                     style={{
                       display:"flex", alignItems:"center", gap:5,
                       padding:"6px 12px", borderRadius:999, cursor:"pointer",
-                      background: active ? "linear-gradient(120deg,#AC3AB322,#2954EC22)" : COLORS.card,
-                      border:`1px solid ${active ? "#AC3AB355" : COLORS.border}`,
-                      color: active ? COLORS.text : COLORS.textMuted,
+                      background: active ? "linear-gradient(120deg,#AC3AB322,#2954EC22)" : C.card,
+                      border:`1px solid ${active ? "#AC3AB355" : C.border}`,
+                      color: active ? C.text : C.textMuted,
                       fontFamily:FONT_DISPLAY, fontSize:11, fontWeight: active?700:500,
                       whiteSpace:"nowrap", transition:"all 0.15s",
                     }}>
@@ -372,8 +376,8 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
                     {cat.label}
                     <span style={{
                       fontSize:9, fontFamily:FONT,
-                      background: active ? "#AC3AB333" : COLORS.border,
-                      color: active ? COLORS.text : COLORS.textMuted,
+                      background: active ? "#AC3AB333" : C.border,
+                      color: active ? C.text : C.textMuted,
                       borderRadius:10, padding:"1px 6px", marginLeft:2,
                     }}>{count}</span>
                   </button>
@@ -391,9 +395,9 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
                   style={{
                     display:"flex", alignItems:"center", gap:6, width:"100%", textAlign:"left",
                     padding:"6px 9px", borderRadius:999, cursor:"pointer",
-                    background: active ? "linear-gradient(120deg,#AC3AB322,#2954EC22)" : COLORS.card,
-                    border:`1px solid ${active ? "#AC3AB355" : COLORS.border}`,
-                    color: active ? COLORS.text : COLORS.textMuted,
+                    background: active ? "linear-gradient(120deg,#AC3AB322,#2954EC22)" : C.card,
+                    border:`1px solid ${active ? "#AC3AB355" : C.border}`,
+                    color: active ? C.text : C.textMuted,
                     fontFamily:FONT_DISPLAY, fontSize:11, fontWeight: active?700:500,
                     transition:"all 0.15s",
                   }}>
@@ -401,8 +405,8 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
                   <span style={{ flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{cat.label}</span>
                   <span style={{
                     fontSize:9, fontFamily:FONT, flexShrink:0,
-                    background: active ? "#AC3AB333" : COLORS.border,
-                    color: active ? COLORS.text : COLORS.textMuted,
+                    background: active ? "#AC3AB333" : C.border,
+                    color: active ? C.text : C.textMuted,
                     borderRadius:10, padding:"1px 5px",
                   }}>{count}</span>
                 </button>
@@ -416,9 +420,9 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
         <div style={{ overflowX:"auto" }}>
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12, fontFamily:FONT }}>
             <thead>
-              <tr style={{ borderBottom:`2px solid ${COLORS.border}` }}>
+              <tr style={{ borderBottom:`2px solid ${C.border}` }}>
                 {["Código","SKU Proveedor","Nombre","Categoría","Proveedor","Precio Bruto","Neto","IVA Costo","Link",""].map(h=>(
-                  <th key={h} style={{ padding:"8px 7px", textAlign:"left", color:COLORS.textMuted, fontWeight:600, fontSize:10, letterSpacing:"0.08em", textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
+                  <th key={h} style={{ padding:"8px 7px", textAlign:"left", color:C.textMuted, fontWeight:600, fontSize:10, letterSpacing:"0.08em", textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -428,17 +432,17 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
                 const iva  = p.price - neto;
                 const catDef = CATALOG_CATS.find(c=>c.key===p.category);
                 return (
-                <tr key={p.id} style={{ borderBottom:`1px solid ${COLORS.border}` }}>
-                  <td style={{ padding:"6px 7px", color:COLORS.accent, fontWeight:600 }}>{p.code}</td>
+                <tr key={p.id} style={{ borderBottom:`1px solid ${C.border}` }}>
+                  <td style={{ padding:"6px 7px", color:C.accent, fontWeight:600 }}>{p.code}</td>
                   {/* SKU Proveedor */}
-                  <td style={{ padding:"6px 7px", color:COLORS.textMuted, fontSize:10, fontFamily:"monospace", whiteSpace:"nowrap" }} title={p.skuProveedor}>
+                  <td style={{ padding:"6px 7px", color:C.textMuted, fontSize:10, fontFamily:"monospace", whiteSpace:"nowrap" }} title={p.skuProveedor}>
                     {p.skuProveedor ? (
-                      <span style={{ background:`${COLORS.accent}15`, border:`1px solid ${COLORS.accent}33`, borderRadius:3, padding:"1px 5px", color:COLORS.textMuted }}>{p.skuProveedor}</span>
+                      <span style={{ background:`${C.accent}15`, border:`1px solid ${C.accent}33`, borderRadius:3, padding:"1px 5px", color:C.textMuted }}>{p.skuProveedor}</span>
                     ) : <span style={{ color:"#374151" }}>—</span>}
                   </td>
-                  <td style={{ padding:"6px 7px", color:COLORS.text, fontWeight:500, minWidth:140, maxWidth:220 }}>
+                  <td style={{ padding:"6px 7px", color:C.text, fontWeight:500, minWidth:140, maxWidth:220 }}>
                     <div style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</div>
-                    {p.description && <div style={{ fontSize:10, fontWeight:400, color:COLORS.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", marginTop:1 }} title={p.description}>{p.description}</div>}
+                    {p.description && <div style={{ fontSize:10, fontWeight:400, color:C.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", marginTop:1 }} title={p.description}>{p.description}</div>}
                   </td>
                   {/* Categoría con badge de color */}
                   <td style={{ padding:"6px 7px", whiteSpace:"nowrap" }}>
@@ -447,29 +451,29 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
                         <span>{catDef.icon}</span>{catDef.label}
                       </span>
                     ) : p.category ? (
-                      <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>{p.category}</span>
-                    ) : <span style={{ color:COLORS.textDim }}>—</span>}
+                      <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>{p.category}</span>
+                    ) : <span style={{ color:C.textDim }}>—</span>}
                   </td>
-                  <td style={{ padding:"6px 7px", color:COLORS.textMuted, whiteSpace:"nowrap" }}>{p.provider}</td>
+                  <td style={{ padding:"6px 7px", color:C.textMuted, whiteSpace:"nowrap" }}>{p.provider}</td>
                   {/* Precio Bruto */}
-                  <td style={{ padding:"6px 7px", color:COLORS.text, fontWeight:700, whiteSpace:"nowrap" }}>{fmt(p.price)}</td>
+                  <td style={{ padding:"6px 7px", color:C.text, fontWeight:700, whiteSpace:"nowrap" }}>{fmt(p.price)}</td>
                   {/* Neto */}
-                  <td style={{ padding:"6px 7px", color:COLORS.green, fontWeight:600, whiteSpace:"nowrap" }}>{fmt(neto)}</td>
+                  <td style={{ padding:"6px 7px", color:C.green, fontWeight:600, whiteSpace:"nowrap" }}>{fmt(neto)}</td>
                   {/* IVA Costo */}
                   <td style={{ padding:"6px 7px", color:"#ef4444", fontSize:11, whiteSpace:"nowrap" }}>{fmt(iva)}</td>
                   {/* Link proveedor */}
                   <td style={{ padding:"6px 7px", textAlign:"center" }}>
                     {p.url ? (
                       <a href={p.url} target="_blank" rel="noopener noreferrer"
-                        style={{ padding:"2px 8px", background:`${COLORS.accent}22`, border:`1px solid ${COLORS.accent}44`, borderRadius:4, color:COLORS.accent, textDecoration:"none", fontFamily:FONT, fontSize:10, whiteSpace:"nowrap" }}>
+                        style={{ padding:"2px 8px", background:`${C.accent}22`, border:`1px solid ${C.accent}44`, borderRadius:4, color:C.accent, textDecoration:"none", fontFamily:FONT, fontSize:10, whiteSpace:"nowrap" }}>
                         🔗 Link
                       </a>
-                    ) : <span style={{ color:COLORS.textMuted, fontSize:10 }}>—</span>}
+                    ) : <span style={{ color:C.textMuted, fontSize:10 }}>—</span>}
                   </td>
                   <td style={{ padding:"6px 7px" }}>
                     <div style={{ display:"flex", gap:6 }}>
-                      <button onClick={()=>openEdit(p)} style={{ background:"none", border:`1px solid ${COLORS.accent}44`, borderRadius:4, color:COLORS.accent, cursor:"pointer", fontSize:11, padding:"2px 7px" }}>✏️</button>
-                      <button onClick={()=>del(p.id)} style={{ background:"none", border:`1px solid ${COLORS.red}44`, borderRadius:4, color:COLORS.red, cursor:"pointer", fontSize:11, padding:"2px 7px" }}>✕</button>
+                      <button onClick={()=>openEdit(p)} style={{ background:"none", border:`1px solid ${C.accent}44`, borderRadius:4, color:C.accent, cursor:"pointer", fontSize:11, padding:"2px 7px" }}>✏️</button>
+                      <button onClick={()=>del(p.id)} style={{ background:"none", border:`1px solid ${C.red}44`, borderRadius:4, color:C.red, cursor:"pointer", fontSize:11, padding:"2px 7px" }}>✕</button>
                     </div>
                   </td>
                 </tr>
@@ -477,55 +481,55 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
               })}
             </tbody>
           </table>
-          {filtered.length===0 && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>Sin productos. ¡Agrega el primero!</div>}
+          {filtered.length===0 && <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:C.textMuted }}>Sin productos. ¡Agrega el primero!</div>}
         </div>
       )}
       </div>
       </div>
 
       {showModal && (
-        <Modal title={editingId?"Editar Ítem":"Nuevo Ítem"} onClose={()=>{ setShowModal(false); setEditingId(null); setProductPrices([]); setShowPriceForm(false); onVolver?.(); }} onSubmit={save}>
+        <Modal title={editingId?"Editar Ítem":"Nuevo Ítem"} onClose={()=>{ setShowModal(false); setEditingId(null); setProductPrices([]); setShowPriceForm(false); onVolver?.(); }} onSubmit={save} theme={LIGHT_THEME}>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
             <div>
-              <Input label="Código *" value={form.code} onChange={e=>f("code",e.target.value)} placeholder="Ej: ECAM-001" />
+              <Input label="Código *" value={form.code} onChange={e=>f("code",e.target.value)} placeholder="Ej: ECAM-001" theme={LIGHT_THEME} />
               {codeInfo.duplicate && (
-                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.red, marginTop:-10, marginBottom:10 }}>⚠ Ya existe: {codeInfo.duplicate.name}</div>
+                <div style={{ fontFamily:FONT, fontSize:9, color:C.red, marginTop:-10, marginBottom:10 }}>⚠ Ya existe: {codeInfo.duplicate.name}</div>
               )}
               {!codeInfo.duplicate && codeInfo.suggestion && (
                 <button type="button" onClick={()=>f("code", codeInfo.suggestion)}
-                  style={{ display:"block", background:"none", border:"none", padding:0, marginTop:-10, marginBottom:10, fontFamily:FONT, fontSize:9, color:COLORS.accent, cursor:"pointer", textDecoration:"underline" }}>
+                  style={{ display:"block", background:"none", border:"none", padding:0, marginTop:-10, marginBottom:10, fontFamily:FONT, fontSize:9, color:C.accent, cursor:"pointer", textDecoration:"underline" }}>
                   Sugerido: {codeInfo.suggestion}
                 </button>
               )}
             </div>
-            <Select label="Tipo" value={form.type} onChange={e=>f("type",e.target.value)}>
+            <Select label="Tipo" value={form.type} onChange={e=>f("type",e.target.value)} theme={LIGHT_THEME}>
               <option value="producto">Producto</option>
               <option value="servicio">Servicio</option>
               <option value="proyecto">Proyecto</option>
             </Select>
           </div>
-          <Input label="Nombre *" value={form.name} onChange={e=>f("name",e.target.value)} placeholder="Ej: Cámara Domo 4MP" />
+          <Input label="Nombre *" value={form.name} onChange={e=>f("name",e.target.value)} placeholder="Ej: Cámara Domo 4MP" theme={LIGHT_THEME} />
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-            <Input label="Modelo / Descripción" value={form.description} onChange={e=>f("description",e.target.value)} placeholder="Ej: DH-IPC-HDW1230T1" />
+            <Input label="Modelo / Descripción" value={form.description} onChange={e=>f("description",e.target.value)} placeholder="Ej: DH-IPC-HDW1230T1" theme={LIGHT_THEME} />
             <div>
-              <Input label="SKU Proveedor" value={form.skuProveedor} onChange={e=>f("skuProveedor",e.target.value)} placeholder="Ej: DH-IPC-HDW1230T1-0280B" />
-              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginTop:2, paddingLeft:2 }}>Ref. cruzada — no reemplaza tu código Polygonos</div>
+              <Input label="SKU Proveedor" value={form.skuProveedor} onChange={e=>f("skuProveedor",e.target.value)} placeholder="Ej: DH-IPC-HDW1230T1-0280B" theme={LIGHT_THEME} />
+              <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, marginTop:2, paddingLeft:2 }}>Ref. cruzada — no reemplaza tu código Polygonos</div>
             </div>
           </div>
           <div>
-            <Input label="Ficha técnica (URL)" value={form.fichaUrl} onChange={e=>f("fichaUrl",e.target.value)} placeholder="https://… (datasheet del fabricante)" />
-            <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginTop:2, paddingLeft:2 }}>Se precarga en el Costeo y el Cotizador al insertar este producto</div>
+            <Input label="Ficha técnica (URL)" value={form.fichaUrl} onChange={e=>f("fichaUrl",e.target.value)} placeholder="https://… (datasheet del fabricante)" theme={LIGHT_THEME} />
+            <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, marginTop:2, paddingLeft:2 }}>Se precarga en el Costeo y el Cotizador al insertar este producto</div>
             {sugerenciaFicha && (
-              <div style={{ marginTop:8, padding:"8px 10px", borderRadius:8, background:`${COLORS.accent}10`, border:`1px solid ${COLORS.accent}44` }}>
-                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, marginBottom:4 }}>
+              <div style={{ marginTop:8, padding:"8px 10px", borderRadius:8, background:`${C.accent}10`, border:`1px solid ${C.accent}44` }}>
+                <div style={{ fontFamily:FONT, fontSize:10, color:C.accent, marginBottom:4 }}>
                   📎 Encontrado en {sugerenciaFicha.fuentes.join(" · ")}
-                  {sugerenciaFicha.porNombre && <span style={{ color:COLORS.yellow }}> · por nombre, revisa que sea este producto</span>}
+                  {sugerenciaFicha.porNombre && <span style={{ color:C.yellow }}> · por nombre, revisa que sea este producto</span>}
                 </div>
                 {sugerenciaFicha.alternativas.map(a => (
                   <div key={a.url} style={{ display:"flex", alignItems:"center", gap:8, padding:"2px 0" }}>
-                    <a href={a.url} target="_blank" rel="noreferrer" style={{ flex:1, minWidth:0, fontFamily:FONT, fontSize:11, color:COLORS.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{a.url}</a>
+                    <a href={a.url} target="_blank" rel="noreferrer" style={{ flex:1, minWidth:0, fontFamily:FONT, fontSize:11, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{a.url}</a>
                     <button type="button" onClick={()=>f("fichaUrl", a.url)}
-                      style={{ padding:"3px 10px", borderRadius:5, border:"none", background:COLORS.accent, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer" }}>Usar</button>
+                      style={{ padding:"3px 10px", borderRadius:5, border:"none", background:C.accent, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, cursor:"pointer" }}>Usar</button>
                   </div>
                 ))}
               </div>
@@ -535,21 +539,21 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
           {/* Precio bruto con desglose automático — solo en edición; al crear, el precio
               se indica una sola vez junto al proveedor, en el panel de abajo */}
           {editingId && (
-            <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"12px 14px", marginBottom:4 }}>
-              <Input label="Precio Bruto Preferido (CLP c/IVA)" value={form.price} onChange={e=>f("price",e.target.value)} type="number" placeholder="0" />
+            <div style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, padding:"12px 14px", marginBottom:4 }}>
+              <Input label="Precio Bruto Preferido (CLP c/IVA)" value={form.price} onChange={e=>f("price",e.target.value)} type="number" placeholder="0" theme={LIGHT_THEME} />
               {Number(form.price) > 0 && (
                 <div style={{ display:"flex", gap:16, marginTop:8 }}>
                   <div style={{ flex:1 }}>
-                    <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:2 }}>Neto (÷1.19)</div>
-                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.green }}>{fmt(Math.round(Number(form.price)/1.19))}</div>
+                    <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:2 }}>Neto (÷1.19)</div>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:C.green }}>{fmt(Math.round(Number(form.price)/1.19))}</div>
                   </div>
                   <div style={{ flex:1 }}>
-                    <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:2 }}>IVA del costo</div>
+                    <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:2 }}>IVA del costo</div>
                     <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:"#ef4444" }}>{fmt(Number(form.price) - Math.round(Number(form.price)/1.19))}</div>
                   </div>
                   <div style={{ flex:1 }}>
-                    <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:2 }}>Bruto</div>
-                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.text }}>{fmt(Number(form.price))}</div>
+                    <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:2 }}>Bruto</div>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:C.text }}>{fmt(Number(form.price))}</div>
                   </div>
                 </div>
               )}
@@ -557,11 +561,11 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
           )}
 
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-            <Input label="Unidad" value={form.unit} onChange={e=>f("unit",e.target.value)} placeholder="un / hr / m2" />
+            <Input label="Unidad" value={form.unit} onChange={e=>f("unit",e.target.value)} placeholder="un / hr / m2" theme={LIGHT_THEME} />
             <div style={{ marginBottom:14 }}>
-              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Categoría</div>
+              <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Categoría</div>
               <select value={form.category} onChange={e=>f("category",e.target.value)}
-                style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:form.category?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box" }}>
+                style={{ width:"100%", background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:form.category?C.text:C.textMuted, outline:"none", boxSizing:"border-box" }}>
                 <option value="">— Seleccionar categoría —</option>
                 {CATALOG_CATS.filter(c=>c.key!=="todos").map(c=>(
                   <option key={c.key} value={c.key}>{c.icon} {c.label}</option>
@@ -571,21 +575,21 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
           </div>
 
           {/* ── PANEL DE PROVEEDORES Y PRECIOS ─────────────────────────────── */}
-          <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.accent}33`, borderRadius:10, padding:"14px", marginTop:6 }}>
+          <div style={{ background:C.bg, border:`1px solid ${C.accent}33`, borderRadius:10, padding:"14px", marginTop:6 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600 }}>
+              <div style={{ fontFamily:FONT, fontSize:10, color:C.accent, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600 }}>
                 🏪 {editingId ? "Precios por Proveedor" : "Proveedor Principal"}
               </div>
               {editingId && (
                 <div style={{ display:"flex", gap:6 }}>
                   {productPrices.length >= 2 && (
                     <button onClick={()=>setShowComparar(v=>!v)}
-                      style={{ padding:"3px 10px", background:showComparar?COLORS.accent:"none", border:`1px solid ${COLORS.accent}`, borderRadius:5, color:showComparar?COLORS.bg:COLORS.accent, fontFamily:FONT, fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                      style={{ padding:"3px 10px", background:showComparar?C.accent:"none", border:`1px solid ${C.accent}`, borderRadius:5, color:showComparar?C.bg:C.accent, fontFamily:FONT, fontSize:11, fontWeight:700, cursor:"pointer" }}>
                       📊 Comparar
                     </button>
                   )}
                   <button onClick={()=>{ setPriceForm({ supplier_id:"", precio_bruto:"", url:"", sku_proveedor:"", es_preferido:false }); setEditingPriceId(null); setShowPriceForm(p=>!p); }}
-                    style={{ padding:"3px 10px", background:COLORS.accent, border:"none", borderRadius:5, color:COLORS.bg, fontFamily:FONT, fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                    style={{ padding:"3px 10px", background:C.accent, border:"none", borderRadius:5, color:C.bg, fontFamily:FONT, fontSize:11, fontWeight:700, cursor:"pointer" }}>
                     {showPriceForm?"✕ Cancelar":"+ Agregar"}
                   </button>
                 </div>
@@ -599,21 +603,21 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
             {/* Modo NUEVO: formulario de proveedor principal siempre visible */}
             {!editingId && (
               <div>
-                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginBottom:10, padding:"6px 10px", background:`${COLORS.accent}08`, border:`1px solid ${COLORS.accent}22`, borderRadius:6 }}>
+                <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginBottom:10, padding:"6px 10px", background:`${C.accent}08`, border:`1px solid ${C.accent}22`, borderRadius:6 }}>
                   💡 Opcional — al guardar se registrará como proveedor preferido
                 </div>
                 <div style={{ marginBottom:10 }}>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Proveedor</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Proveedor</div>
                   <select value={priceForm.supplier_id} onChange={e=>setPriceForm(p=>({...p,supplier_id:e.target.value}))}
-                    style={{ width:"100%", background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:priceForm.supplier_id?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box" }}>
+                    style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:priceForm.supplier_id?C.text:C.textMuted, outline:"none", boxSizing:"border-box" }}>
                     <option value="">— Seleccionar proveedor —</option>
                     {suppliers.map(s=><option key={s.id} value={s.id}>{s.nombre}{s.rut?` · ${s.rut}`:""}</option>)}
                   </select>
                   {priceForm.supplier_id && (()=>{
                     const sup = suppliers.find(s=>s.id===priceForm.supplier_id);
                     return sup ? (
-                      <div style={{ marginTop:5, padding:"6px 10px", background:`${COLORS.accent}08`, border:`1px solid ${COLORS.accent}22`, borderRadius:5, fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
-                        {sup.rut&&<span>RUT: <strong style={{color:COLORS.text}}>{sup.rut}</strong> &nbsp;·&nbsp; </span>}
+                      <div style={{ marginTop:5, padding:"6px 10px", background:`${C.accent}08`, border:`1px solid ${C.accent}22`, borderRadius:5, fontFamily:FONT, fontSize:10, color:C.textMuted }}>
+                        {sup.rut&&<span>RUT: <strong style={{color:C.text}}>{sup.rut}</strong> &nbsp;·&nbsp; </span>}
                         {sup.email&&<span>{sup.email} &nbsp;·&nbsp; </span>}
                         {sup.telefono&&<span>{sup.telefono}</span>}
                       </div>
@@ -622,37 +626,37 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
                 </div>
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
                   <div>
-                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Precio Bruto (c/IVA)</div>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Precio Bruto (c/IVA)</div>
                     <input type="number" value={priceForm.precio_bruto} onChange={e=>{ setPriceForm(p=>({...p,precio_bruto:e.target.value})); f("price",e.target.value); }} placeholder="0"
-                      style={{ width:"100%", background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+                      style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:C.text, outline:"none", boxSizing:"border-box" }} />
                   </div>
                   <div>
-                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>SKU Proveedor</div>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>SKU Proveedor</div>
                     <input value={priceForm.sku_proveedor} onChange={e=>{ setPriceForm(p=>({...p,sku_proveedor:e.target.value})); f("skuProveedor",e.target.value); }} placeholder="Ej: DH-IPC-001"
-                      style={{ width:"100%", background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+                      style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:C.text, outline:"none", boxSizing:"border-box" }} />
                   </div>
                 </div>
                 {Number(priceForm.precio_bruto) > 0 && (
-                  <div style={{ display:"flex", gap:16, marginBottom:8, padding:"8px 10px", background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:6 }}>
+                  <div style={{ display:"flex", gap:16, marginBottom:8, padding:"8px 10px", background:C.surface, border:`1px solid ${C.border}`, borderRadius:6 }}>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:2 }}>Neto (÷1.19)</div>
-                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.green }}>{fmt(Math.round(Number(priceForm.precio_bruto)/1.19))}</div>
+                      <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:2 }}>Neto (÷1.19)</div>
+                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:C.green }}>{fmt(Math.round(Number(priceForm.precio_bruto)/1.19))}</div>
                     </div>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:2 }}>IVA del costo</div>
+                      <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:2 }}>IVA del costo</div>
                       <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:"#ef4444" }}>{fmt(Number(priceForm.precio_bruto) - Math.round(Number(priceForm.precio_bruto)/1.19))}</div>
                     </div>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:2 }}>Bruto</div>
-                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text }}>{fmt(Number(priceForm.precio_bruto))}</div>
+                      <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:2 }}>Bruto</div>
+                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:C.text }}>{fmt(Number(priceForm.precio_bruto))}</div>
                     </div>
                   </div>
                 )}
                 <div>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>URL en este proveedor</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>URL en este proveedor</div>
                   <input value={priceForm.url} onChange={e=>{ setPriceForm(p=>({...p,url:e.target.value})); f("url",e.target.value); }} placeholder="https://smartsecure.cl/producto/..."
-                    style={{ width:"100%", background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
-                  {priceForm.url&&<a href={priceForm.url} target="_blank" rel="noopener noreferrer" style={{ fontFamily:FONT, fontSize:9, color:COLORS.accent, textDecoration:"none", marginTop:3, display:"inline-block" }}>🔗 Verificar →</a>}
+                    style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:C.text, outline:"none", boxSizing:"border-box" }} />
+                  {priceForm.url&&<a href={priceForm.url} target="_blank" rel="noopener noreferrer" style={{ fontFamily:FONT, fontSize:9, color:C.accent, textDecoration:"none", marginTop:3, display:"inline-block" }}>🔗 Verificar →</a>}
                 </div>
               </div>
             )}
@@ -667,44 +671,44 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
                   const histOpen = openHistoryId === pp.id;
                   const hist = priceHistory[pp.id];
                   return (
-                    <div key={pp.id} style={{ background:isPref?`${COLORS.accent}11`:COLORS.surface, border:`1px solid ${isPref?COLORS.accent+"44":COLORS.border}`, borderRadius:7, overflow:"hidden" }}>
+                    <div key={pp.id} style={{ background:isPref?`${C.accent}11`:C.surface, border:`1px solid ${isPref?C.accent+"44":C.border}`, borderRadius:7, overflow:"hidden" }}>
                       <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 10px" }}>
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                            <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text }}>{sup.nombre||"—"}</span>
-                            {isPref && <span style={{ fontFamily:FONT, fontSize:9, background:`${COLORS.accent}22`, color:COLORS.accent, border:`1px solid ${COLORS.accent}44`, borderRadius:3, padding:"1px 6px" }}>★ preferido</span>}
+                            <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:C.text }}>{sup.nombre||"—"}</span>
+                            {isPref && <span style={{ fontFamily:FONT, fontSize:9, background:`${C.accent}22`, color:C.accent, border:`1px solid ${C.accent}44`, borderRadius:3, padding:"1px 6px" }}>★ preferido</span>}
                           </div>
-                          {sup.rut && <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>RUT: {sup.rut}</div>}
-                          {pp.sku_proveedor && <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted }}>SKU: {pp.sku_proveedor}</div>}
+                          {sup.rut && <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted }}>RUT: {sup.rut}</div>}
+                          {pp.sku_proveedor && <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted }}>SKU: {pp.sku_proveedor}</div>}
                           <button onClick={()=>toggleHistory(pp.id)}
-                            style={{ background:"none", border:"none", padding:0, marginTop:3, fontFamily:FONT, fontSize:9, color:COLORS.accent, cursor:"pointer", textDecoration:"underline" }}>
+                            style={{ background:"none", border:"none", padding:0, marginTop:3, fontFamily:FONT, fontSize:9, color:C.accent, cursor:"pointer", textDecoration:"underline" }}>
                             {histOpen?"▴ Ocultar histórico":"▾ Histórico"}
                           </button>
                         </div>
                         <div style={{ textAlign:"right", minWidth:100 }}>
-                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.text }}>{fmt(pp.precio_bruto)}</div>
-                          <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.green }}>Neto: {fmt(neto)}</div>
-                          {pp.url && <a href={pp.url} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{ fontFamily:FONT, fontSize:9, color:COLORS.accent, textDecoration:"none" }}>🔗 link</a>}
+                          <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:C.text }}>{fmt(pp.precio_bruto)}</div>
+                          <div style={{ fontFamily:FONT, fontSize:9, color:C.green }}>Neto: {fmt(neto)}</div>
+                          {pp.url && <a href={pp.url} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{ fontFamily:FONT, fontSize:9, color:C.accent, textDecoration:"none" }}>🔗 link</a>}
                         </div>
                         <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
                           {!isPref && (
                             <button onClick={()=>setPreferido(pp.id)} title="Usar como preferido"
-                              style={{ background:"none", border:`1px solid ${COLORS.accent}44`, borderRadius:4, color:COLORS.accent, cursor:"pointer", fontSize:10, padding:"2px 6px" }}>★</button>
+                              style={{ background:"none", border:`1px solid ${C.accent}44`, borderRadius:4, color:C.accent, cursor:"pointer", fontSize:10, padding:"2px 6px" }}>★</button>
                           )}
                           <button onClick={()=>openEditPrice(pp)}
-                            style={{ background:"none", border:`1px solid ${COLORS.border}`, borderRadius:4, color:COLORS.textMuted, cursor:"pointer", fontSize:10, padding:"2px 6px" }}>✏️</button>
+                            style={{ background:"none", border:`1px solid ${C.border}`, borderRadius:4, color:C.textMuted, cursor:"pointer", fontSize:10, padding:"2px 6px" }}>✏️</button>
                           <button onClick={()=>deletePrice(pp.id)}
-                            style={{ background:"none", border:`1px solid ${COLORS.red}44`, borderRadius:4, color:COLORS.red, cursor:"pointer", fontSize:10, padding:"2px 6px" }}>✕</button>
+                            style={{ background:"none", border:`1px solid ${C.red}44`, borderRadius:4, color:C.red, cursor:"pointer", fontSize:10, padding:"2px 6px" }}>✕</button>
                         </div>
                       </div>
                       {histOpen && (
-                        <div style={{ padding:"6px 10px 10px", borderTop:`1px dashed ${COLORS.border}` }}>
-                          {hist===undefined && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Cargando…</div>}
-                          {hist && hist.length===0 && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Sin precios anteriores registrados</div>}
+                        <div style={{ padding:"6px 10px 10px", borderTop:`1px dashed ${C.border}` }}>
+                          {hist===undefined && <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>Cargando…</div>}
+                          {hist && hist.length===0 && <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>Sin precios anteriores registrados</div>}
                           {hist && hist.length>0 && hist.map(h=>(
-                            <div key={h.id} style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:10, color:COLORS.textMuted, padding:"2px 0" }}>
+                            <div key={h.id} style={{ display:"flex", justifyContent:"space-between", fontFamily:FONT, fontSize:10, color:C.textMuted, padding:"2px 0" }}>
                               <span>{h.fecha}</span>
-                              <span style={{ color:COLORS.text }}>{fmt(h.precio_bruto)}</span>
+                              <span style={{ color:C.text }}>{fmt(h.precio_bruto)}</span>
                             </div>
                           ))}
                         </div>
@@ -715,27 +719,27 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
               </div>
             )}
             {editingId && productPrices.length===0 && !showPriceForm && (
-              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textAlign:"center", padding:"10px 0" }}>Sin precios registrados aún</div>
+              <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textAlign:"center", padding:"10px 0" }}>Sin precios registrados aún</div>
             )}
 
             {/* Formulario agregar/editar precio (solo en modo edición) */}
             {editingId && showPriceForm && (
-              <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"12px 14px", marginTop:6 }}>
-                <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:10 }}>
+              <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"12px 14px", marginTop:6 }}>
+                <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:10 }}>
                   {editingPriceId?"Editar precio":"Agregar precio de proveedor"}
                 </div>
                 <div style={{ marginBottom:10 }}>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Proveedor *</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Proveedor *</div>
                   <select value={priceForm.supplier_id} onChange={e=>setPriceForm(p=>({...p,supplier_id:e.target.value}))}
-                    style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:priceForm.supplier_id?COLORS.text:COLORS.textMuted, outline:"none", boxSizing:"border-box" }}>
+                    style={{ width:"100%", background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:priceForm.supplier_id?C.text:C.textMuted, outline:"none", boxSizing:"border-box" }}>
                     <option value="">— Seleccionar proveedor —</option>
                     {suppliers.map(s=><option key={s.id} value={s.id}>{s.nombre}{s.rut?` · ${s.rut}`:""}</option>)}
                   </select>
                   {priceForm.supplier_id && (()=>{
                     const sup = suppliers.find(s=>s.id===priceForm.supplier_id);
                     return sup ? (
-                      <div style={{ marginTop:5, padding:"6px 10px", background:`${COLORS.accent}08`, border:`1px solid ${COLORS.accent}22`, borderRadius:5, fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
-                        {sup.rut&&<span>RUT: <strong style={{color:COLORS.text}}>{sup.rut}</strong> &nbsp;·&nbsp; </span>}
+                      <div style={{ marginTop:5, padding:"6px 10px", background:`${C.accent}08`, border:`1px solid ${C.accent}22`, borderRadius:5, fontFamily:FONT, fontSize:10, color:C.textMuted }}>
+                        {sup.rut&&<span>RUT: <strong style={{color:C.text}}>{sup.rut}</strong> &nbsp;·&nbsp; </span>}
                         {sup.email&&<span>{sup.email} &nbsp;·&nbsp; </span>}
                         {sup.telefono&&<span>{sup.telefono}</span>}
                       </div>
@@ -744,32 +748,32 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver })
                 </div>
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
                   <div>
-                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Precio Bruto (c/IVA) *</div>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Precio Bruto (c/IVA) *</div>
                     <input type="number" value={priceForm.precio_bruto} onChange={e=>setPriceForm(p=>({...p,precio_bruto:e.target.value}))} placeholder="0"
-                      style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
-                    {Number(priceForm.precio_bruto)>0 && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.green, marginTop:3 }}>Neto: {fmt(Math.round(Number(priceForm.precio_bruto)/1.19))}</div>}
+                      style={{ width:"100%", background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:C.text, outline:"none", boxSizing:"border-box" }} />
+                    {Number(priceForm.precio_bruto)>0 && <div style={{ fontFamily:FONT, fontSize:10, color:C.green, marginTop:3 }}>Neto: {fmt(Math.round(Number(priceForm.precio_bruto)/1.19))}</div>}
                   </div>
                   <div>
-                    <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>SKU Proveedor</div>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>SKU Proveedor</div>
                     <input value={priceForm.sku_proveedor} onChange={e=>setPriceForm(p=>({...p,sku_proveedor:e.target.value}))} placeholder="Ej: DH-IPC-001"
-                      style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+                      style={{ width:"100%", background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:C.text, outline:"none", boxSizing:"border-box" }} />
                   </div>
                 </div>
                 <div style={{ marginTop:8 }}>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>URL en este proveedor</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>URL en este proveedor</div>
                   <input value={priceForm.url} onChange={e=>setPriceForm(p=>({...p,url:e.target.value}))} placeholder="https://smartsecure.cl/producto/..."
-                    style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
-                  {priceForm.url&&<a href={priceForm.url} target="_blank" rel="noopener noreferrer" style={{ fontFamily:FONT, fontSize:9, color:COLORS.accent, textDecoration:"none", marginTop:3, display:"inline-block" }}>🔗 Verificar →</a>}
+                    style={{ width:"100%", background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:C.text, outline:"none", boxSizing:"border-box" }} />
+                  {priceForm.url&&<a href={priceForm.url} target="_blank" rel="noopener noreferrer" style={{ fontFamily:FONT, fontSize:9, color:C.accent, textDecoration:"none", marginTop:3, display:"inline-block" }}>🔗 Verificar →</a>}
                 </div>
                 <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:10 }}>
                   <input type="checkbox" id="esPref" checked={priceForm.es_preferido} onChange={e=>setPriceForm(p=>({...p,es_preferido:e.target.checked}))}
-                    style={{ accentColor:COLORS.accent, width:14, height:14, cursor:"pointer" }} />
-                  <label htmlFor="esPref" style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, cursor:"pointer" }}>
+                    style={{ accentColor:C.accent, width:14, height:14, cursor:"pointer" }} />
+                  <label htmlFor="esPref" style={{ fontFamily:FONT, fontSize:12, color:C.text, cursor:"pointer" }}>
                     ★ Marcar como proveedor preferido (actualiza precio principal)
                   </label>
                 </div>
                 <button onClick={savePrice} disabled={savingPrice}
-                  style={{ width:"100%", marginTop:12, padding:"9px 0", background:COLORS.accent, border:"none", borderRadius:6, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer", opacity:savingPrice?0.6:1 }}>
+                  style={{ width:"100%", marginTop:12, padding:"9px 0", background:C.accent, border:"none", borderRadius:6, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:"pointer", opacity:savingPrice?0.6:1 }}>
                   {savingPrice?"Guardando…":editingPriceId?"Actualizar precio":"Guardar precio"}
                 </button>
               </div>
@@ -792,10 +796,10 @@ function ComparadorPrecios({ productPrices }) {
   const min = Number(items[0].precio_bruto);
   const max = Number(items[items.length - 1].precio_bruto);
   return (
-    <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
+    <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
       <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10 }}>
-        <span style={{ width:8, height:8, borderRadius:2, background:COLORS.green, flexShrink:0 }} />
-        <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.06em" }}>Precio más bajo</span>
+        <span style={{ width:8, height:8, borderRadius:2, background:C.green, flexShrink:0 }} />
+        <span style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.06em" }}>Precio más bajo</span>
       </div>
       <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
         {items.map(pp => {
@@ -806,14 +810,14 @@ function ComparadorPrecios({ productPrices }) {
           return (
             <div key={pp.id} onMouseEnter={() => setHoverId(pp.id)} onMouseLeave={() => setHoverId(null)} style={{ position:"relative" }}>
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <div style={{ width:110, flexShrink:0, fontFamily:FONT, fontSize:10, color:COLORS.text, textAlign:"right", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{pp.suppliers?.nombre || "—"}</div>
-                <div style={{ flex:1, height:16, background:COLORS.bg, borderRadius:4, overflow:"hidden" }}>
-                  <div style={{ width:`${pct}%`, height:"100%", background:isMin ? COLORS.green : COLORS.accent, borderRadius:4, transition:"width 0.2s" }} />
+                <div style={{ width:110, flexShrink:0, fontFamily:FONT, fontSize:10, color:C.text, textAlign:"right", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{pp.suppliers?.nombre || "—"}</div>
+                <div style={{ flex:1, height:16, background:C.bg, borderRadius:4, overflow:"hidden" }}>
+                  <div style={{ width:`${pct}%`, height:"100%", background:isMin ? C.green : C.accent, borderRadius:4, transition:"width 0.2s" }} />
                 </div>
-                <div style={{ width:84, flexShrink:0, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:COLORS.text, textAlign:"right" }}>{fmt(val)}</div>
+                <div style={{ width:84, flexShrink:0, fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:C.text, textAlign:"right" }}>{fmt(val)}</div>
               </div>
               {hoverId === pp.id && (
-                <div style={{ position:"absolute", left:118, bottom:"100%", marginBottom:4, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"5px 8px", fontFamily:FONT, fontSize:9, color:COLORS.textMuted, whiteSpace:"nowrap", zIndex:5, boxShadow:"0 6px 16px #00000066" }}>
+                <div style={{ position:"absolute", left:118, bottom:"100%", marginBottom:4, background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"5px 8px", fontFamily:FONT, fontSize:9, color:C.textMuted, whiteSpace:"nowrap", zIndex:5, boxShadow:"0 6px 16px #00000066" }}>
                   {isMin ? "Precio más bajo" : `+${diffPct}% vs. más barato`}
                 </div>
               )}

@@ -3,8 +3,7 @@
 // sucesora (filas de 32 px), así que `dy` es la distancia vertical hasta la
 // fila de la predecesora. En rojo cuando la sucesora empieza antes de tiempo.
 import { diffDays } from "./fechas.js";
-import { COLORS } from "../theme.js";
-
+import { COLORS_LIGHT as C, FONT_NUM, LIGHT_THEME } from "../theme.js";
 const ALTO_FILA = 32;
 
 export function FlechaDependencia({ pred, tarea, dy, calStart, calDays, cellW, incumple }) {
@@ -22,7 +21,7 @@ export function FlechaDependencia({ pred, tarea, dy, calStart, calDays, cellW, i
   const d = hayEspacio
     ? `M${x0},${yp} H${x0 + 5} V${ys} H${x1}`
     : `M${x0},${yp} H${x0 + 4} V${ymid} H${x1 - 6} V${ys} H${x1}`;
-  const color = incumple ? COLORS.red : COLORS.accent;
+  const color = incumple ? C.red : C.accent;
 
   return (
     <svg width={1} height={1} style={{ position:"absolute", left:0, top:0, overflow:"visible", pointerEvents:"none", zIndex:2 }}>

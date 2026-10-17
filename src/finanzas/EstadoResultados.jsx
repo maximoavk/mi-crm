@@ -1,5 +1,5 @@
 // Estado de resultados estimado (ingresos, costos, IVA y PPM).
-import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { KpiCard } from "./ui.jsx";
 
 const fmtClp = n => "$" + Math.round(n||0).toLocaleString("es-CL");
@@ -7,17 +7,17 @@ const fmtClp = n => "$" + Math.round(n||0).toLocaleString("es-CL");
 // Filas del estado de resultados (fuera del componente para que React no
 // los recree en cada render).
 const Section   = ({ label }) => (
-  <div style={{ padding:"7px 18px", background:COLORS.surface, borderTop:`1px solid ${COLORS.border}`, borderBottom:`1px solid ${COLORS.border}` }}>
-    <span style={{ fontFamily:FONT, fontSize:9, fontWeight:700, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.12em" }}>{label}</span>
+  <div style={{ padding:"7px 18px", background:C.surface, borderTop:`1px solid ${C.border}`, borderBottom:`1px solid ${C.border}` }}>
+    <span style={{ fontFamily:FONT, fontSize:9, fontWeight:700, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.12em" }}>{label}</span>
   </div>
 );
 const Row = ({ label, valor, indent=0, muted=false, note="" }) => (
-  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:`6px ${18+indent*16}px`, borderBottom:`1px solid ${COLORS.border}11` }}>
+  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:`6px ${18+indent*16}px`, borderBottom:`1px solid ${C.border}11` }}>
     <div>
-      <span style={{ fontFamily:FONT, fontSize:11, color:muted?COLORS.textMuted:COLORS.text }}>{label}</span>
-      {note && <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginLeft:6 }}>{note}</span>}
+      <span style={{ fontFamily:FONT, fontSize:11, color:muted?C.textMuted:C.text }}>{label}</span>
+      {note && <span style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, marginLeft:6 }}>{note}</span>}
     </div>
-    <span style={{ fontFamily:FONT, fontSize:11, color:muted?COLORS.textMuted:COLORS.text }}>{fmtClp(valor)}</span>
+    <span style={{ fontFamily:FONT, fontSize:11, color:muted?C.textMuted:C.text }}>{fmtClp(valor)}</span>
   </div>
 );
 const Total = ({ label, valor, color, pctLabel="" }) => (
@@ -69,32 +69,32 @@ export function EstadoResultados({ emitidas, recibidas, mes, anio, loading, isMo
   // resultado. El PPM sí, como anticipo del impuesto a la renta.
   const resultadoNeto  = resultadoOp - ppm;
 
-  const colorPos  = v => v >= 0 ? COLORS.green : COLORS.red;
+  const colorPos  = v => v >= 0 ? C.green : C.red;
 
   const gridCols = isMobile ? "1fr" : "repeat(3,1fr)";
 
-  if (loading) return <div style={{ padding:40, textAlign:"center", fontFamily:FONT, color:COLORS.textMuted }}>Cargando datos…</div>;
+  if (loading) return <div style={{ padding:40, textAlign:"center", fontFamily:FONT, color:C.textMuted }}>Cargando datos…</div>;
 
   return (
     <div style={{ maxWidth:720, margin:"0 auto" }}>
       {/* KPIs resumen */}
       <div style={{ display:"grid", gridTemplateColumns:gridCols, gap:12, marginBottom:24 }}>
         {[
-          { label:"Ingresos Netos",           val:ingresoNeto,  color:COLORS.accent,  sub:`${emitidas.length} facturas emitidas` },
+          { label:"Ingresos Netos",           val:ingresoNeto,  color:C.accent,  sub:`${emitidas.length} facturas emitidas` },
           { label:"Margen Bruto",             val:margenBruto,  color:colorPos(margenBruto),  sub:`${pctMargen.toFixed(1)}% sobre ingresos` },
           { label:"Resultado Operacional",    val:resultadoOp,  color:colorPos(resultadoOp),  sub:`${pctResultado.toFixed(1)}% sobre ingresos` },
         ].map(k=>(
-          <KpiCard key={k.label} label={k.label} value={fmtClp(k.val)} sub={k.sub} color={k.color} />
+          <KpiCard key={k.label} label={k.label} value={fmtClp(k.val)} sub={k.sub} color={k.color} theme={LIGHT_THEME} />
         ))}
       </div>
 
       {/* Tabla P&L */}
-      <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, overflow:"hidden", marginBottom:16 }}>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, overflow:"hidden", marginBottom:16 }}>
 
         {/* INGRESOS */}
         <Section label="Ingresos Operacionales" />
         <Row label="Ventas Netas (facturas emitidas)" valor={ingresoNeto} />
-        <Total label="Total Ingresos" valor={ingresoNeto} color={COLORS.accent} />
+        <Total label="Total Ingresos" valor={ingresoNeto} color={C.accent} />
 
         {/* COSTO DE VENTAS */}
         <Section label="Costo de Ventas (COTs aprobadas)" />
@@ -139,7 +139,7 @@ export function EstadoResultados({ emitidas, recibidas, mes, anio, loading, isMo
       </div>
 
       {/* Nota pie */}
-      <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textAlign:"center", padding:"0 0 8px" }}>
+      <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, textAlign:"center", padding:"0 0 8px" }}>
         Datos basados en facturas emitidas y recibidas de {MESES[mes-1]} {anio}.
         No incluye costos directos (gastos en COT) sin factura formal.
       </div>

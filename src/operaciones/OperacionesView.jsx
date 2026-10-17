@@ -1,7 +1,7 @@
 // ── OPERACIONES / TERRENO: órdenes de trabajo y operaciones ─────────────────
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
-import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { AddBtn, Loader, Badge } from "../shared/ui.jsx";
 import { printOT } from "./printOT.js";
 import { OTModal } from "./OTModal.jsx";
@@ -50,23 +50,23 @@ export function OperacionesView({ isMobile }) {
 
   const filtered = ops.filter(o=> o.tipo==="comisionamiento");
 
-  const TIPO_COLOR = { mantencion: COLORS.secondary, comisionamiento: COLORS.green };
+  const TIPO_COLOR = { mantencion: C.secondary, comisionamiento: C.green };
   const TIPO_LABEL = { mantencion:"Mantención", comisionamiento:"Comisionamiento" };
   const TIPO_ICON  = { mantencion:"🔧", comisionamiento:"🏗️" };
 
-  const ESTADO_COLOR = { borrador:COLORS.textMuted, completado:COLORS.yellow, firmado:COLORS.green };
+  const ESTADO_COLOR = { borrador:C.textMuted, completado:C.yellow, firmado:C.green };
   const ESTADO_LABEL = { borrador:"Borrador", completado:"Completado", firmado:"Firmado" };
 
   const ESTADO_OT_CFG = {
-    todos:       { label:"Todos",        color:COLORS.textMuted },
-    borrador:    { label:"Borrador",     color:COLORS.textMuted },
+    todos:       { label:"Todos",        color:C.textMuted },
+    borrador:    { label:"Borrador",     color:C.textMuted },
     pendiente:   { label:"Pendiente",    color:"#FFB800" },
-    confirmado:  { label:"Confirmado",   color:COLORS.accent },
-    en_progreso: { label:"En progreso",  color:COLORS.accent },
+    confirmado:  { label:"Confirmado",   color:C.accent },
+    en_progreso: { label:"En progreso",  color:C.accent },
     prorrogado:  { label:"Prorrogado",   color:"#FF8C00" },
-    completado:  { label:"Completado",   color:COLORS.green },
-    cancelado:   { label:"Cancelado",    color:COLORS.red },
-    firmada:     { label:"Firmada",      color:COLORS.green },
+    completado:  { label:"Completado",   color:C.green },
+    cancelado:   { label:"Cancelado",    color:C.red },
+    firmada:     { label:"Firmada",      color:C.green },
   };
   const filteredOTs = ots.filter(o=>filterOTEstado==="todos"||o.estado===filterOTEstado);
   const fmtClp = n => "$"+Math.round(n||0).toLocaleString("es-CL");
@@ -76,26 +76,26 @@ export function OperacionesView({ isMobile }) {
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:16, flexWrap:"wrap", gap:10 }}>
         <div>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Terreno · Documentos técnicos</div>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>Operaciones</div>
+          <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Terreno · Documentos técnicos</div>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:C.text }}>Operaciones</div>
         </div>
         <div style={{ display:"flex", gap:8 }}>
-          {mainTab==="comisionamiento" && <AddBtn onClick={()=>{ setEditOp(null); setShowModal(true); }} label="Nueva instalación" />}
-          {mainTab==="ot" && <AddBtn onClick={()=>{ setEditOT(null); setShowOTModal(true); }} label="Nueva OT" />}
+          {mainTab==="comisionamiento" && <AddBtn onClick={()=>{ setEditOp(null); setShowModal(true); }} label="Nueva instalación" theme={LIGHT_THEME} />}
+          {mainTab==="ot" && <AddBtn onClick={()=>{ setEditOT(null); setShowOTModal(true); }} label="Nueva OT" theme={LIGHT_THEME} />}
         </div>
       </div>
 
       {/* Main tabs */}
-      <div style={{ display:"flex", gap:0, borderBottom:`1px solid ${COLORS.border}`, marginBottom:20 }}>
+      <div style={{ display:"flex", gap:0, borderBottom:`1px solid ${C.border}`, marginBottom:20 }}>
         {[{k:"ot",l:"🔧 Órdenes de Trabajo"},{k:"comisionamiento",l:"🏗️ Comisionamiento"}].map(t=>(
           <button key={t.k} onClick={()=>setMainTab(t.k)}
             style={{ padding:"9px 22px", fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer", border:"none", background:"transparent",
-              color:mainTab===t.k?COLORS.accent:COLORS.textMuted,
-              borderBottom:`2px solid ${mainTab===t.k?COLORS.accent:"transparent"}`,
+              color:mainTab===t.k?C.accent:C.textMuted,
+              borderBottom:`2px solid ${mainTab===t.k?C.accent:"transparent"}`,
               marginBottom:-1, transition:"all 0.15s" }}>
             {t.l}
             {t.k==="ot" && ots.filter(o=>o.estado==="pendiente"||o.estado==="confirmado").length>0 && (
-              <span style={{ marginLeft:6, background:COLORS.red, color:"#fff", borderRadius:8, padding:"1px 6px", fontSize:10 }}>
+              <span style={{ marginLeft:6, background:C.red, color:"#fff", borderRadius:8, padding:"1px 6px", fontSize:10 }}>
                 {ots.filter(o=>o.estado==="pendiente"||o.estado==="confirmado").length}
               </span>
             )}
@@ -109,14 +109,14 @@ export function OperacionesView({ isMobile }) {
           {/* KPIs OT */}
           <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:10, marginBottom:18 }}>
             {[
-              { label:"Total OTs",    val:ots.length,                                                               color:COLORS.accent },
-              { label:"Borradores",   val:ots.filter(o=>o.estado==="borrador").length,                             color:COLORS.textMuted },
+              { label:"Total OTs",    val:ots.length,                                                               color:C.accent },
+              { label:"Borradores",   val:ots.filter(o=>o.estado==="borrador").length,                             color:C.textMuted },
               { label:"Pendientes",   val:ots.filter(o=>o.estado==="pendiente"||o.estado==="confirmado").length,   color:"#FFB800" },
-              { label:"Completadas",  val:ots.filter(o=>o.estado==="completado"||o.estado==="firmada").length,     color:COLORS.green },
-              { label:"Valor total",  val:fmtClp(ots.reduce((s,o)=>s+Number(o.valor_servicio||0),0)),             color:COLORS.green },
+              { label:"Completadas",  val:ots.filter(o=>o.estado==="completado"||o.estado==="firmada").length,     color:C.green },
+              { label:"Valor total",  val:fmtClp(ots.reduce((s,o)=>s+Number(o.valor_servicio||0),0)),             color:C.green },
             ].map(({label,val,color})=>(
-              <div key={label} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"12px 16px" }}>
-                <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>{label}</div>
+              <div key={label} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"12px 16px" }}>
+                <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>{label}</div>
                 <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color }}>{val}</div>
               </div>
             ))}
@@ -127,16 +127,16 @@ export function OperacionesView({ isMobile }) {
               <button key={k} onClick={()=>setFilterOTEstado(k)}
                 style={{ padding:"4px 12px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer",
                   background:filterOTEstado===k?`${v.color}22`:"transparent",
-                  border:`1px solid ${filterOTEstado===k?v.color:COLORS.border}`,
-                  color:filterOTEstado===k?v.color:COLORS.textMuted }}>
+                  border:`1px solid ${filterOTEstado===k?v.color:C.border}`,
+                  color:filterOTEstado===k?v.color:C.textMuted }}>
                 {v.label}
               </button>
             ))}
           </div>
           {/* Lista OTs */}
-          {loading ? <div style={{ padding:32, textAlign:"center", fontFamily:FONT, color:COLORS.textMuted }}>Cargando…</div>
+          {loading ? <div style={{ padding:32, textAlign:"center", fontFamily:FONT, color:C.textMuted }}>Cargando…</div>
           : filteredOTs.length===0 ? (
-            <div style={{ padding:40, textAlign:"center", background:COLORS.card, borderRadius:12, border:`1px solid ${COLORS.border}`, fontFamily:FONT, color:COLORS.textMuted }}>
+            <div style={{ padding:40, textAlign:"center", background:C.card, borderRadius:12, border:`1px solid ${C.border}`, fontFamily:FONT, color:C.textMuted }}>
               Sin órdenes de trabajo. Crea la primera con "+ Nueva OT".
             </div>
           ) : (
@@ -150,34 +150,34 @@ export function OperacionesView({ isMobile }) {
                 })() : 0;
                 return (
                   <div key={o.id} onClick={()=>{ setEditOT(o); setShowOTModal(true); }}
-                    style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderLeft:`4px solid ${est.color}`, borderRadius:10, padding:"14px 18px", cursor:"pointer", display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>
+                    style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${est.color}`, borderRadius:10, padding:"14px 18px", cursor:"pointer", display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>
                     <div style={{ minWidth:80 }}>
-                      <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, letterSpacing:"0.1em", textTransform:"uppercase" }}>OT</div>
-                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:COLORS.accent }}>{o.numero_ot||"—"}</div>
+                      <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, letterSpacing:"0.1em", textTransform:"uppercase" }}>OT</div>
+                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:C.accent }}>{o.numero_ot||"—"}</div>
                     </div>
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, marginBottom:2 }}>{o.actividad||"Sin descripción"}</div>
+                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:C.text, marginBottom:2 }}>{o.actividad||"Sin descripción"}</div>
                       <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
-                        {o.proveedor_nombre && <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>👤 {o.proveedor_nombre}</span>}
-                        {o.cliente_nombre && <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>🏢 {o.cliente_nombre}</span>}
-                        {o.fecha_programada && <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>📅 {new Date(o.fecha_programada+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short"})}</span>}
-                        <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>🔧 {o.equipo_tipo}</span>
+                        {o.proveedor_nombre && <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>👤 {o.proveedor_nombre}</span>}
+                        {o.cliente_nombre && <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>🏢 {o.cliente_nombre}</span>}
+                        {o.fecha_programada && <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>📅 {new Date(o.fecha_programada+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short"})}</span>}
+                        <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>🔧 {o.equipo_tipo}</span>
                       </div>
                     </div>
                     <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4, minWidth:100 }}>
                       <span style={{ fontFamily:FONT, fontSize:10, background:`${est.color}22`, color:est.color, border:`1px solid ${est.color}44`, borderRadius:10, padding:"2px 8px", fontWeight:700 }}>{est.label}</span>
-                      {o.valor_servicio>0 && <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:COLORS.green }}>{fmtClp(o.valor_servicio)}</span>}
-                      {pct>0 && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Checklist {pct}%</span>}
-                      {o.firma_imagen && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.green }}>✓ Firmado</span>}
+                      {o.valor_servicio>0 && <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:C.green }}>{fmtClp(o.valor_servicio)}</span>}
+                      {pct>0 && <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>Checklist {pct}%</span>}
+                      {o.firma_imagen && <span style={{ fontFamily:FONT, fontSize:10, color:C.green }}>✓ Firmado</span>}
                     </div>
                     <button onClick={async e=>{ e.stopPropagation(); const {data:hist}=await supabase.from("ordenes_trabajo").select("id,numero_ot,fecha_programada,fecha_ultima_mantencion,estado,checklist,observaciones,proveedor_nombre,valor_servicio").eq("cliente_nombre",o.cliente_nombre).eq("equipo_tipo",o.equipo_tipo).neq("id",o.id).order("fecha_programada",{ascending:false}).limit(10); printOT(o,false,hist||[]); }}
                       title="PDF Técnico (con valor)"
-                      style={{ background:"none", border:`1px solid ${COLORS.accent}44`, borderRadius:6, color:COLORS.accent, cursor:"pointer", padding:"4px 10px", fontSize:11, flexShrink:0 }}>🖨 Técnico</button>
+                      style={{ background:"none", border:`1px solid ${C.accent}44`, borderRadius:6, color:C.accent, cursor:"pointer", padding:"4px 10px", fontSize:11, flexShrink:0 }}>🖨 Técnico</button>
                     <button onClick={async e=>{ e.stopPropagation(); const {data:hist}=await supabase.from("ordenes_trabajo").select("id,numero_ot,fecha_programada,fecha_ultima_mantencion,estado,checklist,observaciones,proveedor_nombre,valor_servicio").eq("cliente_nombre",o.cliente_nombre).eq("equipo_tipo",o.equipo_tipo).neq("id",o.id).order("fecha_programada",{ascending:false}).limit(10); printOT(o,true,hist||[]); }}
                       title="PDF Cliente (sin valor)"
-                      style={{ background:"none", border:`1px solid ${COLORS.green}44`, borderRadius:6, color:COLORS.green, cursor:"pointer", padding:"4px 10px", fontSize:11, flexShrink:0 }}>🖨 Cliente</button>
+                      style={{ background:"none", border:`1px solid ${C.green}44`, borderRadius:6, color:C.green, cursor:"pointer", padding:"4px 10px", fontSize:11, flexShrink:0 }}>🖨 Cliente</button>
                     <button onClick={async e=>{ e.stopPropagation(); if(!window.confirm("¿Eliminar esta OT?")) return; const {error}=await supabase.from("ordenes_trabajo").delete().eq("id",o.id); if(error){ alert("Error al eliminar: "+error.message); return; } setOts(prev=>prev.filter(x=>x.id!==o.id)); }}
-                      style={{ background:"none", border:`1px solid ${COLORS.red}44`, borderRadius:6, color:COLORS.red, cursor:"pointer", padding:"4px 8px", fontSize:12, flexShrink:0 }}>✕</button>
+                      style={{ background:"none", border:`1px solid ${C.red}44`, borderRadius:6, color:C.red, cursor:"pointer", padding:"4px 8px", fontSize:12, flexShrink:0 }}>✕</button>
                   </div>
                 );
               })}
@@ -200,20 +200,20 @@ export function OperacionesView({ isMobile }) {
       {/* Stats rápidas */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:10, marginBottom:20 }}>
         {[
-          { label:"Total", val:filtered.length, color:COLORS.accent },
-          { label:"Completados", val:filtered.filter(o=>o.estado==="completado"||o.estado==="firmado").length, color:COLORS.green },
-          { label:"En proceso", val:filtered.filter(o=>o.estado==="borrador"||o.estado==="pendiente").length, color:COLORS.secondary },
-          { label:"Con garantía", val:filtered.filter(o=>o.garantia_meses>0).length, color:COLORS.yellow },
+          { label:"Total", val:filtered.length, color:C.accent },
+          { label:"Completados", val:filtered.filter(o=>o.estado==="completado"||o.estado==="firmado").length, color:C.green },
+          { label:"En proceso", val:filtered.filter(o=>o.estado==="borrador"||o.estado==="pendiente").length, color:C.secondary },
+          { label:"Con garantía", val:filtered.filter(o=>o.garantia_meses>0).length, color:C.yellow },
         ].map(({label,val,color})=>(
-          <div key={label} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:"12px 16px" }}>
-            <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>{label}</div>
+          <div key={label} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"12px 16px" }}>
+            <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>{label}</div>
             <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color }}>{val}</div>
           </div>
         ))}
       </div>
 
       {loading ? <Loader /> : filtered.length===0 ? (
-        <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:COLORS.textMuted }}>
+        <div style={{ textAlign:"center", padding:60, fontFamily:FONT, color:C.textMuted }}>
           <div style={{ fontSize:32, marginBottom:10 }}>🔧</div>
           Sin operaciones aún. Crea la primera desde una cotización aprobada.
         </div>
@@ -221,7 +221,7 @@ export function OperacionesView({ isMobile }) {
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           {filtered.map(op=>{
             const q = quotes.find(q=>q.id===op.quote_id);
-            const tc = TIPO_COLOR[op.tipo]||COLORS.accent;
+            const tc = TIPO_COLOR[op.tipo]||C.accent;
             const checklist = op.checklist||[];
             const totalItems = checklist.reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado!=="na").length,0);
             const doneItems  = checklist.reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado==="ok"||it.estado==="obs").length,0);
@@ -230,53 +230,53 @@ export function OperacionesView({ isMobile }) {
               ? new Date(fechaLocal(op.fecha_visita).setMonth(fechaLocal(op.fecha_visita).getMonth()+Number(op.garantia_meses))).toLocaleDateString("es-CL")
               : null;
             return (
-              <div key={op.id} style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:"14px 18px" }}>
+              <div key={op.id} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"14px 18px" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12, flexWrap:"wrap" }}>
                   {/* Info principal */}
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:5, flexWrap:"wrap" }}>
                       <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:tc }}>{TIPO_ICON[op.tipo]} {op.numero||op.id.slice(0,8)}</span>
-                      <Badge color={tc}>{TIPO_LABEL[op.tipo]}</Badge>
-                      <Badge color={ESTADO_COLOR[op.estado]||COLORS.textMuted}>{ESTADO_LABEL[op.estado]||op.estado}</Badge>
+                      <Badge color={tc} theme={LIGHT_THEME}>{TIPO_LABEL[op.tipo]}</Badge>
+                      <Badge color={ESTADO_COLOR[op.estado]||C.textMuted} theme={LIGHT_THEME}>{ESTADO_LABEL[op.estado]||op.estado}</Badge>
                       {op.tipo==="comisionamiento" && garantiaVence && (
-                        <span style={{ fontFamily:FONT, fontSize:9, color:COLORS.yellow, background:`${COLORS.yellow}15`, padding:"2px 8px", borderRadius:10, border:`1px solid ${COLORS.yellow}33` }}>
+                        <span style={{ fontFamily:FONT, fontSize:9, color:C.yellow, background:`${C.yellow}15`, padding:"2px 8px", borderRadius:10, border:`1px solid ${C.yellow}33` }}>
                           🛡 Garantía hasta {garantiaVence}
                         </span>
                       )}
                     </div>
-                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:COLORS.text, marginBottom:3 }}>
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:C.text, marginBottom:3 }}>
                       {op.cliente_nombre||q?.razon_social||q?.nombre_cliente||"—"}
                     </div>
                     <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
-                      {q && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent }}>COT °{q.numero}</span>}
-                      {op.tecnico && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>👷 {op.tecnico}</span>}
-                      {op.fecha_visita && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>📅 {new Date(op.fecha_visita+"T00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}</span>}
-                      {op.equipo_modelo && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>⚙️ {op.equipo_modelo}{op.equipo_serial?` · S/N: ${op.equipo_serial}`:""}</span>}
+                      {q && <span style={{ fontFamily:FONT, fontSize:10, color:C.accent }}>COT °{q.numero}</span>}
+                      {op.tecnico && <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>👷 {op.tecnico}</span>}
+                      {op.fecha_visita && <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>📅 {new Date(op.fecha_visita+"T00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}</span>}
+                      {op.equipo_modelo && <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>⚙️ {op.equipo_modelo}{op.equipo_serial?` · S/N: ${op.equipo_serial}`:""}</span>}
                     </div>
                   </div>
                   {/* Progreso checklist */}
                   {totalItems>0 && (
                     <div style={{ flexShrink:0, textAlign:"right", minWidth:100 }}>
-                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:pct===100?COLORS.green:tc }}>{pct}%</div>
-                      <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, marginBottom:4 }}>{doneItems}/{totalItems} ítems</div>
-                      <div style={{ height:4, width:100, background:COLORS.border, borderRadius:99, overflow:"hidden" }}>
-                        <div style={{ height:"100%", width:`${pct}%`, background:pct===100?COLORS.green:tc, borderRadius:99, transition:"width 0.3s" }} />
+                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:pct===100?C.green:tc }}>{pct}%</div>
+                      <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, marginBottom:4 }}>{doneItems}/{totalItems} ítems</div>
+                      <div style={{ height:4, width:100, background:C.border, borderRadius:99, overflow:"hidden" }}>
+                        <div style={{ height:"100%", width:`${pct}%`, background:pct===100?C.green:tc, borderRadius:99, transition:"width 0.3s" }} />
                       </div>
                     </div>
                   )}
                 </div>
                 {/* Acciones */}
-                <div style={{ display:"flex", gap:8, marginTop:12, paddingTop:10, borderTop:`1px solid ${COLORS.border}`, flexWrap:"wrap" }}>
+                <div style={{ display:"flex", gap:8, marginTop:12, paddingTop:10, borderTop:`1px solid ${C.border}`, flexWrap:"wrap" }}>
                   <button onClick={()=>{ setEditOp(op); setShowModal(true); }}
                     style={{ padding:"5px 14px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${tc}22`, border:`1px solid ${tc}44`, color:tc }}>
                     ✏️ Abrir / Editar
                   </button>
                   <button onClick={()=>printOp(op, q)}
-                    style={{ padding:"5px 14px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${COLORS.accent}22`, border:`1px solid ${COLORS.accent}44`, color:COLORS.accent }}>
+                    style={{ padding:"5px 14px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${C.accent}22`, border:`1px solid ${C.accent}44`, color:C.accent }}>
                     🖨 PDF
                   </button>
                   <button onClick={()=>deleteOp(op.id)}
-                    style={{ padding:"5px 10px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red, marginLeft:"auto" }}>
+                    style={{ padding:"5px 10px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${C.red}44`, color:C.red, marginLeft:"auto" }}>
                     ✕
                   </button>
                 </div>

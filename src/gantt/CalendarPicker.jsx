@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { fmtDDMMYYYY, parseDDMMYYYY } from "./fechas.js";
 
 // Calendario propio (desplegable) para elegir una fecha "YYYY-MM-DD" sin depender del picker nativo del navegador.
@@ -62,23 +62,23 @@ export function CalendarPicker({ value, onChange }) {
         onBlur={commitTexto}
         onKeyDown={e=>{ if(e.key==="Enter"){ e.preventDefault(); commitTexto(); } else if(e.key==="Escape"){ setTexto(fmtDDMMYYYY(value)); e.target.blur(); } }}
         placeholder="dd/mm/aaaa"
-        style={{ width:72, background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4,
-          color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"3px 5px", outline:"none" }} />
+        style={{ width:72, background:C.bg, border:`1px solid ${C.border}`, borderRadius:4,
+          color:C.text, fontFamily:FONT, fontSize:11, padding:"3px 5px", outline:"none" }} />
       <button type="button" onClick={toggleOpen} title="Elegir del calendario"
-        style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:4,
-          color:COLORS.text, fontFamily:FONT, fontSize:11, padding:"3px 5px", cursor:"pointer", lineHeight:1 }}>
+        style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:4,
+          color:C.text, fontFamily:FONT, fontSize:11, padding:"3px 5px", cursor:"pointer", lineHeight:1 }}>
         📅
       </button>
       {open && (
-        <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, zIndex:50, background:COLORS.card, border:`1px solid ${COLORS.border}`,
+        <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, zIndex:50, background:C.card, border:`1px solid ${C.border}`,
           borderRadius:8, padding:10, width:220, boxShadow:"0 8px 24px rgba(0,0,0,0.35)" }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
-            <button type="button" onClick={()=>changeMonth(-1)} style={{ background:"transparent", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:13 }}>◀</button>
-            <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.text, textTransform:"capitalize" }}>{monthLabel}</span>
-            <button type="button" onClick={()=>changeMonth(1)} style={{ background:"transparent", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:13 }}>▶</button>
+            <button type="button" onClick={()=>changeMonth(-1)} style={{ background:"transparent", border:"none", color:C.textMuted, cursor:"pointer", fontSize:13 }}>◀</button>
+            <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:C.text, textTransform:"capitalize" }}>{monthLabel}</span>
+            <button type="button" onClick={()=>changeMonth(1)} style={{ background:"transparent", border:"none", color:C.textMuted, cursor:"pointer", fontSize:13 }}>▶</button>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:2, marginBottom:4 }}>
-            {["D","L","M","X","J","V","S"].map(d=><div key={d} style={{ textAlign:"center", fontSize:9, color:COLORS.textMuted }}>{d}</div>)}
+            {["D","L","M","X","J","V","S"].map(d=><div key={d} style={{ textAlign:"center", fontSize:9, color:C.textMuted }}>{d}</div>)}
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:2 }}>
             {cells.map((d,i) => {
@@ -87,8 +87,8 @@ export function CalendarPicker({ value, onChange }) {
               const isSelected = dateStr === value;
               return (
                 <button key={i} type="button" onClick={()=>selectDay(d)}
-                  style={{ padding:"4px 0", background: isSelected?COLORS.accent:"transparent", border:"none", borderRadius:4,
-                    color: isSelected?COLORS.bg:COLORS.text, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+                  style={{ padding:"4px 0", background: isSelected?C.accent:"transparent", border:"none", borderRadius:4,
+                    color: isSelected?C.bg:C.text, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
                   {d}
                 </button>
               );

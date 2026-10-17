@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { TreeCaret } from "../../shared/TreeCaret.jsx";
 import { TreeBranch } from "../../shared/TreeBranch.jsx";
-import { COLORS, FONT, FONT_DISPLAY } from "../../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../../theme.js";
 import { fmtClp } from "../../shared/format.js";
 import { CotCard } from "./CotCard.jsx";
 import { supabase } from "../../supabaseClient.js";
@@ -15,9 +15,9 @@ function DonaFinanciera({ costo, margen, ivaNeto, size=120 }) {
   if (total <= 0) return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       <circle cx={size/2} cy={size/2} r={size*0.35} fill="none"
-        stroke={COLORS.border} strokeWidth={size*0.15} />
+        stroke={C.border} strokeWidth={size*0.15} />
       <text x={size/2} y={size/2+4} textAnchor="middle"
-        fontFamily={FONT} fontSize={size*0.1} fill={COLORS.textMuted}>Sin datos</text>
+        fontFamily={FONT} fontSize={size*0.1} fill={C.textMuted}>Sin datos</text>
     </svg>
   );
   const R = size * 0.35;
@@ -26,9 +26,9 @@ function DonaFinanciera({ costo, margen, ivaNeto, size=120 }) {
   const circum = 2 * Math.PI * R;
 
   const segments = [
-    { v: costo,   color: COLORS.red,    label: "Costo"  },
-    { v: margen,  color: COLORS.green,  label: "Margen" },
-    { v: ivaNeto, color: COLORS.yellow, label: "IVA"    },
+    { v: costo,   color: C.red,    label: "Costo"  },
+    { v: margen,  color: C.green,  label: "Margen" },
+    { v: ivaNeto, color: C.yellow, label: "IVA"    },
   ];
   let offset = 0;
   const arcs = segments.map(seg => {
@@ -45,7 +45,7 @@ function DonaFinanciera({ costo, margen, ivaNeto, size=120 }) {
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}
       style={{ transform:"rotate(-90deg)" }}>
       <circle cx={cx} cy={cy} r={R} fill="none"
-        stroke={COLORS.border} strokeWidth={sw} />
+        stroke={C.border} strokeWidth={sw} />
       {arcs.map((arc, i) => arc.v > 0 && (
         <circle key={i} cx={cx} cy={cy} r={R} fill="none"
           stroke={arc.color} strokeWidth={sw}
@@ -54,11 +54,11 @@ function DonaFinanciera({ costo, margen, ivaNeto, size=120 }) {
           strokeLinecap="butt" />
       ))}
       <text x={cx} y={cy-4} textAnchor="middle" style={{ transform:"rotate(90deg)", transformOrigin:`${cx}px ${cy}px` }}
-        fontFamily={FONT_DISPLAY} fontSize={size*0.14} fontWeight="700" fill={COLORS.green}>
+        fontFamily={FONT_DISPLAY} fontSize={size*0.14} fontWeight="700" fill={C.green}>
         {pctMargen}%
       </text>
       <text x={cx} y={cy+size*0.1} textAnchor="middle" style={{ transform:"rotate(90deg)", transformOrigin:`${cx}px ${cy}px` }}
-        fontFamily={FONT} fontSize={size*0.09} fill={COLORS.textMuted}>
+        fontFamily={FONT} fontSize={size*0.09} fill={C.textMuted}>
         margen
       </text>
     </svg>
@@ -82,18 +82,18 @@ function PedidoFinancieroCard({ pedido, cots, suppliers, products, onRefresh, is
   const totalCredito   = cots.reduce((s,c) => s + Number(c.total_credito_fiscal||0), 0);
   const ivaNeto        = Math.max(0, totalDebito - totalCredito);
   const pctMargen      = totalFacturado > 0 ? Math.round((totalMargen/totalFacturado)*100) : 0;
-  const margenColor    = totalMargen >= 0 ? COLORS.green : COLORS.red;
+  const margenColor    = totalMargen >= 0 ? C.green : C.red;
 
   return (
-    <div style={{ background:COLORS.card,
-      border:`1px solid ${totalFacturado>0?COLORS.green+"33":COLORS.border}`,
+    <div style={{ background:C.card,
+      border:`1px solid ${totalFacturado>0?C.green+"33":C.border}`,
       borderRadius:16, marginBottom:16, overflow:"hidden" }}>
 
       {/* Header clickeable */}
       <div onClick={()=>setOpen(p=>!p)}
         style={{ display:"flex", alignItems:"center", gap:16, padding:"16px 20px",
           cursor:"pointer", userSelect:"none" }}>
-        <TreeCaret collapsed={!open} size={12} />
+        <TreeCaret collapsed={!open} size={12} color={C.textMuted} />
 
         {/* Dona */}
         <div style={{ flexShrink:0 }}>
@@ -102,30 +102,30 @@ function PedidoFinancieroCard({ pedido, cots, suppliers, products, onRefresh, is
 
         {/* Info principal */}
         <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted,
+          <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted,
             textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:3 }}>
             {pedido.numero_factura ? `Factura N° ${pedido.numero_factura}` : "Sin factura"}
             {" · "}{cots.length} COT{cots.length>1?"s":""}
           </div>
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700,
-            color:COLORS.text, marginBottom:4,
+            color:C.text, marginBottom:4,
             overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
             {pedido.nombre}
           </div>
-          <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>
+          <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted }}>
             {cots[0]?.cliente || ""}
           </div>
 
           {/* Leyenda dona */}
           <div style={{ display:"flex", gap:12, marginTop:8, flexWrap:"wrap" }}>
             {[
-              { l:"Costo",  v:totalCosto,  c:COLORS.red    },
-              { l:"Margen", v:totalMargen, c:COLORS.green  },
-              { l:"IVA",    v:ivaNeto,     c:COLORS.yellow },
+              { l:"Costo",  v:totalCosto,  c:C.red    },
+              { l:"Margen", v:totalMargen, c:C.green  },
+              { l:"IVA",    v:ivaNeto,     c:C.yellow },
             ].map((seg,i) => (
               <div key={i} style={{ display:"flex", alignItems:"center", gap:5 }}>
                 <div style={{ width:8, height:8, borderRadius:"50%", background:seg.c, flexShrink:0 }} />
-                <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{seg.l}:</span>
+                <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>{seg.l}:</span>
                 <span style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:600,
                   color:seg.c }}>{fmt(seg.v)}</span>
               </div>
@@ -137,19 +137,19 @@ function PedidoFinancieroCard({ pedido, cots, suppliers, products, onRefresh, is
         {!isMobile && (
           <div style={{ display:"flex", gap:20, flexShrink:0 }}>
             <div style={{ textAlign:"right" }}>
-              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Facturado</div>
+              <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>Facturado</div>
               <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700,
-                color:COLORS.green }}>{fmt(totalFacturado)}</div>
+                color:C.green }}>{fmt(totalFacturado)}</div>
             </div>
             <div style={{ textAlign:"right" }}>
-              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Margen</div>
+              <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>Margen</div>
               <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700,
                 color:margenColor }}>{pctMargen}%</div>
             </div>
             <div style={{ textAlign:"right" }}>
-              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>IVA a pagar</div>
+              <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>IVA a pagar</div>
               <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700,
-                color:COLORS.yellow }}>{fmt(ivaNeto)}</div>
+                color:C.yellow }}>{fmt(ivaNeto)}</div>
             </div>
           </div>
         )}
@@ -158,9 +158,9 @@ function PedidoFinancieroCard({ pedido, cots, suppliers, products, onRefresh, is
 
       {/* COTs hijas expandidas */}
       {open && (
-        <div className="tree-row-in" style={{ borderTop:`1px solid ${COLORS.border}`, padding:"8px 12px 12px" }}>
+        <div className="tree-row-in" style={{ borderTop:`1px solid ${C.border}`, padding:"8px 12px 12px" }}>
           {/* Árbol: las cotizaciones cuelgan del triángulo del pedido (padding 20 + 7 − 12) */}
-          <TreeBranch x={15} anchor={34} reach={65}>
+          <TreeBranch x={15} anchor={34} reach={65} color={C.border}>
           {cots.map(cot => (
             <CotCard key={cot.cotizacion_id}
               cot={cot}
@@ -258,36 +258,36 @@ export function RendimientoCotizaciones({ isMobile }) {
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start",
         marginBottom:20, flexWrap:"wrap", gap:12 }}>
-        <SecTitle sub="Vista padre → hijo · OC · servicios · facturas · IVA · margen">
+        <SecTitle sub="Vista padre → hijo · OC · servicios · facturas · IVA · margen" theme={LIGHT_THEME}>
           Rendimiento por Cotización
         </SecTitle>
         <button onClick={loadAll}
           style={{ padding:"8px 16px", background:"transparent",
-            border:`1px solid ${COLORS.border}`, borderRadius:8,
-            color:COLORS.textMuted, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
+            border:`1px solid ${C.border}`, borderRadius:8,
+            color:C.textMuted, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
           ↺ Actualizar
         </button>
       </div>
 
       {/* KPIs globales */}
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr) repeat(2,1fr)", gap:12, marginBottom:24 }}>
-        <KpiCard label="Total presupuestado" value={fmtClp(totalPresup)} />
-        <KpiCard label="Total facturado" value={fmtClp(totalFacturado)} color={COLORS.green} />
-        <KpiCard label="Total gastos" value={fmtClp(totalGastos)} color={COLORS.red} />
+        <KpiCard label="Total presupuestado" value={fmtClp(totalPresup)} theme={LIGHT_THEME} />
+        <KpiCard label="Total facturado" value={fmtClp(totalFacturado)} color={C.green} theme={LIGHT_THEME} />
+        <KpiCard label="Total gastos" value={fmtClp(totalGastos)} color={C.red} theme={LIGHT_THEME} />
         <KpiCard label="Margen bruto acumulado"
           value={fmtClp(totalMargen)}
           sub={totalFacturado>0?`${Math.round(totalMargen/totalFacturado*100)}% del ingreso`:"—"}
-          color={totalMargen>=0?COLORS.green:COLORS.red} />
+          color={totalMargen>=0?C.green:C.red} theme={LIGHT_THEME} />
         <KpiCard label="IVA neto acumulado"
           value={fmtClp(Math.abs(totalDebito-totalCredito))}
           sub={totalDebito>=totalCredito?"A pagar":"Remanente"}
-          color={totalDebito>=totalCredito?COLORS.yellow:COLORS.green} />
+          color={totalDebito>=totalCredito?C.yellow:C.green} theme={LIGHT_THEME} />
       </div>
 
       {/* Reporte cruzado por línea de negocio */}
       {lnData.length > 0 && (
-        <div style={{ marginBottom:24, background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, padding:"16px 20px" }}>
-          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.purple, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600, marginBottom:12 }}>
+        <div style={{ marginBottom:24, background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"16px 20px" }}>
+          <div style={{ fontFamily:FONT, fontSize:10, color:C.purple, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600, marginBottom:12 }}>
             Costo por línea de negocio
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
@@ -298,14 +298,14 @@ export function RendimientoCotizaciones({ isMobile }) {
                 <div key={ln}>
                   <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
                     <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text }}>{ln}</span>
-                      {servicios > 0 && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>Serv: {fmtClp(servicios)}</span>}
-                      {facturas > 0 && <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>FR: {fmtClp(facturas)}</span>}
+                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:C.text }}>{ln}</span>
+                      {servicios > 0 && <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>Serv: {fmtClp(servicios)}</span>}
+                      {facturas > 0 && <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>FR: {fmtClp(facturas)}</span>}
                     </div>
-                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.purple }}>{fmtClp(total)}</span>
+                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:C.purple }}>{fmtClp(total)}</span>
                   </div>
-                  <div style={{ height:4, background:COLORS.border, borderRadius:2 }}>
-                    <div style={{ width:`${pct}%`, height:"100%", background:COLORS.purple, borderRadius:2, transition:"width 0.4s" }} />
+                  <div style={{ height:4, background:C.border, borderRadius:2 }}>
+                    <div style={{ width:`${pct}%`, height:"100%", background:C.purple, borderRadius:2, transition:"width 0.4s" }} />
                   </div>
                 </div>
               );
@@ -318,15 +318,15 @@ export function RendimientoCotizaciones({ isMobile }) {
       <div style={{ marginBottom:16 }}>
         <input value={busqueda} onChange={e=>setBusqueda(e.target.value)}
           placeholder="Buscar por N° COT, cliente, pedido o RUT…"
-          style={{ width:"100%", background:COLORS.card, border:`1px solid ${COLORS.border}`,
+          style={{ width:"100%", background:C.card, border:`1px solid ${C.border}`,
             borderRadius:8, padding:"10px 16px", fontFamily:FONT, fontSize:13,
-            color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+            color:C.text, outline:"none", boxSizing:"border-box" }} />
       </div>
 
       {/* Tarjetas agrupadas por pedido */}
       {loading ? (
         <div style={{ textAlign:"center", padding:48, fontFamily:FONT,
-          color:COLORS.textMuted }}>Cargando cotizaciones…</div>
+          color:C.textMuted }}>Cargando cotizaciones…</div>
       ) : (
         <>
           {gruposFiltrados.map(({ pedido, cots }) => (
@@ -343,7 +343,7 @@ export function RendimientoCotizaciones({ isMobile }) {
           {/* COTs sin pedido — tarjetas individuales */}
           {huerfanasFiltradas.length > 0 && (
             <div>
-              <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+              <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
                 textTransform:"uppercase", letterSpacing:"0.08em",
                 marginBottom:10, marginTop:8 }}>
                 Cotizaciones sin grupo PF
@@ -361,7 +361,7 @@ export function RendimientoCotizaciones({ isMobile }) {
           )}
           {gruposFiltrados.length === 0 && huerfanasFiltradas.length === 0 && (
             <div style={{ textAlign:"center", padding:48, fontFamily:FONT,
-              color:COLORS.textMuted }}>
+              color:C.textMuted }}>
               {busqueda ? "Sin resultados para esa búsqueda" : "No hay cotizaciones aprobadas aún"}
             </div>
           )}

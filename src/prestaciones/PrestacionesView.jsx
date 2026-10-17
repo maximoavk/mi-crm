@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
 import { mapQuote, mapQuoteLine } from "../shared/mappers.js";
-import { FONT_DISPLAY, COLORS, FONT } from "../theme.js";
+import { FONT_DISPLAY, COLORS_LIGHT as C, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { AddBtn, Loader } from "../shared/ui.jsx";
 import { PedidosGrid } from "./PedidosGrid.jsx";
 import { PedidoModal } from "./PedidoModal.jsx";
@@ -161,13 +161,13 @@ export function PrestacionesView({ isMobile }) {
 
   const TAB_STYLE = (active, color) => ({
     padding:"8px 22px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700,
-    cursor:"pointer", border:`1px solid ${active?color:COLORS.border}`,
-    background:active?`${color}22`:"transparent", color:active?color:COLORS.textMuted,
+    cursor:"pointer", border:`1px solid ${active?color:C.border}`,
+    background:active?`${color}22`:"transparent", color:active?color:C.textMuted,
     transition:"all 0.15s",
   });
 
   const isCP  = tab==="cp";
-  const AC    = isCP ? COLORS.accent : COLORS.secondary;
+  const AC    = isCP ? C.accent : C.secondary;
   const activeDocs    = isCP ? docs    : pfDocs;
   const activeQuotes  = isCP ? quotes  : pfQuotes;
   const activePedidos = isCP ? pedidos : pfPedidos;
@@ -177,26 +177,26 @@ export function PrestacionesView({ isMobile }) {
       {/* ── Header ── */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:20, flexWrap:"wrap", gap:10 }}>
         <div>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>
+          <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>
             {isCP ? "Sin IVA · Comprobantes de Pago" : "Con IVA · No válido como documento legal"}
           </div>
-          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:COLORS.text }}>
+          <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:C.text }}>
             {isCP ? "Pedidos · Comprobantes de Pago" : "Pedidos · Pre-Facturas"}
           </div>
         </div>
         <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
-          <div style={{ display:"flex", gap:6, background:COLORS.surface, padding:4, borderRadius:10, border:`1px solid ${COLORS.border}` }}>
-            <button style={TAB_STYLE(isCP, COLORS.accent)} onClick={()=>setTab("cp")}>📋 Prestaciones</button>
-            <button style={TAB_STYLE(!isCP, COLORS.secondary)} onClick={()=>setTab("pf")}>🧾 Pre-Facturas</button>
+          <div style={{ display:"flex", gap:6, background:C.surface, padding:4, borderRadius:10, border:`1px solid ${C.border}` }}>
+            <button style={TAB_STYLE(isCP, C.accent)} onClick={()=>setTab("cp")}>📋 Prestaciones</button>
+            <button style={TAB_STYLE(!isCP, C.secondary)} onClick={()=>setTab("pf")}>🧾 Pre-Facturas</button>
           </div>
           <AddBtn onClick={()=>{ setEditPedido(null); setShowPedidoModal(true); }}
-            label={isCP?"Nuevo Pedido":"Nuevo grupo PF"} />
+            label={isCP?"Nuevo Pedido":"Nuevo grupo PF"} theme={LIGHT_THEME} />
         </div>
       </div>
 
       {!isCP && (
-        <div style={{ marginBottom:16, padding:"7px 14px", borderLeft:`3px solid ${COLORS.secondary}`, background:`${COLORS.secondary}08` }}>
-          <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+        <div style={{ marginBottom:16, padding:"7px 14px", borderLeft:`3px solid ${C.secondary}`, background:`${C.secondary}08` }}>
+          <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>
             Sistema de Pre-Facturación · {EMPRESA.razonSocial} · Documento interno de gestión, no válido como documento legal ni tributariamente ante el SII.
           </span>
         </div>
@@ -279,62 +279,62 @@ export function PrestacionesView({ isMobile }) {
         return (
           <div style={{ position:"fixed", inset:0, background:"#000A", zIndex:300,
             display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-            <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`,
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`,
               borderRadius:14, padding:24, width:"100%", maxWidth:500,
               maxHeight:"92vh", overflowY:"auto" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
                 <div>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent,
+                  <div style={{ fontFamily:FONT, fontSize:10, color:C.accent,
                     letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:2 }}>
                     Registrar factura emitida
                   </div>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text }}>{ped.nombre}</div>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginTop:2 }}>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:C.text }}>{ped.nombre}</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, marginTop:2 }}>
                     {cotCompensated.length} COT · {fmtP(totalCot)}
                   </div>
                 </div>
                 <button onClick={()=>setFacturaModal(null)}
-                  style={{ background:"transparent", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:20 }}>✕</button>
+                  style={{ background:"transparent", border:"none", color:C.textMuted, cursor:"pointer", fontSize:20 }}>✕</button>
               </div>
 
               {/* N° Factura */}
               <div style={{ marginBottom:16 }}>
-                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+                <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
                   letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>N° Factura emitida en el SII</div>
                 <input value={factNum} onChange={e=>setFactNum(e.target.value)}
                   placeholder="Ej: 1234567"
-                  style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`,
+                  style={{ width:"100%", background:C.bg, border:`1px solid ${C.border}`,
                     borderRadius:8, padding:"11px 14px", fontFamily:FONT_DISPLAY,
-                    fontSize:20, fontWeight:700, color:COLORS.accent,
+                    fontSize:20, fontWeight:700, color:C.accent,
                     outline:"none", boxSizing:"border-box" }} />
               </div>
 
               {/* Fecha emisión */}
               <div style={{ marginBottom:16 }}>
-                <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+                <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
                   letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Fecha de emisión</div>
                 <input type="date" value={fechaEmision} onChange={e=>setFechaEmision(e.target.value)}
-                  style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`,
+                  style={{ width:"100%", background:C.bg, border:`1px solid ${C.border}`,
                     borderRadius:8, padding:"10px 14px", fontFamily:FONT, fontSize:13,
-                    color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+                    color:C.text, outline:"none", boxSizing:"border-box" }} />
               </div>
 
               {/* Toggle sincronizar */}
               <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:sincronizar?16:20,
-                padding:"10px 14px", background:sincronizar?COLORS.green+"12":COLORS.bg,
-                border:`1px solid ${sincronizar?COLORS.green+"44":COLORS.border}`, borderRadius:8 }}>
+                padding:"10px 14px", background:sincronizar?C.green+"12":C.bg,
+                border:`1px solid ${sincronizar?C.green+"44":C.border}`, borderRadius:8 }}>
                 <button onClick={()=>setSincronizar(p=>!p)}
                   style={{ width:36, height:20, borderRadius:10, border:"none", cursor:"pointer",
-                    background:sincronizar?COLORS.green:COLORS.border, position:"relative", flexShrink:0 }}>
+                    background:sincronizar?C.green:C.border, position:"relative", flexShrink:0 }}>
                   <div style={{ position:"absolute", top:2, left:sincronizar?18:2, width:16, height:16,
                     borderRadius:"50%", background:"#fff", transition:"left 0.15s" }} />
                 </button>
                 <div>
                   <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600,
-                    color:sincronizar?COLORS.green:COLORS.textMuted }}>
+                    color:sincronizar?C.green:C.textMuted }}>
                     {sincronizar ? "Crear en Finanzas → Cuentas x Cobrar" : "Solo guardar N° (sin registro financiero)"}
                   </div>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>
                     {sincronizar ? "Se vincula automáticamente al módulo Rendimiento" : "Puedes crearlo manualmente después"}
                   </div>
                 </div>
@@ -343,19 +343,19 @@ export function PrestacionesView({ isMobile }) {
               {/* Opciones monto */}
               {sincronizar && (
                 <>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
                     letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>
                     ¿Qué monto registrar?
                   </div>
                   <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:14 }}>
                     {[
-                      { key:"total_cot", label:"Total de la(s) cotización(es)", sub:`${fmtP(totalCot)}`, color:COLORS.accent },
-                      { key:"monto_pf",  label:"Monto pagado en comprobantes",  sub:`${fmtP(montoPF)}`, color:COLORS.green },
-                      { key:"manual",    label:"Monto manual",                   sub:"Lo ingreso yo",    color:COLORS.yellow },
+                      { key:"total_cot", label:"Total de la(s) cotización(es)", sub:`${fmtP(totalCot)}`, color:C.accent },
+                      { key:"monto_pf",  label:"Monto pagado en comprobantes",  sub:`${fmtP(montoPF)}`, color:C.green },
+                      { key:"manual",    label:"Monto manual",                   sub:"Lo ingreso yo",    color:C.yellow },
                     ].map(opt=>(
                       <button key={opt.key} onClick={()=>setSyncMonto(opt.key)}
                         style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 14px",
-                          borderRadius:8, border:`1.5px solid ${syncMonto===opt.key?opt.color:COLORS.border}`,
+                          borderRadius:8, border:`1.5px solid ${syncMonto===opt.key?opt.color:C.border}`,
                           background:syncMonto===opt.key?opt.color+"14":"transparent",
                           cursor:"pointer", textAlign:"left" }}>
                         <div style={{ width:16, height:16, borderRadius:"50%", flexShrink:0,
@@ -366,8 +366,8 @@ export function PrestacionesView({ isMobile }) {
                         </div>
                         <div>
                           <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600,
-                            color:syncMonto===opt.key?opt.color:COLORS.text }}>{opt.label}</div>
-                          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{opt.sub}</div>
+                            color:syncMonto===opt.key?opt.color:C.text }}>{opt.label}</div>
+                          <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>{opt.sub}</div>
                         </div>
                       </button>
                     ))}
@@ -375,27 +375,27 @@ export function PrestacionesView({ isMobile }) {
                   {syncMonto==="manual" && (
                     <input type="number" value={montoManual} onChange={e=>setMontoManual(e.target.value)}
                       placeholder="Monto total con IVA"
-                      style={{ width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.yellow}`,
+                      style={{ width:"100%", background:C.bg, border:`1px solid ${C.yellow}`,
                         borderRadius:8, padding:"10px 14px", fontFamily:FONT_DISPLAY,
-                        fontSize:16, fontWeight:700, color:COLORS.yellow,
+                        fontSize:16, fontWeight:700, color:C.yellow,
                         outline:"none", boxSizing:"border-box", marginBottom:14 }} />
                   )}
                   {montoPreview > 0 && (
-                    <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8,
+                    <div style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:8,
                       padding:"12px 16px", marginBottom:16, fontFamily:FONT, fontSize:12 }}>
                       {[
-                        { l:"Neto:", v:netoPreview, c:COLORS.text },
-                        { l:"IVA 19%:", v:ivaPreview, c:COLORS.yellow },
+                        { l:"Neto:", v:netoPreview, c:C.text },
+                        { l:"IVA 19%:", v:ivaPreview, c:C.yellow },
                       ].map((r,i)=>(
                         <div key={i} style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                          <span style={{ color:COLORS.textMuted }}>{r.l}</span>
+                          <span style={{ color:C.textMuted }}>{r.l}</span>
                           <span style={{ color:r.c, fontWeight:600 }}>{fmtP(r.v)}</span>
                         </div>
                       ))}
                       <div style={{ display:"flex", justifyContent:"space-between",
-                        borderTop:`1px solid ${COLORS.border}`, paddingTop:6, marginTop:2 }}>
-                        <span style={{ color:COLORS.text, fontWeight:700 }}>Total factura:</span>
-                        <span style={{ color:COLORS.accent, fontWeight:700, fontSize:14 }}>{fmtP(montoPreview)}</span>
+                        borderTop:`1px solid ${C.border}`, paddingTop:6, marginTop:2 }}>
+                        <span style={{ color:C.text, fontWeight:700 }}>Total factura:</span>
+                        <span style={{ color:C.accent, fontWeight:700, fontSize:14 }}>{fmtP(montoPreview)}</span>
                       </div>
                     </div>
                   )}
@@ -405,14 +405,14 @@ export function PrestacionesView({ isMobile }) {
               <div style={{ display:"flex", gap:10 }}>
                 <button onClick={()=>setFacturaModal(null)}
                   style={{ flex:1, padding:"10px 0", background:"transparent",
-                    border:`1px solid ${COLORS.border}`, borderRadius:8,
-                    color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>
+                    border:`1px solid ${C.border}`, borderRadius:8,
+                    color:C.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>
                   Cancelar
                 </button>
                 <button onClick={saveFacturaPF}
                   disabled={savingFact || !factNum.trim() || (sincronizar && syncMonto==="manual" && !montoManual)}
-                  style={{ flex:2, padding:"10px 0", background:COLORS.accent, border:"none",
-                    borderRadius:8, color:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13,
+                  style={{ flex:2, padding:"10px 0", background:C.accent, border:"none",
+                    borderRadius:8, color:C.bg, fontFamily:FONT_DISPLAY, fontSize:13,
                     fontWeight:700, cursor:"pointer", opacity:savingFact?0.7:1 }}>
                   {savingFact ? "Guardando…" : sincronizar ? "Guardar y registrar en Finanzas" : "Solo guardar N°"}
                 </button>

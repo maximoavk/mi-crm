@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { fetchImageAsDataUri } from "../CosteoPdfDocs.jsx";
 import { DeviceIconRail } from "./DeviceIconRail.jsx";
 import { CAMERA_PRESETS, STATUS_COLORS, STATUS_LABELS, STATUS_ORDER, LABEL_PREFIX, FASE_COLORS } from "./devicePresets.js";
@@ -228,12 +228,12 @@ export function DesignView({ designProjectId, onBack }) {
   if (loadError) {
     return (
       <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 12, alignItems: "flex-start" }}>
-        <div style={{ color: COLORS.red, fontFamily: FONT, fontSize: 13 }}>Error al cargar el plano: {loadError}</div>
+        <div style={{ color: C.red, fontFamily: FONT, fontSize: 13 }}>Error al cargar el plano: {loadError}</div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => setReloadKey((k) => k + 1)} style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${COLORS.border}`, background: "transparent", color: COLORS.text, fontSize: 12, fontFamily: FONT, cursor: "pointer" }}>
+          <button onClick={() => setReloadKey((k) => k + 1)} style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${C.border}`, background: "transparent", color: C.text, fontSize: 12, fontFamily: FONT, cursor: "pointer" }}>
             Reintentar
           </button>
-          <button onClick={() => onBack()} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "none", color: COLORS.textMuted, fontSize: 12, fontFamily: FONT, cursor: "pointer" }}>
+          <button onClick={() => onBack()} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "none", color: C.textMuted, fontSize: 12, fontFamily: FONT, cursor: "pointer" }}>
             ← Volver
           </button>
         </div>
@@ -242,7 +242,7 @@ export function DesignView({ designProjectId, onBack }) {
   }
 
   if (loading || !project) {
-    return <div style={{ padding: 24, color: COLORS.textMuted, fontFamily: FONT }}>Cargando plano…</div>;
+    return <div style={{ padding: 24, color: C.textMuted, fontFamily: FONT }}>Cargando plano…</div>;
   }
 
   const baseCoverScale = bgNaturalSize ? Math.max(VIEW_W / bgNaturalSize.w, VIEW_H / bgNaturalSize.h) : 1;
@@ -256,8 +256,8 @@ export function DesignView({ designProjectId, onBack }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <button onClick={() => { flushPendingSave(); onBack(project.costeoId); }} style={{ background: "none", border: "none", color: COLORS.textMuted, cursor: "pointer", fontFamily: FONT, fontSize: 12 }}>← Volver al proyecto</button>
-        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, fontWeight: 700, color: COLORS.text }}>
+        <button onClick={() => { flushPendingSave(); onBack(project.costeoId); }} style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontFamily: FONT, fontSize: 12 }}>← Volver al proyecto</button>
+        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, fontWeight: 700, color: C.text }}>
           {project.label || "Plano de diseño"}
         </div>
       </div>
@@ -293,24 +293,24 @@ export function DesignView({ designProjectId, onBack }) {
           />
 
           {bgImageUrl && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", fontSize: 11, fontFamily: FONT, color: COLORS.textMuted }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", fontSize: 11, fontFamily: FONT, color: C.textMuted }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <button onClick={() => zoomBy(0.9)} disabled={project.locked} style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${COLORS.border}`, background: "transparent", color: project.locked ? COLORS.textDim : COLORS.text, cursor: project.locked ? "default" : "pointer" }}>−</button>
+                <button onClick={() => zoomBy(0.9)} disabled={project.locked} style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent", color: project.locked ? C.textDim : C.text, cursor: project.locked ? "default" : "pointer" }}>−</button>
                 <span>Zoom</span>
-                <button onClick={() => zoomBy(1.1)} disabled={project.locked} style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${COLORS.border}`, background: "transparent", color: project.locked ? COLORS.textDim : COLORS.text, cursor: project.locked ? "default" : "pointer" }}>+</button>
+                <button onClick={() => zoomBy(1.1)} disabled={project.locked} style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent", color: project.locked ? C.textDim : C.text, cursor: project.locked ? "default" : "pointer" }}>+</button>
               </div>
-              <button onClick={resetView} disabled={project.locked} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${COLORS.border}`, background: "transparent", color: project.locked ? COLORS.textDim : COLORS.text, cursor: project.locked ? "default" : "pointer" }}>
+              <button onClick={resetView} disabled={project.locked} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent", color: project.locked ? C.textDim : C.text, cursor: project.locked ? "default" : "pointer" }}>
                 Restablecer
               </button>
             </div>
           )}
 
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => fileInputRef.current && fileInputRef.current.click()} style={{ flex: 1, padding: "10px", borderRadius: 8, border: `1px solid ${COLORS.border}`, background: "transparent", color: COLORS.text, fontSize: 12, fontFamily: FONT, cursor: "pointer" }}>
+            <button onClick={() => fileInputRef.current && fileInputRef.current.click()} style={{ flex: 1, padding: "10px", borderRadius: 8, border: `1px solid ${C.border}`, background: "transparent", color: C.text, fontSize: 12, fontFamily: FONT, cursor: "pointer" }}>
               📷 Cargar captura
             </button>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} style={{ display: "none" }} />
-            <button onClick={() => updateProject({ locked: !project.locked })} style={{ padding: "10px 14px", borderRadius: 8, border: project.locked ? `1px solid ${COLORS.accent}` : `1px solid ${COLORS.border}`, background: project.locked ? COLORS.accentDim : "transparent", color: COLORS.text, fontSize: 12, fontFamily: FONT, cursor: "pointer" }}>
+            <button onClick={() => updateProject({ locked: !project.locked })} style={{ padding: "10px 14px", borderRadius: 8, border: project.locked ? `1px solid ${C.accent}` : `1px solid ${C.border}`, background: project.locked ? C.accentDim : "transparent", color: C.text, fontSize: 12, fontFamily: FONT, cursor: "pointer" }}>
               {project.locked ? "🔒 Plano bloqueado" : "🔓 Bloquear plano"}
             </button>
           </div>
@@ -324,15 +324,15 @@ export function DesignView({ designProjectId, onBack }) {
             const selectedFaseColor = selectedFaseIdx >= 0 ? FASE_COLORS[selectedFaseIdx % FASE_COLORS.length] : null;
             const selectedFaseSuffix = selectedFaseIdx >= 0 ? ` -F${String(selectedFaseIdx + 1).padStart(2, "0")}` : "";
             return (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 10 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                  <div style={{ fontFamily: FONT_DISPLAY, fontSize: 13, fontWeight: 700, color: selectedFaseColor || COLORS.text }}>{selectedDevice.label}{selectedFaseSuffix}</div>
-                  <button onClick={removeSelectedDevice} style={{ padding: "5px 12px", borderRadius: 6, border: `1px solid ${COLORS.red}`, background: "transparent", color: COLORS.red, fontSize: 11, fontFamily: FONT, cursor: "pointer" }}>
+                  <div style={{ fontFamily: FONT_DISPLAY, fontSize: 13, fontWeight: 700, color: selectedFaseColor || C.text }}>{selectedDevice.label}{selectedFaseSuffix}</div>
+                  <button onClick={removeSelectedDevice} style={{ padding: "5px 12px", borderRadius: 6, border: `1px solid ${C.red}`, background: "transparent", color: C.red, fontSize: 11, fontFamily: FONT, cursor: "pointer" }}>
                     🗑 Eliminar
                   </button>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, color: COLORS.textMuted, fontFamily: FONT, marginBottom: 6 }}>ESTADO</div>
+                  <div style={{ fontSize: 11, color: C.textMuted, fontFamily: FONT, marginBottom: 6 }}>ESTADO</div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {STATUS_ORDER.map((s) => (
                       <button
@@ -342,7 +342,7 @@ export function DesignView({ designProjectId, onBack }) {
                           padding: "5px 12px", borderRadius: 999, fontSize: 11, fontFamily: FONT, cursor: "pointer",
                           border: `1.5px solid ${STATUS_COLORS[s]}`,
                           background: status === s ? STATUS_COLORS[s] : "transparent",
-                          color: status === s ? COLORS.bg : STATUS_COLORS[s],
+                          color: status === s ? C.bg : STATUS_COLORS[s],
                           fontWeight: status === s ? 700 : 400,
                         }}
                       >
@@ -353,14 +353,14 @@ export function DesignView({ designProjectId, onBack }) {
                 </div>
 
                 <div>
-                  <div style={{ fontSize: 11, color: COLORS.textMuted, fontFamily: FONT, marginBottom: 6 }}>FASE</div>
+                  <div style={{ fontSize: 11, color: C.textMuted, fontFamily: FONT, marginBottom: 6 }}>FASE</div>
                   <select
                     value={selectedDevice.faseId || ""}
                     onChange={(e) => handleSetFase(e.target.value || null)}
                     style={{
                       width: "100%", padding: "7px 10px", borderRadius: 7, fontSize: 12, fontFamily: FONT, cursor: "pointer",
-                      background: COLORS.bg, border: `1px solid ${selectedFaseColor || COLORS.border}`,
-                      color: COLORS.text,
+                      background: C.bg, border: `1px solid ${selectedFaseColor || C.border}`,
+                      color: C.text,
                     }}
                   >
                     <option value="">Sin fase</option>
@@ -373,7 +373,7 @@ export function DesignView({ designProjectId, onBack }) {
                 {hasCone && (
                   <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
                     <div style={{ flex: "1 1 240px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: COLORS.textMuted, fontFamily: FONT }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.textMuted, fontFamily: FONT }}>
                         <span>ÁNGULO FOV</span><span>{Math.round(selectedDevice.fov)}°</span>
                       </div>
                       <input
@@ -381,11 +381,11 @@ export function DesignView({ designProjectId, onBack }) {
                         onChange={(e) => handleDeviceChange(selectedId, { fov: Number(e.target.value) })}
                         onMouseUp={() => handleDeviceSettled(selectedId)}
                         onTouchEnd={() => handleDeviceSettled(selectedId)}
-                        style={{ width: "100%", accentColor: COLORS.accent }}
+                        style={{ width: "100%", accentColor: C.accent }}
                       />
                     </div>
                     <div style={{ flex: "1 1 240px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: COLORS.textMuted, fontFamily: FONT }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.textMuted, fontFamily: FONT }}>
                         <span>ALCANCE</span>
                         <span>
                           {Math.round(selectedDevice.range)} px
@@ -397,7 +397,7 @@ export function DesignView({ designProjectId, onBack }) {
                         onChange={(e) => handleDeviceChange(selectedId, { range: Number(e.target.value) })}
                         onMouseUp={() => handleDeviceSettled(selectedId)}
                         onTouchEnd={() => handleDeviceSettled(selectedId)}
-                        style={{ width: "100%", accentColor: COLORS.accent }}
+                        style={{ width: "100%", accentColor: C.accent }}
                       />
                     </div>
                   </div>
@@ -419,7 +419,7 @@ export function DesignView({ designProjectId, onBack }) {
             mppY={mppY}
           />
 
-          <div style={{ fontSize: 11, color: COLORS.textMuted, fontFamily: FONT }}>
+          <div style={{ fontSize: 11, color: C.textMuted, fontFamily: FONT }}>
             Arrastra un dispositivo del catálogo hacia el plano para agregarlo.
           </div>
 

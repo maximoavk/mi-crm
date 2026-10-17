@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { CHECKLIST_COMISIONAMIENTO, CHECKLIST_TEMPLATES, buildChecklist } from "./checklists.js";
 import { supabase } from "../supabaseClient.js";
-import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { fechaLocal, hoyISO } from "../shared/format.js";
 import { TITULAR } from "../shared/empresa.js";
 
@@ -120,28 +120,28 @@ export function OpModal({ op, defaultTipo, quotes, contacts, onClose, onSaved, o
     } catch(e){ alert("Error: "+e.message); setSaving(false); }
   };
 
-  const inp = { width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", boxSizing:"border-box" };
-  const lbl = { fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4, fontWeight:600, display:"block" };
+  const inp = { width:"100%", background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:C.text, outline:"none", boxSizing:"border-box" };
+  const lbl = { fontFamily:FONT, fontSize:10, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4, fontWeight:600, display:"block" };
   const TABS = [{ k:"info",label:"📋 Info"},{k:"checklist",label:`✅ Checklist (${pct}%)`},{k:"firma",label:"✍️ Firma"}];
-  const TC = tipo==="comisionamiento"?COLORS.green:COLORS.secondary;
+  const TC = tipo==="comisionamiento"?C.green:C.secondary;
 
   return (
     <div style={{ position:"fixed", inset:0, background:"#000c", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:12 }}>
-      <div style={{ background:COLORS.surface, border:`1px solid ${TC}44`, borderRadius:16, width:"100%", maxWidth:720, maxHeight:"95vh", display:"flex", flexDirection:"column" }}>
+      <div style={{ background:C.surface, border:`1px solid ${TC}44`, borderRadius:16, width:"100%", maxWidth:720, maxHeight:"95vh", display:"flex", flexDirection:"column" }}>
 
         {/* Header */}
-        <div style={{ padding:"18px 24px 0", borderBottom:`1px solid ${COLORS.border}`, flexShrink:0 }}>
+        <div style={{ padding:"18px 24px 0", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
             <div>
               <div style={{ fontFamily:FONT, fontSize:10, color:TC, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:3 }}>
                 {isNew?"Nueva operación":op.numero}
               </div>
-              <div style={{ fontFamily:FONT_DISPLAY, fontSize:17, fontWeight:700, color:COLORS.text }}>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:17, fontWeight:700, color:C.text }}>
                 {isNew ? (
                   <div style={{ display:"flex", gap:8 }}>
-                    {[["mantencion","🔧 Mantención",COLORS.secondary],["comisionamiento","🏗️ Comisionamiento",COLORS.green]].map(([k,l,c])=>(
+                    {[["mantencion","🔧 Mantención",C.secondary],["comisionamiento","🏗️ Comisionamiento",C.green]].map(([k,l,c])=>(
                       <button key={k} onClick={()=>setTipo(k)}
-                        style={{ padding:"5px 16px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", border:`1px solid ${tipo===k?c:COLORS.border}`, background:tipo===k?`${c}22`:"transparent", color:tipo===k?c:COLORS.textMuted }}>
+                        style={{ padding:"5px 16px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", border:`1px solid ${tipo===k?c:C.border}`, background:tipo===k?`${c}22`:"transparent", color:tipo===k?c:C.textMuted }}>
                         {l}
                       </button>
                     ))}
@@ -149,14 +149,14 @@ export function OpModal({ op, defaultTipo, quotes, contacts, onClose, onSaved, o
                 ) : `${tipo==="comisionamiento"?"🏗️":"🔧"} ${tipo==="comisionamiento"?"Comisionamiento":"Mantención"}`}
               </div>
             </div>
-            <button onClick={onClose} style={{ background:"transparent", border:"none", color:COLORS.textMuted, fontSize:20, cursor:"pointer" }}>✕</button>
+            <button onClick={onClose} style={{ background:"transparent", border:"none", color:C.textMuted, fontSize:20, cursor:"pointer" }}>✕</button>
           </div>
           {/* Tabs */}
           <div style={{ display:"flex", gap:0 }}>
             {TABS.map(t=>(
               <button key={t.k} onClick={()=>setActiveTab(t.k)}
                 style={{ padding:"8px 18px", fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", border:"none", background:"transparent",
-                  color:activeTab===t.k?TC:COLORS.textMuted, borderBottom:`2px solid ${activeTab===t.k?TC:"transparent"}`, transition:"all 0.15s" }}>
+                  color:activeTab===t.k?TC:C.textMuted, borderBottom:`2px solid ${activeTab===t.k?TC:"transparent"}`, transition:"all 0.15s" }}>
                 {t.label}
               </button>
             ))}
@@ -185,7 +185,7 @@ export function OpModal({ op, defaultTipo, quotes, contacts, onClose, onSaved, o
                 <div style={{ gridColumn:"span 2" }}><label style={lbl}>Dirección / Lugar de faena</label><input value={form.lugar} onChange={e=>ff("lugar",e.target.value)} placeholder="Ej: Av. Peñuelas 2500, Coquimbo" style={inp} /></div>
               </div>
               {/* Equipo */}
-              <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:10, padding:16 }}>
+              <div style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:10, padding:16 }}>
                 <div style={{ fontFamily:FONT, fontSize:10, color:TC, textTransform:"uppercase", letterSpacing:"0.08em", fontWeight:700, marginBottom:12 }}>⚙️ Datos del equipo</div>
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
                   <div>
@@ -200,7 +200,7 @@ export function OpModal({ op, defaultTipo, quotes, contacts, onClose, onSaved, o
                   {tipo==="comisionamiento" && (
                     <div><label style={lbl}>Garantía (meses)</label>
                       <input type="number" min="0" value={form.garantia_meses} onChange={e=>ff("garantia_meses",e.target.value)} placeholder="Ej: 12" style={inp} />
-                      {form.garantia_meses&&form.fecha_visita&&<div style={{fontFamily:FONT,fontSize:10,color:COLORS.green,marginTop:3}}>
+                      {form.garantia_meses&&form.fecha_visita&&<div style={{fontFamily:FONT,fontSize:10,color:C.green,marginTop:3}}>
                         Vence: {new Date(fechaLocal(form.fecha_visita).setMonth(fechaLocal(form.fecha_visita).getMonth()+Number(form.garantia_meses))).toLocaleDateString("es-CL")}
                       </div>}
                     </div>
@@ -221,18 +221,18 @@ export function OpModal({ op, defaultTipo, quotes, contacts, onClose, onSaved, o
           {activeTab==="checklist" && (
             <div>
               {/* Barra de progreso global */}
-              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16, padding:"10px 14px", background:COLORS.bg, borderRadius:10, border:`1px solid ${COLORS.border}` }}>
+              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16, padding:"10px 14px", background:C.bg, borderRadius:10, border:`1px solid ${C.border}` }}>
                 <div style={{ flex:1 }}>
                   <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                    <span style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{doneItems} de {totalItems} ítems completados</span>
-                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:pct===100?COLORS.green:TC }}>{pct}%</span>
+                    <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>{doneItems} de {totalItems} ítems completados</span>
+                    <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:pct===100?C.green:TC }}>{pct}%</span>
                   </div>
-                  <div style={{ height:6, background:COLORS.border, borderRadius:99, overflow:"hidden" }}>
-                    <div style={{ height:"100%", width:`${pct}%`, background:pct===100?COLORS.green:TC, borderRadius:99, transition:"width 0.3s" }} />
+                  <div style={{ height:6, background:C.border, borderRadius:99, overflow:"hidden" }}>
+                    <div style={{ height:"100%", width:`${pct}%`, background:pct===100?C.green:TC, borderRadius:99, transition:"width 0.3s" }} />
                   </div>
                 </div>
                 <div style={{ display:"flex", gap:6 }}>
-                  {[["ok","✓ OK",COLORS.green],["obs","⚠ OBS",COLORS.yellow],["na","N/A",COLORS.textMuted]].map(([s,l,c])=>(
+                  {[["ok","✓ OK",C.green],["obs","⚠ OBS",C.yellow],["na","N/A",C.textMuted]].map(([s,l,c])=>(
                     <div key={s} style={{ fontFamily:FONT, fontSize:9, color:c, background:`${c}15`, padding:"2px 7px", borderRadius:10 }}>{l}</div>
                   ))}
                 </div>
@@ -240,21 +240,21 @@ export function OpModal({ op, defaultTipo, quotes, contacts, onClose, onSaved, o
 
               {(checklist||[]).map((sec,sIdx)=>(
                 <div key={sIdx} style={{ marginBottom:16 }}>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.text, borderBottom:`2px solid ${TC}44`, paddingBottom:6, marginBottom:8 }}>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:C.text, borderBottom:`2px solid ${TC}44`, paddingBottom:6, marginBottom:8 }}>
                     {sec.seccion}
                   </div>
                   <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
                     {(sec.items||[]).map((it,iIdx)=>(
-                      <div key={iIdx} style={{ background:it.estado==="ok"?`${COLORS.green}10`:it.estado==="obs"?`${COLORS.yellow}10`:it.estado==="na"?`${COLORS.border}22`:COLORS.bg, border:`1px solid ${it.estado==="ok"?COLORS.green+"33":it.estado==="obs"?COLORS.yellow+"33":COLORS.border}`, borderRadius:7, padding:"8px 12px" }}>
+                      <div key={iIdx} style={{ background:it.estado==="ok"?`${C.green}10`:it.estado==="obs"?`${C.yellow}10`:it.estado==="na"?`${C.border}22`:C.bg, border:`1px solid ${it.estado==="ok"?C.green+"33":it.estado==="obs"?C.yellow+"33":C.border}`, borderRadius:7, padding:"8px 12px" }}>
                         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                          <span style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted, flexShrink:0, minWidth:16, textAlign:"center" }}>
+                          <span style={{ fontFamily:FONT, fontSize:12, color:C.textMuted, flexShrink:0, minWidth:16, textAlign:"center" }}>
                             {it.estado==="ok"?"✓":it.estado==="na"?"⊘":"○"}
                           </span>
-                          <span style={{ fontFamily:FONT, fontSize:12, color:it.estado==="na"?COLORS.textMuted:COLORS.text, flex:1, textDecoration:it.estado==="na"?"line-through":"none" }}>{it.label}</span>
+                          <span style={{ fontFamily:FONT, fontSize:12, color:it.estado==="na"?C.textMuted:C.text, flex:1, textDecoration:it.estado==="na"?"line-through":"none" }}>{it.label}</span>
                           <div style={{ display:"flex", gap:4, flexShrink:0 }}>
-                            {[["ok","OK",COLORS.green],["obs","OBS",COLORS.yellow],["na","N/A",COLORS.textMuted]].map(([s,l,c])=>(
+                            {[["ok","OK",C.green],["obs","OBS",C.yellow],["na","N/A",C.textMuted]].map(([s,l,c])=>(
                               <button key={s} onClick={()=>setItem(sIdx,iIdx,"estado",it.estado===s?null:s)}
-                                style={{ padding:"2px 8px", borderRadius:5, fontFamily:FONT_DISPLAY, fontSize:9, cursor:"pointer", border:`1px solid ${it.estado===s?c:COLORS.border}`, background:it.estado===s?`${c}22`:"transparent", color:it.estado===s?c:COLORS.textMuted, fontWeight:it.estado===s?700:400 }}>
+                                style={{ padding:"2px 8px", borderRadius:5, fontFamily:FONT_DISPLAY, fontSize:9, cursor:"pointer", border:`1px solid ${it.estado===s?c:C.border}`, background:it.estado===s?`${c}22`:"transparent", color:it.estado===s?c:C.textMuted, fontWeight:it.estado===s?700:400 }}>
                                 {l}
                               </button>
                             ))}
@@ -263,7 +263,7 @@ export function OpModal({ op, defaultTipo, quotes, contacts, onClose, onSaved, o
                         {it.estado==="obs" && (
                           <input value={it.obs||""} onChange={e=>setItem(sIdx,iIdx,"obs",e.target.value)}
                             placeholder="Describe la observación…"
-                            style={{ marginTop:6, width:"100%", background:"transparent", border:`1px solid ${COLORS.yellow}44`, borderRadius:5, padding:"5px 9px", fontFamily:FONT, fontSize:11, color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+                            style={{ marginTop:6, width:"100%", background:"transparent", border:`1px solid ${C.yellow}44`, borderRadius:5, padding:"5px 9px", fontFamily:FONT, fontSize:11, color:C.text, outline:"none", boxSizing:"border-box" }} />
                         )}
                       </div>
                     ))}
@@ -277,21 +277,21 @@ export function OpModal({ op, defaultTipo, quotes, contacts, onClose, onSaved, o
           {activeTab==="firma" && (
             <div>
               {firma.img && !firmaMode ? (
-                <div style={{ marginBottom:16, padding:"14px 16px", background:COLORS.bg, border:`1px solid ${COLORS.green}44`, borderRadius:10 }}>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.green, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8, fontWeight:700 }}>✓ Firma registrada</div>
-                  <img src={firma.img} alt="firma" style={{ maxWidth:260, maxHeight:90, border:`1px solid ${COLORS.border}`, borderRadius:6, background:"#fff", padding:4 }} />
+                <div style={{ marginBottom:16, padding:"14px 16px", background:C.bg, border:`1px solid ${C.green}44`, borderRadius:10 }}>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:C.green, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8, fontWeight:700 }}>✓ Firma registrada</div>
+                  <img src={firma.img} alt="firma" style={{ maxWidth:260, maxHeight:90, border:`1px solid ${C.border}`, borderRadius:6, background:"#fff", padding:4 }} />
                   <div style={{ marginTop:8 }}>
                     <input value={firma.nombre} onChange={e=>setFirma(p=>({...p,nombre:e.target.value}))} placeholder="Nombre del firmante"
                       style={{...inp, maxWidth:300}} />
                   </div>
                   <div style={{ display:"flex", gap:8, marginTop:10 }}>
-                    <button onClick={()=>setFirmaMode(true)} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${COLORS.yellow}22`, border:`1px solid ${COLORS.yellow}44`, color:COLORS.yellow }}>✏️ Volver a firmar</button>
-                    <button onClick={()=>setFirma({img:null,nombre:""})} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.red}44`, color:COLORS.red }}>✕ Borrar firma</button>
+                    <button onClick={()=>setFirmaMode(true)} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${C.yellow}22`, border:`1px solid ${C.yellow}44`, color:C.yellow }}>✏️ Volver a firmar</button>
+                    <button onClick={()=>setFirma({img:null,nombre:""})} style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${C.red}44`, color:C.red }}>✕ Borrar firma</button>
                   </div>
                 </div>
               ) : (
                 <div>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, marginBottom:10 }}>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, marginBottom:10 }}>
                     El cliente puede firmar directamente en pantalla. Funciona en celular/tablet con dedo.
                   </div>
                   <div style={{ background:"#fff", border:`2px solid ${TC}`, borderRadius:10, overflow:"hidden", marginBottom:10, touchAction:"none" }}>
@@ -305,8 +305,8 @@ export function OpModal({ op, defaultTipo, quotes, contacts, onClose, onSaved, o
                       style={{...inp, maxWidth:320}} />
                   </div>
                   <div style={{ display:"flex", gap:8 }}>
-                    <button onClick={clearFirma} style={{ padding:"7px 16px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.border}`, color:COLORS.textMuted }}>🗑 Limpiar</button>
-                    <button onClick={saveFirma} style={{ padding:"7px 16px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, color:COLORS.green }}>✓ Aceptar firma</button>
+                    <button onClick={clearFirma} style={{ padding:"7px 16px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:"transparent", border:`1px solid ${C.border}`, color:C.textMuted }}>🗑 Limpiar</button>
+                    <button onClick={saveFirma} style={{ padding:"7px 16px", borderRadius:6, fontFamily:FONT_DISPLAY, fontSize:11, cursor:"pointer", background:`${C.green}22`, border:`1px solid ${C.green}44`, color:C.green }}>✓ Aceptar firma</button>
                   </div>
                 </div>
               )}
@@ -315,10 +315,10 @@ export function OpModal({ op, defaultTipo, quotes, contacts, onClose, onSaved, o
         </div>
 
         {/* Footer botones */}
-        <div style={{ padding:"14px 24px", borderTop:`1px solid ${COLORS.border}`, display:"flex", gap:8, flexShrink:0, flexWrap:"wrap" }}>
-          <button onClick={onClose} style={{ padding:"9px 18px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:"transparent", border:`1px solid ${COLORS.border}`, color:COLORS.textMuted }}>Cancelar</button>
+        <div style={{ padding:"14px 24px", borderTop:`1px solid ${C.border}`, display:"flex", gap:8, flexShrink:0, flexWrap:"wrap" }}>
+          <button onClick={onClose} style={{ padding:"9px 18px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:"transparent", border:`1px solid ${C.border}`, color:C.textMuted }}>Cancelar</button>
           <button onClick={()=>save("borrador")} disabled={saving}
-            style={{ padding:"9px 18px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:`${COLORS.border}`, border:"none", color:COLORS.textMuted }}>
+            style={{ padding:"9px 18px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:`${C.border}`, border:"none", color:C.textMuted }}>
             💾 Guardar borrador
           </button>
           <button onClick={()=>save("completado")} disabled={saving}
@@ -326,11 +326,11 @@ export function OpModal({ op, defaultTipo, quotes, contacts, onClose, onSaved, o
             ✓ Marcar completado
           </button>
           {firma.img && <button onClick={()=>save("firmado")} disabled={saving}
-            style={{ padding:"9px 18px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:`${COLORS.green}22`, border:`1px solid ${COLORS.green}44`, color:COLORS.green }}>
+            style={{ padding:"9px 18px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:`${C.green}22`, border:`1px solid ${C.green}44`, color:C.green }}>
             ✍️ Guardar firmado
           </button>}
           <button onClick={async()=>{ await save(form.estado); }} disabled={saving}
-            style={{ padding:"9px 18px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:COLORS.accent, border:"none", color:"#fff", marginLeft:"auto" }}>
+            style={{ padding:"9px 18px", borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer", background:C.accent, border:"none", color:"#fff", marginLeft:"auto" }}>
             🖨 Guardar y PDF
           </button>
         </div>

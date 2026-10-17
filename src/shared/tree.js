@@ -10,8 +10,8 @@ export const TREE_ELBOW = 12;             // largo del tramo horizontal de la "L
 // Estilo base de una línea conectora (se completa con left/top/bottom y los
 // bordes que correspondan: borderLeftWidth para la vertical, + borderBottom
 // y borderBottomLeftRadius para la "L").
-export const treeLine = (extra) => ({
-  position:"absolute", pointerEvents:"none", borderColor:TREE_LINE, borderStyle:"solid", borderWidth:0, ...extra,
+export const treeLine = (extra, color = TREE_LINE) => ({
+  position:"absolute", pointerEvents:"none", borderColor:color, borderStyle:"solid", borderWidth:0, ...extra,
 });
 
 // Clases globales (una sola vez): fundido de los hijos al desplegar y sin

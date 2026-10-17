@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient.js";
 import { FinModal, LabelInput, BtnSec, BtnPrimary } from "../ui.jsx";
-import { FONT, COLORS, FONT_DISPLAY } from "../../theme.js";
+import { FONT_BODY as FONT, COLORS_LIGHT as C, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../../theme.js";
 import { fmtClp } from "../../shared/format.js";
 import { LINEAS_NEGOCIO } from "../constants.js";
 
@@ -153,13 +153,13 @@ export function ModalServicio({ cotizacion, suppliers, products, onClose, onSave
   return (
     <FinModal
       title={`${esModoProd ? "Agregar producto" : "Nueva línea de servicio"} — COT-${cotizacion.numero_cotizacion}`}
-      onClose={onClose} width={540}>
+      onClose={onClose} width={540} theme={LIGHT_THEME}>
 
       {/* ── LÍNEAS PENDIENTES DE LA COT ── */}
       {!loadingLines && serviceLines.length > 0 && (
         <div style={{ marginBottom:18 }}>
           <div style={{ fontFamily:FONT, fontSize:11,
-            color: esModoProd ? COLORS.accent : COLORS.purple,
+            color: esModoProd ? C.accent : C.purple,
             letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>
             {esModoProd ? "Productos" : "Servicios"} pendientes de esta COT — selecciona para pre-cargar
           </div>
@@ -169,64 +169,64 @@ export function ModalServicio({ cotizacion, suppliers, products, onClose, onSave
                 onClick={() => selectLine(ql)}
                 style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
                   padding:"9px 14px", borderRadius:8, cursor:"pointer", textAlign:"left",
-                  background: selectedLine===ql.id ? COLORS.accentDim : COLORS.bg,
-                  border: `1px solid ${selectedLine===ql.id ? COLORS.accent : COLORS.border}`,
+                  background: selectedLine===ql.id ? C.accentDim : C.bg,
+                  border: `1px solid ${selectedLine===ql.id ? C.accent : C.border}`,
                   transition:"all 0.15s" }}>
                 <div>
                   <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600,
-                    color: selectedLine===ql.id ? COLORS.accent : COLORS.text }}>
-                    {ql.codigo && <span style={{ fontFamily:FONT, color:COLORS.accent,
+                    color: selectedLine===ql.id ? C.accent : C.text }}>
+                    {ql.codigo && <span style={{ fontFamily:FONT, color:C.accent,
                       marginRight:8 }}>{ql.codigo}</span>}
                     {ql.descripcion || ql.products?.nombre}
                   </div>
                   {ql.products?.proveedor && (
-                    <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:2 }}>
+                    <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginTop:2 }}>
                       Proveedor: {ql.products.proveedor}
                     </div>
                   )}
                 </div>
                 <div style={{ textAlign:"right", flexShrink:0, marginLeft:12 }}>
                   <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700,
-                    color:COLORS.text }}>{fmtClp(ql.subtotal || ql.precio_unitario * ql.cantidad)}</div>
-                  <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
+                    color:C.text }}>{fmtClp(ql.subtotal || ql.precio_unitario * ql.cantidad)}</div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>
                     {ql.cantidad} × {fmtClp(ql.precio_unitario)}
                   </div>
                 </div>
               </button>
             ))}
           </div>
-          <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, marginTop:6 }}>
+          <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginTop:6 }}>
             O completa el formulario manualmente abajo
           </div>
-          <div style={{ height:1, background:COLORS.border, margin:"14px 0" }} />
+          <div style={{ height:1, background:C.border, margin:"14px 0" }} />
         </div>
       )}
       {loadingLines && (
-        <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted,
+        <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted,
           marginBottom:14, padding:"8px 0" }}>Cargando servicios de la COT…</div>
       )}
       {!loadingLines && serviceLines.length === 0 && (
-        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
-          marginBottom:14, padding:"8px 12px", background:COLORS.bg,
-          borderRadius:6, border:`1px solid ${COLORS.border}` }}>
+        <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
+          marginBottom:14, padding:"8px 12px", background:C.bg,
+          borderRadius:6, border:`1px solid ${C.border}` }}>
           Todos los servicios de esta COT ya están registrados — o puedes agregar uno nuevo abajo.
         </div>
       )}
       <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16,
-        padding:"10px 14px", background:esExtraordinario?COLORS.yellow+"18":COLORS.bg,
-        border:`1px solid ${esExtraordinario?COLORS.yellow+"44":COLORS.border}`, borderRadius:8 }}>
+        padding:"10px 14px", background:esExtraordinario?C.yellow+"18":C.bg,
+        border:`1px solid ${esExtraordinario?C.yellow+"44":C.border}`, borderRadius:8 }}>
         <button onClick={()=>setEsExtraordinario(p=>!p)}
           style={{ width:36, height:20, borderRadius:10, border:"none", cursor:"pointer",
-            background:esExtraordinario?COLORS.yellow:COLORS.border, position:"relative", flexShrink:0 }}>
+            background:esExtraordinario?C.yellow:C.border, position:"relative", flexShrink:0 }}>
           <div style={{ position:"absolute", top:2, left:esExtraordinario?18:2,
             width:16, height:16, borderRadius:"50%", background:"#fff", transition:"left 0.15s" }} />
         </button>
         <div>
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600,
-            color:esExtraordinario?COLORS.yellow:COLORS.text }}>
+            color:esExtraordinario?C.yellow:C.text }}>
             {esExtraordinario ? "Ítem extraordinario" : "Ítem del maestro"}
           </div>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+          <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>
             {esExtraordinario ? "Se guardará en el maestro de productos" : "Busca un producto existente"}
           </div>
         </div>
@@ -234,29 +234,29 @@ export function ModalServicio({ cotizacion, suppliers, products, onClose, onSave
 
       {/* Buscador subcontratista */}
       <div style={{ marginBottom:14 }}>
-        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+        <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
           letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>Subcontratista / Proveedor</div>
         <div style={{ position:"relative" }}>
           <input value={busqSup} onChange={e=>{ setBusqSup(e.target.value); setShowSupDrop(true);
             if(!e.target.value){ setSupSel(null); } }}
             onFocus={()=>setShowSupDrop(true)} onBlur={()=>setTimeout(()=>setShowSupDrop(false),150)}
             placeholder="Buscar por nombre o RUT…"
-            style={{ width:"100%", background:COLORS.bg, border:`1px solid ${supSel?COLORS.green:COLORS.border}`,
+            style={{ width:"100%", background:C.bg, border:`1px solid ${supSel?C.green:C.border}`,
               borderRadius:6, padding:"9px 36px 9px 12px", fontFamily:FONT, fontSize:13,
-              color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+              color:C.text, outline:"none", boxSizing:"border-box" }} />
           <span style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)",
             fontSize:13, pointerEvents:"none" }}>{supSel?"✅":"🔍"}</span>
           {showSupDrop && sugSup.length > 0 && (
             <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:300,
-              background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8,
+              background:C.surface, border:`1px solid ${C.border}`, borderRadius:8,
               maxHeight:180, overflowY:"auto", boxShadow:"0 6px 20px #0005" }}>
               {sugSup.map(s=>(
                 <div key={s.id} onMouseDown={()=>{ setSupSel(s); setBusqSup(s.nombre); setShowSupDrop(false); }}
-                  style={{ padding:"9px 14px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}` }}
-                  onMouseEnter={e=>e.currentTarget.style.background=COLORS.card}
+                  style={{ padding:"9px 14px", cursor:"pointer", borderBottom:`1px solid ${C.border}` }}
+                  onMouseEnter={e=>e.currentTarget.style.background=C.card}
                   onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text }}>{s.nombre}</div>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>{s.rut}</div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:C.text }}>{s.nombre}</div>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>{s.rut}</div>
                 </div>
               ))}
             </div>
@@ -267,10 +267,10 @@ export function ModalServicio({ cotizacion, suppliers, products, onClose, onSave
       {/* Buscador producto/servicio del maestro (solo si no es extraordinario) */}
       {!esExtraordinario && (
         <div style={{ marginBottom:14 }}>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+          <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
             letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>
             {esModoProd ? "Producto del maestro" : "Servicio del maestro"}
-            <span style={{ color:COLORS.accent, textTransform:"none", letterSpacing:0, marginLeft:6 }}>
+            <span style={{ color:C.accent, textTransform:"none", letterSpacing:0, marginLeft:6 }}>
               (solo tipo "{esModoProd ? "producto" : "servicio"}")
             </span>
           </div>
@@ -279,15 +279,15 @@ export function ModalServicio({ cotizacion, suppliers, products, onClose, onSave
               if(!e.target.value){ setProdSel(null); setF("descripcion",""); setF("precio_unitario",""); setF("codigo",""); } }}
               onFocus={()=>setShowProdDrop(true)} onBlur={()=>setTimeout(()=>setShowProdDrop(false),150)}
               placeholder="Buscar por nombre o código…"
-              style={{ width:"100%", background:COLORS.bg,
-                border:`1px solid ${prodSel ? COLORS.green : COLORS.border}`,
+              style={{ width:"100%", background:C.bg,
+                border:`1px solid ${prodSel ? C.green : C.border}`,
                 borderRadius:6, padding:"9px 36px 9px 12px", fontFamily:FONT, fontSize:13,
-                color:COLORS.text, outline:"none", boxSizing:"border-box" }} />
+                color:C.text, outline:"none", boxSizing:"border-box" }} />
             <span style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)",
               fontSize:13, pointerEvents:"none" }}>{prodSel ? "✅" : "🔍"}</span>
             {showProdDrop && sugProd.length > 0 && (
               <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:300,
-                background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:8,
+                background:C.surface, border:`1px solid ${C.border}`, borderRadius:8,
                 maxHeight:180, overflowY:"auto", boxShadow:"0 6px 20px #0005" }}>
                 {sugProd.map(p=>(
                   <div key={p.id} onMouseDown={()=>{
@@ -299,22 +299,22 @@ export function ModalServicio({ cotizacion, suppliers, products, onClose, onSave
                     setPrecioVentaCot(precioNeto);
                     setShowProdDrop(false);
                   }}
-                    style={{ padding:"9px 14px", cursor:"pointer", borderBottom:`1px solid ${COLORS.border}` }}
-                    onMouseEnter={e=>e.currentTarget.style.background=COLORS.card}
+                    style={{ padding:"9px 14px", cursor:"pointer", borderBottom:`1px solid ${C.border}` }}
+                    onMouseEnter={e=>e.currentTarget.style.background=C.card}
                     onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                       <div>
-                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:COLORS.text }}>{p.nombre}</div>
-                        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600, color:C.text }}>{p.nombre}</div>
+                        <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>
                           {p.codigo}
                           <span style={{ marginLeft:8, borderRadius:3, padding:"1px 5px", fontSize:10,
-                            color: esModoProd ? COLORS.yellow : COLORS.accent,
-                            background: esModoProd ? COLORS.yellow+"18" : COLORS.accentDim }}>
+                            color: esModoProd ? C.yellow : C.accent,
+                            background: esModoProd ? C.yellow+"18" : C.accentDim }}>
                             {esModoProd ? "producto" : "servicio"}
                           </span>
                         </div>
                       </div>
-                      <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.accent }}>
+                      <div style={{ fontFamily:FONT, fontSize:12, color:C.accent }}>
                         {fmtClp(Math.round((p.precio||0)/1.19))} neto
                       </div>
                     </div>
@@ -332,23 +332,23 @@ export function ModalServicio({ cotizacion, suppliers, products, onClose, onSave
               );
               return (
                 <div style={{ position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:300,
-                  background:COLORS.surface,
-                  border:`1px solid ${hayOpuesto ? COLORS.yellow+"44" : COLORS.border}`,
+                  background:C.surface,
+                  border:`1px solid ${hayOpuesto ? C.yellow+"44" : C.border}`,
                   borderRadius:8, padding:"10px 14px", boxShadow:"0 6px 20px #0005" }}>
                   {hayOpuesto ? (
                     <>
                       <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:600,
-                        color:COLORS.yellow, marginBottom:4 }}>
+                        color:C.yellow, marginBottom:4 }}>
                         ⚠️ Ítem encontrado pero es tipo "{tipoOpuesto}"
                       </div>
-                      <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                      <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>
                         {esModoProd
                           ? "Este ítem es un servicio — usa el botón \"+ Agregar\" en cambio."
                           : "Este ítem es un producto — usa el botón \"+ Producto\" en cambio."}
                       </div>
                     </>
                   ) : (
-                    <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.textMuted }}>
+                    <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted }}>
                       No encontrado — activa "Ítem extraordinario" para crearlo
                     </div>
                   )}
@@ -363,23 +363,23 @@ export function ModalServicio({ cotizacion, suppliers, products, onClose, onSave
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 14px" }}>
         <div style={{ gridColumn:"1/-1" }}>
           <LabelInput label="Descripción" value={form.descripcion}
-            onChange={e=>setF("descripcion",e.target.value)} placeholder="Descripción del servicio…" />
+            onChange={e=>setF("descripcion",e.target.value)} placeholder="Descripción del servicio…" theme={LIGHT_THEME} />
         </div>
         <LabelInput label="Código" value={form.codigo}
-          onChange={e=>setF("codigo",e.target.value)} placeholder="SVC-001" />
+          onChange={e=>setF("codigo",e.target.value)} placeholder="SVC-001" theme={LIGHT_THEME} />
         <LabelInput label="Cantidad" type="number" value={form.cantidad}
-          onChange={e=>setF("cantidad",e.target.value)} placeholder="1" />
+          onChange={e=>setF("cantidad",e.target.value)} placeholder="1" theme={LIGHT_THEME} />
 
         {/* Campo costo con referencia precio venta COT */}
         <div style={{ marginBottom:14 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:5 }}>
-            <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+            <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
               letterSpacing:"0.08em", textTransform:"uppercase" }}>
               Costo neto unitario (lo que pagas)
             </div>
             {precioVentaCot > 0 && (
-              <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent,
-                background:COLORS.accentDim, border:`1px solid ${COLORS.accentGlow}`,
+              <div style={{ fontFamily:FONT, fontSize:10, color:C.accent,
+                background:C.accentDim, border:`1px solid ${C.accentGlow}`,
                 borderRadius:4, padding:"2px 8px" }}>
                 Venta COT: {fmtClp(precioVentaCot)}
               </div>
@@ -391,18 +391,18 @@ export function ModalServicio({ cotizacion, suppliers, products, onClose, onSave
               value={form.precio_unitario}
               onChange={e=>setF("precio_unitario",e.target.value)}
               placeholder="0 — ingresa tu costo real"
-              style={{ flex:1, background:COLORS.bg,
-                border:`1px solid ${form.precio_unitario==="0"?COLORS.green:form.precio_unitario?COLORS.accent:COLORS.border}`,
+              style={{ flex:1, background:C.bg,
+                border:`1px solid ${form.precio_unitario==="0"?C.green:form.precio_unitario?C.accent:C.border}`,
                 borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13,
-                color:COLORS.text, outline:"none", boxSizing:"border-box" }}
+                color:C.text, outline:"none", boxSizing:"border-box" }}
             />
             {/* Botón trabajo propio */}
             <button
               onClick={()=>setF("precio_unitario","0")}
               title="Trabajo propio — costo $0, ingreso 100% margen"
-              style={{ padding:"9px 12px", background:form.precio_unitario==="0"?COLORS.green+"22":"transparent",
-                border:`1px solid ${form.precio_unitario==="0"?COLORS.green:COLORS.border}`,
-                borderRadius:6, color:form.precio_unitario==="0"?COLORS.green:COLORS.textMuted,
+              style={{ padding:"9px 12px", background:form.precio_unitario==="0"?C.green+"22":"transparent",
+                border:`1px solid ${form.precio_unitario==="0"?C.green:C.border}`,
+                borderRadius:6, color:form.precio_unitario==="0"?C.green:C.textMuted,
                 fontFamily:FONT, fontSize:11, cursor:"pointer", whiteSpace:"nowrap",
                 transition:"all 0.15s" }}>
               $0 propio
@@ -411,12 +411,12 @@ export function ModalServicio({ cotizacion, suppliers, products, onClose, onSave
           {/* Indicador contextual */}
           {form.precio_unitario === "0" && (
             <div style={{ marginTop:5, fontFamily:FONT, fontSize:10,
-              color:COLORS.green }}>
+              color:C.green }}>
               ✓ Trabajo propio — el ingreso ({precioVentaCot > 0 ? fmtClp(precioVentaCot * Number(form.cantidad||1)) : "precio COT"}) es margen puro
             </div>
           )}
           {form.precio_unitario && form.precio_unitario !== "0" && precioVentaCot > 0 && (
-            <div style={{ marginTop:5, fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
+            <div style={{ marginTop:5, fontFamily:FONT, fontSize:10, color:C.textMuted }}>
               Margen estimado: {fmtClp(
                 (precioVentaCot - Number(form.precio_unitario)) * Number(form.cantidad||1)
               )} ({Math.round(((precioVentaCot - Number(form.precio_unitario)) / precioVentaCot) * 100)}%)
@@ -424,15 +424,15 @@ export function ModalServicio({ cotizacion, suppliers, products, onClose, onSave
           )}
         </div>
         <div style={{ marginBottom:14 }}>
-          <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted,
+          <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
             letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>¿Aplica IVA?</div>
           <div style={{ display:"flex", gap:10 }}>
             {[true,false].map(v=>(
               <button key={String(v)} onClick={()=>setF("aplica_iva",v)}
                 style={{ flex:1, padding:"9px 0", borderRadius:6,
-                  background:form.aplica_iva===v?COLORS.accentDim:"transparent",
-                  border:`1px solid ${form.aplica_iva===v?COLORS.accent:COLORS.border}`,
-                  color:form.aplica_iva===v?COLORS.accent:COLORS.textMuted,
+                  background:form.aplica_iva===v?C.accentDim:"transparent",
+                  border:`1px solid ${form.aplica_iva===v?C.accent:C.border}`,
+                  color:form.aplica_iva===v?C.accent:C.textMuted,
                   fontFamily:FONT, fontSize:12, cursor:"pointer" }}>
                 {v?"Sí (19%)":"No (Exenta)"}
               </button>
@@ -443,36 +443,36 @@ export function ModalServicio({ cotizacion, suppliers, products, onClose, onSave
 
       {/* Preview */}
       {neto > 0 && (
-        <div style={{ background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:8,
+        <div style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:8,
           padding:"10px 14px", marginBottom:14, fontFamily:FONT, fontSize:12 }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
-            <span style={{ color:COLORS.textMuted }}>Neto:</span>
-            <span style={{ color:COLORS.text }}>{fmtClp(neto)}</span>
+            <span style={{ color:C.textMuted }}>Neto:</span>
+            <span style={{ color:C.text }}>{fmtClp(neto)}</span>
           </div>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
-            <span style={{ color:COLORS.textMuted }}>IVA 19%:</span>
-            <span style={{ color:COLORS.green }}>{form.aplica_iva?fmtClp(iva):"—"}</span>
+            <span style={{ color:C.textMuted }}>IVA 19%:</span>
+            <span style={{ color:C.green }}>{form.aplica_iva?fmtClp(iva):"—"}</span>
           </div>
           <div style={{ display:"flex", justifyContent:"space-between",
-            borderTop:`1px solid ${COLORS.border}`, paddingTop:6 }}>
-            <span style={{ color:COLORS.text, fontWeight:700 }}>Total:</span>
-            <span style={{ color:COLORS.accent, fontWeight:700, fontSize:14 }}>{fmtClp(total)}</span>
+            borderTop:`1px solid ${C.border}`, paddingTop:6 }}>
+            <span style={{ color:C.text, fontWeight:700 }}>Total:</span>
+            <span style={{ color:C.accent, fontWeight:700, fontSize:14 }}>{fmtClp(total)}</span>
           </div>
         </div>
       )}
       <LabelInput label="Notas (opcional)" value={form.notas}
-        onChange={e=>setF("notas",e.target.value)} placeholder="Observaciones…" />
+        onChange={e=>setF("notas",e.target.value)} placeholder="Observaciones…" theme={LIGHT_THEME} />
 
       {/* Línea de negocio */}
       <div style={{ marginBottom:14 }}>
-        <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Línea de negocio</div>
+        <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>Línea de negocio</div>
         <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
           {LINEAS_NEGOCIO.map(ln=>(
             <button key={ln} onClick={()=>setF("linea_negocio", form.linea_negocio===ln?"":ln)}
               style={{ padding:"5px 12px", borderRadius:6, cursor:"pointer", fontFamily:FONT, fontSize:11,
-                background: form.linea_negocio===ln ? `${COLORS.purple}22` : "transparent",
-                border:`1px solid ${form.linea_negocio===ln ? COLORS.purple : COLORS.border}`,
-                color: form.linea_negocio===ln ? COLORS.purple : COLORS.textMuted }}>
+                background: form.linea_negocio===ln ? `${C.purple}22` : "transparent",
+                border:`1px solid ${form.linea_negocio===ln ? C.purple : C.border}`,
+                color: form.linea_negocio===ln ? C.purple : C.textMuted }}>
               {ln}
             </button>
           ))}
@@ -480,9 +480,9 @@ export function ModalServicio({ cotizacion, suppliers, products, onClose, onSave
       </div>
 
       <div style={{ display:"flex", gap:10 }}>
-        <BtnSec onClick={onClose}>Cancelar</BtnSec>
+        <BtnSec onClick={onClose} theme={LIGHT_THEME}>Cancelar</BtnSec>
         <BtnPrimary onClick={save}
-          disabled={saving || !form.descripcion || form.precio_unitario === ""}>
+          disabled={saving || !form.descripcion || form.precio_unitario === ""} theme={LIGHT_THEME}>
           {saving?"Guardando…":"Agregar Línea"}
         </BtnPrimary>
       </div>

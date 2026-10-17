@@ -1,7 +1,7 @@
 // Caja: cuentas bancarias y movimientos.
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
-import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
+import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
 import { hoyISO } from "../shared/format.js";
 
 // ── CAJA / CUENTAS BANCARIAS ─────────────────────────────────────────────────
@@ -63,8 +63,8 @@ export function CajaView({ isMobile }) {
 
   const fmtClp = n => "$" + Math.round(n||0).toLocaleString("es-CL");
   const TIPO_CFG = {
-    ingreso:   { label:"Ingreso",    color:COLORS.green,  sign:"+" },
-    egreso:    { label:"Egreso",     color:COLORS.red,    sign:"−" },
+    ingreso:   { label:"Ingreso",    color:C.green,  sign:"+" },
+    egreso:    { label:"Egreso",     color:C.red,    sign:"−" },
     provision: { label:"Provisión",  color:"#FFB800",     sign:"−" },
   };
 
@@ -81,10 +81,10 @@ export function CajaView({ isMobile }) {
     }).reverse();
   })();
 
-  const inp = { width:"100%", background:COLORS.bg, border:`1px solid ${COLORS.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:12, color:COLORS.text, outline:"none", boxSizing:"border-box" };
-  const lbl = { fontFamily:FONT, fontSize:10, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4, display:"block" };
+  const inp = { width:"100%", background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 10px", fontFamily:FONT, fontSize:12, color:C.text, outline:"none", boxSizing:"border-box" };
+  const lbl = { fontFamily:FONT, fontSize:10, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4, display:"block" };
 
-  if (loading) return <div style={{ padding:40, textAlign:"center", fontFamily:FONT, color:COLORS.textMuted }}>Cargando cuentas…</div>;
+  if (loading) return <div style={{ padding:40, textAlign:"center", fontFamily:FONT, color:C.textMuted }}>Cargando cuentas…</div>;
 
   return (
     <div>
@@ -95,27 +95,27 @@ export function CajaView({ isMobile }) {
           const isSel = cuentaSel===c.id;
           return (
             <div key={c.id} onClick={()=>setCuentaSel(c.id)}
-              style={{ background:COLORS.card, border:`2px solid ${isSel?COLORS.accent:COLORS.border}`, borderRadius:14, padding:24, cursor:"pointer", transition:"border-color 0.15s", position:"relative" }}>
+              style={{ background:C.card, border:`2px solid ${isSel?C.accent:C.border}`, borderRadius:14, padding:24, cursor:"pointer", transition:"border-color 0.15s", position:"relative" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16 }}>
                 <div>
-                  <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.12em", marginBottom:4 }}>
+                  <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.12em", marginBottom:4 }}>
                     {c.banco} · {c.tipo==="personal"?"Cuenta Personal":"Cuenta Empresa"}
                   </div>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text }}>{c.nombre}</div>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:C.text }}>{c.nombre}</div>
                 </div>
-                <div style={{ background:c.tipo==="personal"?"#a855f722":COLORS.accentDim, borderRadius:8, padding:"6px 10px" }}>
+                <div style={{ background:c.tipo==="personal"?"#a855f722":C.accentDim, borderRadius:8, padding:"6px 10px" }}>
                   <span style={{ fontSize:18 }}>{c.tipo==="personal"?"👤":"🏢"}</span>
                 </div>
               </div>
-              <div style={{ fontFamily:FONT_DISPLAY, fontSize:28, fontWeight:700, color:saldo>=0?COLORS.green:COLORS.red, marginBottom:6 }}>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:28, fontWeight:700, color:saldo>=0?C.green:C.red, marginBottom:6 }}>
                 {fmtClp(saldo)}
               </div>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                <span style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted }}>
+                <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>
                   {movs.filter(m=>m.cuenta_id===c.id).length} movimientos
                 </span>
                 <button onClick={e=>{ e.stopPropagation(); setForm({...emptyMov(), cuenta_id:c.id}); setEditMov(null); setShowModal(true); }}
-                  style={{ background:COLORS.accent, border:"none", borderRadius:7, padding:"6px 14px", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.bg, cursor:"pointer" }}>
+                  style={{ background:C.accent, border:"none", borderRadius:7, padding:"6px 14px", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:C.bg, cursor:"pointer" }}>
                   + Movimiento
                 </button>
               </div>
@@ -129,27 +129,27 @@ export function CajaView({ isMobile }) {
         <div>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
             <div>
-              <div style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.12em", marginBottom:2 }}>Cartola de movimientos</div>
-              <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:COLORS.text }}>
+              <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.12em", marginBottom:2 }}>Cartola de movimientos</div>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:C.text }}>
                 {cuentas.find(c=>c.id===cuentaSel)?.nombre}
               </div>
             </div>
             <button onClick={()=>{ setForm({...emptyMov(), cuenta_id:cuentaSel}); setEditMov(null); setShowModal(true); }}
-              style={{ background:COLORS.accent, border:"none", borderRadius:8, padding:"8px 18px", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:COLORS.bg, cursor:"pointer" }}>
+              style={{ background:C.accent, border:"none", borderRadius:8, padding:"8px 18px", fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:C.bg, cursor:"pointer" }}>
               + Nuevo movimiento
             </button>
           </div>
 
-          <div style={{ background:COLORS.card, border:`1px solid ${COLORS.border}`, borderRadius:12, overflow:"hidden" }}>
+          <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, overflow:"hidden" }}>
             {/* Header tabla */}
-            <div style={{ display:"grid", gridTemplateColumns:"90px 1fr 110px 120px 130px 60px", padding:"10px 16px", background:COLORS.surface, borderBottom:`1px solid ${COLORS.border}` }}>
+            <div style={{ display:"grid", gridTemplateColumns:"90px 1fr 110px 120px 130px 60px", padding:"10px 16px", background:C.surface, borderBottom:`1px solid ${C.border}` }}>
               {["Fecha","Concepto","Tipo","Monto","Saldo",""].map(h=>(
-                <div key={h} style={{ fontFamily:FONT, fontSize:9, color:COLORS.textMuted, textTransform:"uppercase", letterSpacing:"0.1em", fontWeight:700 }}>{h}</div>
+                <div key={h} style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.1em", fontWeight:700 }}>{h}</div>
               ))}
             </div>
 
             {cartola.length===0 && (
-              <div style={{ padding:"32px 16px", textAlign:"center", fontFamily:FONT, fontSize:13, color:COLORS.textMuted }}>
+              <div style={{ padding:"32px 16px", textAlign:"center", fontFamily:FONT, fontSize:13, color:C.textMuted }}>
                 Sin movimientos. Usa "+ Movimiento" para registrar el primer ingreso o egreso.
               </div>
             )}
@@ -158,31 +158,31 @@ export function CajaView({ isMobile }) {
               const tc = TIPO_CFG[m.tipo]||TIPO_CFG.egreso;
               const isIngreso = m.tipo==="ingreso";
               return (
-                <div key={m.id} style={{ display:"grid", gridTemplateColumns:"90px 1fr 110px 120px 130px 60px", padding:"10px 16px", borderBottom:`1px solid ${COLORS.border}11`, alignItems:"center" }}>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:COLORS.textMuted }}>
+                <div key={m.id} style={{ display:"grid", gridTemplateColumns:"90px 1fr 110px 120px 130px 60px", padding:"10px 16px", borderBottom:`1px solid ${C.border}11`, alignItems:"center" }}>
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>
                     {new Date(m.fecha+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short"})}
                   </div>
                   <div>
-                    <div style={{ fontFamily:FONT, fontSize:12, color:COLORS.text, marginBottom:2 }}>{m.concepto}</div>
-                    {m.referencia && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.accent }}>{m.referencia}</div>}
-                    {m.notas && <div style={{ fontFamily:FONT, fontSize:10, color:COLORS.textMuted, fontStyle:"italic" }}>{m.notas}</div>}
+                    <div style={{ fontFamily:FONT, fontSize:12, color:C.text, marginBottom:2 }}>{m.concepto}</div>
+                    {m.referencia && <div style={{ fontFamily:FONT, fontSize:10, color:C.accent }}>{m.referencia}</div>}
+                    {m.notas && <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, fontStyle:"italic" }}>{m.notas}</div>}
                   </div>
                   <div style={{ display:"inline-flex", alignItems:"center" }}>
                     <span style={{ fontFamily:FONT, fontSize:10, background:`${tc.color}18`, color:tc.color, border:`1px solid ${tc.color}33`, borderRadius:10, padding:"2px 8px", fontWeight:700 }}>
                       {tc.label}
                     </span>
                   </div>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:isIngreso?COLORS.green:COLORS.red }}>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:isIngreso?C.green:C.red }}>
                     {tc.sign} {fmtClp(m.monto)}
                   </div>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:m.saldo>=0?COLORS.text:COLORS.red }}>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:m.saldo>=0?C.text:C.red }}>
                     {fmtClp(m.saldo)}
                   </div>
                   <div style={{ display:"flex", gap:4 }}>
                     <button onClick={()=>{ setEditMov(m); setForm({cuenta_id:m.cuenta_id, fecha:m.fecha, tipo:m.tipo, concepto:m.concepto, referencia:m.referencia||"", monto:String(m.monto), notas:m.notas||""}); setShowModal(true); }}
-                      style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:13, padding:"2px 4px" }} title="Editar">✏️</button>
+                      style={{ background:"none", border:"none", color:C.textMuted, cursor:"pointer", fontSize:13, padding:"2px 4px" }} title="Editar">✏️</button>
                     <button onClick={()=>deleteMov(m.id)}
-                      style={{ background:"none", border:"none", color:COLORS.red, cursor:"pointer", fontSize:13, padding:"2px 4px", opacity:0.7 }} title="Eliminar">×</button>
+                      style={{ background:"none", border:"none", color:C.red, cursor:"pointer", fontSize:13, padding:"2px 4px", opacity:0.7 }} title="Eliminar">×</button>
                   </div>
                 </div>
               );
@@ -194,10 +194,10 @@ export function CajaView({ isMobile }) {
       {/* Modal nuevo/editar movimiento */}
       {showModal && (
         <div style={{ position:"fixed", inset:0, background:"#000A", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-          <div style={{ background:COLORS.surface, border:`1px solid ${COLORS.border}`, borderRadius:14, padding:28, width:"100%", maxWidth:460, maxHeight:"90vh", overflowY:"auto" }}>
+          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:14, padding:28, width:"100%", maxWidth:460, maxHeight:"90vh", overflowY:"auto" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
-              <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:COLORS.text }}>{editMov?"Editar movimiento":"Nuevo movimiento"}</div>
-              <button onClick={()=>{ setShowModal(false); setEditMov(null); }} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:18 }}>✕</button>
+              <div style={{ fontFamily:FONT_DISPLAY, fontSize:16, fontWeight:700, color:C.text }}>{editMov?"Editar movimiento":"Nuevo movimiento"}</div>
+              <button onClick={()=>{ setShowModal(false); setEditMov(null); }} style={{ background:"none", border:"none", color:C.textMuted, cursor:"pointer", fontSize:18 }}>✕</button>
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
               <div><label style={lbl}>Cuenta *</label>
@@ -234,8 +234,8 @@ export function CajaView({ isMobile }) {
               </div>
             </div>
             <div style={{ display:"flex", gap:10, marginTop:20 }}>
-              <button onClick={()=>{ setShowModal(false); setEditMov(null); }} style={{ flex:1, padding:"10px 0", background:"transparent", border:`1px solid ${COLORS.border}`, borderRadius:8, color:COLORS.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>Cancelar</button>
-              <button onClick={saveMov} disabled={saving} style={{ flex:2, padding:"10px 0", background:saving?COLORS.border:COLORS.accent, border:"none", borderRadius:8, color:saving?COLORS.textMuted:COLORS.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:saving?"not-allowed":"pointer" }}>{saving?"Guardando…":"Guardar"}</button>
+              <button onClick={()=>{ setShowModal(false); setEditMov(null); }} style={{ flex:1, padding:"10px 0", background:"transparent", border:`1px solid ${C.border}`, borderRadius:8, color:C.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, cursor:"pointer" }}>Cancelar</button>
+              <button onClick={saveMov} disabled={saving} style={{ flex:2, padding:"10px 0", background:saving?C.border:C.accent, border:"none", borderRadius:8, color:saving?C.textMuted:C.bg, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:saving?"not-allowed":"pointer" }}>{saving?"Guardando…":"Guardar"}</button>
             </div>
           </div>
         </div>
