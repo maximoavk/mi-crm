@@ -1,7 +1,7 @@
 // Pantalla de inicio de sesión con Google.
 import { useState } from "react";
 import { supabase } from "../supabaseClient.js";
-import { COLORS, FONT, FONT_DISPLAY } from "../theme.js";
+import { COLORS_LIGHT as COLORS, FONT_BODY as FONT, FONT_DISPLAY } from "../theme.js";
 import { LOGO_B64 } from "../shared/assets.js";
 
 export function LoginScreen() {
