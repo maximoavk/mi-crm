@@ -133,7 +133,10 @@ export default function CRM() {
     return () => { cancelled = true; };
   },[userId]);
 
-  const navigate = (key, opts) => { setView(key); setMenuOpen(false); setVolverACosteo(null); setAutoNew(!!opts?.autoNew); };
+  const navigate = (key, opts) => {
+    setView(key); setMenuOpen(false); setVolverACosteo(null); setAutoNew(!!opts?.autoNew);
+    if (opts?.openCosteoId) setOpenCosteoId(opts.openCosteoId);
+  };
   const logout = () => supabase.auth.signOut();
 
   // Nav items visible por rol

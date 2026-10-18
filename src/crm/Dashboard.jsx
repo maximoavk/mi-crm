@@ -8,8 +8,6 @@ import { Calculator, GanttChartSquare, Users, ShoppingCart, CheckSquare } from "
 import { isOverdue, fmt, fmtDate, hoyISO, fechaISO } from "../shared/format.js";
 import { supabase } from "../supabaseClient.js";
 import { LIGHT_THEME, FONT_BODY, FONT_NUM } from "../theme.js";
-import { STAGES } from "../shared/constants.js";
-import { Badge } from "../shared/ui.jsx";
 import { useTheme } from "../shared/useTheme.js";
 
 // ── Panel de accesos directos — flotante, colapsado (solo ícono), se
@@ -72,15 +70,43 @@ export function Dashboard({ deals, tasks, setTasks, isMobile, navigate }) {
   const overdueTasks = tasks.filter(t=>!t.done&&isOverdue(t.dueDate)).length;
 
   const [cotizaciones, setCotizaciones] = useState([]);
+  const [costeos, setCosteos] = useState([]);
 
   useEffect(() => {
-    supabase.from("cotizaciones").select("id,numero,serie,estado,nombre_cliente,total,pct_anticipo,fecha,vencida")
-      .then(({ data }) => setCotizaciones(data||[]));
+    Promise.all([
+      supabase.from("cotizaciones").select("id,numero,serie,estado,nombre_cliente,total,pct_anticipo,fecha,vencida"),
+      supabase.from("costeos").select("id,nombre,cliente_nombre,cotizacion_id,created_at"),
+    ]).then(([{ data: cots }, { data: cs }]) => {
+      setCotizaciones(cots||[]);
+      setCosteos(cs||[]);
+    });
   }, []);
 
-  // Proyectos activos — pipeline CRM, mayor valor primero
-  const proyectosActivos = deals.filter(d=>d.stage!=="cerrado"&&d.stage!=="rechazado")
-    .sort((a,b)=>Number(b.value)-Number(a.value)).slice(0,5);
+  // Proyectos cotizados (enviada/borrador) vs en curso (cotización aprobada
+  // = proyecto real, con Costeo/Gantt corriendo) — cruce costeos↔cotizaciones,
+  // mismo patrón que ProposalsView.
+  const cotById = {};
+  cotizaciones.forEach(c=>{ cotById[c.id] = c; });
+  const costeosConCot = costeos.map(c=>({ ...c, cot: c.cotizacion_id ? cotById[c.cotizacion_id] : null }));
+  const cotizadosRaw = costeosConCot.filter(c=>c.cot && (c.cot.estado==="enviada" || c.cot.estado==="borrador"));
+  const enCursoRaw   = costeosConCot.filter(c=>c.cot && c.cot.estado==="aprobada");
+
+  const [sortCotizados, setSortCotizados] = useState("valor");
+  const [buscarCotizados, setBuscarCotizados] = useState("");
+  const [sortEnCurso, setSortEnCurso] = useState("valor");
+  const [buscarEnCurso, setBuscarEnCurso] = useState("");
+
+  const filtrarOrdenar = (list, sort, busca) => {
+    let out = list;
+    if (busca.trim()) {
+      const q = busca.trim().toLowerCase();
+      out = out.filter(c => (c.nombre||"").toLowerCase().includes(q) || (c.cliente_nombre||"").toLowerCase().includes(q) || String(c.cot?.numero??"").includes(q));
+    }
+    out = [...out].sort((a,b) => sort==="valor" ? Number(b.cot?.total||0)-Number(a.cot?.total||0) : (b.created_at||"").localeCompare(a.created_at||""));
+    return out.slice(0,5);
+  };
+  const cotizadosList = filtrarOrdenar(cotizadosRaw, sortCotizados, buscarCotizados);
+  const enCursoList   = filtrarOrdenar(enCursoRaw, sortEnCurso, buscarEnCurso);
 
   // Donut: pipeline por estado real de la cotización (aprobada / enviada / vencida / rechazada)
   const ESTADO_BUCKET_COLOR = { aprobada:C.green, enviada:C.yellow, rechazada:C.red };
@@ -221,32 +247,44 @@ export function Dashboard({ deals, tasks, setTasks, isMobile, navigate }) {
     </div>
   );
 
-  const proyectosCard = (
-    <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
-      <SectionTitle theme={theme} sub="pipeline CRM — mayor valor primero">Proyectos cotizados y en curso</SectionTitle>
-      {proyectosActivos.map((d,i)=>{
-        const stage = STAGES.find(s=>s.key===d.stage);
-        return (
-          <div key={d.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0", borderBottom:`1px solid ${C.border}` }}>
-            <span style={{ fontFamily:FONT_NUM, fontSize:11, color:C.textDim, width:18 }}>#{i+1}</span>
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontFamily:FONT_BODY, fontSize:12, fontWeight:600, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{d.title}</div>
-              <div style={{ fontFamily:FONT_BODY, fontSize:10, color:C.textDim }}>{d.company}</div>
-            </div>
-            <Badge color={stage?.color||C.textMuted} theme={theme}>{stage?.label}</Badge>
-            <div style={{ width:70, flexShrink:0 }}>
-              <div style={{ height:5, background:C.border, borderRadius:3, overflow:"hidden" }}>
-                <div style={{ height:5, borderRadius:3, background:stage?.color||C.accent, width:`${d.probability}%` }} />
-              </div>
-              <div style={{ fontFamily:FONT_NUM, fontSize:9, color:C.textDim, marginTop:2, textAlign:"right" }}>{d.probability}%</div>
-            </div>
-            <div style={{ fontFamily:FONT_NUM, fontSize:12, fontWeight:600, color:C.green, flexShrink:0, width:90, textAlign:"right" }}>{fmt(d.value)}</div>
+  const proyectosBuckets = [
+    { key:"cotizados", title:"Proyectos cotizados", sub:"cotización enviada — todavía en venta", list:cotizadosList, sort:sortCotizados, setSort:setSortCotizados, busca:buscarCotizados, setBusca:setBuscarCotizados, empty:"Sin proyectos cotizados" },
+    { key:"encurso", title:"Proyectos en curso", sub:"cotización aprobada — ya es el proyecto real", list:enCursoList, sort:sortEnCurso, setSort:setSortEnCurso, busca:buscarEnCurso, setBusca:setBuscarEnCurso, empty:"Sin proyectos en curso" },
+  ];
+
+  const proyectosCards = proyectosBuckets.map(b => (
+    <div key={b.key} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
+      <SectionTitle theme={theme} sub={b.sub}>{b.title}</SectionTitle>
+      <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+        <div style={{ display:"flex", gap:2, padding:3, background:C.bg, borderRadius:8, flexShrink:0 }}>
+          {[["valor","Mayor valor"],["reciente","Más reciente"]].map(([key,label])=>(
+            <button key={key} onClick={()=>b.setSort(key)}
+              style={{ padding:"5px 10px", borderRadius:6, border:"none", cursor:"pointer",
+                background: b.sort===key?C.accent:"transparent", color: b.sort===key?"#fff":C.textMuted,
+                fontFamily:FONT_BODY, fontSize:10, fontWeight:600 }}>{label}</button>
+          ))}
+        </div>
+        <input value={b.busca} onChange={e=>b.setBusca(e.target.value)} placeholder="Buscar proyecto o cliente…"
+          style={{ flex:1, minWidth:0, background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, padding:"6px 10px", color:C.text, fontFamily:FONT_BODY, fontSize:11, outline:"none" }} />
+      </div>
+      {b.list.length===0 && <div style={{ fontFamily:FONT_BODY, fontSize:12, color:C.textDim }}>{b.empty}</div>}
+      {b.list.map(c=>(
+        <div key={c.id} onClick={()=>navigate("costeo", { openCosteoId:c.id })}
+          style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0", borderBottom:`1px solid ${C.border}`, cursor:"pointer" }}>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontFamily:FONT_BODY, fontSize:12, fontWeight:600, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{c.nombre||"Sin nombre"}</div>
+            <div style={{ fontFamily:FONT_BODY, fontSize:10, color:C.textDim }}>{c.cliente_nombre || c.cot?.nombre_cliente || "—"}</div>
           </div>
-        );
-      })}
-      {proyectosActivos.length===0 && <div style={{ fontFamily:FONT_BODY, fontSize:12, color:C.textDim }}>Sin proyectos activos</div>}
+          {c.cot && (
+            <span style={{ fontSize:9, fontWeight:700, padding:"2px 7px", borderRadius:9, background:`${COT_ESTADO_COLOR[c.cot.estado]||C.textMuted}18`, color:COT_ESTADO_COLOR[c.cot.estado]||C.textMuted, fontFamily:FONT_BODY, flexShrink:0 }}>
+              {c.cot.serie||"COT"}-{c.cot.numero}
+            </span>
+          )}
+          <div style={{ fontFamily:FONT_NUM, fontSize:12, fontWeight:600, color:C.green, flexShrink:0, width:90, textAlign:"right" }}>{fmt(c.cot?.total||0)}</div>
+        </div>
+      ))}
     </div>
-  );
+  ));
 
   const sideCol = (
     <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
@@ -391,7 +429,7 @@ export function Dashboard({ deals, tasks, setTasks, isMobile, navigate }) {
 
         <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 320px", gap:16, alignItems:"start" }}>
           <div style={{ display:"flex", flexDirection:"column", gap:10, minWidth:0 }}>
-            {proyectosCard}
+            {proyectosCards}
             {footerCard}
           </div>
           {sideCol}

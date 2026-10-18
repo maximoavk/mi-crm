@@ -18,7 +18,7 @@ import { derivarGantt, avanceProyecto, atrasada, hijosPorFase, filasParaGuardar,
 import { partidaCobrado } from "../calculos.js";
 
 export function GanttView({ isMobile }) {
-  const { C } = useTheme();
+  const { C, mode } = useTheme();
   const [cotNum, setCotNum]       = useState("");
   const [searching, setSearching] = useState(false);
   const [proyecto, setProyecto]   = useState(null); // { nombre, cotNum }
@@ -686,7 +686,7 @@ export function GanttView({ isMobile }) {
             ) : (
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:10 }}>
                 <div style={{ display:"flex", gap:12, alignItems:"center" }}>
-                  <img src={LOGO_B64} alt="Polygonos" style={{ height:34 }} />
+                  <img src={mode==="dark" ? LOGO_B64 : LOGO_PRINT} alt="Polygonos" style={{ height:34 }} />
                   <div>
                     <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.1em" }}>{EMPRESA_RUT}</div>
                     <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:C.text }}>Carta Gantt · COT-{proyecto.cotNum}</div>
