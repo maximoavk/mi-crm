@@ -71,25 +71,37 @@ export function Dashboard({ deals, tasks, setTasks, isMobile, navigate }) {
 
   const [cotizaciones, setCotizaciones] = useState([]);
   const [costeos, setCosteos] = useState([]);
+  const [proyectos, setProyectos] = useState([]);
 
   useEffect(() => {
     Promise.all([
       supabase.from("cotizaciones").select("id,numero,serie,estado,nombre_cliente,total,pct_anticipo,fecha,vencida"),
       supabase.from("costeos").select("id,nombre,cliente_nombre,cotizacion_id,created_at"),
-    ]).then(([{ data: cots }, { data: cs }]) => {
+      supabase.from("proyectos").select("id,cotizacion_id,estado"),
+    ]).then(([{ data: cots }, { data: cs }, { data: ps }]) => {
       setCotizaciones(cots||[]);
       setCosteos(cs||[]);
+      setProyectos(ps||[]);
     });
   }, []);
 
-  // Proyectos cotizados (enviada/borrador) vs en curso (cotización aprobada
-  // = proyecto real, con Costeo/Gantt corriendo) — cruce costeos↔cotizaciones,
-  // mismo patrón que ProposalsView.
+  // Proyectos cotizados (en fase "enviada" — el seguimiento comercial pasa a
+  // Pipeline desde ahí) vs en curso. "En curso" lee Control de Proyectos
+  // (tabla proyectos), no el estado de la cotización directo: así un
+  // proyecto ya cerrado ahí deja de aparecer acá, aunque su cotización siga
+  // "aprobada" para siempre. Si el deal vinculado en Pipeline quedó
+  // rechazado, tampoco sale aunque la cotización no se haya actualizado.
   const cotById = {};
   cotizaciones.forEach(c=>{ cotById[c.id] = c; });
+  const dealByQuoteId = {};
+  deals.forEach(d=>{ if(d.quoteId) dealByQuoteId[d.quoteId] = d; });
+  const costeoByCot = {};
+  costeos.forEach(c=>{ if(c.cotizacion_id) costeoByCot[c.cotizacion_id] = c; });
   const costeosConCot = costeos.map(c=>({ ...c, cot: c.cotizacion_id ? cotById[c.cotizacion_id] : null }));
-  const cotizadosRaw = costeosConCot.filter(c=>c.cot && (c.cot.estado==="enviada" || c.cot.estado==="borrador"));
-  const enCursoRaw   = costeosConCot.filter(c=>c.cot && c.cot.estado==="aprobada");
+  const cotizadosRaw = costeosConCot.filter(c=>c.cot && c.cot.estado==="enviada" && dealByQuoteId[c.cot.id]?.stage!=="rechazado");
+  const enCursoRaw = proyectos
+    .filter(p=>p.estado!=="cerrado" && p.cotizacion_id && costeoByCot[p.cotizacion_id])
+    .map(p=>({ ...costeoByCot[p.cotizacion_id], cot: cotById[p.cotizacion_id] }));
 
   const [sortCotizados, setSortCotizados] = useState("valor");
   const [buscarCotizados, setBuscarCotizados] = useState("");

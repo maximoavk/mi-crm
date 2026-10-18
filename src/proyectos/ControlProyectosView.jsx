@@ -31,6 +31,25 @@ export function ControlProyectosView({ contacts }) {
     cerrado:      { label:"Cerrado",      color:C.textMuted },
   };
 
+  // Dona chica de avance (Gantt / Cobro) para la fila de cada proyecto.
+  const miniDonut = (pct, color, label) => {
+    const r = 18, circ = 2*Math.PI*r;
+    const val = Math.min(100, Math.max(0, pct));
+    const dash = (val/100)*circ;
+    return (
+      <div style={{ textAlign:"center" }}>
+        <svg width="44" height="44" viewBox="0 0 44 44">
+          <circle cx="22" cy="22" r={r} fill="none" stroke={C.bg} strokeWidth="5" />
+          <circle cx="22" cy="22" r={r} fill="none" stroke={color} strokeWidth="5"
+            strokeDasharray={`${dash} ${circ-dash}`} strokeLinecap="round"
+            transform="rotate(-90 22 22)" />
+          <text x="22" y="26" textAnchor="middle" fontFamily={FONT_DISPLAY} fontWeight="700" fontSize="11" fill={C.text}>{val}%</text>
+        </svg>
+        <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, marginTop:2, letterSpacing:"0.04em" }}>{label}</div>
+      </div>
+    );
+  };
+
   // Carga proyectos + enriquece con gantt y costeo
   const load = async () => {
     setLoading(true);
@@ -168,6 +187,21 @@ export function ControlProyectosView({ contacts }) {
               style={{ padding:"6px 16px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, color:C.text, fontFamily:FONT, fontSize:12, cursor:"pointer" }}>✏️ Editar</button>
           </div>
         </div>
+
+        {pr.estado!=="cerrado" && pctGantt>=100 && pctCobro>=100 && (
+          <div style={{ display:"flex", alignItems:"center", gap:12, background:`${C.green}14`, border:`1px solid ${C.green}44`, borderRadius:10, padding:"12px 16px", marginBottom:16 }}>
+            <span style={{ fontFamily:FONT, fontSize:12, color:C.text, flex:1 }}>
+              Este proyecto llegó al 100% en avance de obra y en cobro. ¿Lo marcamos como cerrado?
+            </span>
+            <button onClick={async ()=>{
+              if(!window.confirm(`¿Marcar ${pr.codigo} como cerrado? Dejará de aparecer como "en curso" en el Dashboard.`)) return;
+              await supabase.from("proyectos").update({ estado:"cerrado", updated_at:new Date().toISOString() }).eq("id", pr.id);
+              await load();
+            }} style={{ padding:"7px 16px", background:C.green, border:"none", borderRadius:7, color:"#fff", fontFamily:FONT_DISPLAY, fontWeight:700, fontSize:12, cursor:"pointer", flexShrink:0 }}>
+              ✓ Marcar como cerrado
+            </button>
+          </div>
+        )}
 
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:14, marginBottom:16 }}>
           {/* Info cliente */}
@@ -324,34 +358,15 @@ export function ControlProyectosView({ contacts }) {
                     <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:600, color:C.text, marginBottom:2 }}>{pr.nombre}</div>
                     <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted }}>{pr.cliente} {pr.fecha_inicio?`· Inicio: ${fmtDate(pr.fecha_inicio)}`:""}</div>
                   </div>
-                  <div style={{ display:"flex", gap:20, flexShrink:0 }}>
-                    {pctGantt !== null && (
-                      <div style={{ textAlign:"center" }}>
-                        <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginBottom:2 }}>GANTT</div>
-                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:pctGantt>=100?C.green:pctGantt>=50?C.accent:C.yellow }}>{pctGantt}%</div>
-                      </div>
-                    )}
-                    {pctCobro !== null && (
-                      <div style={{ textAlign:"center" }}>
-                        <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginBottom:2 }}>COBRO</div>
-                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:C.green }}>{pctCobro}%</div>
-                      </div>
-                    )}
+                  <div style={{ display:"flex", alignItems:"center", gap:16, flexShrink:0 }}>
+                    {pctGantt !== null && miniDonut(pctGantt, pctGantt>=100?C.green:pctGantt>=50?C.accent:C.yellow, "GANTT")}
+                    {pctCobro !== null && miniDonut(pctCobro, C.green, "COBRO")}
                     <div style={{ textAlign:"right" }}>
                       <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginBottom:2 }}>COTIZADO</div>
                       <div style={{ fontFamily:FONT_DISPLAY, fontSize:15, fontWeight:700, color:C.text }}>{fmt(pr.cot?.total||pr.totalVenta||0)}</div>
                     </div>
                   </div>
                 </div>
-                {/* Barra Gantt mini */}
-                {pctGantt !== null && (
-                  <div style={{ marginTop:10 }}>
-                    <div style={{ background:C.bg, borderRadius:20, height:4, overflow:"hidden" }}>
-                      <div style={{ width:`${pctGantt}%`, height:"100%", borderRadius:20,
-                        background:pctGantt>=100?C.green:pctGantt>=50?C.accent:C.yellow }}/>
-                    </div>
-                  </div>
-                )}
               </div>
             );
           })}

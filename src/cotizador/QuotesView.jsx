@@ -9,6 +9,7 @@ import { QuoteEditor } from "./QuoteEditor.jsx";
 import { QuotePDF } from "./QuotePDF.jsx";
 import { AddBtn, Loader, Badge } from "../shared/ui.jsx";
 import { RUBRO_OPTIONS, TIPO_TRABAJO_OPTIONS, RUBRO_ICON } from "../shared/constants.js";
+import { asegurarProyecto } from "../proyectos/autoAlta.js";
 import { fmtDate, fmt } from "../shared/format.js";
 
 // ── COTIZACIONES LIST ────────────────────────────────────────────────────────
@@ -115,6 +116,9 @@ export function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCo
         }
         await refreshDealForQuote(id);
       }
+      if(status==="aprobada"){
+        await asegurarProyecto({ cotizacionId:id, numero:q.number, serie:q.serie, clientName:q.clientName, clientCompany:q.clientCompany, clientRut:q.clientRut });
+      }
     }
   };
 
@@ -155,6 +159,7 @@ export function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCo
         serie: "SIN",
       }).eq("id", existing[0].id);
     }
+    await asegurarProyecto({ cotizacionId:q.id, numero:newNum, serie:"SIN", clientName:q.clientName, clientCompany:q.clientCompany, clientRut:q.clientRut });
     alert(`✅ Convertido a ${codigo} → Pipeline: Cerrado`);
   };
 

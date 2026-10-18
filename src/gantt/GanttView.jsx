@@ -571,6 +571,10 @@ export function GanttView({ isMobile }) {
           </button>
         </div>
         {proyecto && <>
+          <button onClick={()=>{ if(sinGuardar && !window.confirm("Hay cambios sin guardar en esta Gantt. ¿Volver igual?")) return; setProyecto(null); setCotNum(""); }}
+            style={{ padding:"6px 10px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, color:C.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
+            ← Volver
+          </button>
           <input
             value={proyecto.nombre}
             onChange={e => setProyecto(p => ({...p, nombre: e.target.value}))}

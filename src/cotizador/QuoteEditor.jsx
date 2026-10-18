@@ -9,6 +9,7 @@ import { Input, Select } from "../shared/ui.jsx";
 import { RUBRO_OPTIONS, TIPO_TRABAJO_OPTIONS } from "../shared/constants.js";
 import { formatRut, fmt, hoyISO } from "../shared/format.js";
 import { EMPRESA, TITULAR, datosPago } from "../shared/empresa.js";
+import { asegurarProyecto } from "../proyectos/autoAlta.js";
 import { GuardarFichaBtn } from "../productos/GuardarFichaBtn.jsx";
 
 // ── QUOTE EDITOR ─────────────────────────────────────────────────────────────
@@ -199,6 +200,9 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
       } else {
         await supabase.from("deals").update({ etapa, titulo, valor:total||0, pct_anticipo: header.pctAnticipo||50, serie })
           .eq("id", existing[0].id);
+      }
+      if(quoteData.estado==="aprobada" || isSIN){
+        await asegurarProyecto({ cotizacionId:savedQuote.id, numero:header.number||savedQuote.numero, serie, clientName:header.clientName, clientCompany:header.clientCompany, clientRut:header.clientRut });
       }
     }
     setSaving(false);
