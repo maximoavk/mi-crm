@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { buildCalHeader, addDays, nextBusinessDay, endOfBusinessSpan, habilesEntre, fmtShort } from "./fechas.js";
 import { supabase, must, replaceRows } from "../supabaseClient.js";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { GANTT_COLORS, TIPO_LABEL, ROL_OPTS } from "./constants.js";
 import { LOGO_B64, LOGO_PRINT } from "../shared/assets.js";
 import { CalendarPicker } from "./CalendarPicker.jsx";
@@ -17,6 +18,7 @@ import { derivarGantt, avanceProyecto, atrasada, hijosPorFase, filasParaGuardar,
 import { partidaCobrado } from "../calculos.js";
 
 export function GanttView({ isMobile }) {
+  const { C } = useTheme();
   const [cotNum, setCotNum]       = useState("");
   const [searching, setSearching] = useState(false);
   const [proyecto, setProyecto]   = useState(null); // { nombre, cotNum }

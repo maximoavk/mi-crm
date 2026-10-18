@@ -1,10 +1,12 @@
 // Vista comparativa (ficha técnica) de un análisis de precios.
 import { fmt } from "../shared/format.js";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { EMPRESA, EMPRESA_RUT } from "../shared/empresa.js";
 
 // ── Comparativa visual (segunda hoja / vista de ficha técnica) ────────────────
 export function AnalisisComparativa({ analysis, onBack, onEdit }) {
+  const { C } = useTheme();
   const items = analysis?.items||[];
   // Collect all unique spec keys across all items
   const allSpecs = [...new Set(items.flatMap(it=>Object.keys(it.specs||{})))];

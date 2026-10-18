@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 import { TreeCaret } from "../../shared/TreeCaret.jsx";
 import { TreeBranch } from "../../shared/TreeBranch.jsx";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../../theme.js";
+import { useTheme } from "../../shared/useTheme.js";
 import { fmtClp } from "../../shared/format.js";
 import { CotCard } from "./CotCard.jsx";
 import { supabase } from "../../supabaseClient.js";
@@ -11,6 +12,7 @@ import { SecTitle, KpiCard } from "../ui.jsx";
 // ── VISTA PRINCIPAL: RENDIMIENTO POR COTIZACIÓN ───────────────────────────────
 // ── DONA SVG — Costo / Margen / IVA neto ─────────────────────────────────────
 function DonaFinanciera({ costo, margen, ivaNeto, size=120 }) {
+  const { C } = useTheme();
   const total = costo + margen + ivaNeto;
   if (total <= 0) return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -67,6 +69,7 @@ function DonaFinanciera({ costo, margen, ivaNeto, size=120 }) {
 
 // ── TARJETA MADRE AGRUPADA POR PEDIDO ─────────────────────────────────────────
 function PedidoFinancieroCard({ pedido, cots, suppliers, products, onRefresh, isMobile }) {
+  const { C } = useTheme();
   const [open, setOpen] = useState(false);
   const fmt = fmtClp;
 
@@ -178,6 +181,7 @@ function PedidoFinancieroCard({ pedido, cots, suppliers, products, onRefresh, is
 }
 
 export function RendimientoCotizaciones({ isMobile }) {
+  const { C, theme } = useTheme();
   const [rows, setRows]         = useState([]);
   const [pedidos, setPedidos]   = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -258,7 +262,7 @@ export function RendimientoCotizaciones({ isMobile }) {
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start",
         marginBottom:20, flexWrap:"wrap", gap:12 }}>
-        <SecTitle sub="Vista padre → hijo · OC · servicios · facturas · IVA · margen" theme={LIGHT_THEME}>
+        <SecTitle sub="Vista padre → hijo · OC · servicios · facturas · IVA · margen" theme={theme}>
           Rendimiento por Cotización
         </SecTitle>
         <button onClick={loadAll}
@@ -271,17 +275,17 @@ export function RendimientoCotizaciones({ isMobile }) {
 
       {/* KPIs globales */}
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr) repeat(2,1fr)", gap:12, marginBottom:24 }}>
-        <KpiCard label="Total presupuestado" value={fmtClp(totalPresup)} theme={LIGHT_THEME} />
-        <KpiCard label="Total facturado" value={fmtClp(totalFacturado)} color={C.green} theme={LIGHT_THEME} />
-        <KpiCard label="Total gastos" value={fmtClp(totalGastos)} color={C.red} theme={LIGHT_THEME} />
+        <KpiCard label="Total presupuestado" value={fmtClp(totalPresup)} theme={theme} />
+        <KpiCard label="Total facturado" value={fmtClp(totalFacturado)} color={C.green} theme={theme} />
+        <KpiCard label="Total gastos" value={fmtClp(totalGastos)} color={C.red} theme={theme} />
         <KpiCard label="Margen bruto acumulado"
           value={fmtClp(totalMargen)}
           sub={totalFacturado>0?`${Math.round(totalMargen/totalFacturado*100)}% del ingreso`:"—"}
-          color={totalMargen>=0?C.green:C.red} theme={LIGHT_THEME} />
+          color={totalMargen>=0?C.green:C.red} theme={theme} />
         <KpiCard label="IVA neto acumulado"
           value={fmtClp(Math.abs(totalDebito-totalCredito))}
           sub={totalDebito>=totalCredito?"A pagar":"Remanente"}
-          color={totalDebito>=totalCredito?C.yellow:C.green} theme={LIGHT_THEME} />
+          color={totalDebito>=totalCredito?C.yellow:C.green} theme={theme} />
       </div>
 
       {/* Reporte cruzado por línea de negocio */}

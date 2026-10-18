@@ -3,7 +3,8 @@ import React, { useState, useEffect } from "react";
 import { TreeCaret } from "../shared/TreeCaret.jsx";
 import { TreeBranch } from "../shared/TreeBranch.jsx";
 import { hoyISO, fmtFecha } from "../shared/format.js";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { supabase } from "../supabaseClient.js";
 import { LOGO_PRINT } from "../shared/assets.js";
 import { AddBtn } from "../shared/ui.jsx";
@@ -11,6 +12,7 @@ import { EMPRESA, EMPRESA_RUT, TITULAR } from "../shared/empresa.js";
 
 // ── INCIDENCIAS ──────────────────────────────────────────────────────────────
 export function IncidenciasView({ contacts, isMobile }) {
+  const { C, theme } = useTheme();
   const ESTADOS = [
     { key:"reportada",  label:"Reportada",  color:"#FFB800" },
     { key:"en_curso",   label:"En curso",   color:"#00C2FF" },
@@ -243,7 +245,7 @@ export function IncidenciasView({ contacts, isMobile }) {
           <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Operaciones · Soporte</div>
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:C.text }}>Incidencias Técnicas</div>
         </div>
-        <AddBtn onClick={()=>{ setEditTicket(null); setForm(emptyForm()); setShowModal(true); }} label="+ Nueva incidencia" theme={LIGHT_THEME} />
+        <AddBtn onClick={()=>{ setEditTicket(null); setForm(emptyForm()); setShowModal(true); }} label="+ Nueva incidencia" theme={theme} />
       </div>
 
       {/* Stats */}

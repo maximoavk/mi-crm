@@ -3,7 +3,8 @@ import { useState, useEffect } from "react";
 import { TreeCaret } from "../shared/TreeCaret.jsx";
 import { supabase } from "../supabaseClient.js";
 import { mapQuote, mapDeal } from "../shared/mappers.js";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { QuoteEditor } from "./QuoteEditor.jsx";
 import { QuotePDF } from "./QuotePDF.jsx";
 import { AddBtn, Loader, Badge } from "../shared/ui.jsx";
@@ -12,6 +13,7 @@ import { fmtDate, fmt } from "../shared/format.js";
 
 // ── COTIZACIONES LIST ────────────────────────────────────────────────────────
 export function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCosteo }) {
+  const { C, theme } = useTheme();
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("list");
@@ -188,7 +190,7 @@ export function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCo
           <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Comercial</div>
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:C.text }}>Cotizaciones</div>
         </div>
-        {subTab==="cotizaciones" && <AddBtn onClick={()=>setView("new")} label="Nueva cotización" theme={LIGHT_THEME} />}
+        {subTab==="cotizaciones" && <AddBtn onClick={()=>setView("new")} label="Nueva cotización" theme={theme} />}
       </div>
       {loading ? <Loader /> : (
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
@@ -245,7 +247,7 @@ export function QuotesView({ contacts, isMobile, setDeals: setCrmDeals, onOpenCo
                   <div style={{ display:"flex", alignItems:"center", gap:10, flex:1, minWidth:0, flexWrap:"wrap" }}>
                     <TreeCaret collapsed={!isOpen} color={C.accent} size={12} />
                     <div style={{ fontFamily:FONT, fontSize:13, color:serieColor, fontWeight:700, flexShrink:0 }}>{codigoDisplay}</div>
-                    <Badge color={sc.color} theme={LIGHT_THEME}>{sc.label}</Badge>
+                    <Badge color={sc.color} theme={theme}>{sc.label}</Badge>
                     <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, flexShrink:0 }}>{fmtDate(q.date)}</div>
                     <div style={{ display:"flex", flexDirection:"column", minWidth:0 }}>
                       <div style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{q.clientCompany||q.clientName}</div>

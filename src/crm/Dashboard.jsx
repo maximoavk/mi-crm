@@ -7,14 +7,16 @@ import { useState, useEffect } from "react";
 import { Calculator, GanttChartSquare, Users, ShoppingCart, CheckSquare } from "lucide-react";
 import { isOverdue, fmt, fmtDate, hoyISO, fechaISO } from "../shared/format.js";
 import { supabase } from "../supabaseClient.js";
-import { COLORS_LIGHT as C, FONT_BODY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { LIGHT_THEME, FONT_BODY, FONT_NUM } from "../theme.js";
 import { STAGES } from "../shared/constants.js";
 import { Badge } from "../shared/ui.jsx";
+import { useTheme } from "../shared/useTheme.js";
 
 // ── Panel de accesos directos — flotante, colapsado (solo ícono), se
 // expande con un pop-out + efecto glass al pasar el mouse.
-const AccesoDirecto = ({ qa, onClick }) => {
+const AccesoDirecto = ({ qa, onClick, theme=LIGHT_THEME }) => {
   const label = qa.label;
+  const C = theme.colors;
   const [hover, setHover] = useState(false);
   return (
     <div onClick={onClick} onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)}
@@ -42,23 +44,30 @@ const AccesoDirecto = ({ qa, onClick }) => {
   );
 };
 
-const KpiCard = ({ label, value, sub, accentColor, valueColor }) => (
-  <div style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`3px solid ${accentColor}`, borderRadius:12, padding:"14px 16px" }}>
-    <div style={{ fontFamily:FONT_BODY, fontSize:9, fontWeight:600, color:C.textDim, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>{label}</div>
-    <div style={{ fontFamily:FONT_NUM, fontSize:20, fontWeight:600, color:valueColor||C.text }}>{value}</div>
-    {sub && <div style={{ fontFamily:FONT_BODY, fontSize:10, color:C.textDim, marginTop:3 }}>{sub}</div>}
-  </div>
-);
+const KpiCard = ({ label, value, sub, accentColor, valueColor, theme=LIGHT_THEME }) => {
+  const C = theme.colors;
+  return (
+    <div style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`3px solid ${accentColor}`, borderRadius:12, padding:"14px 16px" }}>
+      <div style={{ fontFamily:FONT_BODY, fontSize:9, fontWeight:600, color:C.textDim, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>{label}</div>
+      <div style={{ fontFamily:FONT_NUM, fontSize:20, fontWeight:600, color:valueColor||C.text }}>{value}</div>
+      {sub && <div style={{ fontFamily:FONT_BODY, fontSize:10, color:C.textDim, marginTop:3 }}>{sub}</div>}
+    </div>
+  );
+};
 
-const SectionTitle = ({ children, sub }) => (
-  <>
-    <div style={{ fontFamily:FONT_BODY, fontSize:13, fontWeight:700, color:C.text, marginBottom: sub?2:10 }}>{children}</div>
-    {sub && <div style={{ fontFamily:FONT_BODY, fontSize:10, color:C.textDim, marginBottom:14 }}>{sub}</div>}
-  </>
-);
+const SectionTitle = ({ children, sub, theme=LIGHT_THEME }) => {
+  const C = theme.colors;
+  return (
+    <>
+      <div style={{ fontFamily:FONT_BODY, fontSize:13, fontWeight:700, color:C.text, marginBottom: sub?2:10 }}>{children}</div>
+      {sub && <div style={{ fontFamily:FONT_BODY, fontSize:10, color:C.textDim, marginBottom:14 }}>{sub}</div>}
+    </>
+  );
+};
 
 // ── DASHBOARD ───────────────────────────────────────────────────────────────
 export function Dashboard({ deals, tasks, setTasks, isMobile, navigate }) {
+  const { C, theme } = useTheme();
   const pipeline     = deals.filter(d=>d.stage!=="cerrado"&&d.stage!=="rechazado").reduce((s,d)=>s+Number(d.value)*Number(d.probability)/100,0);
   const overdueTasks = tasks.filter(t=>!t.done&&isOverdue(t.dueDate)).length;
 
@@ -193,7 +202,7 @@ export function Dashboard({ deals, tasks, setTasks, isMobile, navigate }) {
 
   const actividadHoyCard = (
     <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
-      <SectionTitle sub={`${tasksHoy.length} actividad(es) para hoy${overdueTasks>0?` · ${overdueTasks} vencida(s)`:""}`}>Actividad de hoy</SectionTitle>
+      <SectionTitle theme={theme} sub={`${tasksHoy.length} actividad(es) para hoy${overdueTasks>0?` · ${overdueTasks} vencida(s)`:""}`}>Actividad de hoy</SectionTitle>
       {tasksHoy.length===0 ? (
         <div style={{ fontFamily:FONT_BODY, fontSize:12, color:C.textDim }}>Sin actividades para hoy</div>
       ) : (
@@ -214,7 +223,7 @@ export function Dashboard({ deals, tasks, setTasks, isMobile, navigate }) {
 
   const proyectosCard = (
     <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
-      <SectionTitle sub="pipeline CRM — mayor valor primero">Proyectos cotizados y en curso</SectionTitle>
+      <SectionTitle theme={theme} sub="pipeline CRM — mayor valor primero">Proyectos cotizados y en curso</SectionTitle>
       {proyectosActivos.map((d,i)=>{
         const stage = STAGES.find(s=>s.key===d.stage);
         return (
@@ -224,7 +233,7 @@ export function Dashboard({ deals, tasks, setTasks, isMobile, navigate }) {
               <div style={{ fontFamily:FONT_BODY, fontSize:12, fontWeight:600, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{d.title}</div>
               <div style={{ fontFamily:FONT_BODY, fontSize:10, color:C.textDim }}>{d.company}</div>
             </div>
-            <Badge color={stage?.color||C.textMuted} theme={LIGHT_THEME}>{stage?.label}</Badge>
+            <Badge color={stage?.color||C.textMuted} theme={theme}>{stage?.label}</Badge>
             <div style={{ width:70, flexShrink:0 }}>
               <div style={{ height:5, background:C.border, borderRadius:3, overflow:"hidden" }}>
                 <div style={{ height:5, borderRadius:3, background:stage?.color||C.accent, width:`${d.probability}%` }} />
@@ -241,10 +250,10 @@ export function Dashboard({ deals, tasks, setTasks, isMobile, navigate }) {
 
   const sideCol = (
     <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-      <KpiCard label="Pipeline esperado" value={fmt(pipeline)} sub="ponderado por probabilidad" accentColor={C.accent} valueColor={C.accent} />
+      <KpiCard theme={theme} label="Pipeline esperado" value={fmt(pipeline)} sub="ponderado por probabilidad" accentColor={C.accent} valueColor={C.accent} />
 
       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
-        <SectionTitle sub={pctVencidas===null ? "% rechazadas por vencimiento: sin datos aún" : `${pctVencidas}% rechazadas por vencimiento`}>Pipeline por estado</SectionTitle>
+        <SectionTitle theme={theme} sub={pctVencidas===null ? "% rechazadas por vencimiento: sin datos aún" : `${pctVencidas}% rechazadas por vencimiento`}>Pipeline por estado</SectionTitle>
         {donutTotal===0 ? (
           <div style={{ fontFamily:FONT_BODY, fontSize:12, color:C.textDim }}>Sin cotizaciones registradas</div>
         ) : (
@@ -272,7 +281,7 @@ export function Dashboard({ deals, tasks, setTasks, isMobile, navigate }) {
       </div>
 
       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
-        <SectionTitle sub={`${tasksProximas.length} próxima(s)`}>Próximas actividades</SectionTitle>
+        <SectionTitle theme={theme} sub={`${tasksProximas.length} próxima(s)`}>Próximas actividades</SectionTitle>
         {tasksProximas.length===0 && <div style={{ fontFamily:FONT_BODY, fontSize:13, color:C.textDim }}>Sin actividades próximas</div>}
         {tasksProximas.map(t=>{
           const overdue = !t.done && isOverdue(t.dueDate);
@@ -292,7 +301,7 @@ export function Dashboard({ deals, tasks, setTasks, isMobile, navigate }) {
       </div>
 
       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
-        <SectionTitle>Últimas cotizaciones</SectionTitle>
+        <SectionTitle theme={theme}>Últimas cotizaciones</SectionTitle>
         {cotRecientes.map(c=>(
           <div key={c.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 0", borderBottom:`1px solid ${C.border}` }}>
             <div style={{ flex:1, minWidth:0, fontFamily:FONT_BODY, fontSize:11, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.serie||"COT"}-{c.numero} · {c.nombre_cliente||"—"}</div>
@@ -393,7 +402,7 @@ export function Dashboard({ deals, tasks, setTasks, isMobile, navigate }) {
       {!isMobile && (
         <div style={{ position:"fixed", top:"50%", right:0, transform:"translateY(-50%)", display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8, zIndex:100 }}>
           {QUICK_ACTIONS.map(qa => (
-            <AccesoDirecto key={qa.label} qa={qa} onClick={()=>navigate(qa.view, { autoNew: qa.autoNew })} />
+            <AccesoDirecto key={qa.label} qa={qa} theme={theme} onClick={()=>navigate(qa.view, { autoNew: qa.autoNew })} />
           ))}
         </div>
       )}

@@ -1,7 +1,8 @@
 // Crea en el Maestro un producto que el Costeo tenía escrito a mano y lo
 // enlaza en el Costeo, para poder pedirlo en una OC sin salir de Compras.
 import { useState } from "react";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../../theme.js";
+import { FONT_BODY as FONT, FONT_NUM } from "../../theme.js";
+import { useTheme } from "../../shared/useTheme.js";
 import { fmt, hoyISO } from "../../shared/format.js";
 import { mapProductToDb } from "../../shared/mappers.js";
 import { CATALOG_CATS } from "../../shared/constants.js";
@@ -11,6 +12,7 @@ import { sugerirCodigo } from "./calculos.js";
 import { crearProductoDesdeCosteo } from "./datos.js";
 
 export function CrearProductoModal({ item, costeoId, productos, suppliers, onClose, onCreated }) {
+  const { C } = useTheme();
   const [form, setForm] = useState({
     code: "", name: item.descripcion, description: item.modelo || "", category: "", unit: "un",
     supplier_id: "", precio: item.costoBruto || "", fichaUrl: item.datasheet_url || "",

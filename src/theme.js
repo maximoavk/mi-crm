@@ -36,3 +36,16 @@ export const FONT_NUM  = "'JetBrains Mono', monospace";
 // <Modal theme={LIGHT_THEME} .../>. El título/heading sigue en Space Grotesk
 // vía fontDisplay — solo el texto de cuerpo pasa a Manrope.
 export const LIGHT_THEME = { colors: COLORS_LIGHT, font: FONT_BODY, fontDisplay: "'Space Grotesk', sans-serif" };
+
+// ── Modo Oscuro del rediseño (distinto del COLORS_DARK viejo de arriba,
+// que es el tema cian/negro previo al rediseño y sigue usándose en las
+// pantallas aún no migradas). Pensado para combinar con SIDEBAR, que es
+// fijo e igual en ambos modos. Ver maqueta en Pencil (17-oct-2026).
+export const COLORS_NIGHT = {
+  bg: "#14171C", surface: "#1B1F26", card: "#1B1F26", border: "#2A2F38",
+  accent: "#4FB8E8", accentDim: "#4FB8E822", accentGlow: "#4FB8E844",
+  secondary: "#5B9CF2",
+  green: "#2DBF95", yellow: "#F0B84D", red: "#F0615A", purple: "#9C8AD1",
+  text: "#EDEEF2", textMuted: "#8C96A6", textDim: "#5B6472",
+};
+export const DARK_THEME = { colors: COLORS_NIGHT, font: FONT_BODY, fontDisplay: "'Space Grotesk', sans-serif" };

@@ -1,6 +1,7 @@
 // Historial de versiones guardadas de un costeo y comparación entre versiones.
 import { useState, useEffect } from "react";
-import { COLORS_LIGHT as C, FONT_DISPLAY, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_DISPLAY, FONT_BODY as FONT, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { buildVersionDiff } from "./versionDiff.js";
 import { fmt } from "../shared/format.js";
 import { calcFase, calcItem } from "../calculos.js";
@@ -12,12 +13,13 @@ import { EMPRESA_RUT } from "../shared/empresa.js";
 // Costeo: todos los agregados/quitados/modificados de todas las prefacturas que
 // se han emitido para este proyecto, en orden cronológico, con qué documento
 // declaró cada uno — trazabilidad completa para el cliente.
-function tipoBadge(tipo) {
+function tipoBadge(tipo, C) {
   const m = { agregado:{c:C.green,s:"+ AGREGADO"}, removido:{c:C.red,s:"− QUITADO"}, modificado:{c:"#f59e0b",s:"~ MODIFICADO"} }[tipo] || { c:C.textMuted, s:tipo };
   return <span style={{ fontFamily:FONT_DISPLAY, fontSize:9, fontWeight:700, color:m.c, background:`${m.c}18`, border:`1px solid ${m.c}44`, borderRadius:5, padding:"2px 6px" }}>{m.s}</span>;
 }
 
 function VersionDiffModal({ versionOld, versionNew, onClose }) {
+  const { C } = useTheme();
   const diff = buildVersionDiff(versionOld.fases, versionNew.fases);
   return (
     <div style={{ position:"fixed", inset:0, background:"#000c", zIndex:500, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
@@ -42,7 +44,7 @@ function VersionDiffModal({ versionOld, versionNew, onClose }) {
               {r.itemDiffs.map((it,i)=>(
                 <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 10px", background:C.card, borderRadius:7 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0 }}>
-                    {tipoBadge(it.tipo)}
+                    {tipoBadge(it.tipo, C)}
                     <span style={{ fontFamily:FONT, fontSize:11, color:C.text }}>{it.descripcion}{it.qtyOld!==it.qtyNew ? ` (${it.qtyOld}→${it.qtyNew})` : ""}</span>
                   </div>
                   <span style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:(it.ventaNew-it.ventaOld)>=0?C.green:C.red, flexShrink:0 }}>
@@ -70,6 +72,7 @@ function VersionDiffModal({ versionOld, versionNew, onClose }) {
 // por ítem) — a diferencia de VersionDiffModal, que compara dos versiones,
 // esto es solo lectura de la foto tal cual quedó guardada.
 function VersionDetailModal({ version, onClose }) {
+  const { C } = useTheme();
   const fases = (version.fases||[]).map(calcFase);
   const total = Math.round(fases.reduce((s,f)=>s+f.ventaConDesc,0));
   return (
@@ -112,6 +115,7 @@ function VersionDetailModal({ version, onClose }) {
 }
 
 export function HistorialCambiosTab({ costeoId, proyecto }) {
+  const { C } = useTheme();
   const [cambios, setCambios]     = useState(null);
   const [versiones, setVersiones] = useState([]);
   const [docsMap, setDocsMap]     = useState({});
@@ -264,7 +268,7 @@ export function HistorialCambiosTab({ costeoId, proyecto }) {
         <div key={"c"+m.data.id} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:9, padding:"12px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
           <div style={{ minWidth:0 }}>
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
-              {tipoBadge(m.data.tipo)}
+              {tipoBadge(m.data.tipo, C)}
               <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, color:C.text }}>{m.data.descripcion}</span>
             </div>
             <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>

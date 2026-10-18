@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { fmtDDMMYYYY, parseDDMMYYYY } from "./fechas.js";
 
 // Calendario propio (desplegable) para elegir una fecha "YYYY-MM-DD" sin depender del picker nativo del navegador.
 // Doble entrada: se puede escribir la fecha a mano (dd/mm/aaaa) en el campo,
 // o abrir el calendario con el ícono 📅 para elegirla con el mouse.
 export function CalendarPicker({ value, onChange }) {
+  const { C } = useTheme();
   const [open, setOpen] = useState(false);
   const [texto, setTexto] = useState(fmtDDMMYYYY(value));
   const initial = value ? new Date(value+"T00:00") : new Date();

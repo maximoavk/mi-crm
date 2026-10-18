@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
 import { mapQuote, mapQuoteLine } from "../shared/mappers.js";
-import { FONT_DISPLAY, COLORS_LIGHT as C, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_DISPLAY, FONT_BODY as FONT, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { AddBtn, Loader } from "../shared/ui.jsx";
 import { PedidosGrid } from "./PedidosGrid.jsx";
 import { PedidoModal } from "./PedidoModal.jsx";
@@ -12,6 +13,7 @@ import { hoyISO } from "../shared/format.js";
 import { EMPRESA } from "../shared/empresa.js";
 
 export function PrestacionesView({ isMobile }) {
+  const { C, theme } = useTheme();
   const [tab, setTab]             = useState("cp"); // "cp" | "pf"
   const [docs, setDocs]           = useState([]);
   const [pfDocs, setPfDocs]           = useState([]);
@@ -190,7 +192,7 @@ export function PrestacionesView({ isMobile }) {
             <button style={TAB_STYLE(!isCP, C.secondary)} onClick={()=>setTab("pf")}>🧾 Pre-Facturas</button>
           </div>
           <AddBtn onClick={()=>{ setEditPedido(null); setShowPedidoModal(true); }}
-            label={isCP?"Nuevo Pedido":"Nuevo grupo PF"} theme={LIGHT_THEME} />
+            label={isCP?"Nuevo Pedido":"Nuevo grupo PF"} theme={theme} />
         </div>
       </div>
 

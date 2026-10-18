@@ -2,11 +2,13 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
 import { GASTOS_FIJOS, GASTOS_VARIABLES, CENTROS_COSTO } from "./constants.js";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { fmtClp } from "../shared/format.js";
 import { SecTitle, KpiCard } from "./ui.jsx";
 
 export function PresupuestoOperacional({ isMobile }) {
+  const { C, theme } = useTheme();
   const hoy = new Date();
   const [año, setAño]   = useState(hoy.getFullYear());
   const [mes, setMes]   = useState(hoy.getMonth() + 1);
@@ -196,7 +198,7 @@ export function PresupuestoOperacional({ isMobile }) {
     <div>
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20, flexWrap:"wrap", gap:12 }}>
-        <SecTitle sub="Presupuesto mensual vs gasto real · Gastos Generales sin COT" theme={LIGHT_THEME}>
+        <SecTitle sub="Presupuesto mensual vs gasto real · Gastos Generales sin COT" theme={theme}>
           Presupuesto Operacional
         </SecTitle>
         <button onClick={copiarMesAnterior} disabled={saving}
@@ -228,14 +230,14 @@ export function PresupuestoOperacional({ isMobile }) {
 
       {/* KPIs */}
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)", gap:12, marginBottom:20 }}>
-        <KpiCard label="Total presupuestado" value={fmtClp(totalPresup2)} color={C.accent} theme={LIGHT_THEME} />
-        <KpiCard label="Total real" value={fmtClp(totalReal)} color={totalReal>totalPresup2?C.red:C.text} theme={LIGHT_THEME} />
+        <KpiCard label="Total presupuestado" value={fmtClp(totalPresup2)} color={C.accent} theme={theme} />
+        <KpiCard label="Total real" value={fmtClp(totalReal)} color={totalReal>totalPresup2?C.red:C.text} theme={theme} />
         <KpiCard label="Variación"
           value={(variacion>=0?"+":"")+fmtClp(variacion)}
           color={variacion>=0?C.green:C.red}
-          sub={totalPresup2>0?`${Math.round(Math.abs(variacion)/totalPresup2*100)}% del presupuesto`:"—"} theme={LIGHT_THEME} />
+          sub={totalPresup2>0?`${Math.round(Math.abs(variacion)/totalPresup2*100)}% del presupuesto`:"—"} theme={theme} />
         <KpiCard label="Ejecución" value={totalPresup2>0?`${Math.min(Math.round(totalReal/totalPresup2*100),999)}%`:"—"}
-          color={totalReal>totalPresup2?C.red:C.accent} theme={LIGHT_THEME} />
+          color={totalReal>totalPresup2?C.red:C.accent} theme={theme} />
       </div>
 
       {/* Tabla */}

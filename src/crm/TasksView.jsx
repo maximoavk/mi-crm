@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
 import { mapTaskToDb, mapTask } from "../shared/mappers.js";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { AddBtn } from "../shared/ui.jsx";
 import { fmtDate, hoyISO } from "../shared/format.js";
 import { STAGES } from "../shared/constants.js";
@@ -10,6 +11,7 @@ import { diasSemana, diasMes } from "./calendario.js";
 
 // ── TASKS ────────────────────────────────────────────────────────────────────
 export function TasksView({ tasks, setTasks, contacts, deals, autoNew, onAutoNewHandled }) {
+  const { C, theme } = useTheme();
   const TASK_STATUSES = [
     { key:"pendiente",    label:"Pendiente",    color:"#FFB800" },
     { key:"en_progreso",  label:"En progreso",  color:"#00C2FF" },
@@ -135,7 +137,7 @@ export function TasksView({ tasks, setTasks, contacts, deals, autoNew, onAutoNew
               {v==="lista"?"☰ Lista":v==="dia"?"📅 Día":v==="semana"?"📆 Semana":"🗓 Mes"}
             </button>
           ))}
-          <AddBtn onClick={openNew} label="Nueva tarea" theme={LIGHT_THEME} />
+          <AddBtn onClick={openNew} label="Nueva tarea" theme={theme} />
         </div>
       </div>
 

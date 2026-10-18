@@ -2,12 +2,14 @@
 import React, { useState } from "react";
 import { CHECKLIST_COMISIONAMIENTO, CHECKLIST_TEMPLATES, buildChecklist } from "./checklists.js";
 import { supabase } from "../supabaseClient.js";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { fechaLocal, hoyISO } from "../shared/format.js";
 import { TITULAR } from "../shared/empresa.js";
 
 // ─── Modal Operación ──────────────────────────────────────────────────────────
 export function OpModal({ op, defaultTipo, quotes, contacts, onClose, onSaved, onPrint }) {
+  const { C } = useTheme();
   const isNew = !op;
   const [tipo,   setTipo]   = useState(op?.tipo||defaultTipo||"comisionamiento");
   const [form,   setForm]   = useState({

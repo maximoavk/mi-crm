@@ -1,6 +1,7 @@
 // Control de proyectos: avance, cobros y partidas de los costeos en ejecución.
 import { useState, useEffect } from "react";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { supabase } from "../supabaseClient.js";
 import { calcFase, partidaCobrado } from "../calculos.js";
 import { fmtDate, fmt } from "../shared/format.js";
@@ -8,6 +9,7 @@ import { Loader } from "../shared/ui.jsx";
 
 // ── CONTROL DE PROYECTOS ─────────────────────────────────────────────────────
 export function ControlProyectosView({ contacts }) {
+  const { C } = useTheme();
   const [proyectos,   setProyectos]   = useState([]);
   const [selected,    setSelected]    = useState(null);
   const [loading,     setLoading]     = useState(true);

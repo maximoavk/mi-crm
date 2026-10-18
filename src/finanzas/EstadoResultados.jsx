@@ -1,17 +1,18 @@
 // Estado de resultados estimado (ingresos, costos, IVA y PPM).
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { KpiCard } from "./ui.jsx";
 
 const fmtClp = n => "$" + Math.round(n||0).toLocaleString("es-CL");
 
 // Filas del estado de resultados (fuera del componente para que React no
 // los recree en cada render).
-const Section   = ({ label }) => (
+const Section   = ({ label, theme=LIGHT_THEME }) => { const C = theme.colors; return (
   <div style={{ padding:"7px 18px", background:C.surface, borderTop:`1px solid ${C.border}`, borderBottom:`1px solid ${C.border}` }}>
     <span style={{ fontFamily:FONT, fontSize:9, fontWeight:700, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.12em" }}>{label}</span>
   </div>
-);
-const Row = ({ label, valor, indent=0, muted=false, note="" }) => (
+); };
+const Row = ({ label, valor, indent=0, muted=false, note="", theme=LIGHT_THEME }) => { const C = theme.colors; return (
   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:`6px ${18+indent*16}px`, borderBottom:`1px solid ${C.border}11` }}>
     <div>
       <span style={{ fontFamily:FONT, fontSize:11, color:muted?C.textMuted:C.text }}>{label}</span>
@@ -19,7 +20,7 @@ const Row = ({ label, valor, indent=0, muted=false, note="" }) => (
     </div>
     <span style={{ fontFamily:FONT, fontSize:11, color:muted?C.textMuted:C.text }}>{fmtClp(valor)}</span>
   </div>
-);
+); };
 const Total = ({ label, valor, color, pctLabel="" }) => (
   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 18px", background:`${color}11`, borderTop:`2px solid ${color}44` }}>
     <div>
@@ -31,6 +32,7 @@ const Total = ({ label, valor, color, pctLabel="" }) => (
 );
 
 export function EstadoResultados({ emitidas, recibidas, mes, anio, loading, isMobile }) {
+  const { C, theme } = useTheme();
   const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio",
                  "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
@@ -84,7 +86,7 @@ export function EstadoResultados({ emitidas, recibidas, mes, anio, loading, isMo
           { label:"Margen Bruto",             val:margenBruto,  color:colorPos(margenBruto),  sub:`${pctMargen.toFixed(1)}% sobre ingresos` },
           { label:"Resultado Operacional",    val:resultadoOp,  color:colorPos(resultadoOp),  sub:`${pctResultado.toFixed(1)}% sobre ingresos` },
         ].map(k=>(
-          <KpiCard key={k.label} label={k.label} value={fmtClp(k.val)} sub={k.sub} color={k.color} theme={LIGHT_THEME} />
+          <KpiCard key={k.label} label={k.label} value={fmtClp(k.val)} sub={k.sub} color={k.color} theme={theme} />
         ))}
       </div>
 
@@ -92,16 +94,16 @@ export function EstadoResultados({ emitidas, recibidas, mes, anio, loading, isMo
       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, overflow:"hidden", marginBottom:16 }}>
 
         {/* INGRESOS */}
-        <Section label="Ingresos Operacionales" />
-        <Row label="Ventas Netas (facturas emitidas)" valor={ingresoNeto} />
+        <Section theme={theme} label="Ingresos Operacionales" />
+        <Row theme={theme} label="Ventas Netas (facturas emitidas)" valor={ingresoNeto} />
         <Total label="Total Ingresos" valor={ingresoNeto} color={C.accent} />
 
         {/* COSTO DE VENTAS */}
-        <Section label="Costo de Ventas (COTs aprobadas)" />
+        <Section theme={theme} label="Costo de Ventas (COTs aprobadas)" />
         {Object.keys(costoByTipo).length === 0
-          ? <Row label="Sin facturas de costo registradas" valor={0} muted />
+          ? <Row theme={theme} label="Sin facturas de costo registradas" valor={0} muted />
           : Object.entries(costoByTipo).sort((a,b)=>b[1]-a[1]).map(([tipo,val])=>(
-              <Row key={tipo} label={tipo} valor={val} indent={1} muted />
+              <Row theme={theme} key={tipo} label={tipo} valor={val} indent={1} muted />
             ))
         }
         <Total label="Margen Bruto"
@@ -110,11 +112,11 @@ export function EstadoResultados({ emitidas, recibidas, mes, anio, loading, isMo
           pctLabel={`${pctMargen.toFixed(1)}% margen`} />
 
         {/* GASTOS OPERACIONALES */}
-        <Section label="Gastos Operacionales (Estructura)" />
+        <Section theme={theme} label="Gastos Operacionales (Estructura)" />
         {Object.keys(gastosByTipo).length === 0
-          ? <Row label="Sin gastos operacionales registrados" valor={0} muted />
+          ? <Row theme={theme} label="Sin gastos operacionales registrados" valor={0} muted />
           : Object.entries(gastosByTipo).sort((a,b)=>b[1]-a[1]).map(([tipo,val])=>(
-              <Row key={tipo} label={tipo} valor={val} indent={1} muted />
+              <Row theme={theme} key={tipo} label={tipo} valor={val} indent={1} muted />
             ))
         }
         <Total label="Resultado Operacional (EBIT)"
@@ -123,8 +125,8 @@ export function EstadoResultados({ emitidas, recibidas, mes, anio, loading, isMo
           pctLabel={`${pctResultado.toFixed(1)}% sobre ingresos`} />
 
         {/* IMPUESTO A LA RENTA — se resta del resultado */}
-        <Section label="Impuesto a la renta" />
-        <Row label="PPM estimado (anticipo)" valor={ppm} indent={1} muted note="1% ventas netas" />
+        <Section theme={theme} label="Impuesto a la renta" />
+        <Row theme={theme} label="PPM estimado (anticipo)" valor={ppm} indent={1} muted note="1% ventas netas" />
 
         {/* RESULTADO NETO */}
         <Total label="Resultado Neto estimado"
@@ -132,10 +134,10 @@ export function EstadoResultados({ emitidas, recibidas, mes, anio, loading, isMo
           color={colorPos(resultadoNeto)} />
 
         {/* IVA — solo informativo, no afecta el resultado */}
-        <Section label="IVA del mes (informativo · no afecta el resultado)" />
-        <Row label="IVA Débito Fiscal" valor={debitoFiscal} indent={1} muted note="ventas" />
-        <Row label="IVA Crédito Fiscal" valor={creditoFiscal} indent={1} muted note="compras" />
-        <Row label="IVA Neto a Pagar (F29)" valor={ivaAPagar} indent={1} />
+        <Section theme={theme} label="IVA del mes (informativo · no afecta el resultado)" />
+        <Row theme={theme} label="IVA Débito Fiscal" valor={debitoFiscal} indent={1} muted note="ventas" />
+        <Row theme={theme} label="IVA Crédito Fiscal" valor={creditoFiscal} indent={1} muted note="compras" />
+        <Row theme={theme} label="IVA Neto a Pagar (F29)" valor={ivaAPagar} indent={1} />
       </div>
 
       {/* Nota pie */}

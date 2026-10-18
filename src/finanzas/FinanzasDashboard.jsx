@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
 import { SecTitle, KpiCard } from "./ui.jsx";
-import { COLORS_LIGHT as C, FONT_DISPLAY, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_DISPLAY, FONT_BODY as FONT, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { RendimientoCotizaciones } from "./rendimiento/RendimientoCotizaciones.jsx";
 import { GastosGenerales } from "./GastosGenerales.jsx";
 import { EstadoResultados } from "./EstadoResultados.jsx";
@@ -10,6 +11,7 @@ import { CajaView } from "./CajaView.jsx";
 import { fmtClp, fmtFecha } from "../shared/format.js";
 
 export function FinanzasDashboard({ isMobile }) {
+  const { C, theme } = useTheme();
   const [tabFin, setTabFin] = useState("rendimiento"); // "rendimiento" | "f29"
   const hoy = new Date();
   const [mes, setMes] = useState(hoy.getMonth() + 1);     // 1-12
@@ -69,7 +71,7 @@ export function FinanzasDashboard({ isMobile }) {
 
   return (
     <div>
-      <SecTitle sub="Control financiero · F29 · Rendimiento por cotización" theme={LIGHT_THEME}>
+      <SecTitle sub="Control financiero · F29 · Rendimiento por cotización" theme={theme}>
         Resumen Financiero
       </SecTitle>
 
@@ -137,18 +139,18 @@ export function FinanzasDashboard({ isMobile }) {
       <div style={{ display:"grid", gridTemplateColumns:gridCols, gap:12, marginBottom:24 }}>
         <KpiCard label="Débito Fiscal (IVA emitido)"
           value={fmtClp(debitoFiscal)} sub={`${emitidas.length} docs emitidos`}
-          color={C.red} icon="📤" theme={LIGHT_THEME} />
+          color={C.red} icon="📤" theme={theme} />
         <KpiCard label="Crédito Fiscal (IVA recibido)"
           value={fmtClp(creditoFiscal)}
           sub={acumulado.remanente > 0 ? `+ ${fmtClp(acumulado.remanente)} remanente` : `${recibidas.length} docs recibidos`}
-          color={C.green} icon="📥" theme={LIGHT_THEME} />
+          color={C.green} icon="📥" theme={theme} />
         <KpiCard label="IVA a Pagar / Remanente"
           value={ivaAPagar > 0 ? fmtClp(ivaAPagar) : `↩ ${fmtClp(remanente)}`}
           sub={ivaAPagar > 0 ? "Pago hasta día 12 del mes siguiente" : "Se arrastra al mes siguiente"}
-          color={ivaAPagar > 0 ? C.yellow : C.green} icon={ivaAPagar > 0 ? "⚠️" : "✅"} theme={LIGHT_THEME} />
+          color={ivaAPagar > 0 ? C.yellow : C.green} icon={ivaAPagar > 0 ? "⚠️" : "✅"} theme={theme} />
         <KpiCard label="PPM estimado (1% ventas netas)"
           value={fmtClp(ppm)} sub={`Base: ${fmtClp(ventasNetas)}`}
-          color={C.accent} icon="📊" theme={LIGHT_THEME} />
+          color={C.accent} icon="📊" theme={theme} />
       </div>
 
       {/* Resumen F29 formal */}
@@ -200,13 +202,13 @@ export function FinanzasDashboard({ isMobile }) {
         letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>
         Facturas Emitidas — {MESES[mes-1]} {anio}
       </div>
-      <_TablaDocumentos docs={emitidas} tipo="emitida" />
+      <_TablaDocumentos docs={emitidas} tipo="emitida" C={C} />
 
       <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted,
         letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10, marginTop:24 }}>
         Facturas Recibidas — {MESES[mes-1]} {anio}
       </div>
-      <_TablaDocumentos docs={recibidas} tipo="recibida" />
+      <_TablaDocumentos docs={recibidas} tipo="recibida" C={C} />
       </div>
       )} {/* cierre tab f29 */}
     </div>
@@ -214,7 +216,7 @@ export function FinanzasDashboard({ isMobile }) {
 }
 
 // Mini tabla documentos (reutilizable en dashboard)
-function _TablaDocumentos({ docs, tipo }) {
+function _TablaDocumentos({ docs, tipo, C }) {
   if (!docs.length) return (
     <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10,
       padding:"24px", textAlign:"center", fontFamily:FONT, fontSize:13, color:C.textMuted }}>

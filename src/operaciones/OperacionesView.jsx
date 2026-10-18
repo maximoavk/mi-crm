@@ -1,7 +1,8 @@
 // ── OPERACIONES / TERRENO: órdenes de trabajo y operaciones ─────────────────
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { AddBtn, Loader, Badge } from "../shared/ui.jsx";
 import { printOT } from "./printOT.js";
 import { OTModal } from "./OTModal.jsx";
@@ -11,6 +12,7 @@ import { fechaLocal } from "../shared/format.js";
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export function OperacionesView({ isMobile }) {
+  const { C, theme } = useTheme();
   const [ops, setOps]             = useState([]);
   const [quotes, setQuotes]       = useState([]);
   const [contacts, setContacts]   = useState([]);
@@ -80,8 +82,8 @@ export function OperacionesView({ isMobile }) {
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:C.text }}>Operaciones</div>
         </div>
         <div style={{ display:"flex", gap:8 }}>
-          {mainTab==="comisionamiento" && <AddBtn onClick={()=>{ setEditOp(null); setShowModal(true); }} label="Nueva instalación" theme={LIGHT_THEME} />}
-          {mainTab==="ot" && <AddBtn onClick={()=>{ setEditOT(null); setShowOTModal(true); }} label="Nueva OT" theme={LIGHT_THEME} />}
+          {mainTab==="comisionamiento" && <AddBtn onClick={()=>{ setEditOp(null); setShowModal(true); }} label="Nueva instalación" theme={theme} />}
+          {mainTab==="ot" && <AddBtn onClick={()=>{ setEditOT(null); setShowOTModal(true); }} label="Nueva OT" theme={theme} />}
         </div>
       </div>
 
@@ -236,8 +238,8 @@ export function OperacionesView({ isMobile }) {
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:5, flexWrap:"wrap" }}>
                       <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:tc }}>{TIPO_ICON[op.tipo]} {op.numero||op.id.slice(0,8)}</span>
-                      <Badge color={tc} theme={LIGHT_THEME}>{TIPO_LABEL[op.tipo]}</Badge>
-                      <Badge color={ESTADO_COLOR[op.estado]||C.textMuted} theme={LIGHT_THEME}>{ESTADO_LABEL[op.estado]||op.estado}</Badge>
+                      <Badge color={tc} theme={theme}>{TIPO_LABEL[op.tipo]}</Badge>
+                      <Badge color={ESTADO_COLOR[op.estado]||C.textMuted} theme={theme}>{ESTADO_LABEL[op.estado]||op.estado}</Badge>
                       {op.tipo==="comisionamiento" && garantiaVence && (
                         <span style={{ fontFamily:FONT, fontSize:9, color:C.yellow, background:`${C.yellow}15`, padding:"2px 8px", borderRadius:10, border:`1px solid ${C.yellow}33` }}>
                           🛡 Garantía hasta {garantiaVence}

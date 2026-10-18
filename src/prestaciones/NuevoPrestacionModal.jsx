@@ -1,12 +1,14 @@
 // Modal para emitir un comprobante de prestación o pre-factura a partir de cotizaciones.
 import { useState, useEffect } from "react";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { supabase } from "../supabaseClient.js";
 import { fmt, hoyISO } from "../shared/format.js";
 import { DeclararCambioPanel } from "./DeclararCambioPanel.jsx";
 import { EMPRESA_RUT } from "../shared/empresa.js";
 
 export function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved }) {
+  const { C } = useTheme();
   const isPF     = tab==="pf";
   const isReprint= !!(existing?._reprint);
   const AC       = isPF ? C.secondary : C.accent;

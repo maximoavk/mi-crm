@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { listDesignProjects, createDesignProject, deleteDesignProject } from "./designSupabase.js";
 
 export function DesignProjectsPanel({ costeoId, onOpenDesign }) {
+  const { C } = useTheme();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);

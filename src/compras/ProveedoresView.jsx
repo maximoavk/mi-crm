@@ -1,13 +1,15 @@
 // Maestro de proveedores: datos de contacto, bancarios y evaluación.
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { Loader, AddBtn, Modal, Input, Select } from "../shared/ui.jsx";
 import { formatRut } from "../shared/format.js";
 
 // ══════════════════════════════════════════════════════════════════════════════
 
 export function ProveedoresView({ isMobile }) {
+  const { C, theme } = useTheme();
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading]     = useState(true);
   const [search, setSearch]       = useState("");
@@ -121,7 +123,7 @@ export function ProveedoresView({ isMobile }) {
             />
             <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", fontSize:13, color:C.textMuted }}>🔍</span>
           </div>
-          <AddBtn onClick={openNew} label="Nuevo proveedor" theme={LIGHT_THEME} />
+          <AddBtn onClick={openNew} label="Nuevo proveedor" theme={theme} />
         </div>
       </div>
 
@@ -222,24 +224,24 @@ export function ProveedoresView({ isMobile }) {
         <Modal
           title={editing ? `Editar — ${editing.nombre}` : "Nuevo Proveedor"}
           onClose={()=>setShowModal(false)}
-          onSubmit={save} theme={LIGHT_THEME}>
-          <Input label="Nombre *" value={form.nombre} onChange={e=>ff("nombre",e.target.value)} placeholder="Ej: Dahua Technology Chile" theme={LIGHT_THEME} />
-          <Input label="RUT" value={form.rut} onChange={e=>ff("rut",formatRut(e.target.value))} placeholder="12.345.678-9" maxLength={12} theme={LIGHT_THEME} />
-          <Input label="Email" value={form.email} onChange={e=>ff("email",e.target.value)} placeholder="contacto@proveedor.com" type="email" theme={LIGHT_THEME} />
-          <Input label="Teléfono" value={form.telefono} onChange={e=>ff("telefono",e.target.value)} placeholder="+56 9 ..." theme={LIGHT_THEME} />
-          <Input label="Dirección" value={form.direccion} onChange={e=>ff("direccion",e.target.value)} placeholder="Av. Ejemplo 123" theme={LIGHT_THEME} />
-          <Input label="Ciudad" value={form.ciudad} onChange={e=>ff("ciudad",e.target.value)} placeholder="La Serena" theme={LIGHT_THEME} />
+          onSubmit={save} theme={theme}>
+          <Input label="Nombre *" value={form.nombre} onChange={e=>ff("nombre",e.target.value)} placeholder="Ej: Dahua Technology Chile" theme={theme} />
+          <Input label="RUT" value={form.rut} onChange={e=>ff("rut",formatRut(e.target.value))} placeholder="12.345.678-9" maxLength={12} theme={theme} />
+          <Input label="Email" value={form.email} onChange={e=>ff("email",e.target.value)} placeholder="contacto@proveedor.com" type="email" theme={theme} />
+          <Input label="Teléfono" value={form.telefono} onChange={e=>ff("telefono",e.target.value)} placeholder="+56 9 ..." theme={theme} />
+          <Input label="Dirección" value={form.direccion} onChange={e=>ff("direccion",e.target.value)} placeholder="Av. Ejemplo 123" theme={theme} />
+          <Input label="Ciudad" value={form.ciudad} onChange={e=>ff("ciudad",e.target.value)} placeholder="La Serena" theme={theme} />
 
           <div style={{ borderTop:`1px solid ${C.border}`, marginTop:8, paddingTop:14, marginBottom:8 }}>
             <div style={{ fontFamily:FONT, fontSize:10, color:C.accent, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>Datos bancarios</div>
-            <Input label="Banco" value={form.banco} onChange={e=>ff("banco",e.target.value)} placeholder="Ej: Banco Santander" theme={LIGHT_THEME} />
-            <Select label="Tipo de cuenta" value={form.tipo_cuenta} onChange={e=>ff("tipo_cuenta",e.target.value)} theme={LIGHT_THEME}>
+            <Input label="Banco" value={form.banco} onChange={e=>ff("banco",e.target.value)} placeholder="Ej: Banco Santander" theme={theme} />
+            <Select label="Tipo de cuenta" value={form.tipo_cuenta} onChange={e=>ff("tipo_cuenta",e.target.value)} theme={theme}>
               <option value="corriente">Cuenta Corriente</option>
               <option value="ahorro">Cuenta de Ahorro</option>
               <option value="vista">Cuenta Vista / RUT</option>
             </Select>
-            <Input label="Número de cuenta" value={form.numero_cuenta} onChange={e=>ff("numero_cuenta",e.target.value)} placeholder="0000000000" theme={LIGHT_THEME} />
-            <Input label="Email para transferencias" value={form.email_pago} onChange={e=>ff("email_pago",e.target.value)} placeholder="pagos@proveedor.com" type="email" theme={LIGHT_THEME} />
+            <Input label="Número de cuenta" value={form.numero_cuenta} onChange={e=>ff("numero_cuenta",e.target.value)} placeholder="0000000000" theme={theme} />
+            <Input label="Email para transferencias" value={form.email_pago} onChange={e=>ff("email_pago",e.target.value)} placeholder="pagos@proveedor.com" type="email" theme={theme} />
           </div>
 
           <div style={{ marginBottom:14 }}>
@@ -261,7 +263,7 @@ export function ProveedoresView({ isMobile }) {
             </div>
           </div>
 
-          <Input label="Notas internas" value={form.notas} onChange={e=>ff("notas",e.target.value)} placeholder="Obs. de pago, tiempos de entrega, etc." theme={LIGHT_THEME} />
+          <Input label="Notas internas" value={form.notas} onChange={e=>ff("notas",e.target.value)} placeholder="Obs. de pago, tiempos de entrega, etc." theme={theme} />
 
           {saving && <div style={{ fontFamily:FONT, fontSize:12, color:C.accent, textAlign:"center" }}>Guardando…</div>}
         </Modal>

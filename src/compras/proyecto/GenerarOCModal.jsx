@@ -2,7 +2,8 @@
 // comprar del Costeo: una OC por proveedor, con proveedor y precio del
 // maestro (el preferido) sugeridos. Precios BRUTOS (con IVA).
 import { useMemo, useState } from "react";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../../theme.js";
+import { useTheme } from "../../shared/useTheme.js";
 import { fmt } from "../../shared/format.js";
 import { Ventana } from "../../shared/Ventana.jsx";
 import { campo, etiqueta } from "./estilos.js";
@@ -19,6 +20,7 @@ function sugerencia(item, prices) {
 }
 
 export function GenerarOCModal({ quote, codigo, items, suppliers, prices, saldoProyectado, onClose, onCreated }) {
+  const { C } = useTheme();
   const [filas, setFilas] = useState(() => items.map(it => ({
     productId: it.productId, descripcion: it.descripcion, modelo: it.modelo,
     qty: it.pendiente || 1, ...sugerencia(it, prices),

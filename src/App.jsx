@@ -4,6 +4,7 @@ import { COLORS, FONT, FONT_DISPLAY, SIDEBAR, COLORS_LIGHT, FONT_BODY } from "./
 import { supabase } from "./supabaseClient.js";
 import { LOGO_B64 } from "./shared/assets.js";
 import { useIsMobile } from "./shared/useIsMobile.js";
+import { useTheme } from "./shared/useTheme.js";
 import { mapContact, mapDeal, mapTask } from "./shared/mappers.js";
 import { NAV_GROUPS, NAV } from "./layout/nav.js";
 import { LoginScreen } from "./auth/LoginScreen.jsx";
@@ -44,8 +45,9 @@ function Cargando() {
 
 const VALID_ROLES = ["admin", "colaborador", "prueba"];
 
-// Pantallas ya migradas al rediseño "Modo Claro" — se les da el fondo
-// claro del <main>; el resto de la app sigue con el tema oscuro de siempre.
+// Pantallas ya migradas al rediseño (COLORS_LIGHT/COLORS_NIGHT según el
+// switch, vía useTheme()) — el resto de la app sigue con el tema oscuro
+// original fijo (COLORS).
 const LIGHT_VIEWS = new Set([
   "dashboard", "contacts", "pipeline", "quotes",
   "prestaciones", "products", "proveedores", "compras_proyecto", "purchase", "guias",
@@ -54,6 +56,7 @@ const LIGHT_VIEWS = new Set([
 ]);
 
 export default function CRM() {
+  const { theme } = useTheme();
   const [view, setView] = useState("dashboard");
   const [openCosteoId, setOpenCosteoId] = useState(null);
   // Accesos directos del Dashboard ("Nuevo contacto", "Nuevo producto"...):
@@ -268,7 +271,7 @@ export default function CRM() {
         </aside>
       )}
 
-      <main style={{ flex:1, overflowY:"auto", paddingBottom:isMobile?80:0, background: LIGHT_VIEWS.has(view) ? COLORS_LIGHT.bg : COLORS.bg }}>
+      <main style={{ flex:1, overflowY:"auto", paddingBottom:isMobile?80:0, background: LIGHT_VIEWS.has(view) ? theme.colors.bg : COLORS.bg }}>
         {/* Dashboard maneja su propio layout a pantalla completa (fondo claro,
             panel de accesos directos flotante) — las demás vistas usan el
             contenedor estándar con ancho máximo y padding. */}

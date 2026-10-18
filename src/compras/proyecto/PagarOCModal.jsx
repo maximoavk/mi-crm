@@ -1,7 +1,8 @@
 // Registra un pago (total o parcial) a una OC del proyecto. Si el pago deja
 // el proyecto con saldo negativo se advierte, pero se permite pagar.
 import { useState } from "react";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../../theme.js";
+import { FONT_BODY as FONT, FONT_NUM } from "../../theme.js";
+import { useTheme } from "../../shared/useTheme.js";
 import { fmt, hoyISO } from "../../shared/format.js";
 import { Ventana } from "../../shared/Ventana.jsx";
 import { campo, etiqueta } from "./estilos.js";
@@ -21,6 +22,7 @@ function cuentaInicial(cuentas) {
 }
 
 export function PagarOCModal({ oc, total, pagado, saldoDisponible, codigo, cuentas = [], onClose, onPaid }) {
+  const { C } = useTheme();
   const pendiente = Math.max(0, total - pagado);
   const [form, setForm] = useState({ monto: pendiente || "", fecha: hoyISO(), metodo: "Transferencia", referencia: "" });
   const [marcarPagada, setMarcarPagada] = useState(true);

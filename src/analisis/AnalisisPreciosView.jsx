@@ -3,7 +3,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
 import { AnalisisEditor } from "./AnalisisEditor.jsx";
 import { AnalisisComparativa } from "./AnalisisComparativa.jsx";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { AddBtn, Loader } from "../shared/ui.jsx";
 import { fmt } from "../shared/format.js";
 
@@ -13,6 +14,7 @@ import { fmt } from "../shared/format.js";
 // ── ANÁLISIS DE PRECIOS ───────────────────────────────────────────────────────
 
 export function AnalisisPreciosView({ isMobile }) {
+  const { C, theme } = useTheme();
   const [products, setProducts]   = useState([]);
   const [analyses, setAnalyses]   = useState([]);
   const [loading, setLoading]     = useState(true);
@@ -57,7 +59,7 @@ export function AnalisisPreciosView({ isMobile }) {
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:C.text }}>Análisis de Precios</div>
           <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, marginTop:3 }}>Compara equipos de una misma categoría por precio y ficha técnica</div>
         </div>
-        <AddBtn onClick={openNew} label="Nuevo análisis" theme={LIGHT_THEME} />
+        <AddBtn onClick={openNew} label="Nuevo análisis" theme={theme} />
       </div>
 
       {loading ? <Loader /> : analyses.length===0 ? (

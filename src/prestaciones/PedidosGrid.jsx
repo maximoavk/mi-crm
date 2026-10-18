@@ -2,13 +2,15 @@
 import { useState } from "react";
 import { TreeCaret } from "../shared/TreeCaret.jsx";
 import { TreeBranch } from "../shared/TreeBranch.jsx";
-import { FONT_DISPLAY, COLORS_LIGHT as C, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_DISPLAY, FONT_BODY as FONT, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { Badge } from "../shared/ui.jsx";
 import { printResumenPedido } from "./printResumenPedido.js";
 import { fmtDate } from "../shared/format.js";
 
 // ── PEDIDOS GRID (CP + PF unificado) ─────────────────────────────────────────
 export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditPedido, onDeletePedido, onNuevoDoc, onEditDoc, onReprintDoc, onDeleteDoc, onRegistrarFactura }) {
+  const { C, theme } = useTheme();
   const [collapsed, setCollapsed] = useState({});
   const toggle = (k) => setCollapsed(p=>({...p,[k]:!p[k]}));
 
@@ -109,7 +111,7 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
                     {cotCompensated.map(c=>qPrefix(c.quote)).join(" · ")}
                   </div>
                 </div>
-                <Badge color={isPaid?C.green:pedidoPct>0?C.yellow:C.textMuted} theme={LIGHT_THEME}>
+                <Badge color={isPaid?C.green:pedidoPct>0?C.yellow:C.textMuted} theme={theme}>
                   {isPaid?"Pagado":pedidoPct>0?"Parcial":"Pendiente"}
                 </Badge>
                 <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0, width:95 }}>
@@ -222,7 +224,7 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
                               <span style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:AC, flexShrink:0 }}>{qPrefix(q)}</span>
                               <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{q.clientCompany||q.clientName}</span>
                               {isComp && <span style={{ fontFamily:FONT, fontSize:8, color:AC, background:`${AC}22`, borderRadius:4, padding:"1px 5px", flexShrink:0 }}>⇄ comp.</span>}
-                              <Badge color={qPaid?C.green:C.yellow} size="sm" theme={LIGHT_THEME}>{qPaid?"Pagado":"Pendiente"}</Badge>
+                              <Badge color={qPaid?C.green:C.yellow} size="sm" theme={theme}>{qPaid?"Pagado":"Pendiente"}</Badge>
                               <div style={{ display:"flex", alignItems:"center", gap:5, width:85, flexShrink:0 }}>
                                 <MiniBar pct={pct} color={qPaid?C.green:`linear-gradient(90deg,${AC},${C.green})`} h={4}/>
                                 <span style={{ fontFamily:FONT, fontSize:9, color:qPaid?C.green:AC, minWidth:24, textAlign:"right" }}>{pct.toFixed(0)}%</span>

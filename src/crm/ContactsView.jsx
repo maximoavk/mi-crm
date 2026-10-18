@@ -4,7 +4,8 @@ import { TreeCaret } from "../shared/TreeCaret.jsx";
 import { TreeBranch } from "../shared/TreeBranch.jsx";
 import { supabase } from "../supabaseClient.js";
 import { mapContactToDb, mapContact } from "../shared/mappers.js";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_NUM, FONT_DISPLAY, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_NUM, FONT_DISPLAY } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { AddBtn, Badge, Modal, Input, Select } from "../shared/ui.jsx";
 import { STATUS_CONFIG } from "../shared/constants.js";
 import { fmt, formatRut } from "../shared/format.js";
@@ -12,6 +13,7 @@ import { AddressSelector } from "./AddressSelector.jsx";
 
 // ── CONTACTS ────────────────────────────────────────────────────────────────
 export function ContactsView({ contacts, setContacts, isMobile, autoNew, onAutoNewHandled }) {
+  const { C, theme } = useTheme();
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState({});
   const toggleQ = (id) => setCollapsed(p=>({...p,[id]:!p[id]}));
@@ -100,7 +102,7 @@ export function ContactsView({ contacts, setContacts, isMobile, autoNew, onAutoN
           {!isMobile && ["todos","cliente","prospecto","lead"].map(s=>(
             <button key={s} onClick={()=>setFilterStatus(s)} style={{ padding:"7px 12px", borderRadius:6, fontFamily:FONT, fontSize:11, cursor:"pointer", background:filterStatus===s?C.accent:C.card, color:filterStatus===s?C.bg:C.textMuted, border:`1px solid ${filterStatus===s?C.accent:C.border}` }}>{s.charAt(0).toUpperCase()+s.slice(1)}</button>
           ))}
-          <AddBtn onClick={openNew} label="Nuevo" theme={LIGHT_THEME} />
+          <AddBtn onClick={openNew} label="Nuevo" theme={theme} />
         </div>
       </div>
       {isMobile && (
@@ -129,7 +131,7 @@ export function ContactsView({ contacts, setContacts, isMobile, autoNew, onAutoN
                 </div>
                 <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                   <button onClick={e=>{e.stopPropagation();openEdit(c);}} style={{ background:"none", border:`1px solid ${C.accent}44`, borderRadius:4, color:C.accent, cursor:"pointer", fontSize:11, padding:"2px 6px" }}>✏️</button>
-                  <Badge color={sc.color} theme={LIGHT_THEME}>{sc.label}</Badge>
+                  <Badge color={sc.color} theme={theme}>{sc.label}</Badge>
                 </div>
               </div>
               <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:10 }}>
@@ -193,7 +195,7 @@ export function ContactsView({ contacts, setContacts, isMobile, autoNew, onAutoN
             <button onClick={()=>openEdit(selected)} style={{ background:"none", border:`1px solid ${C.accent}44`, borderRadius:6, color:C.accent, cursor:"pointer", fontSize:12, padding:"4px 10px" }}>✏️ Editar</button>
           </div>
           <div style={{ fontFamily:FONT, fontSize:12, color:C.accent, marginBottom:14 }}>{selected.role} — {selected.company}</div>
-          <Badge color={(STATUS_CONFIG[selected.status]||STATUS_CONFIG.lead).color} theme={LIGHT_THEME}>{(STATUS_CONFIG[selected.status]||STATUS_CONFIG.lead).label}</Badge>
+          <Badge color={(STATUS_CONFIG[selected.status]||STATUS_CONFIG.lead).color} theme={theme}>{(STATUS_CONFIG[selected.status]||STATUS_CONFIG.lead).label}</Badge>
           <div style={{ display:"flex", gap:8, marginTop:10 }}>
             {STATUS_BACK[selected.status] && (
               <button onClick={()=>updateStatus(selected, STATUS_BACK[selected.status])}
@@ -220,17 +222,17 @@ export function ContactsView({ contacts, setContacts, isMobile, autoNew, onAutoN
         </div>
       )}
       {showModal && (
-        <Modal title={editingId?"Editar Contacto":"Nuevo Contacto"} onClose={()=>setShowModal(false)} onSubmit={save} theme={LIGHT_THEME}>
-          <Input label="Nombre *" value={form.name} onChange={e=>f("name",e.target.value)} placeholder="Ej: Valentina Rojas" theme={LIGHT_THEME} />
-          <Input label="Empresa *" value={form.company} onChange={e=>f("company",e.target.value)} placeholder="Ej: Nexum Corp" theme={LIGHT_THEME} />
-          <Input label="Cargo" value={form.role} onChange={e=>f("role",e.target.value)} placeholder="Ej: Administrador" theme={LIGHT_THEME} />
-          <Input label="Email" value={form.email} onChange={e=>f("email",e.target.value)} placeholder="correo@empresa.com" type="email" theme={LIGHT_THEME} />
-          <Input label="Teléfono" value={form.phone} onChange={e=>f("phone",e.target.value)} placeholder="+56 9 ..." theme={LIGHT_THEME} />
-          <Input label="RUT" value={form.rut} onChange={e=>f("rut",formatRut(e.target.value))} placeholder="12.345.678-9" maxLength={12} theme={LIGHT_THEME} />
-          <Select label="Estado" value={form.status} onChange={e=>f("status",e.target.value)} theme={LIGHT_THEME}>
+        <Modal title={editingId?"Editar Contacto":"Nuevo Contacto"} onClose={()=>setShowModal(false)} onSubmit={save} theme={theme}>
+          <Input label="Nombre *" value={form.name} onChange={e=>f("name",e.target.value)} placeholder="Ej: Valentina Rojas" theme={theme} />
+          <Input label="Empresa *" value={form.company} onChange={e=>f("company",e.target.value)} placeholder="Ej: Nexum Corp" theme={theme} />
+          <Input label="Cargo" value={form.role} onChange={e=>f("role",e.target.value)} placeholder="Ej: Administrador" theme={theme} />
+          <Input label="Email" value={form.email} onChange={e=>f("email",e.target.value)} placeholder="correo@empresa.com" type="email" theme={theme} />
+          <Input label="Teléfono" value={form.phone} onChange={e=>f("phone",e.target.value)} placeholder="+56 9 ..." theme={theme} />
+          <Input label="RUT" value={form.rut} onChange={e=>f("rut",formatRut(e.target.value))} placeholder="12.345.678-9" maxLength={12} theme={theme} />
+          <Select label="Estado" value={form.status} onChange={e=>f("status",e.target.value)} theme={theme}>
             <option value="lead">Lead</option><option value="prospecto">Prospecto</option><option value="cliente">Cliente</option>
           </Select>
-          <AddressSelector value={form.address} onChange={v=>f("address",v)} theme={LIGHT_THEME} />
+          <AddressSelector value={form.address} onChange={v=>f("address",v)} theme={theme} />
           {saving && <div style={{ fontFamily:FONT, fontSize:12, color:C.accent, textAlign:"center" }}>Guardando…</div>}
         </Modal>
       )}

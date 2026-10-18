@@ -1,6 +1,8 @@
 // Modal ancho (el Modal de ui.jsx es de 480px), con subtítulo y botón de envío configurable.
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "./useTheme.js";
 export function Ventana({ title, sub, onClose, onSubmit, submitLabel = "Guardar", disabled, maxWidth = 760, children }) {
+  const { C } = useTheme();
   return (
     <div style={{ position:"fixed", inset:0, background:"#000A", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
       <div role="dialog" aria-label={title}

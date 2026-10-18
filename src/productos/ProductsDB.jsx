@@ -2,7 +2,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../supabaseClient.js";
 import { mapProduct, mapProductToDb } from "../shared/mappers.js";
-import { FONT_BODY as FONT, COLORS_LIGHT as C, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { AddBtn, Loader, Modal, Input, Select } from "../shared/ui.jsx";
 import { CATALOG_CATS } from "../shared/constants.js";
 import { fmt, hoyISO } from "../shared/format.js";
@@ -30,6 +31,7 @@ function siguienteCodigo(prefix, codesLower) {
 // openProductId: abre directo la ficha de ese producto (desde "Ver en maestro"
 // en el Costeo); onVolver: al cerrarla, regresa a la pantalla de origen.
 export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, autoNew, onAutoNewHandled }) {
+  const { C, theme } = useTheme();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -298,7 +300,7 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
               ⚠ Duplicados ({duplicateGroups.length})
             </button>
           )}
-          <AddBtn onClick={openNew} label="Nuevo ítem" theme={LIGHT_THEME} />
+          <AddBtn onClick={openNew} label="Nuevo ítem" theme={theme} />
         </div>
       </div>
 
@@ -488,10 +490,10 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
       </div>
 
       {showModal && (
-        <Modal title={editingId?"Editar Ítem":"Nuevo Ítem"} onClose={()=>{ setShowModal(false); setEditingId(null); setProductPrices([]); setShowPriceForm(false); onVolver?.(); }} onSubmit={save} theme={LIGHT_THEME}>
+        <Modal title={editingId?"Editar Ítem":"Nuevo Ítem"} onClose={()=>{ setShowModal(false); setEditingId(null); setProductPrices([]); setShowPriceForm(false); onVolver?.(); }} onSubmit={save} theme={theme}>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
             <div>
-              <Input label="Código *" value={form.code} onChange={e=>f("code",e.target.value)} placeholder="Ej: ECAM-001" theme={LIGHT_THEME} />
+              <Input label="Código *" value={form.code} onChange={e=>f("code",e.target.value)} placeholder="Ej: ECAM-001" theme={theme} />
               {codeInfo.duplicate && (
                 <div style={{ fontFamily:FONT, fontSize:9, color:C.red, marginTop:-10, marginBottom:10 }}>⚠ Ya existe: {codeInfo.duplicate.name}</div>
               )}
@@ -502,22 +504,22 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
                 </button>
               )}
             </div>
-            <Select label="Tipo" value={form.type} onChange={e=>f("type",e.target.value)} theme={LIGHT_THEME}>
+            <Select label="Tipo" value={form.type} onChange={e=>f("type",e.target.value)} theme={theme}>
               <option value="producto">Producto</option>
               <option value="servicio">Servicio</option>
               <option value="proyecto">Proyecto</option>
             </Select>
           </div>
-          <Input label="Nombre *" value={form.name} onChange={e=>f("name",e.target.value)} placeholder="Ej: Cámara Domo 4MP" theme={LIGHT_THEME} />
+          <Input label="Nombre *" value={form.name} onChange={e=>f("name",e.target.value)} placeholder="Ej: Cámara Domo 4MP" theme={theme} />
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-            <Input label="Modelo / Descripción" value={form.description} onChange={e=>f("description",e.target.value)} placeholder="Ej: DH-IPC-HDW1230T1" theme={LIGHT_THEME} />
+            <Input label="Modelo / Descripción" value={form.description} onChange={e=>f("description",e.target.value)} placeholder="Ej: DH-IPC-HDW1230T1" theme={theme} />
             <div>
-              <Input label="SKU Proveedor" value={form.skuProveedor} onChange={e=>f("skuProveedor",e.target.value)} placeholder="Ej: DH-IPC-HDW1230T1-0280B" theme={LIGHT_THEME} />
+              <Input label="SKU Proveedor" value={form.skuProveedor} onChange={e=>f("skuProveedor",e.target.value)} placeholder="Ej: DH-IPC-HDW1230T1-0280B" theme={theme} />
               <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, marginTop:2, paddingLeft:2 }}>Ref. cruzada — no reemplaza tu código Polygonos</div>
             </div>
           </div>
           <div>
-            <Input label="Ficha técnica (URL)" value={form.fichaUrl} onChange={e=>f("fichaUrl",e.target.value)} placeholder="https://… (datasheet del fabricante)" theme={LIGHT_THEME} />
+            <Input label="Ficha técnica (URL)" value={form.fichaUrl} onChange={e=>f("fichaUrl",e.target.value)} placeholder="https://… (datasheet del fabricante)" theme={theme} />
             <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, marginTop:2, paddingLeft:2 }}>Se precarga en el Costeo y el Cotizador al insertar este producto</div>
             {sugerenciaFicha && (
               <div style={{ marginTop:8, padding:"8px 10px", borderRadius:8, background:`${C.accent}10`, border:`1px solid ${C.accent}44` }}>
@@ -540,7 +542,7 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
               se indica una sola vez junto al proveedor, en el panel de abajo */}
           {editingId && (
             <div style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, padding:"12px 14px", marginBottom:4 }}>
-              <Input label="Precio Bruto Preferido (CLP c/IVA)" value={form.price} onChange={e=>f("price",e.target.value)} type="number" placeholder="0" theme={LIGHT_THEME} />
+              <Input label="Precio Bruto Preferido (CLP c/IVA)" value={form.price} onChange={e=>f("price",e.target.value)} type="number" placeholder="0" theme={theme} />
               {Number(form.price) > 0 && (
                 <div style={{ display:"flex", gap:16, marginTop:8 }}>
                   <div style={{ flex:1 }}>
@@ -561,7 +563,7 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
           )}
 
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-            <Input label="Unidad" value={form.unit} onChange={e=>f("unit",e.target.value)} placeholder="un / hr / m2" theme={LIGHT_THEME} />
+            <Input label="Unidad" value={form.unit} onChange={e=>f("unit",e.target.value)} placeholder="un / hr / m2" theme={theme} />
             <div style={{ marginBottom:14 }}>
               <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Categoría</div>
               <select value={form.category} onChange={e=>f("category",e.target.value)}
@@ -788,6 +790,7 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
 // Barras horizontales comparando el precio de cada proveedor del mismo
 // producto; la más barata se resalta en verde, el resto en el acento.
 function ComparadorPrecios({ productPrices }) {
+  const { C } = useTheme();
   const [hoverId, setHoverId] = useState(null);
   const items = [...productPrices]
     .filter(pp => Number(pp.precio_bruto) > 0)

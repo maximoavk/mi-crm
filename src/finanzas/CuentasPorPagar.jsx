@@ -3,7 +3,8 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
 import { IVA_RATE, CENTROS_COSTO, SUBCATEGORIAS_CC, LINEAS_NEGOCIO } from "./constants.js";
 import { SecTitle, BtnPrimary, KpiCard, FinModal, LabelInput, LabelSelect, BtnSec } from "./ui.jsx";
-import { FONT_BODY as FONT, COLORS_LIGHT as C, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { fmtClp, fmtFecha, hoyISO } from "../shared/format.js";
 import { calcEstado } from "./estadoPago.js";
 import { badgePago } from "./badgePago.jsx";
@@ -15,6 +16,7 @@ import { codigoCot } from "../compras/proyecto/calculos.js";
 // 3. CUENTAS POR PAGAR — Facturas recibidas (proveedores + subcontratistas)
 // ══════════════════════════════════════════════════════════════════════════════
 export function CuentasPorPagar({ isMobile }) {
+  const { C, theme } = useTheme();
   const [facturas, setFacturas]     = useState([]);
   const [suppliers, setSuppliers]   = useState([]);
   // Órdenes de compra y sus pagos (Compras → Por proyecto). conOC = ya se
@@ -249,10 +251,10 @@ export function CuentasPorPagar({ isMobile }) {
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start",
         marginBottom:20, flexWrap:"wrap", gap:12 }}>
-        <SecTitle sub="Facturas de proveedores y subcontratistas · control de pagos" theme={LIGHT_THEME}>
+        <SecTitle sub="Facturas de proveedores y subcontratistas · control de pagos" theme={theme}>
           Cuentas por Pagar
         </SecTitle>
-        <BtnPrimary onClick={abrirModal} theme={LIGHT_THEME}>+ Registrar Factura Recibida</BtnPrimary>
+        <BtnPrimary onClick={abrirModal} theme={theme}>+ Registrar Factura Recibida</BtnPrimary>
       </div>
 
       {/* Filtro tipo */}
@@ -270,12 +272,12 @@ export function CuentasPorPagar({ isMobile }) {
 
       {/* KPIs */}
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)", gap:12, marginBottom:24 }}>
-        <KpiCard label="Total Comprometido" value={fmtClp(totalFacturado)} color={C.text} icon="📋" theme={LIGHT_THEME} />
-        <KpiCard label="Total Pagado"        value={fmtClp(totalPagado)}   color={C.green} icon="✅" theme={LIGHT_THEME} />
+        <KpiCard label="Total Comprometido" value={fmtClp(totalFacturado)} color={C.text} icon="📋" theme={theme} />
+        <KpiCard label="Total Pagado"        value={fmtClp(totalPagado)}   color={C.green} icon="✅" theme={theme} />
         <KpiCard label="Por Pagar"           value={fmtClp(totalPendiente)} color={C.red} icon="⏳"
-          sub={`${filtradas.filter(f=>pagadoDe(f)<f.monto_total).length} pendientes`} theme={LIGHT_THEME} />
+          sub={`${filtradas.filter(f=>pagadoDe(f)<f.monto_total).length} pendientes`} theme={theme} />
         <KpiCard label="Crédito Fiscal IVA"  value={fmtClp(creditoFiscal)} color={C.green} icon="🧾"
-          sub="Usado en F29" theme={LIGHT_THEME} />
+          sub="Usado en F29" theme={theme} />
       </div>
 
       {/* Tabla */}
@@ -489,7 +491,7 @@ export function CuentasPorPagar({ isMobile }) {
 
       {/* Modal nueva factura recibida */}
       {modal === "nueva" && (
-        <FinModal title="Registrar Factura Recibida" onClose={()=>setModal(null)} width={560} theme={LIGHT_THEME}>
+        <FinModal title="Registrar Factura Recibida" onClose={()=>setModal(null)} width={560} theme={theme}>
 
           {/* ── BUSCADOR DE PROVEEDOR ── */}
           <div style={{ marginBottom:18 }}>
@@ -601,26 +603,26 @@ export function CuentasPorPagar({ isMobile }) {
                 letterSpacing:"0.07em" }}>O ingresa manualmente</div>
               <LabelInput label="Razón Social" value={form.razon_social_proveedor}
                 onChange={e=>setF("razon_social_proveedor",e.target.value)}
-                placeholder="Empresa S.A." theme={LIGHT_THEME} />
+                placeholder="Empresa S.A." theme={theme} />
               <LabelInput label="RUT" value={form.rut_proveedor}
                 onChange={e=>setF("rut_proveedor",e.target.value)}
-                placeholder="76.XXX.XXX-X" theme={LIGHT_THEME} />
+                placeholder="76.XXX.XXX-X" theme={theme} />
             </div>
           )}
 
           {/* Resto del formulario */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 14px" }}>
             <LabelInput label="N° Documento" value={form.numero_documento}
-              onChange={e=>setF("numero_documento",e.target.value)} placeholder="Ej: 9876" theme={LIGHT_THEME} />
+              onChange={e=>setF("numero_documento",e.target.value)} placeholder="Ej: 9876" theme={theme} />
             <LabelSelect label="Tipo Documento" value={form.tipo_documento}
-              onChange={e=>setF("tipo_documento",e.target.value)} theme={LIGHT_THEME}>
+              onChange={e=>setF("tipo_documento",e.target.value)} theme={theme}>
               <option>Factura</option>
               <option>Boleta</option>
               <option>Guía de Despacho</option>
               <option>Nota de Crédito</option>
             </LabelSelect>
             <LabelSelect label="Tipo Proveedor" value={form.tipo_proveedor}
-              onChange={e=>setF("tipo_proveedor",e.target.value)} theme={LIGHT_THEME}>
+              onChange={e=>setF("tipo_proveedor",e.target.value)} theme={theme}>
               <option>Proveedor</option>
               <option>Subcontratista</option>
               <option>Gasto General</option>
@@ -654,11 +656,11 @@ export function CuentasPorPagar({ isMobile }) {
               </div>
             )}
             <LabelInput label="Fecha Recepción" type="date" value={form.fecha_recepcion}
-              onChange={e=>setF("fecha_recepcion",e.target.value)} theme={LIGHT_THEME} />
+              onChange={e=>setF("fecha_recepcion",e.target.value)} theme={theme} />
             <LabelInput label="Vencimiento" type="date" value={form.vencimiento}
-              onChange={e=>setF("vencimiento",e.target.value)} theme={LIGHT_THEME} />
+              onChange={e=>setF("vencimiento",e.target.value)} theme={theme} />
             <LabelInput label="Monto Neto (sin IVA)" type="number" value={form.monto_neto}
-              onChange={e=>setF("monto_neto",e.target.value)} placeholder="0" theme={LIGHT_THEME} />
+              onChange={e=>setF("monto_neto",e.target.value)} placeholder="0" theme={theme} />
             <div style={{ marginBottom:14 }}>
               <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
                 letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>¿Aplica IVA?</div>
@@ -676,17 +678,17 @@ export function CuentasPorPagar({ isMobile }) {
               </div>
             </div>
             {conOC ? (
-              <LabelSelect label="Orden de Compra" value={form.purchase_order_id} onChange={e=>elegirOC(e.target.value)} theme={LIGHT_THEME}>
+              <LabelSelect label="Orden de Compra" value={form.purchase_order_id} onChange={e=>elegirOC(e.target.value)} theme={theme}>
                 <option value="">— Sin OC —</option>
                 {[...ocs].sort((a,b)=>(String(b.supplier_id)===String(proveedorSel?.id))-(String(a.supplier_id)===String(proveedorSel?.id)))
                   .map(o => <option key={o.id} value={String(o.id)}>{o.numero_oc} · {o.suppliers?.nombre||"—"}</option>)}
               </LabelSelect>
             ) : (
               <LabelInput label="Ref. Orden de Compra" value={form.referencia_oc}
-                onChange={e=>setF("referencia_oc",e.target.value)} placeholder="OC-001" theme={LIGHT_THEME} />
+                onChange={e=>setF("referencia_oc",e.target.value)} placeholder="OC-001" theme={theme} />
             )}
             <LabelInput label="Ref. Proyecto / Cotización" value={form.referencia_proyecto}
-              onChange={e=>setF("referencia_proyecto",e.target.value)} placeholder="COT-005" theme={LIGHT_THEME} />
+              onChange={e=>setF("referencia_proyecto",e.target.value)} placeholder="COT-005" theme={theme} />
           </div>
 
           {/* Preview IVA */}
@@ -711,7 +713,7 @@ export function CuentasPorPagar({ isMobile }) {
             </div>
           )}
           <LabelInput label="Notas (opcional)" value={form.notas}
-            onChange={e=>setF("notas",e.target.value)} placeholder="Descripción del gasto…" theme={LIGHT_THEME} />
+            onChange={e=>setF("notas",e.target.value)} placeholder="Descripción del gasto…" theme={theme} />
 
           {/* Línea de negocio */}
           <div style={{ marginBottom:14 }}>
@@ -730,10 +732,10 @@ export function CuentasPorPagar({ isMobile }) {
           </div>
 
           <div style={{ display:"flex", gap:10, marginTop:4 }}>
-            <BtnSec onClick={()=>setModal(null)} theme={LIGHT_THEME}>Cancelar</BtnSec>
+            <BtnSec onClick={()=>setModal(null)} theme={theme}>Cancelar</BtnSec>
             <BtnPrimary onClick={saveFactura}
               disabled={saving||!form.numero_documento||!form.monto_neto||
-                (!form.razon_social_proveedor&&!proveedorSel)} theme={LIGHT_THEME}>
+                (!form.razon_social_proveedor&&!proveedorSel)} theme={theme}>
               {saving?"Guardando…":"Guardar Factura"}
             </BtnPrimary>
           </div>
@@ -742,28 +744,28 @@ export function CuentasPorPagar({ isMobile }) {
 
       {/* Modal registrar pago */}
       {pagoModal && (
-        <FinModal title={`Registrar Pago — Doc ${pagoModal.facturaN}`} onClose={()=>setPagoModal(null)} width={400} theme={LIGHT_THEME}>
+        <FinModal title={`Registrar Pago — Doc ${pagoModal.facturaN}`} onClose={()=>setPagoModal(null)} width={400} theme={theme}>
           {pagoModal.oc && (
             <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, padding:"8px 12px", marginBottom:14 }}>
               Se registra como pago de la <b style={{ color:C.text }}>{pagoModal.oc.numero_oc}</b> y descuenta del saldo de su proyecto en Compras → Por proyecto.
             </div>
           )}
           <LabelInput label="Fecha de Pago" type="date" value={formPago.fecha_pago}
-            onChange={e=>setFP("fecha_pago",e.target.value)} theme={LIGHT_THEME} />
+            onChange={e=>setFP("fecha_pago",e.target.value)} theme={theme} />
           <LabelInput label="Monto Pagado" type="number" value={formPago.monto}
-            onChange={e=>setFP("monto",e.target.value)} placeholder="0" theme={LIGHT_THEME} />
+            onChange={e=>setFP("monto",e.target.value)} placeholder="0" theme={theme} />
           <LabelSelect label="Método de Pago" value={formPago.metodo}
-            onChange={e=>setFP("metodo",e.target.value)} theme={LIGHT_THEME}>
+            onChange={e=>setFP("metodo",e.target.value)} theme={theme}>
             <option>Transferencia</option>
             <option>Cheque</option>
             <option>Efectivo</option>
             <option>Otro</option>
           </LabelSelect>
           <LabelInput label="Referencia (opcional)" value={formPago.referencia}
-            onChange={e=>setFP("referencia",e.target.value)} placeholder="N° transferencia…" theme={LIGHT_THEME} />
+            onChange={e=>setFP("referencia",e.target.value)} placeholder="N° transferencia…" theme={theme} />
           <div style={{ display:"flex", gap:10, marginTop:4 }}>
-            <BtnSec onClick={()=>setPagoModal(null)} theme={LIGHT_THEME}>Cancelar</BtnSec>
-            <BtnPrimary onClick={savePago} disabled={saving||!formPago.monto||!formPago.fecha_pago} theme={LIGHT_THEME}>
+            <BtnSec onClick={()=>setPagoModal(null)} theme={theme}>Cancelar</BtnSec>
+            <BtnPrimary onClick={savePago} disabled={saving||!formPago.monto||!formPago.fecha_pago} theme={theme}>
               {saving?"Guardando…":"Registrar Pago"}
             </BtnPrimary>
           </div>

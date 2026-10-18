@@ -2,11 +2,13 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
 import { SecTitle, KpiCard, FinModal, LabelInput, BtnSec, BtnPrimary } from "./ui.jsx";
-import { COLORS_LIGHT as C, FONT_DISPLAY, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_DISPLAY, FONT_BODY as FONT, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { fmtClp, fmtFecha, hoyISO } from "../shared/format.js";
 import { CATEGORIAS_GASTO, LINEAS_NEGOCIO } from "./constants.js";
 
 export function GastosGenerales({ isMobile }) {
+  const { C, theme } = useTheme();
   const [gastos, setGastos]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -98,7 +100,7 @@ export function GastosGenerales({ isMobile }) {
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
         marginBottom:20, flexWrap:"wrap", gap:12 }}>
-        <SecTitle sub="Gastos operacionales · Alimentan crédito fiscal F29" theme={LIGHT_THEME}>
+        <SecTitle sub="Gastos operacionales · Alimentan crédito fiscal F29" theme={theme}>
           Gastos Generales
         </SecTitle>
         <button onClick={()=>{ setForm(emptyForm); setInputMode("neto"); setShowModal(true); }}
@@ -112,9 +114,9 @@ export function GastosGenerales({ isMobile }) {
 
       {/* KPIs */}
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)", gap:12, marginBottom:20 }}>
-        <KpiCard label="Total neto gastos"  value={fmtClp(totalNeto)}  color={C.red} theme={LIGHT_THEME} />
-        <KpiCard label="IVA crédito fiscal" value={fmtClp(totalIva)}   color={C.green} theme={LIGHT_THEME} />
-        <KpiCard label="Total con IVA"      value={fmtClp(totalBruto)} theme={LIGHT_THEME} />
+        <KpiCard label="Total neto gastos"  value={fmtClp(totalNeto)}  color={C.red} theme={theme} />
+        <KpiCard label="IVA crédito fiscal" value={fmtClp(totalIva)}   color={C.green} theme={theme} />
+        <KpiCard label="Total con IVA"      value={fmtClp(totalBruto)} theme={theme} />
       </div>
 
       {/* Filtro mes */}
@@ -189,7 +191,7 @@ export function GastosGenerales({ isMobile }) {
 
       {/* Modal nuevo gasto */}
       {showModal && (
-        <FinModal title="Registrar Gasto General" onClose={()=>setShowModal(false)} width={480} theme={LIGHT_THEME}>
+        <FinModal title="Registrar Gasto General" onClose={()=>setShowModal(false)} width={480} theme={theme}>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 14px" }}>
             {/* Categoría */}
             <div style={{ gridColumn:"1/-1", marginBottom:14 }}>
@@ -212,11 +214,11 @@ export function GastosGenerales({ isMobile }) {
             </div>
             <LabelInput label="Proveedor / Razón social *" value={form.razon_social_proveedor}
               onChange={e=>setF("razon_social_proveedor",e.target.value)}
-              placeholder="Ej: Shell, Homecenter, Copec…" theme={LIGHT_THEME} />
+              placeholder="Ej: Shell, Homecenter, Copec…" theme={theme} />
             <LabelInput label="RUT proveedor" value={form.rut_proveedor}
-              onChange={e=>setF("rut_proveedor",e.target.value)} placeholder="12.345.678-9" theme={LIGHT_THEME} />
+              onChange={e=>setF("rut_proveedor",e.target.value)} placeholder="12.345.678-9" theme={theme} />
             <LabelInput label="N° Documento" value={form.numero_documento}
-              onChange={e=>setF("numero_documento",e.target.value)} placeholder="Ej: 12345" theme={LIGHT_THEME} />
+              onChange={e=>setF("numero_documento",e.target.value)} placeholder="Ej: 12345" theme={theme} />
             <div style={{ marginBottom:14 }}>
               <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
                 textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>
@@ -308,7 +310,7 @@ export function GastosGenerales({ isMobile }) {
             </div>
           )}
           <LabelInput label="Notas (opcional)" value={form.notas}
-            onChange={e=>setF("notas",e.target.value)} placeholder="Descripción del gasto…" theme={LIGHT_THEME} />
+            onChange={e=>setF("notas",e.target.value)} placeholder="Descripción del gasto…" theme={theme} />
 
           {/* Línea de negocio */}
           <div style={{ marginBottom:14 }}>
@@ -327,9 +329,9 @@ export function GastosGenerales({ isMobile }) {
           </div>
 
           <div style={{ display:"flex", gap:10 }}>
-            <BtnSec onClick={()=>setShowModal(false)} theme={LIGHT_THEME}>Cancelar</BtnSec>
+            <BtnSec onClick={()=>setShowModal(false)} theme={theme}>Cancelar</BtnSec>
             <BtnPrimary onClick={save}
-              disabled={saving || !form.razon_social_proveedor || !form.monto_total} theme={LIGHT_THEME}>
+              disabled={saving || !form.razon_social_proveedor || !form.monto_total} theme={theme}>
               {saving ? "Guardando…" : "Registrar gasto"}
             </BtnPrimary>
           </div>

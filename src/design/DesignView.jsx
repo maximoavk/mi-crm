@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { fetchImageAsDataUri } from "../CosteoPdfDocs.jsx";
 import { DeviceIconRail } from "./DeviceIconRail.jsx";
 import { CAMERA_PRESETS, STATUS_COLORS, STATUS_LABELS, STATUS_ORDER, LABEL_PREFIX, FASE_COLORS } from "./devicePresets.js";
@@ -13,6 +14,7 @@ import {
 } from "./designSupabase.js";
 
 export function DesignView({ designProjectId, onBack }) {
+  const { C } = useTheme();
   const svgRef = useRef(null);
   const fileInputRef = useRef(null);
   const saveTimer = useRef(null);

@@ -5,17 +5,18 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
 import { Loader, Badge } from "../shared/ui.jsx";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { fmtDate, fmt } from "../shared/format.js";
 
-const STATUS_QUOTE = {
-  borrador:  { label:"Borrador",  color:C.textMuted },
-  enviada:   { label:"Enviada",   color:C.yellow },
-  aprobada:  { label:"Aprobada",  color:C.green },
-  rechazada: { label:"Rechazada", color:C.red },
-};
-
 export function ProposalsView({ onOpenCosteo }) {
+  const { C, theme } = useTheme();
+  const STATUS_QUOTE = {
+    borrador:  { label:"Borrador",  color:C.textMuted },
+    enviada:   { label:"Enviada",   color:C.yellow },
+    aprobada:  { label:"Aprobada",  color:C.green },
+    rechazada: { label:"Rechazada", color:C.red },
+  };
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -66,7 +67,7 @@ export function ProposalsView({ onOpenCosteo }) {
               <div style={{ flex:1, minWidth:160 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4, flexWrap:"wrap" }}>
                   <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:C.text }}>{r.nombre}</span>
-                  {sc && <Badge color={sc.color} theme={LIGHT_THEME}>{sc.label}</Badge>}
+                  {sc && <Badge color={sc.color} theme={theme}>{sc.label}</Badge>}
                 </div>
                 <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted }}>
                   {r.cliente_nombre || r.cliente || "(sin cliente)"}

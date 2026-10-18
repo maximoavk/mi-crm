@@ -5,7 +5,8 @@ import { IVA_RATE } from "./constants.js";
 import { calcEstado } from "./estadoPago.js";
 import { SecTitle, BtnPrimary, KpiCard, FinModal, LabelInput, LabelSelect, BtnSec } from "./ui.jsx";
 import { fmtClp, fmtFecha } from "../shared/format.js";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { badgePago } from "./badgePago.jsx";
 import { codigoCot, sugerirCotizacion } from "../compras/proyecto/calculos.js";
 import { vincularFactura } from "./facturaCotizacion.js";
@@ -14,6 +15,7 @@ import { vincularFactura } from "./facturaCotizacion.js";
 // 2. CUENTAS POR COBRAR — Facturas emitidas + pagos recibidos
 // ══════════════════════════════════════════════════════════════════════════════
 export function CuentasPorCobrar({ isMobile }) {
+  const { C, theme } = useTheme();
   const [facturas, setFacturas]   = useState([]);
   const [clientes, setClientes]   = useState([]);
   const [cotizaciones, setCotizaciones] = useState([]);
@@ -177,25 +179,25 @@ export function CuentasPorCobrar({ isMobile }) {
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start",
         marginBottom:20, flexWrap:"wrap", gap:12 }}>
-        <SecTitle sub="Facturas que emites a clientes · seguimiento de cobros" theme={LIGHT_THEME}>
+        <SecTitle sub="Facturas que emites a clientes · seguimiento de cobros" theme={theme}>
           Cuentas por Cobrar
         </SecTitle>
         <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
           {porVincular.length > 0 && (
-            <BtnSec onClick={vincularTodas} theme={LIGHT_THEME}>🔗 Vincular por referencia ({porVincular.length})</BtnSec>
+            <BtnSec onClick={vincularTodas} theme={theme}>🔗 Vincular por referencia ({porVincular.length})</BtnSec>
           )}
-          <BtnPrimary onClick={abrirModal} theme={LIGHT_THEME}>+ Nueva Factura Emitida</BtnPrimary>
+          <BtnPrimary onClick={abrirModal} theme={theme}>+ Nueva Factura Emitida</BtnPrimary>
         </div>
       </div>
 
       {/* KPIs */}
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)", gap:12, marginBottom:24 }}>
-        <KpiCard label="Total Facturado" value={fmtClp(totalEmitido)} color={C.text} icon="📋" theme={LIGHT_THEME} />
-        <KpiCard label="Total Cobrado"   value={fmtClp(totalCobrado)} color={C.green} icon="✅" theme={LIGHT_THEME} />
+        <KpiCard label="Total Facturado" value={fmtClp(totalEmitido)} color={C.text} icon="📋" theme={theme} />
+        <KpiCard label="Total Cobrado"   value={fmtClp(totalCobrado)} color={C.green} icon="✅" theme={theme} />
         <KpiCard label="Por Cobrar"      value={fmtClp(totalPendiente)} color={C.yellow} icon="⏳"
-          sub={`${facturas.filter(f=>{const p=(f.pagos_recibidos||[]).reduce((a,x)=>a+x.monto,0); return p<f.monto_total;}).length} facturas activas`} theme={LIGHT_THEME} />
+          sub={`${facturas.filter(f=>{const p=(f.pagos_recibidos||[]).reduce((a,x)=>a+x.monto,0); return p<f.monto_total;}).length} facturas activas`} theme={theme} />
         <KpiCard label="Facturas Vencidas" value={vencidas}
-          color={vencidas>0?C.red:C.green} icon={vencidas>0?"🚨":"🎉"} theme={LIGHT_THEME} />
+          color={vencidas>0?C.red:C.green} icon={vencidas>0?"🚨":"🎉"} theme={theme} />
       </div>
 
       {/* Tabla */}
@@ -276,7 +278,7 @@ export function CuentasPorCobrar({ isMobile }) {
 
       {/* Modal nueva factura emitida */}
       {modal === "nueva" && (
-        <FinModal title="Nueva Factura Emitida" onClose={()=>setModal(null)} width={560} theme={LIGHT_THEME}>
+        <FinModal title="Nueva Factura Emitida" onClose={()=>setModal(null)} width={560} theme={theme}>
 
           {/* ── BUSCADOR DE CLIENTE ── */}
           <div style={{ marginBottom:18 }}>
@@ -389,30 +391,30 @@ export function CuentasPorCobrar({ isMobile }) {
                 letterSpacing:"0.07em" }}>O ingresa manualmente</div>
               <LabelInput label="Razón Social Cliente" value={form.razon_social_cliente}
                 onChange={e=>setF("razon_social_cliente",e.target.value)}
-                placeholder="Empresa S.A." theme={LIGHT_THEME} />
+                placeholder="Empresa S.A." theme={theme} />
               <LabelInput label="RUT Cliente" value={form.rut_cliente}
                 onChange={e=>setF("rut_cliente",e.target.value)}
-                placeholder="76.XXX.XXX-X" theme={LIGHT_THEME} />
+                placeholder="76.XXX.XXX-X" theme={theme} />
             </div>
           )}
 
           {/* Resto del formulario */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 14px" }}>
             <LabelInput label="N° Documento" value={form.numero_documento}
-              onChange={e=>setF("numero_documento",e.target.value)} placeholder="Ej: 1234" theme={LIGHT_THEME} />
+              onChange={e=>setF("numero_documento",e.target.value)} placeholder="Ej: 1234" theme={theme} />
             <LabelSelect label="Tipo Documento" value={form.tipo_documento}
-              onChange={e=>setF("tipo_documento",e.target.value)} theme={LIGHT_THEME}>
+              onChange={e=>setF("tipo_documento",e.target.value)} theme={theme}>
               <option>Factura</option>
               <option>Guía de Despacho</option>
               <option>Nota de Crédito</option>
               <option>Nota de Débito</option>
             </LabelSelect>
             <LabelInput label="Fecha Emisión" type="date" value={form.fecha_emision}
-              onChange={e=>setF("fecha_emision",e.target.value)} theme={LIGHT_THEME} />
+              onChange={e=>setF("fecha_emision",e.target.value)} theme={theme} />
             <LabelInput label="Vencimiento" type="date" value={form.vencimiento}
-              onChange={e=>setF("vencimiento",e.target.value)} theme={LIGHT_THEME} />
+              onChange={e=>setF("vencimiento",e.target.value)} theme={theme} />
             <LabelInput label="Monto Neto (sin IVA)" type="number" value={form.monto_neto}
-              onChange={e=>setF("monto_neto",e.target.value)} placeholder="0" theme={LIGHT_THEME} />
+              onChange={e=>setF("monto_neto",e.target.value)} placeholder="0" theme={theme} />
             <div style={{ marginBottom:14 }}>
               <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
                 letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>¿Aplica IVA?</div>
@@ -436,7 +438,7 @@ export function CuentasPorCobrar({ isMobile }) {
                 const q = cotizaciones.find(c => String(c.id) === e.target.value);
                 setForm(p=>({ ...p, cotizacion_id: e.target.value,
                   referencia_cotizacion: q ? codigoCot(q) : "" }));
-              }} theme={LIGHT_THEME}>
+              }} theme={theme}>
               <option value="">— Sin cotización —</option>
               {cotizaciones.map(q => (
                 <option key={q.id} value={String(q.id)}>
@@ -466,12 +468,12 @@ export function CuentasPorCobrar({ isMobile }) {
             </div>
           )}
           <LabelInput label="Notas (opcional)" value={form.notas}
-            onChange={e=>setF("notas",e.target.value)} placeholder="Referencia proyecto, OC cliente…" theme={LIGHT_THEME} />
+            onChange={e=>setF("notas",e.target.value)} placeholder="Referencia proyecto, OC cliente…" theme={theme} />
           <div style={{ display:"flex", gap:10, marginTop:4 }}>
-            <BtnSec onClick={()=>setModal(null)} theme={LIGHT_THEME}>Cancelar</BtnSec>
+            <BtnSec onClick={()=>setModal(null)} theme={theme}>Cancelar</BtnSec>
             <BtnPrimary onClick={saveFactura}
               disabled={saving||!form.numero_documento||!form.monto_neto||
-                (!form.razon_social_cliente&&!clienteSel)} theme={LIGHT_THEME}>
+                (!form.razon_social_cliente&&!clienteSel)} theme={theme}>
               {saving ? "Guardando…" : "Guardar Factura"}
             </BtnPrimary>
           </div>
@@ -480,23 +482,23 @@ export function CuentasPorCobrar({ isMobile }) {
 
       {/* Modal registrar cobro */}
       {pagoModal && (
-        <FinModal title={`Registrar Cobro — Doc ${pagoModal.facturaN}`} onClose={()=>setPagoModal(null)} width={400} theme={LIGHT_THEME}>
+        <FinModal title={`Registrar Cobro — Doc ${pagoModal.facturaN}`} onClose={()=>setPagoModal(null)} width={400} theme={theme}>
           <LabelInput label="Fecha de Pago" type="date" value={formPago.fecha_pago}
-            onChange={e=>setFP("fecha_pago",e.target.value)} theme={LIGHT_THEME} />
+            onChange={e=>setFP("fecha_pago",e.target.value)} theme={theme} />
           <LabelInput label="Monto Cobrado" type="number" value={formPago.monto}
-            onChange={e=>setFP("monto",e.target.value)} placeholder="0" theme={LIGHT_THEME} />
+            onChange={e=>setFP("monto",e.target.value)} placeholder="0" theme={theme} />
           <LabelSelect label="Método de Pago" value={formPago.metodo}
-            onChange={e=>setFP("metodo",e.target.value)} theme={LIGHT_THEME}>
+            onChange={e=>setFP("metodo",e.target.value)} theme={theme}>
             <option>Transferencia</option>
             <option>Cheque</option>
             <option>Efectivo</option>
             <option>Otro</option>
           </LabelSelect>
           <LabelInput label="Referencia (opcional)" value={formPago.referencia}
-            onChange={e=>setFP("referencia",e.target.value)} placeholder="N° transferencia, folio…" theme={LIGHT_THEME} />
+            onChange={e=>setFP("referencia",e.target.value)} placeholder="N° transferencia, folio…" theme={theme} />
           <div style={{ display:"flex", gap:10, marginTop:4 }}>
-            <BtnSec onClick={()=>setPagoModal(null)} theme={LIGHT_THEME}>Cancelar</BtnSec>
-            <BtnPrimary onClick={savePago} disabled={saving||!formPago.monto||!formPago.fecha_pago} theme={LIGHT_THEME}>
+            <BtnSec onClick={()=>setPagoModal(null)} theme={theme}>Cancelar</BtnSec>
+            <BtnPrimary onClick={savePago} disabled={saving||!formPago.monto||!formPago.fecha_pago} theme={theme}>
               {saving?"Guardando…":"Registrar Cobro"}
             </BtnPrimary>
           </div>
@@ -505,14 +507,14 @@ export function CuentasPorCobrar({ isMobile }) {
 
       {/* Modal vincular factura ↔ cotización */}
       {vinculo && (
-        <FinModal title={`Cotización de la factura ${vinculo.factura.numero_documento}`} onClose={()=>setVinculo(null)} width={460} theme={LIGHT_THEME}>
+        <FinModal title={`Cotización de la factura ${vinculo.factura.numero_documento}`} onClose={()=>setVinculo(null)} width={460} theme={theme}>
           {vinculo.factura.referencia_cotizacion && !vinculo.factura.cotizacion_id && (
             <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted, marginBottom:12 }}>
               Referencia escrita: <b style={{ color:C.text }}>{vinculo.factura.referencia_cotizacion}</b>
             </div>
           )}
           <LabelSelect label="Cotización" value={vinculo.cotizacionId}
-            onChange={e=>setVinculo(v=>({ ...v, cotizacionId: e.target.value }))} theme={LIGHT_THEME}>
+            onChange={e=>setVinculo(v=>({ ...v, cotizacionId: e.target.value }))} theme={theme}>
             <option value="">— Sin cotización —</option>
             {cotizaciones.map(q => (
               <option key={q.id} value={String(q.id)}>
@@ -524,8 +526,8 @@ export function CuentasPorCobrar({ isMobile }) {
             Los cobros de esta factura suman al saldo del proyecto en Compras → Por proyecto.
           </div>
           <div style={{ display:"flex", gap:10 }}>
-            <BtnSec onClick={()=>setVinculo(null)} theme={LIGHT_THEME}>Cancelar</BtnSec>
-            <BtnPrimary onClick={guardarVinculo} disabled={saving} theme={LIGHT_THEME}>{saving?"Guardando…":"Guardar vínculo"}</BtnPrimary>
+            <BtnSec onClick={()=>setVinculo(null)} theme={theme}>Cancelar</BtnSec>
+            <BtnPrimary onClick={guardarVinculo} disabled={saving} theme={theme}>{saving?"Guardando…":"Guardar vínculo"}</BtnPrimary>
           </div>
         </FinModal>
       )}

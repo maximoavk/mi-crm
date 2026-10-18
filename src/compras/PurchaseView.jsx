@@ -1,7 +1,8 @@
 // Órdenes de compra a proveedores: creación, estados, PDF y despachos.
 import { useState, useEffect } from "react";
 import { supabase, must, replaceRows } from "../supabaseClient.js";
-import { FONT_DISPLAY, COLORS_LIGHT as C, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_DISPLAY, FONT_BODY as FONT, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { AddBtn, Loader } from "../shared/ui.jsx";
 import { fmt, fmtClp } from "../shared/format.js";
 import { EMPRESA, EMPRESA_RUT, TITULAR } from "../shared/empresa.js";
@@ -11,6 +12,7 @@ import { TreeCaret } from "../shared/TreeCaret.jsx";
 // ── MÓDULO DE COMPRAS ────────────────────────────────────────────────────────
 
 export function PurchaseView({ autoNew, onAutoNewHandled }) {
+  const { C, theme } = useTheme();
   const [ocs, setOcs]               = useState([]);
   const [quotes, setQuotes]         = useState([]);
   const [suppliers, setSuppliers]   = useState([]);
@@ -398,7 +400,7 @@ export function PurchaseView({ autoNew, onAutoNewHandled }) {
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:C.text }}>Órdenes de Compra</div>
           <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, marginTop:3 }}>{ocs.length} OC · {ocsFiltradas.length} mostradas</div>
         </div>
-        <AddBtn onClick={openNew} label="Nueva OC" theme={LIGHT_THEME} />
+        <AddBtn onClick={openNew} label="Nueva OC" theme={theme} />
       </div>
 
       {/* Filtros de estado */}

@@ -1,6 +1,7 @@
 // Bloques de edición del costeo: fases, ítems y partidas de pago.
 import React, { useState } from "react";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { calcItem, IVA, calcFase, codigosPorFase, CAT_TIPOS, partidaCobrado } from "../calculos.js";
 import { newItem, CON_IVA, CAT_COLOR } from "./items.js";
 import { treeLine, TREE_ELBOW } from "../shared/tree.js";
@@ -8,6 +9,7 @@ import { TreeCaret } from "../shared/TreeCaret.jsx";
 import { GuardarFichaBtn } from "../productos/GuardarFichaBtn.jsx";
 
 export function TotBox({ label, value, color, sub }) {
+  const { C } = useTheme();
   return (
     <div style={{ background:C.card, border:`1px solid ${color}33`, borderRadius:8, padding:"10px 14px", minWidth:130, flex:1 }}>
       <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:2 }}>{label}</div>
@@ -36,6 +38,7 @@ function ItemTreeLines({ isLast, onlyVertical }) {
 }
 
 function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, productos, isLast, onFichaGuardada, onOpenProducto }) {
+  const { C, theme } = useTheme();
   const [busqueda, setBusqueda] = useState("");
   const [showCat, setShowCat] = useState(false);
   const dragFromHandle = React.useRef(false);
@@ -97,7 +100,7 @@ function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, pro
       </td>
 
       {/* Descripción + buscador catálogo */}
-      <td style={{ padding:"6px 4px", position:"relative" }}>
+      <td style={{ padding:"6px 4px", position:"relative", width:260 }}>
         <div style={{ display:"flex", gap:4 }}>
           <input style={{...style, flex:1}} value={item.descripcion} onChange={e=>inp("descripcion",e.target.value)} placeholder="Descripción..." />
           {esEquipoMat && (
@@ -231,7 +234,7 @@ function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, pro
               <a href={item.datasheet_url} target="_blank" rel="noopener noreferrer"
                 style={{ fontFamily:FONT, fontSize:10, color:C.accent, whiteSpace:"nowrap" }}>Ver ↗</a>
             )}
-            <GuardarFichaBtn productId={item.productId} url={item.datasheet_url} productos={productos} onSaved={onFichaGuardada} theme={LIGHT_THEME} />
+            <GuardarFichaBtn productId={item.productId} url={item.datasheet_url} productos={productos} onSaved={onFichaGuardada} theme={theme} />
             {/* Solo ítems que vienen del maestro; los nuevos se completan a mano */}
             {item.productId && onOpenProducto && (
               <button onClick={()=>onOpenProducto(item.productId)} title="Abrir la ficha de este producto en el Maestro de productos"
@@ -248,6 +251,7 @@ function ItemRow({ item, codigo, onChange, onDelete, onDuplicate, onReorder, pro
 }
 
 export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, productos, partidas, onFichaGuardada, onOpenProducto }) {
+  const { C } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState({});
   const calc = calcFase(fase);
@@ -376,12 +380,12 @@ export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, prod
                 </div>
                 {!secCollapsed && grouped[tipo].length > 0 && (
                   <div style={{ overflowX:"auto" }}>
-                    <table style={{ width:"100%", borderCollapse:"collapse", minWidth:700 }}>
+                    <table style={{ width:"100%", borderCollapse:"collapse", minWidth:900 }}>
                       <thead>
                         <tr style={{ borderBottom:`1px solid ${C.border}` }}>
                           <th style={{ width:14, padding:"4px 4px 4px 20px", position:"relative" }}><ItemTreeLines isLast={false} onlyVertical /></th>
                           <th style={{ textAlign:"center", fontFamily:FONT, fontSize:10, color:C.accent, padding:"4px", width:55 }}>COD</th>
-                          <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:C.textMuted, padding:"4px" }}>DESCRIPCIÓN</th>
+                          <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:C.textMuted, padding:"4px", width:260 }}>DESCRIPCIÓN</th>
                           <th style={{ textAlign:"left", fontFamily:FONT, fontSize:10, color:C.textMuted, padding:"4px", width:100 }}>MODELO</th>
                           {tipo==="Mano de Obra / HH" ? (<>
                             <th style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, padding:"4px", width:50 }}>HH</th>
@@ -479,6 +483,7 @@ export function FaseBlock({ fase, faseIdx, onChange, onDelete, onDuplicate, prod
 }
 
 export function PartidaRow({ partida, fases, onChange, onDelete }) {
+  const { C } = useTheme();
   // onChange manda solo el parche (los campos que cambiaron), nunca el objeto
   // `partida` completo — si se mandara completo, un input editado justo antes
   // de que este componente reciba el re-render con los datos frescos pisaría

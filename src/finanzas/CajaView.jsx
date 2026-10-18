@@ -1,11 +1,13 @@
 // Caja: cuentas bancarias y movimientos.
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { hoyISO } from "../shared/format.js";
 
 // ── CAJA / CUENTAS BANCARIAS ─────────────────────────────────────────────────
 export function CajaView({ isMobile }) {
+  const { C } = useTheme();
   const [cuentas,    setCuentas]    = useState([]);
   const [movs,       setMovs]       = useState([]);
   const [loading,    setLoading]    = useState(true);

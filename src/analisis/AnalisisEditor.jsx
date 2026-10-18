@@ -1,11 +1,13 @@
 // Editor de un análisis de precios (comparación de productos y proveedores).
 import { useState } from "react";
 import { supabase } from "../supabaseClient.js";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { fmt } from "../shared/format.js";
 
 // ── Editor de análisis ────────────────────────────────────────────────────────
 export function AnalisisEditor({ analysis, products, onBack }) {
+  const { C } = useTheme();
   const isNew = !analysis?.id;
   const [titulo, setTitulo]       = useState(analysis?.titulo||"");
   const [categoria, setCategoria] = useState(analysis?.categoria||"");

@@ -1,11 +1,13 @@
 // Reportes de ventas y contactos.
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { Stat } from "../shared/ui.jsx";
 import { fmt, fmtDate } from "../shared/format.js";
 import { STAGES, STATUS_CONFIG } from "../shared/constants.js";
 
 // ── REPORTS ──────────────────────────────────────────────────────────────────
 export function ReportsView({ contacts, deals, tasks, isMobile }) {
+  const { C, theme } = useTheme();
   const totalRevenue    = deals.filter(d=>d.stage==="cerrado").reduce((s,d)=>s+Number(d.value),0);
   const wonRate         = deals.length>0?Math.round(deals.filter(d=>d.stage==="cerrado").length/deals.length*100):0;
   const avgDeal         = deals.length>0?Math.round(deals.reduce((s,d)=>s+Number(d.value),0)/deals.length):0;
@@ -32,14 +34,14 @@ export function ReportsView({ contacts, deals, tasks, isMobile }) {
         <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:C.text }}>Reportes y Estadísticas</div>
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20 }}>
-        <Stat label="Ingresos cerrados" value={fmt(totalRevenue)} color={C.green} theme={LIGHT_THEME} />
-        <Stat label="Tasa de cierre" value={`${wonRate}%`} color={wonRate>50?C.green:C.yellow} theme={LIGHT_THEME} />
-        <Stat label="Valor promedio deal" value={fmt(avgDeal)} color={C.accent} theme={LIGHT_THEME} />
-        <Stat label="Tareas completadas" value={`${taskCompletion}%`} color={C.text} theme={LIGHT_THEME} />
-        <Stat label="Total facturado" value={fmt(totalFacturado)} color={C.purple} theme={LIGHT_THEME} />
-        <Stat label="Pendiente de facturar" value={fmt(totalPorFacturar)} color={C.yellow} theme={LIGHT_THEME} />
-        <Stat label="Deals rechazados" value={rechazados.length} color={C.red} theme={LIGHT_THEME} />
-        <Stat label="Valor perdido" value={fmt(totalRechazado)} color={C.red} theme={LIGHT_THEME} />
+        <Stat label="Ingresos cerrados" value={fmt(totalRevenue)} color={C.green} theme={theme} />
+        <Stat label="Tasa de cierre" value={`${wonRate}%`} color={wonRate>50?C.green:C.yellow} theme={theme} />
+        <Stat label="Valor promedio deal" value={fmt(avgDeal)} color={C.accent} theme={theme} />
+        <Stat label="Tareas completadas" value={`${taskCompletion}%`} color={C.text} theme={theme} />
+        <Stat label="Total facturado" value={fmt(totalFacturado)} color={C.purple} theme={theme} />
+        <Stat label="Pendiente de facturar" value={fmt(totalPorFacturar)} color={C.yellow} theme={theme} />
+        <Stat label="Deals rechazados" value={rechazados.length} color={C.red} theme={theme} />
+        <Stat label="Valor perdido" value={fmt(totalRechazado)} color={C.red} theme={theme} />
       </div>
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:16, marginBottom:16 }}>
         <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:20 }}>

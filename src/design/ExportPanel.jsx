@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { exportPNGBlob, exportPDFBlob, downloadBlob } from "./exportUtils.js";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 export function ExportPanel({ svgRef, exportMeta }) {
+  const { C } = useTheme();
   const [status, setStatus] = useState("");
 
   const handleExportPNG = async () => {

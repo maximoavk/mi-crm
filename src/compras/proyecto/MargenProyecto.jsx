@@ -2,18 +2,20 @@
 // y proyectado al cierre, por categoría, con el detalle de cada costo.
 // Montos netos. Cálculo en calculos.js (margenProyecto).
 import { useState } from "react";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../../theme.js";
+import { useTheme } from "../../shared/useTheme.js";
 import { fmt } from "../../shared/format.js";
 import { TreeCaret } from "../../shared/TreeCaret.jsx";
 import { TREE_ELBOW, treeLine } from "../../shared/tree.js";
 
-const colorMargen = (pct) => pct < 0 ? C.red : pct < 15 ? C.yellow : C.green;
+const colorMargen = (pct, C) => pct < 0 ? C.red : pct < 15 ? C.yellow : C.green;
 
 function Cifra({ label, margen, sub }) {
+  const { C } = useTheme();
   return (
     <div style={{ flex:"1 1 150px", minWidth:0 }}>
       <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase" }}>{label}</div>
-      <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:colorMargen(margen.pct), marginTop:4 }}>
+      <div style={{ fontFamily:FONT_DISPLAY, fontSize:20, fontWeight:700, color:colorMargen(margen.pct, C), marginTop:4 }}>
         {fmt(margen.monto)} <span style={{ fontSize:13 }}>· {margen.pct}%</span>
       </div>
       {sub && <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginTop:2 }}>{sub}</div>}
@@ -22,6 +24,7 @@ function Cifra({ label, margen, sub }) {
 }
 
 export function MargenProyecto({ margen, tieneCosteo }) {
+  const { C } = useTheme();
   const [abiertas, setAbiertas] = useState({});
   const th = { fontFamily:FONT, fontSize:10, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", textAlign:"right", padding:"0 8px 8px", fontWeight:400, whiteSpace:"nowrap" };
   const td = { fontFamily:FONT, fontSize:12, color:C.text, padding:"8px", textAlign:"right", whiteSpace:"nowrap" };

@@ -1,11 +1,12 @@
 import React from "react";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../theme.js";
-const fieldStyle = {
-  flex: "1 1 180px", padding: "7px 10px", borderRadius: 6,
-  border: `1px solid ${C.border}`, background: C.card, color: C.text, fontSize: 12, fontFamily: FONT,
-};
-
+import { FONT_BODY as FONT, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 export function TitleBlockForm({ project, onChange, plotWidthM, plotLengthM, onPlotWidthChange, onPlotLengthChange, onApplyDims, dimsApplied, mppX, mppY }) {
+  const { C } = useTheme();
+  const fieldStyle = {
+    flex: "1 1 180px", padding: "7px 10px", borderRadius: 6,
+    border: `1px solid ${C.border}`, background: C.card, color: C.text, fontSize: 12, fontFamily: FONT,
+  };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 10 }}>

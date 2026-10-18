@@ -2,11 +2,13 @@
 import React, { useState } from "react";
 import { CHECKLIST_TEMPLATES, CHECKLIST_COMISIONAMIENTO, buildChecklist } from "./checklists.js";
 import { supabase } from "../supabaseClient.js";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { hoyISO } from "../shared/format.js";
 
 // ─── OT MODAL ────────────────────────────────────────────────────────────────
 export function OTModal({ ot, quotes, onClose, onSaved }) {
+  const { C } = useTheme();
   const isNew = !ot;
   const [tab, setTab]           = useState("info");
   const [saving, setSaving]     = useState(false);

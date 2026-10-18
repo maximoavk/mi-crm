@@ -2,13 +2,15 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
 import { Loader } from "../shared/ui.jsx";
-import { FONT_BODY as FONT, COLORS_LIGHT as C, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { fmt } from "../shared/format.js";
 import { EMPRESA_RUT } from "../shared/empresa.js";
 
 // ══════════════════════════════════════════════════════════════════════════════
 
 export function GuiasView({ isMobile }) {
+  const { C } = useTheme();
   const [shipments, setShipments] = useState([]);
   const [loading, setLoading]     = useState(true);
   const [filterEstado, setFilterEstado] = useState("TODOS");

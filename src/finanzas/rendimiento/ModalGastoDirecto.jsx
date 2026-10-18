@@ -2,11 +2,13 @@
 import { useState } from "react";
 import { supabase } from "../../supabaseClient.js";
 import { FinModal, LabelInput, BtnSec, BtnPrimary } from "../ui.jsx";
-import { FONT_BODY as FONT, COLORS_LIGHT as C, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../../theme.js";
+import { useTheme } from "../../shared/useTheme.js";
 import { CATS_GASTO_DIRECTO } from "../constants.js";
 import { fmtClp, hoyISO } from "../../shared/format.js";
 
 export function ModalGastoDirecto({ cotizacion, onClose, onSaved }) {
+  const { C, theme } = useTheme();
   const [saving, setSaving] = useState(false);
   const emptyF = {
     categoria: "Ferretería / Tornillería",
@@ -42,7 +44,7 @@ export function ModalGastoDirecto({ cotizacion, onClose, onSaved }) {
 
   return (
     <FinModal title={`Gasto de terreno — COT-${cotizacion.numero_cotizacion}`}
-      onClose={onClose} width={460} theme={LIGHT_THEME}>
+      onClose={onClose} width={460} theme={theme}>
 
       {/* Categoría */}
       <div style={{ marginBottom:14 }}>
@@ -68,14 +70,14 @@ export function ModalGastoDirecto({ cotizacion, onClose, onSaved }) {
         <div style={{ gridColumn:"1/-1" }}>
           <LabelInput label="Descripción *" value={form.descripcion}
             onChange={e=>setF("descripcion",e.target.value)}
-            placeholder="Ej: Tornillos 1/4, Silicona, Cinta…" theme={LIGHT_THEME} />
+            placeholder="Ej: Tornillos 1/4, Silicona, Cinta…" theme={theme} />
         </div>
         <LabelInput label="Proveedor / Lugar" value={form.proveedor}
           onChange={e=>setF("proveedor",e.target.value)}
-          placeholder="Ej: Easy, Copec, Sodimac…" theme={LIGHT_THEME} />
+          placeholder="Ej: Easy, Copec, Sodimac…" theme={theme} />
         <LabelInput label="N° Boleta / Factura" value={form.numero_documento}
           onChange={e=>setF("numero_documento",e.target.value)}
-          placeholder="Opcional" theme={LIGHT_THEME} />
+          placeholder="Opcional" theme={theme} />
         <div style={{ marginBottom:14 }}>
           <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted,
             textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>
@@ -145,12 +147,12 @@ export function ModalGastoDirecto({ cotizacion, onClose, onSaved }) {
 
       <LabelInput label="Notas (opcional)" value={form.notas}
         onChange={e=>setF("notas",e.target.value)}
-        placeholder="Observaciones…" theme={LIGHT_THEME} />
+        placeholder="Observaciones…" theme={theme} />
 
       <div style={{ display:"flex", gap:10 }}>
-        <BtnSec onClick={onClose} theme={LIGHT_THEME}>Cancelar</BtnSec>
+        <BtnSec onClick={onClose} theme={theme}>Cancelar</BtnSec>
         <BtnPrimary onClick={save}
-          disabled={saving || !form.descripcion || !neto} theme={LIGHT_THEME}>
+          disabled={saving || !form.descripcion || !neto} theme={theme}>
           {saving ? "Guardando…" : "Registrar gasto"}
         </BtnPrimary>
       </div>

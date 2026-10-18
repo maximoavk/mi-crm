@@ -3,10 +3,11 @@
 // sucesora (filas de 32 px), así que `dy` es la distancia vertical hasta la
 // fila de la predecesora. En rojo cuando la sucesora empieza antes de tiempo.
 import { diffDays } from "./fechas.js";
-import { COLORS_LIGHT as C, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 const ALTO_FILA = 32;
 
 export function FlechaDependencia({ pred, tarea, dy, calStart, calDays, cellW, incumple }) {
+  const { C } = useTheme();
   if (!pred?.fin || !tarea?.inicio) return null;
   const x0 = (diffDays(calStart, pred.fin) + 1) * cellW;
   const x1 = diffDays(calStart, tarea.inicio) * cellW;

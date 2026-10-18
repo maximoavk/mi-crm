@@ -1,10 +1,12 @@
 // Modal para editar un comprobante de pago.
 import { useState } from "react";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { supabase } from "../supabaseClient.js";
 import { fmt, hoyISO } from "../shared/format.js";
 
 export function EditTxModal({ doc, onClose, onSaved }) {
+  const { C } = useTheme();
   const emptyTx = () => ({ id:Date.now()+Math.random(), fecha:hoyISO(), codigo:"", monto:"" });
   const [transacciones, setTransacciones] = useState(
     doc.transacciones?.length>0 ? doc.transacciones.map(t=>({...t,id:t.id||Date.now()+Math.random()})) : [emptyTx()]

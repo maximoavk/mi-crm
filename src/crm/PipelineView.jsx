@@ -6,11 +6,13 @@ import { supabase } from "../supabaseClient.js";
 import { STAGES, REJECT_REASONS } from "../shared/constants.js";
 import { mapDealToDb, mapDeal, mapTaskToDb, mapTask } from "../shared/mappers.js";
 import { isOverdue, fmt, fmtDate, formatRut, hoyISO } from "../shared/format.js";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { Modal, Select, Input } from "../shared/ui.jsx";
 
 // ── PIPELINE ────────────────────────────────────────────────────────────────
 export function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMobile }) {
+  const { C, theme } = useTheme();
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [collapsed, setCollapsed] = useState({});
@@ -478,27 +480,27 @@ export function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMob
         </div>
       )}
       {rejectModal && (
-        <Modal title="Motivo de rechazo" onClose={()=>setRejectModal(null)} onSubmit={confirmReject} theme={LIGHT_THEME}>
-          <Select label="Causa" value={rejectReason} onChange={e=>setRejectReason(e.target.value)} theme={LIGHT_THEME}>
+        <Modal title="Motivo de rechazo" onClose={()=>setRejectModal(null)} onSubmit={confirmReject} theme={theme}>
+          <Select label="Causa" value={rejectReason} onChange={e=>setRejectReason(e.target.value)} theme={theme}>
             <option value="">Sin especificar</option>
             {REJECT_REASONS.map(r=><option key={r} value={r}>{r}</option>)}
           </Select>
           {rejectReason==="Otro" && (
-            <Input label="Detalle" value={rejectOtro} onChange={e=>setRejectOtro(e.target.value)} placeholder="Especifica el motivo..." theme={LIGHT_THEME} />
+            <Input label="Detalle" value={rejectOtro} onChange={e=>setRejectOtro(e.target.value)} placeholder="Especifica el motivo..." theme={theme} />
           )}
         </Modal>
       )}
       {quickTask && (
-        <Modal title={`${quickTask.editingId?"Editar":"Nueva"} actividad — ${quickTask.company}`} onClose={()=>setQuickTask(null)} onSubmit={()=>saveQuickTask(quickTaskForm)} theme={LIGHT_THEME}>
-          <Input label="Título *" value={quickTaskForm.title} onChange={e=>setQuickTaskForm(p=>({...p,title:e.target.value}))} placeholder="Ej: Llamada de seguimiento" theme={LIGHT_THEME} />
-          <Select label="Tipo" value={quickTaskForm.type} onChange={e=>setQuickTaskForm(p=>({...p,type:e.target.value}))} theme={LIGHT_THEME}>
+        <Modal title={`${quickTask.editingId?"Editar":"Nueva"} actividad — ${quickTask.company}`} onClose={()=>setQuickTask(null)} onSubmit={()=>saveQuickTask(quickTaskForm)} theme={theme}>
+          <Input label="Título *" value={quickTaskForm.title} onChange={e=>setQuickTaskForm(p=>({...p,title:e.target.value}))} placeholder="Ej: Llamada de seguimiento" theme={theme} />
+          <Select label="Tipo" value={quickTaskForm.type} onChange={e=>setQuickTaskForm(p=>({...p,type:e.target.value}))} theme={theme}>
             <option value="llamada">📞 Llamada</option>
             <option value="reunion">🤝 Reunión</option>
             <option value="email">✉️ Email</option>
             <option value="tarea">✅ Tarea</option>
           </Select>
-          <Input label="Fecha límite" value={quickTaskForm.dueDate} onChange={e=>setQuickTaskForm(p=>({...p,dueDate:e.target.value}))} type="date" theme={LIGHT_THEME} />
-          <Select label="Prioridad" value={quickTaskForm.priority} onChange={e=>setQuickTaskForm(p=>({...p,priority:e.target.value}))} theme={LIGHT_THEME}>
+          <Input label="Fecha límite" value={quickTaskForm.dueDate} onChange={e=>setQuickTaskForm(p=>({...p,dueDate:e.target.value}))} type="date" theme={theme} />
+          <Select label="Prioridad" value={quickTaskForm.priority} onChange={e=>setQuickTaskForm(p=>({...p,priority:e.target.value}))} theme={theme}>
             <option value="alta">Alta</option>
             <option value="media">Media</option>
             <option value="baja">Baja</option>
@@ -514,7 +516,7 @@ export function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMob
         </Modal>
       )}
       {showModal && (
-        <Modal title={editingId?"Editar Deal":"Nuevo Deal"} onClose={()=>setShowModal(false)} onSubmit={save} theme={LIGHT_THEME}>
+        <Modal title={editingId?"Editar Deal":"Nuevo Deal"} onClose={()=>setShowModal(false)} onSubmit={save} theme={theme}>
           {/* Buscador cotización */}
           <div style={{ background:C.surface, border:`1px solid ${C.accent}33`, borderRadius:8, padding:"12px 14px", marginBottom:8 }}>
             <div style={{ fontFamily:FONT, fontSize:10, color:C.accent, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>Vincular cotización</div>
@@ -544,19 +546,19 @@ export function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMob
               </button>
             ))}
           </div>
-          <Input label="Título *" value={form.title} onChange={e=>f("title",e.target.value)} placeholder="Ej: CCTV Etapa I" theme={LIGHT_THEME} />
-          <Input label="Empresa *" value={form.company} onChange={e=>f("company",e.target.value)} placeholder="Ej: AdministARS" theme={LIGHT_THEME} />
-          <Select label="Contacto" value={form.contactId} onChange={e=>f("contactId",e.target.value)} theme={LIGHT_THEME}>
+          <Input label="Título *" value={form.title} onChange={e=>f("title",e.target.value)} placeholder="Ej: CCTV Etapa I" theme={theme} />
+          <Input label="Empresa *" value={form.company} onChange={e=>f("company",e.target.value)} placeholder="Ej: AdministARS" theme={theme} />
+          <Select label="Contacto" value={form.contactId} onChange={e=>f("contactId",e.target.value)} theme={theme}>
             <option value="">— Sin contacto —</option>
             {contacts.map(c=><option key={c.id} value={c.id}>{c.name} ({c.company})</option>)}
           </Select>
-          <Input label="RUT empresa" value={form.rut} onChange={e=>f("rut",formatRut(e.target.value))} placeholder="12.345.678-9" maxLength={12} theme={LIGHT_THEME} />
-          <Input label="Valor (CLP)" value={form.value} onChange={e=>f("value",e.target.value)} placeholder="0" type="number" theme={LIGHT_THEME} />
-          <Select label="Etapa" value={form.stage} onChange={e=>f("stage",e.target.value)} theme={LIGHT_THEME}>
+          <Input label="RUT empresa" value={form.rut} onChange={e=>f("rut",formatRut(e.target.value))} placeholder="12.345.678-9" maxLength={12} theme={theme} />
+          <Input label="Valor (CLP)" value={form.value} onChange={e=>f("value",e.target.value)} placeholder="0" type="number" theme={theme} />
+          <Select label="Etapa" value={form.stage} onChange={e=>f("stage",e.target.value)} theme={theme}>
             {STAGES.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
           </Select>
-          <Input label="Probabilidad %" value={form.probability} onChange={e=>f("probability",e.target.value)} type="number" placeholder="0-100" theme={LIGHT_THEME} />
-          <Input label="Fecha de cierre estimada" value={form.closeDate} onChange={e=>f("closeDate",e.target.value)} type="date" theme={LIGHT_THEME} />
+          <Input label="Probabilidad %" value={form.probability} onChange={e=>f("probability",e.target.value)} type="number" placeholder="0-100" theme={theme} />
+          <Input label="Fecha de cierre estimada" value={form.closeDate} onChange={e=>f("closeDate",e.target.value)} type="date" theme={theme} />
           {saving && <div style={{ fontFamily:FONT, fontSize:12, color:C.accent, textAlign:"center" }}>Guardando…</div>}
         </Modal>
       )}

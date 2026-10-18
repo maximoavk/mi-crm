@@ -3,13 +3,15 @@
 // triángulo de la fase, esquina redondeada hacia cada hijo, y la línea
 // termina en el último hijo), nodo seleccionado resaltado y botón "+" para
 // agregar una tarea a la fase.
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_NUM } from "../theme.js";
 import { TREE_ELBOW as ELBOW, TREE_MINT as MINT, treeLine as line } from "../shared/tree.js";
 import { TreeCaret } from "../shared/TreeCaret.jsx";
+import { useTheme } from "../shared/useTheme.js";
 
 const X = 13; // eje de la línea vertical (centro del triángulo), px desde el borde de la celda
 
 export function TreeNodeCell({ task, isFase, editing, selected, collapsed, hasChildren, inPhase, isLastChild, onToggle, onAddChild, renderEditor, trailing }) {
+  const { C } = useTheme();
   const expandedWithChildren = isFase && hasChildren && !collapsed;
 
   const nombre = (

@@ -1,7 +1,8 @@
 // Tarjeta de cotización con sus servicios, gastos directos y rendimiento.
 import { useState } from "react";
 import { TreeCaret } from "../../shared/TreeCaret.jsx";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../../theme.js";
+import { useTheme } from "../../shared/useTheme.js";
 import { LabelInput, BtnSec, BtnPrimary } from "../ui.jsx";
 import { fmtClp, fmtFecha } from "../../shared/format.js";
 import { supabase } from "../../supabaseClient.js";
@@ -10,6 +11,7 @@ import { ModalGastoDirecto } from "./ModalGastoDirecto.jsx";
 
 // ── COMPONENTE FILA DE SERVICIO/PRODUCTO (reutilizable) ──────────────────────
 function SlRow({ sl, products, editSl, setEditSl, savingEdit, setSavingEdit, cot, setDetail, onRefresh, color }) {
+  const { C, theme } = useTheme();
   const prod = products.find(p => p.id === sl.product_id);
   const accentColor = color || C.red;
 
@@ -19,13 +21,13 @@ function SlRow({ sl, products, editSl, setEditSl, savingEdit, setSavingEdit, cot
         borderRadius:8, marginBottom:5, border:`1px solid ${C.accent}44` }}>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 10px" }}>
           <LabelInput label="Descripción" value={editSl.descripcion}
-            onChange={e=>setEditSl(p=>({...p,descripcion:e.target.value}))} theme={LIGHT_THEME} />
+            onChange={e=>setEditSl(p=>({...p,descripcion:e.target.value}))} theme={theme} />
           <LabelInput label="Código" value={editSl.codigo}
-            onChange={e=>setEditSl(p=>({...p,codigo:e.target.value}))} theme={LIGHT_THEME} />
+            onChange={e=>setEditSl(p=>({...p,codigo:e.target.value}))} theme={theme} />
           <LabelInput label="Cantidad" type="number" value={editSl.cantidad}
-            onChange={e=>setEditSl(p=>({...p,cantidad:e.target.value}))} theme={LIGHT_THEME} />
+            onChange={e=>setEditSl(p=>({...p,cantidad:e.target.value}))} theme={theme} />
           <LabelInput label="Precio neto unitario" type="number" value={editSl.precio_unitario}
-            onChange={e=>setEditSl(p=>({...p,precio_unitario:e.target.value}))} theme={LIGHT_THEME} />
+            onChange={e=>setEditSl(p=>({...p,precio_unitario:e.target.value}))} theme={theme} />
         </div>
         {Number(editSl.precio_unitario) > 0 && (
           <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, marginBottom:10 }}>
@@ -35,7 +37,7 @@ function SlRow({ sl, products, editSl, setEditSl, savingEdit, setSavingEdit, cot
           </div>
         )}
         <div style={{ display:"flex", gap:8 }}>
-          <BtnSec onClick={()=>setEditSl(null)} theme={LIGHT_THEME}>Cancelar</BtnSec>
+          <BtnSec onClick={()=>setEditSl(null)} theme={theme}>Cancelar</BtnSec>
           <BtnPrimary disabled={savingEdit} onClick={async ()=>{
             setSavingEdit(true);
             await supabase.from("cot_service_lines").update({
@@ -53,7 +55,7 @@ function SlRow({ sl, products, editSl, setEditSl, savingEdit, setSavingEdit, cot
             setEditSl(null);
             setSavingEdit(false);
             onRefresh();
-          }} theme={LIGHT_THEME}>
+          }} theme={theme}>
             {savingEdit?"Guardando…":"Guardar cambios"}
           </BtnPrimary>
         </div>
@@ -112,6 +114,7 @@ function SlRow({ sl, products, editSl, setEditSl, savingEdit, setSavingEdit, cot
 }
 
 export function CotCard({ cot, suppliers, products, onRefresh, isMobile }) {
+  const { C } = useTheme();
   const [open, setOpen]           = useState(false);
   const [detail, setDetail]       = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);

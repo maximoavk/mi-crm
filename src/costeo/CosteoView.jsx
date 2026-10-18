@@ -4,7 +4,8 @@ import { supabase } from "../supabaseClient.js";
 import { mapCosteo, mapCosteoToDb } from "./mappers.js";
 import { mapProduct } from "../shared/mappers.js";
 import { syncPartidasConFases, calcFase, redondearTotal, partidaCobrado, codigosPorFase, IVA, totalCotizacion } from "../calculos.js";
-import { FONT_DISPLAY, COLORS_LIGHT as C, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_DISPLAY, FONT_BODY as FONT, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { LOGO_PRINT } from "../shared/assets.js";
 import { fmt, hoyISO } from "../shared/format.js";
 import { RUBRO_OPTIONS, TIPO_TRABAJO_OPTIONS } from "../shared/constants.js";
@@ -18,6 +19,7 @@ import { codigoProyecto, numeroParaCotizacion } from "./correlativo.js";
 const cargarPdfCosteo = () => Promise.all([import("@react-pdf/renderer"), import("../CosteoPdfDocs.jsx")]);
 
 export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, onOpenProducto, autoNew, onAutoNewHandled }) {
+  const { C } = useTheme();
   const [proyectos, setProyectos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
@@ -1001,6 +1003,7 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
 // Código de la cotización del proyecto; en amarillo si no coincide con el
 // número escrito en el nombre (p. ej. "Cot 149 …" vinculado a COT-150).
 function ChipCot({ cod, grande }) {
+  const { C } = useTheme();
   const color = cod.distinto != null ? C.yellow : C.accent;
   return (
     <span title={cod.distinto != null ? `El nombre dice Cot ${cod.distinto}, pero el proyecto está vinculado a ${cod.codigo}` : undefined}

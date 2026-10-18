@@ -3,7 +3,8 @@
 // se emiten y pagan las OC de lo que falta comprar según el Costeo.
 // Todos los montos son BRUTOS (con IVA). Cálculos en calculos.js.
 import { useEffect, useMemo, useState } from "react";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../../theme.js";
+import { useTheme } from "../../shared/useTheme.js";
 import { Loader, Stat } from "../../shared/ui.jsx";
 import { fmt, fmtFecha } from "../../shared/format.js";
 import { TreeCaret } from "../../shared/TreeCaret.jsx";
@@ -20,12 +21,12 @@ import { vincularFactura } from "../../finanzas/facturaCotizacion.js";
 
 const mismoId = (a, b) => a != null && b != null && String(a) === String(b);
 
-const tarjeta = { background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:16 };
-const tituloSeccion = { fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:C.text };
-const th = { fontFamily:FONT, fontSize:10, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", textAlign:"left", padding:"0 8px 8px", fontWeight:400 };
-const td = { fontFamily:FONT, fontSize:12, color:C.text, padding:"8px" };
-
 export function ComprasProyectoView({ isMobile }) {
+  const { C, theme } = useTheme();
+  const tarjeta = { background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:16 };
+  const tituloSeccion = { fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:C.text };
+  const th = { fontFamily:FONT, fontSize:10, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", textAlign:"left", padding:"0 8px 8px", fontWeight:400 };
+  const td = { fontFamily:FONT, fontSize:12, color:C.text, padding:"8px" };
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState(null);
   const [selId, setSelId] = useState(null);
@@ -159,12 +160,12 @@ export function ComprasProyectoView({ isMobile }) {
 
             <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, minmax(0,1fr))", gap:10 }}>
               <Stat label="Cobrado al cliente" value={fmt(sel.resumen.cobrado)} color={C.accent}
-                sub={Number(sel.quote.total) > 0 ? `${Math.round(100 * sel.resumen.cobrado / Number(sel.quote.total))}% de la cotización` : null} theme={LIGHT_THEME} />
-              <Stat label="Comprometido en OC" value={fmt(sel.resumen.comprometido)} sub={`${sel.ocs.length} OC`} theme={LIGHT_THEME} />
-              <Stat label="Pagado a proveedores" value={fmt(sel.resumen.pagado)} sub={`Por pagar ${fmt(sel.resumen.porPagar)}`} theme={LIGHT_THEME} />
+                sub={Number(sel.quote.total) > 0 ? `${Math.round(100 * sel.resumen.cobrado / Number(sel.quote.total))}% de la cotización` : null} theme={theme} />
+              <Stat label="Comprometido en OC" value={fmt(sel.resumen.comprometido)} sub={`${sel.ocs.length} OC`} theme={theme} />
+              <Stat label="Pagado a proveedores" value={fmt(sel.resumen.pagado)} sub={`Por pagar ${fmt(sel.resumen.porPagar)}`} theme={theme} />
               <Stat label="Saldo disponible" value={fmt(sel.resumen.saldoDisponible)}
                 color={sel.resumen.saldoDisponible < 0 ? C.red : C.green}
-                sub={`Proyectado ${fmt(sel.resumen.saldoProyectado)}`} theme={LIGHT_THEME} />
+                sub={`Proyectado ${fmt(sel.resumen.saldoProyectado)}`} theme={theme} />
             </div>
 
             {/* Detalle de lo cobrado */}

@@ -7,7 +7,8 @@ import { mapProduct } from "../shared/mappers.js";
 import { calcFase, totalCotizacion, redondearTotal } from "../calculos.js";
 import { newItem } from "../costeo/items.js";
 import { fmt } from "../shared/format.js";
-import { COLORS_LIGHT as C, FONT_DISPLAY, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_DISPLAY, FONT_BODY as FONT, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { Loader } from "../shared/ui.jsx";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -21,6 +22,7 @@ import { Loader } from "../shared/ui.jsx";
 // al cliente. El documento que se termine emitiendo enlaza esos registros
 // vía `comprobante_pago_id` recién al guardarse (ver NuevoPrestacionModal).
 export function DeclararCambioPanel({ quote, onClose, onApplied }) {
+  const { C } = useTheme();
   const [loading, setLoading]         = useState(true);
   const [costeo, setCosteo]           = useState(null);
   const [origFases, setOrigFases]     = useState([]);

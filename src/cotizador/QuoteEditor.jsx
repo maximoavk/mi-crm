@@ -1,6 +1,7 @@
 // Editor de cotizaciones: cliente, líneas, totales y guardado.
 import { useState, useEffect } from "react";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { supabase, must, replaceRows } from "../supabaseClient.js";
 import { mapProduct, mapQuoteLine, mapQuoteToDb, mapQuoteLineToDb, mapQuote } from "../shared/mappers.js";
 import { subtotalLinea, totalCotizacion } from "../calculos.js";
@@ -12,6 +13,7 @@ import { GuardarFichaBtn } from "../productos/GuardarFichaBtn.jsx";
 
 // ── QUOTE EDITOR ─────────────────────────────────────────────────────────────
 function ContactSearchBox({ contacts, onSelect }) {
+  const { C } = useTheme();
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const results = q.length >= 2
@@ -52,6 +54,7 @@ function ContactSearchBox({ contacts, onSelect }) {
 }
 
 export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCancel }) {
+  const { C, theme } = useTheme();
   const isEdit = !!quote;
   const TERMS_DEFAULT = "1- El trabajo se ejecuta posterior a la aceptación de la cotización y coordinación de fecha.\n2- No refiere stock ni fecha de instalación.\n3- Cotización válida por 15 días.";
 
@@ -292,22 +295,22 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
                   padding:"8px 10px", fontFamily:FONT, fontSize:12, color:C.textMuted, outline:"none" }} />
             </div>
           </div>
-          <Input label="Fecha" value={header.date} onChange={e=>hf("date",e.target.value)} type="date" theme={LIGHT_THEME} />
-          <Select label="Tipo" value={header.type} onChange={e=>hf("type",e.target.value)} theme={LIGHT_THEME}>
+          <Input label="Fecha" value={header.date} onChange={e=>hf("date",e.target.value)} type="date" theme={theme} />
+          <Select label="Tipo" value={header.type} onChange={e=>hf("type",e.target.value)} theme={theme}>
             <option value="productos">Productos y Servicios</option>
             <option value="proyecto">Proyecto</option>
           </Select>
-          <Select label="Estado" value={header.status} onChange={e=>hf("status",e.target.value)} theme={LIGHT_THEME}>
+          <Select label="Estado" value={header.status} onChange={e=>hf("status",e.target.value)} theme={theme}>
             <option value="borrador">Borrador</option>
             <option value="enviada">Enviada</option>
             <option value="aprobada">Aprobada</option>
             <option value="rechazada">Rechazada</option>
           </Select>
-          <Select label="Rubro" value={header.rubro} onChange={e=>hf("rubro",e.target.value)} theme={LIGHT_THEME}>
+          <Select label="Rubro" value={header.rubro} onChange={e=>hf("rubro",e.target.value)} theme={theme}>
             <option value="">Sin clasificar</option>
             {RUBRO_OPTIONS.map(r=><option key={r} value={r}>{r}</option>)}
           </Select>
-          <Select label="Tipo de trabajo" value={header.tipoTrabajo} onChange={e=>hf("tipoTrabajo",e.target.value)} theme={LIGHT_THEME}>
+          <Select label="Tipo de trabajo" value={header.tipoTrabajo} onChange={e=>hf("tipoTrabajo",e.target.value)} theme={theme}>
             <option value="">Sin clasificar</option>
             {TIPO_TRABAJO_OPTIONS.map(t=><option key={t} value={t}>{t}</option>)}
           </Select>
@@ -345,12 +348,12 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
         </div>
 
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px,1fr))", gap:12 }}>
-          <Input label="Nombre cliente" value={header.clientName} onChange={e=>hf("clientName",e.target.value)} theme={LIGHT_THEME} />
-          <Input label="RUT" value={header.clientRut} onChange={e=>hf("clientRut",formatRut(e.target.value))} maxLength={12} theme={LIGHT_THEME} />
-          <Input label="Razón social" value={header.clientCompany} onChange={e=>hf("clientCompany",e.target.value)} theme={LIGHT_THEME} />
-          <Input label="Teléfono" value={header.clientPhone} onChange={e=>hf("clientPhone",e.target.value)} theme={LIGHT_THEME} />
-          <Input label="Dirección" value={header.clientAddress} onChange={e=>hf("clientAddress",e.target.value)} theme={LIGHT_THEME} />
-          <Select label="Forma de pago" value={header.paymentMethod} onChange={e=>hf("paymentMethod",e.target.value)} theme={LIGHT_THEME}>
+          <Input label="Nombre cliente" value={header.clientName} onChange={e=>hf("clientName",e.target.value)} theme={theme} />
+          <Input label="RUT" value={header.clientRut} onChange={e=>hf("clientRut",formatRut(e.target.value))} maxLength={12} theme={theme} />
+          <Input label="Razón social" value={header.clientCompany} onChange={e=>hf("clientCompany",e.target.value)} theme={theme} />
+          <Input label="Teléfono" value={header.clientPhone} onChange={e=>hf("clientPhone",e.target.value)} theme={theme} />
+          <Input label="Dirección" value={header.clientAddress} onChange={e=>hf("clientAddress",e.target.value)} theme={theme} />
+          <Select label="Forma de pago" value={header.paymentMethod} onChange={e=>hf("paymentMethod",e.target.value)} theme={theme}>
             <option>Al finalizar</option>
             <option>50% anticipo y saldo al finalizar</option>
             <option>0 a 30 días</option>
@@ -464,7 +467,7 @@ export function QuoteEditor({ contacts, nextCOT, nextSIN, quote, onSave, onCance
                           style={{ color:C.accent, fontSize:12, textDecoration:"none", flexShrink:0 }}>↗</a>
                       )}
                       <GuardarFichaBtn productId={line.productId} url={line.fichaUrl} productos={products}
-                        onSaved={(id, url)=>setProducts(prev=>prev.map(p=>String(p.id)===String(id)?{...p, fichaUrl:url}:p))} theme={LIGHT_THEME} />
+                        onSaved={(id, url)=>setProducts(prev=>prev.map(p=>String(p.id)===String(id)?{...p, fichaUrl:url}:p))} theme={theme} />
                     </div>
                     {/* Dropdown resultados */}
                     {lineDropOpen[idx] && resultados.length>0 && (

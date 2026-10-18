@@ -4,11 +4,13 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient.js";
 import { cargarFuentesFichas } from "./fuentesFichas.js";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 import { Ventana } from "../shared/Ventana.jsx";
 import { analizarFichas } from "./traerFichas.js";
 
 export function TraerFichasModal({ productos, onClose, onSaved }) {
+  const { C } = useTheme();
   const [propuestas, setPropuestas] = useState(null);
   const [sinAsociar, setSinAsociar] = useState([]);
   const [asignados, setAsignados] = useState({}); // índice en sinAsociar → texto escrito en "Asignar a"

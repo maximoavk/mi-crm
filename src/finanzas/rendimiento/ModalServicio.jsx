@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient.js";
 import { FinModal, LabelInput, BtnSec, BtnPrimary } from "../ui.jsx";
-import { FONT_BODY as FONT, COLORS_LIGHT as C, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../../theme.js";
+import { useTheme } from "../../shared/useTheme.js";
 import { fmtClp } from "../../shared/format.js";
 import { LINEAS_NEGOCIO } from "../constants.js";
 
@@ -11,6 +12,7 @@ import { LINEAS_NEGOCIO } from "../constants.js";
 // ══════════════════════════════════════════════════════════════════════════════
 // ── SUBCOMPONENTE: Modal para agregar línea de servicio ──────────────────────
 export function ModalServicio({ cotizacion, suppliers, products, onClose, onSaved, modo="servicio" }) {
+  const { C, theme } = useTheme();
   // modo: "servicio" | "producto"
   const esModoProd = modo === "producto";
   const [saving, setSaving] = useState(false);
@@ -153,7 +155,7 @@ export function ModalServicio({ cotizacion, suppliers, products, onClose, onSave
   return (
     <FinModal
       title={`${esModoProd ? "Agregar producto" : "Nueva línea de servicio"} — COT-${cotizacion.numero_cotizacion}`}
-      onClose={onClose} width={540} theme={LIGHT_THEME}>
+      onClose={onClose} width={540} theme={theme}>
 
       {/* ── LÍNEAS PENDIENTES DE LA COT ── */}
       {!loadingLines && serviceLines.length > 0 && (
@@ -363,12 +365,12 @@ export function ModalServicio({ cotizacion, suppliers, products, onClose, onSave
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 14px" }}>
         <div style={{ gridColumn:"1/-1" }}>
           <LabelInput label="Descripción" value={form.descripcion}
-            onChange={e=>setF("descripcion",e.target.value)} placeholder="Descripción del servicio…" theme={LIGHT_THEME} />
+            onChange={e=>setF("descripcion",e.target.value)} placeholder="Descripción del servicio…" theme={theme} />
         </div>
         <LabelInput label="Código" value={form.codigo}
-          onChange={e=>setF("codigo",e.target.value)} placeholder="SVC-001" theme={LIGHT_THEME} />
+          onChange={e=>setF("codigo",e.target.value)} placeholder="SVC-001" theme={theme} />
         <LabelInput label="Cantidad" type="number" value={form.cantidad}
-          onChange={e=>setF("cantidad",e.target.value)} placeholder="1" theme={LIGHT_THEME} />
+          onChange={e=>setF("cantidad",e.target.value)} placeholder="1" theme={theme} />
 
         {/* Campo costo con referencia precio venta COT */}
         <div style={{ marginBottom:14 }}>
@@ -461,7 +463,7 @@ export function ModalServicio({ cotizacion, suppliers, products, onClose, onSave
         </div>
       )}
       <LabelInput label="Notas (opcional)" value={form.notas}
-        onChange={e=>setF("notas",e.target.value)} placeholder="Observaciones…" theme={LIGHT_THEME} />
+        onChange={e=>setF("notas",e.target.value)} placeholder="Observaciones…" theme={theme} />
 
       {/* Línea de negocio */}
       <div style={{ marginBottom:14 }}>
@@ -480,9 +482,9 @@ export function ModalServicio({ cotizacion, suppliers, products, onClose, onSave
       </div>
 
       <div style={{ display:"flex", gap:10 }}>
-        <BtnSec onClick={onClose} theme={LIGHT_THEME}>Cancelar</BtnSec>
+        <BtnSec onClick={onClose} theme={theme}>Cancelar</BtnSec>
         <BtnPrimary onClick={save}
-          disabled={saving || !form.descripcion || form.precio_unitario === ""} theme={LIGHT_THEME}>
+          disabled={saving || !form.descripcion || form.precio_unitario === ""} theme={theme}>
           {saving?"Guardando…":"Agregar Línea"}
         </BtnPrimary>
       </div>

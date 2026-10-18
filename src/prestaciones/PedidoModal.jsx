@@ -1,9 +1,11 @@
 // Modal para crear o editar un pedido (CP) o grupo de pre-factura (PF).
 import { useState } from "react";
 import { TreeCaret } from "../shared/TreeCaret.jsx";
-import { COLORS_LIGHT as C, FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM, LIGHT_THEME } from "../theme.js";
+import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
+import { useTheme } from "../shared/useTheme.js";
 // ── PEDIDO MODAL ─────────────────────────────────────────────────────────────
 export function PedidoModal({ pedido, quotes, docs, isPF, onSave, onClose, onEditDoc, onReprintDoc, onDeleteDoc, onNuevoDoc }) {
+  const { C } = useTheme();
   const [tab,     setTab]     = useState(pedido?.id ? "pagos" : "config");
   const [form,    setForm]    = useState({
     nombre:    pedido?.nombre||"",
