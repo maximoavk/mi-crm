@@ -310,14 +310,17 @@ export default function CRM() {
       </main>
 
       {isMobile && (
-        <nav style={{ position:"fixed", bottom:0, left:0, right:0, background:COLORS.surface, borderTop:`1px solid ${COLORS.border}`, display:"flex", zIndex:150, paddingBottom:"env(safe-area-inset-bottom)" }}>
+        <nav style={{ position:"fixed", bottom:0, left:0, right:0, background:SIDEBAR.bg, borderTop:`1px solid ${SIDEBAR.border}`, display:"flex", zIndex:150, paddingBottom:"env(safe-area-inset-bottom)" }}>
           {NAV.map(n=>{
             const active=view===n.key;
             return (
-              <button key={n.key} onClick={()=>navigate(n.key)} style={{ flex:1, padding:"8px 2px 6px", background:"transparent", border:"none", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
-                <n.Icon size={16} color={active?"#AC3AB3":COLORS.textMuted} strokeWidth={active?2.5:1.8} />
-                <span style={{ fontFamily:FONT, fontSize:8, color:active?"#AC3AB3":COLORS.textMuted }}>{n.label}</span>
-                {active && <div style={{ width:16, height:2, borderRadius:2, background:"linear-gradient(90deg,#AC3AB3,#2954EC)", marginTop:1 }} />}
+              <button key={n.key} onClick={()=>navigate(n.key)} title={n.label} aria-label={n.label}
+                style={{ flex:1, padding:"10px 2px", background:"transparent", border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                <div style={{ width:34, height:34, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center",
+                  background: active?SIDEBAR.accent:SIDEBAR.activeBg,
+                  border: active?"none":`1px solid ${SIDEBAR.border}` }}>
+                  <n.Icon size={17} color={active?"#fff":SIDEBAR.textMuted} strokeWidth={active?2.5:1.8} />
+                </div>
               </button>
             );
           })}
