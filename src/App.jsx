@@ -1,6 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { LogOut } from "lucide-react";
-import { COLORS, FONT, FONT_DISPLAY, SIDEBAR, COLORS_LIGHT } from "./theme.js";
+import { COLORS, FONT, FONT_DISPLAY, SIDEBAR, COLORS_LIGHT, FONT_BODY } from "./theme.js";
 import { supabase } from "./supabaseClient.js";
 import { LOGO_B64 } from "./shared/assets.js";
 import { useIsMobile } from "./shared/useIsMobile.js";
@@ -138,34 +138,34 @@ export default function CRM() {
   const COLABORADOR_VIEWS = ["pipeline", "purchase", "cotizar"]; // vistas permitidas
 
   if(authLoading) return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#0A0C10" }}>
-      <div style={{ fontFamily:FONT, color:"#00C2FF", fontSize:14, letterSpacing:"0.1em" }}>Verificando sesión…</div>
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:COLORS_LIGHT.bg }}>
+      <div style={{ fontFamily:FONT_BODY, color:COLORS_LIGHT.text, fontSize:14, letterSpacing:"0.1em" }}>Verificando sesión…</div>
     </div>
   );
 
   if(!session) return <LoginScreen />;
 
   if(profileError) return (
-    <div style={{ display:"flex", flexDirection:"column", gap:12, alignItems:"center", justifyContent:"center", height:"100vh", background:"#0A0C10" }}>
-      <div style={{ fontFamily:FONT, color:COLORS.red, fontSize:14, letterSpacing:"0.05em", textAlign:"center", maxWidth:320 }}>No se pudo cargar el perfil: {profileError}</div>
-      <button onClick={()=>window.location.reload()} style={{ fontFamily:FONT, color:"#00C2FF", fontSize:13, background:"transparent", border:"1px solid #00C2FF", borderRadius:6, padding:"8px 16px", cursor:"pointer" }}>Reintentar</button>
+    <div style={{ display:"flex", flexDirection:"column", gap:12, alignItems:"center", justifyContent:"center", height:"100vh", background:COLORS_LIGHT.bg }}>
+      <div style={{ fontFamily:FONT_BODY, color:COLORS_LIGHT.red, fontSize:14, letterSpacing:"0.05em", textAlign:"center", maxWidth:320 }}>No se pudo cargar el perfil: {profileError}</div>
+      <button onClick={()=>window.location.reload()} style={{ fontFamily:FONT_BODY, color:COLORS_LIGHT.accent, fontSize:13, background:"transparent", border:`1px solid ${COLORS_LIGHT.accent}`, borderRadius:6, padding:"8px 16px", cursor:"pointer" }}>Reintentar</button>
     </div>
   );
 
   // Esperar que cargue el rol
   if(userRole === null) return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#0A0C10" }}>
-      <div style={{ fontFamily:FONT, color:"#00C2FF", fontSize:14, letterSpacing:"0.1em" }}>Cargando perfil…</div>
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:COLORS_LIGHT.bg }}>
+      <div style={{ fontFamily:FONT_BODY, color:COLORS_LIGHT.text, fontSize:14, letterSpacing:"0.1em" }}>Cargando perfil…</div>
     </div>
   );
 
   // Usuario autenticado pero sin rol en usuarios_roles → sin acceso
   if(userRole === "sin_acceso") return (
-    <div style={{ display:"flex", flexDirection:"column", gap:12, alignItems:"center", justifyContent:"center", height:"100vh", background:"#0A0C10" }}>
-      <div style={{ fontFamily:FONT, color:COLORS.red, fontSize:14, letterSpacing:"0.05em", textAlign:"center", maxWidth:320 }}>
+    <div style={{ display:"flex", flexDirection:"column", gap:12, alignItems:"center", justifyContent:"center", height:"100vh", background:COLORS_LIGHT.bg }}>
+      <div style={{ fontFamily:FONT_BODY, color:COLORS_LIGHT.red, fontSize:14, letterSpacing:"0.05em", textAlign:"center", maxWidth:320 }}>
         La cuenta {session.user?.email} no tiene acceso a este sistema.
       </div>
-      <button onClick={logout} style={{ fontFamily:FONT, color:"#00C2FF", fontSize:13, background:"transparent", border:"1px solid #00C2FF", borderRadius:6, padding:"8px 16px", cursor:"pointer" }}>Cerrar sesión</button>
+      <button onClick={logout} style={{ fontFamily:FONT_BODY, color:COLORS_LIGHT.accent, fontSize:13, background:"transparent", border:`1px solid ${COLORS_LIGHT.accent}`, borderRadius:6, padding:"8px 16px", cursor:"pointer" }}>Cerrar sesión</button>
     </div>
   );
 
@@ -188,8 +188,8 @@ export default function CRM() {
   }
 
   if(loading) return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:COLORS.bg }}>
-      <div style={{ fontFamily:FONT, color:COLORS.accent, fontSize:14, letterSpacing:"0.1em" }}>Conectando con Supabase…</div>
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:COLORS_LIGHT.bg }}>
+      <div style={{ fontFamily:FONT_BODY, color:COLORS_LIGHT.text, fontSize:14, letterSpacing:"0.1em" }}>Conectando con Supabase…</div>
     </div>
   );
 
@@ -274,7 +274,7 @@ export default function CRM() {
             contenedor estándar con ancho máximo y padding. */}
         {view==="dashboard" ? (
           <Suspense fallback={<Cargando />}>
-            <Dashboard contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} navigate={navigate} />
+            <Dashboard contacts={contacts} deals={deals} tasks={tasks} setTasks={setTasks} isMobile={isMobile} navigate={navigate} />
           </Suspense>
         ) : (
         <div style={{ maxWidth:1400, margin:"0 auto", padding:isMobile?16:32 }}>

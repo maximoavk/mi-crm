@@ -1,10 +1,10 @@
-// Dashboard general: KPIs de ventas, pipeline, tareas y accesos rápidos.
-// Primera pantalla migrada al rediseño "Modo Claro" (ver maqueta de Figma):
-// fondo claro, tipografía Manrope + números en JetBrains Mono, y un panel de
-// accesos directos flotante con efecto glass. El resto de la app sigue con
-// el tema oscuro hasta que se vaya migrando pantalla por pantalla.
+// Dashboard general: overview del ciclo comercial (proyectos cotizados y en
+// curso, pipeline esperado, actividad diaria y cotizaciones recientes).
+// Los KPI de plata (ingresos, anticipos, pendientes de facturar) viven en el
+// módulo de Finanzas — este dashboard es el punto de partida del día a día
+// comercial/operativo, no el financiero.
 import { useState, useEffect } from "react";
-import { Calculator, GanttChartSquare, Users, ShoppingCart, Receipt, CheckSquare } from "lucide-react";
+import { Calculator, GanttChartSquare, Users, ShoppingCart, CheckSquare } from "lucide-react";
 import { isOverdue, fmt, fmtDate, hoyISO, fechaISO } from "../shared/format.js";
 import { supabase } from "../supabaseClient.js";
 import { COLORS_LIGHT as C, FONT_BODY, FONT_NUM, LIGHT_THEME } from "../theme.js";
@@ -42,79 +42,36 @@ const AccesoDirecto = ({ qa, onClick }) => {
   );
 };
 
-// ── DASHBOARD ───────────────────────────────────────────────────────────────
-export function Dashboard({ deals, tasks, isMobile, navigate }) {
-  const totalRevenue       = deals.filter(d=>d.stage==="cerrado").reduce((s,d)=>s+Number(d.value),0);
-  const pipeline           = deals.filter(d=>d.stage!=="cerrado"&&d.stage!=="rechazado").reduce((s,d)=>s+Number(d.value)*Number(d.probability)/100,0);
-  const pendientesFacturar = deals.filter(d=>d.stage==="cerrado"&&!d.facturado).reduce((s,d)=>s+Number(d.value),0);
-  const anticipoEsperado   = deals.filter(d=>d.stage==="cerrado").reduce((s,d)=>s+Math.round(Number(d.value)*(d.pctAnticipo||50)/100),0);
-  const overdueTasks = tasks.filter(t=>!t.done&&isOverdue(t.dueDate)).length;
-  const recentTasks  = tasks.filter(t=>!t.done).sort((a,b)=>(a.dueDate||"").localeCompare(b.dueDate||"")).slice(0,4);
+const KpiCard = ({ label, value, sub, accentColor, valueColor }) => (
+  <div style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`3px solid ${accentColor}`, borderRadius:12, padding:"14px 16px" }}>
+    <div style={{ fontFamily:FONT_BODY, fontSize:9, fontWeight:600, color:C.textDim, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>{label}</div>
+    <div style={{ fontFamily:FONT_NUM, fontSize:20, fontWeight:600, color:valueColor||C.text }}>{value}</div>
+    {sub && <div style={{ fontFamily:FONT_BODY, fontSize:10, color:C.textDim, marginTop:3 }}>{sub}</div>}
+  </div>
+);
 
-  const [cuentas, setCuentas] = useState([]);
-  const [gastosCC, setGastosCC] = useState([]);
+const SectionTitle = ({ children, sub }) => (
+  <>
+    <div style={{ fontFamily:FONT_BODY, fontSize:13, fontWeight:700, color:C.text, marginBottom: sub?2:10 }}>{children}</div>
+    {sub && <div style={{ fontFamily:FONT_BODY, fontSize:10, color:C.textDim, marginBottom:14 }}>{sub}</div>}
+  </>
+);
+
+// ── DASHBOARD ───────────────────────────────────────────────────────────────
+export function Dashboard({ deals, tasks, setTasks, isMobile, navigate }) {
+  const pipeline     = deals.filter(d=>d.stage!=="cerrado"&&d.stage!=="rechazado").reduce((s,d)=>s+Number(d.value)*Number(d.probability)/100,0);
+  const overdueTasks = tasks.filter(t=>!t.done&&isOverdue(t.dueDate)).length;
+
   const [cotizaciones, setCotizaciones] = useState([]);
-  const [comprobantes, setComprobantes] = useState([]);
 
   useEffect(() => {
-    const mesActual = new Date().toISOString().slice(0, 7);
-    Promise.all([
-      supabase.from("cuentas_bancarias").select("*").order("created_at"),
-      supabase.from("movimientos_cuenta").select("cuenta_id,tipo,monto"),
-      supabase.from("facturas_recibidas").select("monto_total, centro_costo, estado_manual")
-        .gte("fecha_recepcion", `${mesActual}-01`)
-        .lte("fecha_recepcion", `${mesActual}-31`),
-      supabase.from("cotizaciones").select("id,numero,serie,estado,nombre_cliente,total,pct_anticipo,fecha,vencida"),
-      supabase.from("comprobantes_pago").select("monto_pagado,quote_ids"),
-    ]).then(([{ data: cu }, { data: mv }, { data: gc }, { data: cot }, { data: cp }]) => {
-      const cuentasData = cu||[];
-      const movs = mv||[];
-      setCuentas(cuentasData.map(c=>{
-        const saldo = movs.filter(m=>m.cuenta_id===c.id).reduce((s,m)=>{
-          return m.tipo==="ingreso" ? s+Number(m.monto||0) : s-Number(m.monto||0);
-        }, Number(c.saldo_inicial||0));
-        return { ...c, saldo };
-      }));
-      setGastosCC(gc||[]);
-      setCotizaciones(cot||[]);
-      setComprobantes(cp||[]);
-    });
+    supabase.from("cotizaciones").select("id,numero,serie,estado,nombre_cliente,total,pct_anticipo,fecha,vencida")
+      .then(({ data }) => setCotizaciones(data||[]));
   }, []);
 
-  const mesMes       = new Date().toISOString().slice(0,7);
-  const ingresosMes  = deals.filter(d=>d.stage==="cerrado"&&d.fechaFactura?.startsWith(mesMes)).reduce((s,d)=>s+Number(d.value),0);
-  const gastosMes    = gastosCC.reduce((s,g)=>s+Number(g.monto_total||0),0);
-  const colchon      = Math.round(ingresosMes*0.20);
-  const disponible   = Math.max(0, ingresosMes - gastosMes - colchon);
-
-  // Top clientes por cotizaciones (total / aprobadas)
-  const clienteMap = {};
-  cotizaciones.forEach(c=>{
-    const key = c.nombre_cliente || "Sin nombre";
-    if(!clienteMap[key]) clienteMap[key] = { nombre:key, total:0, aprob:0 };
-    clienteMap[key].total++;
-    if(c.estado==="aprobada") clienteMap[key].aprob++;
-  });
-  const topClientes = Object.values(clienteMap).sort((a,b)=>b.total-a.total).slice(0,4);
-
-  // Anticipos vs saldos por cobrar — cotizaciones aprobadas, excluye las ya
-  // cerradas en Prestaciones (pagado acumulado en comprobantes_pago >= total)
-  const cotAbiertas = [];
-  let cotCerradasCount = 0;
-  let anticipoPendTotal = 0, saldoPendTotal = 0;
-  cotizaciones.filter(c=>c.estado==="aprobada").forEach(c=>{
-    const total = Number(c.total||0);
-    const pagado = comprobantes.filter(cp=>(cp.quote_ids||[]).includes(c.id)).reduce((s,cp)=>s+Number(cp.monto_pagado||0),0);
-    if(total>0 && pagado>=total){ cotCerradasCount++; return; }
-    const pct = c.pct_anticipo!=null ? c.pct_anticipo : 50;
-    const anticipoFull = Math.round(total*pct/100);
-    const anticipoPend = pagado>=anticipoFull ? 0 : anticipoFull-pagado;
-    const saldoPend    = pagado>=anticipoFull ? Math.max(total-pagado,0) : total-anticipoFull;
-    anticipoPendTotal += anticipoPend;
-    saldoPendTotal    += saldoPend;
-    cotAbiertas.push(c);
-  });
-  const anticiposSaldosMax = Math.max(anticipoPendTotal, saldoPendTotal, 1);
+  // Proyectos activos — pipeline CRM, mayor valor primero
+  const proyectosActivos = deals.filter(d=>d.stage!=="cerrado"&&d.stage!=="rechazado")
+    .sort((a,b)=>Number(b.value)-Number(a.value)).slice(0,5);
 
   // Donut: pipeline por estado real de la cotización (aprobada / enviada / vencida / rechazada)
   const ESTADO_BUCKET_COLOR = { aprobada:C.green, enviada:C.yellow, rechazada:C.red };
@@ -141,21 +98,85 @@ export function Dashboard({ deals, tasks, isMobile, navigate }) {
     return arc;
   });
 
-  // Cotizaciones recientes
-  const cotRecientes = [...cotizaciones].sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"")).slice(0,3);
-  const COT_ESTADO_COLOR = { borrador:C.textMuted, enviada:C.yellow, aprobada:C.green, rechazada:C.red };
-
   // % rechazadas por vencimiento — solo cohortes que ya cumplieron 30 días desde el 2026-08-25
   const VENCIMIENTO_DESDE = "2026-08-25";
   const hace30Dias = (()=>{ const d=new Date(); d.setDate(d.getDate()-30); return fechaISO(d); })();
   const cohorteResuelta = cotizaciones.filter(c=>c.fecha>=VENCIMIENTO_DESDE && c.fecha<=hace30Dias);
   const pctVencidas = cohorteResuelta.length>0 ? Math.round(cohorteResuelta.filter(c=>c.vencida).length/cohorteResuelta.length*100) : null;
 
-  // Próximas tareas — resumen hoy / semana
-  const todayStr    = hoyISO();
-  const weekEndStr  = (()=>{ const d=new Date(); d.setDate(d.getDate()+7); return fechaISO(d); })();
-  const tasksToday  = tasks.filter(t=>!t.done && t.dueDate===todayStr).length;
-  const tasksSemana = tasks.filter(t=>!t.done && t.dueDate && t.dueDate>=todayStr && t.dueDate<=weekEndStr).length;
+  // Últimas cotizaciones
+  const cotRecientes = [...cotizaciones].sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"")).slice(0,5);
+  const COT_ESTADO_COLOR = { borrador:C.textMuted, enviada:C.yellow, aprobada:C.green, rechazada:C.red };
+
+  // Actividad de hoy / próximas — desde tasks. No hay franja horaria registrada
+  // (los Pendientes no guardan hora), así que se listan como actividades del
+  // día en vez de inventar un timeline por hora.
+  const todayStr = hoyISO();
+  const tasksHoy = tasks.filter(t=>!t.done && t.dueDate===todayStr)
+    .sort((a,b)=>(a.title||"").localeCompare(b.title||""));
+  const tasksProximas = tasks.filter(t=>!t.done && t.dueDate && t.dueDate>todayStr)
+    .sort((a,b)=>a.dueDate.localeCompare(b.dueDate)).slice(0,4);
+
+  // Actividades por período — Día lista cada tarea con su estado, Semana y
+  // Mes muestran conteos reales por franja; las tres navegables con ‹ ›.
+  const [periodo, setPeriodo] = useState("semana");
+  const [dayOffset, setDayOffset] = useState(0);
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [monthOffset, setMonthOffset] = useState(0);
+  const countTasksOn = (iso) => tasks.filter(t=>!t.done && t.dueDate===iso).length;
+  const countTasksBetween = (startIso,endIso) => tasks.filter(t=>!t.done && t.dueDate && t.dueDate>=startIso && t.dueDate<=endIso).length;
+  const cap = (s) => s.charAt(0).toUpperCase()+s.slice(1);
+  const estadoTarea = (t) => t.done ? { label:"Completada", color:C.green } : isOverdue(t.dueDate) ? { label:"Vencida", color:C.red } : { label:"Pendiente", color:C.yellow };
+
+  // Marca/desmarca completada directo desde el Dashboard — misma escritura
+  // que TasksView.updateStatus, para que quede reflejado en Pendientes.
+  const toggleDone = async (t) => {
+    const nextDone = !t.done;
+    const estado = nextDone ? "completada" : "pendiente";
+    await supabase.from("task").update({ estado, completada: nextDone }).eq("id", t.id);
+    setTasks(prev => prev.map(x => x.id===t.id ? { ...x, done:nextDone, status:estado } : x));
+  };
+
+  const hoy = new Date();
+
+  // Día: lista de actividades del día elegido, con estado de avance.
+  const diaTarget = new Date(hoy); diaTarget.setDate(hoy.getDate()+dayOffset);
+  const diaIso = fechaISO(diaTarget);
+  const diaLabel = cap(diaTarget.toLocaleDateString("es-CL",{ weekday:"long", day:"numeric", month:"long" }));
+  const tasksDia = tasks.filter(t=>t.dueDate===diaIso).sort((a,b)=>(a.title||"").localeCompare(b.title||""));
+
+  // Semana: Lun–Dom de la semana elegida.
+  const dow = hoy.getDay();
+  const mondayOffset = dow===0 ? -6 : 1-dow;
+  const monday = new Date(hoy); monday.setDate(hoy.getDate()+mondayOffset+weekOffset*7);
+  const semanaData = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"].map((label,i)=>{
+    const d = new Date(monday); d.setDate(monday.getDate()+i);
+    const iso = fechaISO(d);
+    return { label, count:countTasksOn(iso), activo:iso===todayStr };
+  });
+  const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
+  const fmtShort = (d) => cap(d.toLocaleDateString("es-CL",{ day:"numeric", month:"short" }));
+  const semanaRangeLabel = `${fmtShort(monday)} – ${fmtShort(sunday)}`;
+
+  // Mes: semanas del mes elegido.
+  const mesBase  = new Date(hoy.getFullYear(), hoy.getMonth()+monthOffset, 1);
+  const mesStart = new Date(mesBase.getFullYear(), mesBase.getMonth(), 1);
+  const mesEnd   = new Date(mesBase.getFullYear(), mesBase.getMonth()+1, 0);
+  const mesData = [];
+  for (let d=new Date(mesStart), semI=1; d<=mesEnd; d.setDate(d.getDate()+7), semI++){
+    const chunkStart = new Date(d);
+    const chunkEnd = new Date(d); chunkEnd.setDate(chunkEnd.getDate()+6);
+    const realEnd = chunkEnd>mesEnd ? mesEnd : chunkEnd;
+    const startIso = fechaISO(chunkStart), endIso = fechaISO(realEnd);
+    mesData.push({ label:`Sem ${semI}`, count:countTasksBetween(startIso,endIso), activo: todayStr>=startIso && todayStr<=endIso });
+  }
+  const mesLabel = cap(mesBase.toLocaleDateString("es-CL",{ month:"long", year:"numeric" }));
+
+  const chartData = periodo==="semana" ? semanaData : mesData;
+  const chartMax = Math.max(1, ...chartData.map(d=>d.count));
+  const OFFSET_BY_PERIODO = { dia:[dayOffset,setDayOffset], semana:[weekOffset,setWeekOffset], mes:[monthOffset,setMonthOffset] };
+  const [curOffset, setCurOffset] = OFFSET_BY_PERIODO[periodo];
+  const rangeLabel = periodo==="dia" ? diaLabel : periodo==="semana" ? semanaRangeLabel : mesLabel;
 
   // Accesos directos — orden según la maqueta de Figma.
   // autoNew: abre directo el formulario de creación de la vista de destino
@@ -170,156 +191,96 @@ export function Dashboard({ deals, tasks, isMobile, navigate }) {
     { label:"Nueva tarea",     view:"tasks",              Icon:CheckSquare,       autoNew:true },
   ];
 
-  const KpiCard = ({ label, value, sub, accentColor, valueColor }) => (
-    <div style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`3px solid ${accentColor}`, borderRadius:12, padding:"14px 16px" }}>
-      <div style={{ fontFamily:FONT_BODY, fontSize:9, fontWeight:600, color:C.textDim, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>{label}</div>
-      <div style={{ fontFamily:FONT_NUM, fontSize:20, fontWeight:600, color:valueColor||C.text }}>{value}</div>
-      {sub && <div style={{ fontFamily:FONT_BODY, fontSize:10, color:C.textDim, marginTop:3 }}>{sub}</div>}
+  const actividadHoyCard = (
+    <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
+      <SectionTitle sub={`${tasksHoy.length} actividad(es) para hoy${overdueTasks>0?` · ${overdueTasks} vencida(s)`:""}`}>Actividad de hoy</SectionTitle>
+      {tasksHoy.length===0 ? (
+        <div style={{ fontFamily:FONT_BODY, fontSize:12, color:C.textDim }}>Sin actividades para hoy</div>
+      ) : (
+        <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+          {tasksHoy.map(t=>(
+            <div key={t.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 12px", borderRadius:10, background:`${C.accent}14`, border:`1px solid ${C.accent}33` }}>
+              <span style={{ width:7, height:7, borderRadius:"50%", background:C.accent, flexShrink:0 }} />
+              <div>
+                <div style={{ fontFamily:FONT_BODY, fontSize:11, fontWeight:600, color:C.text }}>{t.title}</div>
+                <div style={{ fontFamily:FONT_BODY, fontSize:9, color:C.textDim }}>{t.company}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 
-  const BankCard = ({ nombre, monto, tipo }) => {
-    const isEmpresa = tipo==="empresa";
-    const color = isEmpresa ? C.accent : C.purple;
-    return (
-      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"14px 16px", display:"flex", alignItems:"center", gap:12 }}>
-        <div style={{ width:36, height:36, borderRadius:8, background:`${color}14`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-          {isEmpresa ? <Receipt size={16} color={color} /> : <Users size={16} color={color} />}
-        </div>
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontFamily:FONT_BODY, fontSize:9, fontWeight:600, color:C.textDim, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:3 }}>{nombre}</div>
-          <div style={{ fontFamily:FONT_NUM, fontSize:17, fontWeight:600, color }}>{fmt(monto)}</div>
-        </div>
-        <span style={{ fontSize:9, padding:"2px 7px", borderRadius:4, fontWeight:700, background:`${color}18`, color, border:`1px solid ${color}33`, flexShrink:0, textTransform:"uppercase", letterSpacing:"0.06em", fontFamily:FONT_BODY }}>{tipo}</span>
-      </div>
-    );
-  };
-
-  const SectionTitle = ({ children, sub }) => (
-    <>
-      <div style={{ fontFamily:FONT_BODY, fontSize:13, fontWeight:700, color:C.text, marginBottom: sub?2:10 }}>{children}</div>
-      {sub && <div style={{ fontFamily:FONT_BODY, fontSize:10, color:C.textDim, marginBottom:14 }}>{sub}</div>}
-    </>
-  );
-
-  const mainCol = (
-    <div style={{ display:"flex", flexDirection:"column", gap:10, minWidth:0 }}>
-      {/* KPIs — una sola grilla, sin cards huérfanas */}
-      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,minmax(0,1fr))", gap:10 }}>
-        <KpiCard label="Ingresos cerrados" value={fmt(totalRevenue)} sub="acumulado" accentColor={C.green} valueColor={C.green} />
-        <KpiCard label="Anticipo esperado" value={fmt(anticipoEsperado)} sub="cerrados, según % anticipo" accentColor={C.purple} valueColor={C.purple} />
-        <KpiCard label="Pipeline esperado" value={fmt(pipeline)} sub="ponderado" accentColor={C.accent} valueColor={C.accent} />
-        <KpiCard label="Pendientes de facturar" value={fmt(pendientesFacturar)} sub={`${deals.filter(d=>d.stage==="cerrado"&&!d.facturado).length} deal(s)`} accentColor={C.yellow} valueColor={C.yellow} />
-        <KpiCard label="Tareas vencidas" value={overdueTasks} sub={overdueTasks>0?"requieren atención":"al día"} accentColor={overdueTasks>0?C.red:C.green} valueColor={overdueTasks>0?C.red:C.green} />
-        <KpiCard label="Disponible retiro estimado" value={fmt(disponible)} sub={`Ingresos ${fmt(ingresosMes)} − Gastos ${fmt(gastosMes)} − Colchón 20%`} accentColor={disponible>0?C.green:C.red} valueColor={disponible>0?C.green:C.red} />
-      </div>
-
-      {/* Donut pipeline + Deals activos */}
-      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"0.85fr 1.15fr", gap:10 }}>
-        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
-          <SectionTitle sub={pctVencidas===null ? "% rechazadas por vencimiento: sin datos aún" : `${pctVencidas}% rechazadas por vencimiento`}>Pipeline por estado</SectionTitle>
-          {donutTotal===0 ? (
-            <div style={{ fontFamily:FONT_BODY, fontSize:12, color:C.textDim }}>Sin cotizaciones registradas</div>
-          ) : (
-            <div style={{ display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
-              <svg width="120" height="120" viewBox="0 0 120 120" style={{ flexShrink:0 }}>
-                <circle cx="60" cy="60" r="50" fill="none" stroke={C.border} strokeWidth="14" />
-                {donutArcs.map(a=>(
-                  <circle key={a.label} cx="60" cy="60" r="50" fill="none" stroke={a.color} strokeWidth="14"
-                    strokeDasharray={a.dasharray} strokeDashoffset={a.dashoffset} transform="rotate(-90 60 60)" />
-                ))}
-                <text x="60" y="56" textAnchor="middle" fill={C.text} fontFamily={FONT_NUM} fontWeight="600" fontSize="22">{donutTotal}</text>
-                <text x="60" y="72" textAnchor="middle" fill={C.textDim} fontFamily={FONT_BODY} fontWeight="600" fontSize="8" letterSpacing="0.08em">COTIZACIONES</text>
-              </svg>
-              <div style={{ display:"flex", flexDirection:"column", gap:8, minWidth:0 }}>
-                {donutBase.map(s=>(
-                  <div key={s.label} style={{ display:"flex", alignItems:"center", gap:7 }}>
-                    <span style={{ width:8, height:8, borderRadius:2, background:s.color, flexShrink:0 }} />
-                    <span style={{ fontFamily:FONT_BODY, fontSize:11, color:C.text }}>{s.label}</span>
-                    <span style={{ fontFamily:FONT_NUM, fontSize:10, color:C.textDim, marginLeft:"auto" }}>{s.count} · {Math.round(s.count/(donutTotal||1)*100)}%</span>
-                  </div>
-                ))}
+  const proyectosCard = (
+    <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
+      <SectionTitle sub="pipeline CRM — mayor valor primero">Proyectos cotizados y en curso</SectionTitle>
+      {proyectosActivos.map((d,i)=>{
+        const stage = STAGES.find(s=>s.key===d.stage);
+        return (
+          <div key={d.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0", borderBottom:`1px solid ${C.border}` }}>
+            <span style={{ fontFamily:FONT_NUM, fontSize:11, color:C.textDim, width:18 }}>#{i+1}</span>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontFamily:FONT_BODY, fontSize:12, fontWeight:600, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{d.title}</div>
+              <div style={{ fontFamily:FONT_BODY, fontSize:10, color:C.textDim }}>{d.company}</div>
+            </div>
+            <Badge color={stage?.color||C.textMuted} theme={LIGHT_THEME}>{stage?.label}</Badge>
+            <div style={{ width:70, flexShrink:0 }}>
+              <div style={{ height:5, background:C.border, borderRadius:3, overflow:"hidden" }}>
+                <div style={{ height:5, borderRadius:3, background:stage?.color||C.accent, width:`${d.probability}%` }} />
               </div>
+              <div style={{ fontFamily:FONT_NUM, fontSize:9, color:C.textDim, marginTop:2, textAlign:"right" }}>{d.probability}%</div>
             </div>
-          )}
-        </div>
-
-        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
-          <SectionTitle>Deals activos — mayor valor</SectionTitle>
-          {deals.filter(d=>d.stage!=="cerrado"&&d.stage!=="rechazado").sort((a,b)=>Number(b.value)-Number(a.value)).slice(0,3).map((d,i)=>{
-            const stage = STAGES.find(s=>s.key===d.stage);
-            return (
-              <div key={d.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 0", borderBottom:`1px solid ${C.border}` }}>
-                <span style={{ fontFamily:FONT_NUM, fontSize:11, color:C.textDim, width:18 }}>#{i+1}</span>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontFamily:FONT_BODY, fontSize:12, fontWeight:600, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{d.title}</div>
-                  <div style={{ fontFamily:FONT_BODY, fontSize:10, color:C.textDim }}>{d.company}</div>
-                </div>
-                <Badge color={stage?.color||C.textMuted} theme={LIGHT_THEME}>{stage?.label}</Badge>
-                <div style={{ fontFamily:FONT_NUM, fontSize:12, fontWeight:600, color:C.green, flexShrink:0 }}>{fmt(d.value)}</div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Top clientes + Anticipos vs Saldos por cobrar */}
-      <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:10 }}>
-        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
-          <SectionTitle sub="por cotizaciones totales / aprobadas">Top clientes</SectionTitle>
-          {topClientes.map((c,i)=>(
-            <div key={c.nombre} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 0", borderBottom:`1px solid ${C.border}` }}>
-              <span style={{ fontFamily:FONT_NUM, fontSize:11, color:C.textDim, width:18 }}>#{i+1}</span>
-              <div style={{ flex:1, fontFamily:FONT_BODY, fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.nombre}</div>
-              <div style={{ fontFamily:FONT_NUM, fontSize:11, color:C.textMuted }}>{c.total} <span style={{ color:C.green }}>· {c.aprob} aprob.</span></div>
-            </div>
-          ))}
-          {topClientes.length===0 && <div style={{ fontFamily:FONT_BODY, fontSize:12, color:C.textDim }}>Sin cotizaciones registradas</div>}
-        </div>
-
-        <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
-          <SectionTitle sub={`${cotAbiertas.length} cotizaciones abiertas${cotCerradasCount>0?` · ${cotCerradasCount} con saldo ya cerrado en Prestaciones (excluidas)`:""}`}>Anticipos vs Saldos por cobrar</SectionTitle>
-          <div style={{ marginBottom:14 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
-              <span style={{ fontFamily:FONT_BODY, fontSize:11, fontWeight:600, color:C.purple }}>Anticipos pendientes</span>
-              <span style={{ fontFamily:FONT_NUM, fontSize:13, fontWeight:600, color:C.purple }}>{fmt(anticipoPendTotal)}</span>
-            </div>
-            <div style={{ height:10, background:C.border, borderRadius:5, overflow:"hidden" }}>
-              <div style={{ height:10, borderRadius:5, background:C.purple, width:`${(anticipoPendTotal/anticiposSaldosMax)*100}%` }} />
-            </div>
+            <div style={{ fontFamily:FONT_NUM, fontSize:12, fontWeight:600, color:C.green, flexShrink:0, width:90, textAlign:"right" }}>{fmt(d.value)}</div>
           </div>
-          <div>
-            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
-              <span style={{ fontFamily:FONT_BODY, fontSize:11, fontWeight:600, color:C.red }}>Saldo por cobrar</span>
-              <span style={{ fontFamily:FONT_NUM, fontSize:13, fontWeight:600, color:C.red }}>{fmt(saldoPendTotal)}</span>
-            </div>
-            <div style={{ height:10, background:C.border, borderRadius:5, overflow:"hidden" }}>
-              <div style={{ height:10, borderRadius:5, background:C.red, width:`${(saldoPendTotal/anticiposSaldosMax)*100}%` }} />
-            </div>
-          </div>
-        </div>
-      </div>
+        );
+      })}
+      {proyectosActivos.length===0 && <div style={{ fontFamily:FONT_BODY, fontSize:12, color:C.textDim }}>Sin proyectos activos</div>}
     </div>
   );
 
   const sideCol = (
     <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-      {cuentas.map(c=>(
-        <BankCard key={c.id} nombre={`${c.nombre} · ${c.banco||""}`} monto={c.saldo} tipo={c.tipo} />
-      ))}
+      <KpiCard label="Pipeline esperado" value={fmt(pipeline)} sub="ponderado por probabilidad" accentColor={C.accent} valueColor={C.accent} />
 
       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
-        <SectionTitle sub={`${tasksToday} hoy · ${tasksSemana} esta semana`}>Próximas tareas</SectionTitle>
-        {recentTasks.length===0 && <div style={{ fontFamily:FONT_BODY, fontSize:13, color:C.textDim }}>Sin tareas pendientes</div>}
-        {recentTasks.map(t=>{
+        <SectionTitle sub={pctVencidas===null ? "% rechazadas por vencimiento: sin datos aún" : `${pctVencidas}% rechazadas por vencimiento`}>Pipeline por estado</SectionTitle>
+        {donutTotal===0 ? (
+          <div style={{ fontFamily:FONT_BODY, fontSize:12, color:C.textDim }}>Sin cotizaciones registradas</div>
+        ) : (
+          <div style={{ display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
+            <svg width="100" height="100" viewBox="0 0 120 120" style={{ flexShrink:0 }}>
+              <circle cx="60" cy="60" r="50" fill="none" stroke={C.border} strokeWidth="14" />
+              {donutArcs.map(a=>(
+                <circle key={a.label} cx="60" cy="60" r="50" fill="none" stroke={a.color} strokeWidth="14"
+                  strokeDasharray={a.dasharray} strokeDashoffset={a.dashoffset} transform="rotate(-90 60 60)" />
+              ))}
+              <text x="60" y="56" textAnchor="middle" fill={C.text} fontFamily={FONT_NUM} fontWeight="600" fontSize="22">{donutTotal}</text>
+              <text x="60" y="72" textAnchor="middle" fill={C.textDim} fontFamily={FONT_BODY} fontWeight="600" fontSize="8" letterSpacing="0.08em">COTIZACIONES</text>
+            </svg>
+            <div style={{ display:"flex", flexDirection:"column", gap:8, minWidth:0 }}>
+              {donutBase.map(s=>(
+                <div key={s.label} style={{ display:"flex", alignItems:"center", gap:7 }}>
+                  <span style={{ width:8, height:8, borderRadius:2, background:s.color, flexShrink:0 }} />
+                  <span style={{ fontFamily:FONT_BODY, fontSize:11, color:C.text }}>{s.label}</span>
+                  <span style={{ fontFamily:FONT_NUM, fontSize:10, color:C.textDim, marginLeft:"auto" }}>{s.count} · {Math.round(s.count/(donutTotal||1)*100)}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
+        <SectionTitle sub={`${tasksProximas.length} próxima(s)`}>Próximas actividades</SectionTitle>
+        {tasksProximas.length===0 && <div style={{ fontFamily:FONT_BODY, fontSize:13, color:C.textDim }}>Sin actividades próximas</div>}
+        {tasksProximas.map(t=>{
           const overdue = !t.done && isOverdue(t.dueDate);
           return (
             <div key={t.id} style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"9px 0", borderBottom:`1px solid ${C.border}` }}>
-              <div style={{ width:15, height:15, borderRadius:4, flexShrink:0, marginTop:1, border:`1.5px solid ${t.done?C.green:C.border}`, background:t.done?C.green:"transparent", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                {t.done && <span style={{ color:"#fff", fontSize:9, fontWeight:700 }}>✓</span>}
-              </div>
+              <div style={{ width:15, height:15, borderRadius:4, flexShrink:0, marginTop:1, border:`1.5px solid ${C.border}` }} />
               <div style={{ flex:1 }}>
-                <div style={{ fontFamily:FONT_BODY, fontSize:11, color:C.text, lineHeight:1.4, textDecoration:t.done?"line-through":"none" }}>{t.title}</div>
+                <div style={{ fontFamily:FONT_BODY, fontSize:11, color:C.text, lineHeight:1.4 }}>{t.title}</div>
                 <div style={{ fontFamily:FONT_BODY, fontSize:10, color:C.textDim, marginTop:2 }}>{t.company}</div>
               </div>
               <div style={{ fontFamily:FONT_NUM, fontSize:10, flexShrink:0, color:overdue?C.red:C.textDim }}>
@@ -331,7 +292,7 @@ export function Dashboard({ deals, tasks, isMobile, navigate }) {
       </div>
 
       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
-        <SectionTitle>Cotizaciones recientes</SectionTitle>
+        <SectionTitle>Últimas cotizaciones</SectionTitle>
         {cotRecientes.map(c=>(
           <div key={c.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 0", borderBottom:`1px solid ${C.border}` }}>
             <div style={{ flex:1, minWidth:0, fontFamily:FONT_BODY, fontSize:11, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.serie||"COT"}-{c.numero} · {c.nombre_cliente||"—"}</div>
@@ -343,15 +304,87 @@ export function Dashboard({ deals, tasks, isMobile, navigate }) {
     </div>
   );
 
+  const navBtnStyle = { width:26, height:26, borderRadius:7, border:`1px solid ${C.border}`, background:C.card, color:C.textMuted, cursor:"pointer", fontFamily:FONT_BODY, fontSize:13, lineHeight:"24px", padding:0 };
+
+  const footerCard = (
+    <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:20 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14, flexWrap:"wrap", gap:10 }}>
+        <div>
+          <div style={{ fontFamily:FONT_BODY, fontSize:13, fontWeight:700, color:C.text }}>Actividades</div>
+          <div style={{ fontFamily:FONT_BODY, fontSize:10, color:C.textDim, marginTop:2 }}>seguimiento del ciclo comercial</div>
+        </div>
+        <div style={{ display:"flex", gap:2, padding:3, background:C.bg, borderRadius:8 }}>
+          {[["dia","Día"],["semana","Semana"],["mes","Mes"]].map(([key,label])=>(
+            <button key={key} onClick={()=>setPeriodo(key)}
+              style={{ padding:"6px 14px", borderRadius:6, border:"none", cursor:"pointer",
+                background: periodo===key?C.accent:"transparent",
+                color: periodo===key?"#fff":C.textMuted,
+                fontFamily:FONT_BODY, fontSize:11, fontWeight:600 }}>{label}</button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
+        <button onClick={()=>setCurOffset(o=>o-1)} style={navBtnStyle}>‹</button>
+        <span style={{ fontFamily:FONT_BODY, fontSize:12, fontWeight:600, color:C.text, minWidth:140 }}>{rangeLabel}</span>
+        <button onClick={()=>setCurOffset(o=>o+1)} style={navBtnStyle}>›</button>
+        {curOffset!==0 && (
+          <button onClick={()=>setCurOffset(0)}
+            style={{ marginLeft:"auto", padding:"5px 12px", borderRadius:7, border:`1px solid ${C.border}`, background:"transparent", color:C.accent, cursor:"pointer", fontFamily:FONT_BODY, fontSize:11, fontWeight:600 }}>Hoy</button>
+        )}
+      </div>
+
+      {periodo==="dia" ? (
+        tasksDia.length===0 ? (
+          <div style={{ fontFamily:FONT_BODY, fontSize:12, color:C.textDim }}>Sin actividades este día</div>
+        ) : (
+          <div>
+            {tasksDia.map(t=>{
+              const estado = estadoTarea(t);
+              return (
+                <div key={t.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 0", borderBottom:`1px solid ${C.border}` }}>
+                  <div onClick={()=>toggleDone(t)} role="checkbox" aria-checked={t.done} title={t.done?"Marcar como pendiente":"Marcar como completada"}
+                    style={{ width:16, height:16, borderRadius:4, flexShrink:0, cursor:"pointer", border:`1.5px solid ${t.done?C.green:C.border}`, background:t.done?C.green:"transparent", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    {t.done && <span style={{ color:"#fff", fontSize:10, fontWeight:700, lineHeight:1 }}>✓</span>}
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontFamily:FONT_BODY, fontSize:12, fontWeight:600, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", textDecoration:t.done?"line-through":"none" }}>{t.title}</div>
+                    <div style={{ fontFamily:FONT_BODY, fontSize:10, color:C.textDim }}>{t.company}</div>
+                  </div>
+                  <span style={{ fontSize:9, fontWeight:700, padding:"3px 9px", borderRadius:9, background:`${estado.color}18`, color:estado.color, fontFamily:FONT_BODY, flexShrink:0, textTransform:"uppercase" }}>{estado.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        )
+      ) : (
+        <div style={{ display:"flex", gap:14, alignItems:"flex-end", height:120 }}>
+          {chartData.map(d=>(
+            <div key={d.label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
+              <div style={{ width:"100%", maxWidth:36, height:Math.max(4,(d.count/chartMax)*90), borderRadius:4, background:d.activo?C.accent:C.border }} />
+              <span style={{ fontFamily:FONT_BODY, fontSize:10, fontWeight:d.activo?700:500, color:d.activo?C.accent:C.textMuted }}>{d.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div style={{ minHeight:"100%", background:C.bg, padding:isMobile?16:32, boxSizing:"border-box", fontFamily:FONT_BODY }}>
-      <div style={{ maxWidth:1400, margin:"0 auto" }}>
-        <div style={{ marginBottom:24 }}>
+      <div style={{ maxWidth:1400, margin:"0 auto", display:"flex", flexDirection:"column", gap:10, paddingRight: isMobile?0:52 }}>
+        <div>
           <div style={{ fontFamily:FONT_BODY, fontSize:10, fontWeight:600, color:C.textDim, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Vista general</div>
           <div style={{ fontFamily:"'Space Grotesk', sans-serif", fontSize:22, fontWeight:700, color:C.text }}>Dashboard</div>
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 320px", gap:16, alignItems:"start", paddingRight: isMobile?0:52 }}>
-          {mainCol}
+
+        {actividadHoyCard}
+
+        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 320px", gap:16, alignItems:"start" }}>
+          <div style={{ display:"flex", flexDirection:"column", gap:10, minWidth:0 }}>
+            {proyectosCard}
+            {footerCard}
+          </div>
           {sideCol}
         </div>
       </div>
