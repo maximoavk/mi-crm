@@ -82,6 +82,17 @@ export default function CampanasRuta({ onAbrirOportunidad, setTasks }) {
   const [nuevo, setNuevo] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
+  const [sinConexion, setSinConexion] = useState(() => typeof navigator !== 'undefined' && !navigator.onLine);
+
+  // En terreno la señal se cae: el guardado igual intenta y muestra el error,
+  // pero este aviso evita que el vendedor se confunda si falla en silencio.
+  useEffect(() => {
+    const on = () => setSinConexion(false);
+    const off = () => setSinConexion(true);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -139,6 +150,11 @@ export default function CampanasRuta({ onAbrirOportunidad, setTasks }) {
 
   return (
     <div>
+      {sinConexion && (
+        <div style={{ background:"#E0A10022", border:"1px solid #E0A100", borderRadius:8, padding:"8px 14px", marginBottom:14, fontFamily:FONT, fontSize:12, color:"#E0A100", fontWeight:600 }}>
+          ⚠ Sin conexión — lo que guardes no se va a subir hasta que vuelva la señal. Llamar y WhatsApp siguen funcionando.
+        </div>
+      )}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:18, flexWrap:"wrap", gap:12 }}>
         <div>
           <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Comercial</div>
@@ -207,7 +223,7 @@ export default function CampanasRuta({ onAbrirOportunidad, setTasks }) {
           {visibles.map((f) => {
             const e = estadoInfo(f.estado);
             return (
-              <div key={f.visita_id} style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${f.tipo_cuenta === 'cliente' ? C.accent : C.border}`, borderRadius:10, padding:14 }}>
+              <div key={f.visita_id} style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${e.color}`, borderRadius:10, padding:14, transition:"border-left-color 150ms" }}>
                 <button onClick={() => setAbierta(f)} style={{ display:"flex", gap:12, width:"100%", textAlign:"left", background:"none", border:0, color:"inherit", padding:0, cursor:"pointer", font:"inherit" }}>
                   <span style={{ minWidth:28, height:28, flexShrink:0, borderRadius:"50%", background:"#FFA13A", color:"#fff", display:"grid", placeItems:"center", fontFamily:FONT, fontSize:12, fontWeight:700 }}>{f.orden}</span>
                   <span style={{ display:"flex", flexDirection:"column", gap:2 }}>
