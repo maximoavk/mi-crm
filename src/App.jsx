@@ -35,7 +35,7 @@ const TasksView = lazyView(() => import("./crm/TasksView.jsx"), "TasksView");
 const ReportsView = lazyView(() => import("./crm/ReportsView.jsx"), "ReportsView");
 const ProductsDB = lazyView(() => import("./productos/ProductsDB.jsx"), "ProductsDB");
 const ProposalsView = lazyView(() => import("./propuestas/ProposalsView.jsx"), "ProposalsView");
-const AnalisisPreciosView = lazyView(() => import("./analisis/AnalisisPreciosView.jsx"), "AnalisisPreciosView");
+const CampanasView = lazyView(() => import("./comercial/campanas/CampanasView.jsx"), "CampanasView");
 const IncidenciasView = lazyView(() => import("./incidencias/IncidenciasView.jsx"), "IncidenciasView");
 const ColaboradorView = lazyView(() => import("./colaborador/ColaboradorView.jsx"), "ColaboradorView");
 
@@ -51,8 +51,8 @@ const VALID_ROLES = ["admin", "colaborador", "prueba"];
 const LIGHT_VIEWS = new Set([
   "dashboard", "contacts", "pipeline", "quotes",
   "prestaciones", "products", "proveedores", "compras_proyecto", "purchase", "guias",
-  "control_proyectos", "costeo", "design", "gantt", "operaciones", "analisis",
-  "tasks", "incidencias", "proposals", "reports", "finanzas_dashboard", "cxc", "cxp", "presupuesto",
+  "control_proyectos", "costeo", "design", "gantt", "operaciones",
+  "tasks", "incidencias", "proposals", "campanas", "reports", "finanzas_dashboard", "cxc", "cxp", "presupuesto",
 ]);
 
 export default function CRM() {
@@ -301,10 +301,10 @@ export default function CRM() {
           {view==="design"    && <DesignView designProjectId={openDesignProjectId} onBack={(costeoId)=>{ setOpenCosteoId(costeoId); setOpenDesignProjectId(null); setView("costeo"); }} />}
           {view==="gantt"     && <GanttView isMobile={isMobile} />}
           {view==="operaciones" && <OperacionesView isMobile={isMobile} />}
-          {view==="analisis"    && <AnalisisPreciosView isMobile={isMobile} />}
           {view==="tasks"     && <TasksView tasks={tasks} setTasks={setTasks} contacts={contacts} deals={deals} isMobile={isMobile} autoNew={autoNew} onAutoNewHandled={()=>setAutoNew(false)} />}
           {view==="incidencias" && <IncidenciasView contacts={contacts} isMobile={isMobile} />}
           {view==="proposals" && <ProposalsView onOpenCosteo={(id)=>{ setOpenCosteoId(id); setView("costeo"); }} />}
+          {view==="campanas"  && <CampanasView tasks={tasks} setTasks={setTasks} />}
           {view==="reports"   && <ReportsView contacts={contacts} deals={deals} tasks={tasks} isMobile={isMobile} />}
           {view==="finanzas_dashboard" && <FinanzasDashboard isMobile={isMobile} />}
           {view==="cxc"                && <CuentasPorCobrar  isMobile={isMobile} />}
