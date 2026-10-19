@@ -66,7 +66,7 @@ function Row2({ children }) {
  *    fecha de una visita se crea/actualiza su tarea vinculada y se refleja
  *    aquí al toque, sin esperar a recargar la página.
  */
-export default function CampanasRuta({ onAbrirOportunidad, setTasks }) {
+export default function CampanasRuta({ onAbrirOportunidad, tasks, setTasks }) {
   const { C, theme, mode } = useTheme();
   const muted2 = mode === 'dark' ? '#3B82F6' : C.textMuted;
   const [campanas, setCampanas] = useState([]);
@@ -251,11 +251,11 @@ export default function CampanasRuta({ onAbrirOportunidad, setTasks }) {
       )}
 
       {abierta && (
-        <FichaVisita fila={abierta} categorias={categorias} onAbrirOportunidad={onAbrirOportunidad} C={C} setTasks={setTasks}
+        <FichaVisita fila={abierta} categorias={categorias} onAbrirOportunidad={onAbrirOportunidad} C={C} tasks={tasks} setTasks={setTasks}
           onCerrar={() => setAbierta(null)} onGuardado={() => { setAbierta(null); recargar(); }} />
       )}
       {nuevo && (
-        <NuevoCliente campanaId={campanaId} categorias={categorias} segmentos={segmentos} C={C} setTasks={setTasks}
+        <NuevoCliente campanaId={campanaId} categorias={categorias} segmentos={segmentos} C={C} tasks={tasks} setTasks={setTasks}
           segmentoInicial={campana?.segmentos?.[0] || 'condominio'}
           onCerrar={() => setNuevo(false)} onCreado={() => { setNuevo(false); recargar(); }} />
       )}
@@ -267,12 +267,15 @@ export default function CampanasRuta({ onAbrirOportunidad, setTasks }) {
 // Ficha de la parada: estado, contacto del administrador, requerimientos
 // por categoría, check-in y apertura de oportunidad.
 // -------------------------------------------------------------------
-function FichaVisita({ fila, categorias, onCerrar, onGuardado, onAbrirOportunidad, C, setTasks }) {
+function FichaVisita({ fila, categorias, onCerrar, onGuardado, onAbrirOportunidad, C, tasks, setTasks }) {
   const [v, setV] = useState({
     estado: fila.estado, resultado: fila.resultado || '', proximo_paso: fila.proximo_paso || '',
     proximo_paso_fecha: fila.proximo_paso_fecha || '',
   });
   const [fechaProgramada, setFechaProgramada] = useState(fila.fecha_programada || '');
+  const [horaProgramada, setHoraProgramada] = useState(fila.hora_programada?.slice(0, 5) || '');
+  const choqueHorario = fechaProgramada && horaProgramada && tasks?.find((t) =>
+    t.startDate === fechaProgramada && t.startTime === horaProgramada && t.id !== fila.tarea_id);
   const [ct, setCt] = useState({ nombre: fila.contacto || '', telefono: fila.telefono || '', email: fila.mail || '' });
   const [servicios, setServicios] = useState({});
   const [checkIn, setCheckIn] = useState(null);
@@ -303,13 +306,18 @@ function FichaVisita({ fila, categorias, onCerrar, onGuardado, onAbrirOportunida
   const guardar = async () => {
     setGuardando(true); setMsg('');
     try {
-      const cambios = { ...v, proximo_paso_fecha: v.proximo_paso_fecha || null, fecha_programada: fechaProgramada || null };
+      // Al quedar fecha y hora completas, "Pendiente" (sin agenda) pasa solo a
+      // "Agendado" — no pisa estados más avanzados (con_interes, cotizar, etc.).
+      const estadoFinal = (v.estado === 'pendiente' && fechaProgramada && horaProgramada) ? 'agendado' : v.estado;
+      const cambios = { ...v, estado: estadoFinal, proximo_paso_fecha: v.proximo_paso_fecha || null, fecha_programada: fechaProgramada || null, hora_programada: horaProgramada || null };
       if (checkIn) Object.assign(cambios, { check_in_lat: checkIn.lat, check_in_lng: checkIn.lng, fecha_visita: checkIn.t });
       else if (v.estado !== 'pendiente' && !fila.fecha_visita) cambios.fecha_visita = new Date().toISOString();
       await actualizarVisita(fila.visita_id, cambios);
 
-      if (fechaProgramada && fechaProgramada !== fila.fecha_programada) {
-        const tarea = await sincronizarTareaVisita(fila, fechaProgramada);
+      if (fechaProgramada) {
+        // Sincroniza siempre que haya fecha, no solo cuando cambia: así se
+        // recrea la tarea si alguien la borró a mano desde Tareas.
+        const tarea = await sincronizarTareaVisita(fila, fechaProgramada, horaProgramada);
         if (tarea) setTasks?.((prev) => {
           const mapeada = mapTask(tarea);
           return prev.some((t) => t.id === mapeada.id) ? prev.map((t) => (t.id === mapeada.id ? mapeada : t)) : [...prev, mapeada];
@@ -358,8 +366,16 @@ function FichaVisita({ fila, categorias, onCerrar, onGuardado, onAbrirOportunida
       {fila.objetivo && <div style={{ fontFamily:FONT, fontSize:12, background:C.card, padding:"8px 12px", borderRadius:8, marginBottom:10, color:C.text }}><b>Objetivo:</b> {fila.objetivo}</div>}
       {fila.cot_pendientes && <div style={{ fontFamily:FONT, fontSize:12, background:C.card, padding:"8px 12px", borderRadius:8, marginBottom:10, color:C.text }}><b>Cot. pendientes:</b> {fila.cot_pendientes} · {fila.ultima_cotizacion}</div>}
 
-      <Section label="Fecha programada (se refleja en Tareas → calendario)" C={C}>
-        <input type="date" value={fechaProgramada} onChange={(e) => setFechaProgramada(e.target.value)} style={inputSx} />
+      <Section label="Fecha y hora de la visita (se refleja en Tareas → calendario)" C={C}>
+        <Row2>
+          <input type="date" value={fechaProgramada} onChange={(e) => setFechaProgramada(e.target.value)} style={inputSx} />
+          <input type="time" value={horaProgramada} onChange={(e) => setHoraProgramada(e.target.value)} style={inputSx} />
+        </Row2>
+        {choqueHorario && (
+          <div style={{ fontFamily:FONT, fontSize:11, color:'#E0A100' }}>
+            ⚠ Ya hay un evento a esa hora: "{choqueHorario.title}"
+          </div>
+        )}
       </Section>
 
       <Row2>
@@ -432,10 +448,10 @@ const VACIO = {
   tipo_cuenta: 'prospecto', razon_social: '', rut: '', direccion: '', comuna: 'Coquimbo', ciudad: '', region: 'Coquimbo',
   sector: '', segmento: 'condominio', rubro: '', inmobiliaria: '', tipo_instalacion: 'Departamentos', estado_proyecto: 'Habitado',
   contacto: '', rol_contacto: 'administrador', telefono: '', mail: '',
-  fecha_programada: '', objetivo: '', estado: 'pendiente', resultado: '', proximo_paso: '', fuente: 'Terreno',
+  fecha_programada: '', hora_programada: '', objetivo: '', estado: 'pendiente', resultado: '', proximo_paso: '', fuente: 'Terreno',
 };
 
-function NuevoCliente({ campanaId, categorias, segmentos, segmentoInicial, onCerrar, onCreado, C, setTasks }) {
+function NuevoCliente({ campanaId, categorias, segmentos, segmentoInicial, onCerrar, onCreado, C, tasks, setTasks }) {
   const [f, setF] = useState({
     ...VACIO,
     segmento: segmentoInicial, tipo_instalacion: (INSTALACION_POR_SEGMENTO[segmentoInicial] || ['Otro'])[0],
@@ -460,8 +476,9 @@ function NuevoCliente({ campanaId, categorias, segmentos, segmentoInicial, onCer
     if (!f.razon_social.trim()) return setMsg('Falta el nombre o razón social del cliente.');
     setGuardando(true); setMsg('');
     try {
+      const estadoFinal = (f.estado === 'pendiente' && f.fecha_programada && f.hora_programada) ? 'agendado' : f.estado;
       const { tarea } = await crearCliente(campanaId, {
-        ...f, ...(geo || {}),
+        ...f, ...(geo || {}), estado: estadoFinal,
         servicios: Object.values(servicios).map((s) => ({ categoria: s.categoria, requerimiento: s.requerimiento || null, prioridad: 'media' })),
       });
       if (tarea) setTasks?.((prev) => [...prev, mapTask(tarea)]);
@@ -530,10 +547,14 @@ function NuevoCliente({ campanaId, categorias, segmentos, segmentoInicial, onCer
       <Section label="Visita" C={C}>
         <Row2>
           <input type="date" value={f.fecha_programada} onChange={set('fecha_programada')} style={inputSx} />
-          <select value={f.estado} onChange={set('estado')} style={selectSx}>
-            {ESTADOS.map((e) => <option key={e.v} value={e.v}>{e.label}</option>)}
-          </select>
+          <input type="time" value={f.hora_programada} onChange={set('hora_programada')} style={inputSx} />
         </Row2>
+        {f.fecha_programada && f.hora_programada && tasks?.some((t) => t.startDate === f.fecha_programada && t.startTime === f.hora_programada) && (
+          <div style={{ fontFamily:FONT, fontSize:11, color:'#E0A100' }}>⚠ Ya hay un evento agendado a esa hora.</div>
+        )}
+        <select value={f.estado} onChange={set('estado')} style={selectSx}>
+          {ESTADOS.map((e) => <option key={e.v} value={e.v}>{e.label}</option>)}
+        </select>
         <textarea rows={2} placeholder="Objetivo de la visita" value={f.objetivo} onChange={set('objetivo')} style={{ ...inputSx, resize:"vertical" }} />
         <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
           {categorias.map((c) => (

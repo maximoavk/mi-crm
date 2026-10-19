@@ -4,6 +4,7 @@ import { mapTaskToDb } from "../../shared/mappers.js";
 
 export const ESTADOS = [
   { v: 'pendiente', label: 'Pendiente', color: '#8A94A6' },
+  { v: 'agendado', label: 'Agendado', color: '#81C784' },
   { v: 'visitado', label: 'Visitado', color: '#297FB8' },
   { v: 'reagendar', label: 'Reagendar', color: '#E0A100' },
   { v: 'con_interes', label: 'Con interés', color: '#1FA971' },
@@ -114,13 +115,14 @@ export const crearCliente = async (campanaId, f) => {
     resultado: f.resultado || null,
     proximo_paso: f.proximo_paso || null,
     fecha_programada: f.fecha_programada || null,
+    hora_programada: f.hora_programada || null,
   }).select().single());
 
   for (const s of f.servicios || []) await guardarServicio(visita.id, s);
 
   let tarea = null;
   if (f.fecha_programada) {
-    tarea = await crearTareaVisita(visita.id, cuenta.razon_social, f.fecha_programada);
+    tarea = await crearTareaVisita(visita.id, cuenta.razon_social, f.fecha_programada, f.hora_programada);
   }
   return { cuenta, visita, tarea };
 };
@@ -128,30 +130,36 @@ export const crearCliente = async (campanaId, f) => {
 // ── Conciliación con Tareas (calendario de actividades) ─────────────────────
 // Cada visita con fecha programada tiene, a lo más, una tarea vinculada
 // (com_visitas.tarea_id, sin FK, mismo criterio que deal_id). Mover la fecha
-// actualiza esa misma tarea en vez de crear una nueva.
-const crearTareaVisita = async (visitaId, razonSocial, fecha) => {
+// u hora actualiza esa misma tarea en vez de crear una nueva. La hora la
+// define el vendedor; no se fuerza un bloque de duración (el aviso de choque
+// de horario se calcula en la UI contra las tareas ya cargadas).
+const crearTareaVisita = async (visitaId, razonSocial, fecha, hora) => {
   const tarea = await must(supabase.from('task').insert(mapTaskToDb({
     title: `Visita: ${razonSocial}`, company: razonSocial,
-    startDate: fecha, dueDate: fecha, startTime: '09:00', endTime: '10:00',
+    startDate: fecha, dueDate: fecha, startTime: hora || null, endTime: null,
     category: 'Visita cliente', type: 'visita', priority: 'media', status: 'pendiente',
     notes: 'Creada desde Comercial › Campañas.',
-  })).select().single());
+  })).select().maybeSingle());
+  if (!tarea) throw new Error('No se pudo crear la tarea de la visita (revisa tu acceso).');
   await must(supabase.from('com_visitas').update({ tarea_id: tarea.id }).eq('id', visitaId));
   return tarea;
 };
 
-export const sincronizarTareaVisita = async (visita, fecha) => {
+export const sincronizarTareaVisita = async (visita, fecha, hora) => {
   if (!fecha) return null;
-  const { tarea_id } = await must(supabase.from('com_visitas').select('tarea_id').eq('id', visita.visita_id).single());
-  if (tarea_id) {
-    return must(supabase.from('task').update(mapTaskToDb({
+  const actual = await must(supabase.from('com_visitas').select('tarea_id').eq('id', visita.visita_id).maybeSingle());
+  const tareaId = actual?.tarea_id;
+  if (tareaId) {
+    const tarea = await must(supabase.from('task').update(mapTaskToDb({
       title: `Visita: ${visita.razon_social}`, company: visita.razon_social,
-      startDate: fecha, dueDate: fecha, startTime: '09:00', endTime: '10:00',
+      startDate: fecha, dueDate: fecha, startTime: hora || null, endTime: null,
       category: 'Visita cliente', type: 'visita', priority: 'media', status: 'pendiente',
       notes: 'Creada desde Comercial › Campañas.',
-    })).eq('id', tarea_id).select().single());
+    })).eq('id', tareaId).select().maybeSingle());
+    if (tarea) return tarea;
+    // La tarea vinculada ya no existe (se borró a mano desde Tareas): crea una nueva.
   }
-  return crearTareaVisita(visita.visita_id, visita.razon_social, fecha);
+  return crearTareaVisita(visita.visita_id, visita.razon_social, fecha, hora);
 };
 
 // Exporta la ruta con las mismas columnas del Excel de campaña.
