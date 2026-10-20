@@ -4,7 +4,7 @@
 // módulo de Finanzas — este dashboard es el punto de partida del día a día
 // comercial/operativo, no el financiero.
 import { useState, useEffect } from "react";
-import { Calculator, GanttChartSquare, Users, ShoppingCart, CheckSquare } from "lucide-react";
+import { Calculator, GanttChartSquare, Users, ShoppingCart, PackagePlus, CheckSquare } from "lucide-react";
 import { isOverdue, fmt, fmtDate, hoyISO, fechaISO } from "../shared/format.js";
 import { supabase } from "../supabaseClient.js";
 import { LIGHT_THEME, FONT_BODY, FONT_NUM } from "../theme.js";
@@ -21,12 +21,9 @@ const AccesoDirecto = ({ qa, onClick, theme=LIGHT_THEME }) => {
       style={{
         display:"flex", alignItems:"center", gap:8, cursor:"pointer", height:42,
         borderRadius:"16px 0 0 16px", overflow:"hidden", whiteSpace:"nowrap", position:"relative",
-        // Vidrio esmerilado: sheen diagonal (brillo) encima de un degradé del
-        // color base semitransparente, con blur + saturación del fondo detrás.
-        background:`linear-gradient(135deg, rgba(255,255,255,0.4), rgba(255,255,255,0) 55%), linear-gradient(135deg, ${C.yellow}E6, ${C.yellow}AD)`,
-        backdropFilter:"blur(14px) saturate(180%)", WebkitBackdropFilter:"blur(14px) saturate(180%)",
-        border:"1px solid rgba(255,255,255,0.45)", borderRight:"none",
-        boxShadow: hover ? `-8px 8px 28px ${C.yellow}66, inset 0 1px 0 rgba(255,255,255,0.5)` : "0 2px 10px #00000022, inset 0 1px 0 rgba(255,255,255,0.35)",
+        background: C.yellow,
+        border:"1px solid rgba(255,255,255,0.15)", borderRight:"none",
+        boxShadow: hover ? "-8px 8px 28px #0006" : "0 2px 10px #00000022",
         transform: hover ? "translateX(-6px) scale(1.02)" : "translateX(0) scale(1)",
         transition:"transform 0.25s cubic-bezier(0.4,0,0.2,1), box-shadow 0.25s ease",
       }}>
@@ -72,16 +69,19 @@ export function Dashboard({ deals, tasks, setTasks, isMobile, navigate }) {
   const [cotizaciones, setCotizaciones] = useState([]);
   const [costeos, setCosteos] = useState([]);
   const [proyectos, setProyectos] = useState([]);
+  const [ots, setOts] = useState([]);
 
   useEffect(() => {
     Promise.all([
       supabase.from("cotizaciones").select("id,numero,serie,estado,nombre_cliente,total,pct_anticipo,fecha,vencida"),
       supabase.from("costeos").select("id,nombre,cliente_nombre,cotizacion_id,created_at"),
       supabase.from("proyectos").select("id,cotizacion_id,estado"),
-    ]).then(([{ data: cots }, { data: cs }, { data: ps }]) => {
+      supabase.from("ordenes_trabajo").select("id,numero_ot,cliente_nombre,estado,fecha_programada,created_at").order("created_at",{ascending:false}).limit(5),
+    ]).then(([{ data: cots }, { data: cs }, { data: ps }, { data: otsData }]) => {
       setCotizaciones(cots||[]);
       setCosteos(cs||[]);
       setProyectos(ps||[]);
+      setOts(otsData||[]);
     });
   }, []);
 
@@ -151,9 +151,13 @@ export function Dashboard({ deals, tasks, setTasks, isMobile, navigate }) {
   const cohorteResuelta = cotizaciones.filter(c=>c.fecha>=VENCIMIENTO_DESDE && c.fecha<=hace30Dias);
   const pctVencidas = cohorteResuelta.length>0 ? Math.round(cohorteResuelta.filter(c=>c.vencida).length/cohorteResuelta.length*100) : null;
 
-  // Últimas cotizaciones
-  const cotRecientes = [...cotizaciones].sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"")).slice(0,5);
   const COT_ESTADO_COLOR = { borrador:C.textMuted, enviada:C.yellow, aprobada:C.green, rechazada:C.red };
+
+  // Últimas OTs (Operaciones → Terreno) — misma paleta que OperacionesView.
+  const OT_ESTADO_COLOR = {
+    borrador:C.textMuted, pendiente:"#FFB800", confirmado:C.accent, en_progreso:C.accent,
+    prorrogado:"#FF8C00", completado:C.green, cancelado:C.red, firmada:C.green,
+  };
 
   // Actividad de hoy / próximas — desde tasks. No hay franja horaria registrada
   // (los Pendientes no guardan hora), así que se listan como actividades del
@@ -233,7 +237,7 @@ export function Dashboard({ deals, tasks, setTasks, isMobile, navigate }) {
     { label:"Nuevo contacto",  view:"contacts",           Icon:Users,             autoNew:true },
     { label:"Nuevo proyecto",  view:"costeo",             Icon:Calculator,        autoNew:true },
     { label:"Nueva Gantt",     view:"gantt",              Icon:GanttChartSquare },
-    { label:"Nuevo producto",  view:"products",           Icon:ShoppingCart,      autoNew:true },
+    { label:"Nuevo producto",  view:"products",           Icon:PackagePlus,       autoNew:true },
     { label:"Nueva OC",        view:"purchase",           Icon:ShoppingCart,      autoNew:true },
     { label:"Nueva tarea",     view:"tasks",              Icon:CheckSquare,       autoNew:true },
   ];
@@ -350,15 +354,15 @@ export function Dashboard({ deals, tasks, setTasks, isMobile, navigate }) {
         })}
       </div>
 
-      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
-        <SectionTitle theme={theme}>Últimas cotizaciones</SectionTitle>
-        {cotRecientes.map(c=>(
-          <div key={c.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 0", borderBottom:`1px solid ${C.border}` }}>
-            <div style={{ flex:1, minWidth:0, fontFamily:FONT_BODY, fontSize:11, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.serie||"COT"}-{c.numero} · {c.nombre_cliente||"—"}</div>
-            <span style={{ fontSize:9, fontWeight:700, padding:"2px 7px", borderRadius:9, background:`${COT_ESTADO_COLOR[c.estado]||C.textMuted}18`, color:COT_ESTADO_COLOR[c.estado]||C.textMuted, fontFamily:FONT_BODY, flexShrink:0, textTransform:"uppercase" }}>{c.estado||"—"}</span>
+      <div onClick={()=>navigate("operaciones")} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16, cursor:"pointer" }}>
+        <SectionTitle theme={theme}>Últimas OTs</SectionTitle>
+        {ots.map(o=>(
+          <div key={o.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 0", borderBottom:`1px solid ${C.border}` }}>
+            <div style={{ flex:1, minWidth:0, fontFamily:FONT_BODY, fontSize:11, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{o.numero_ot||"OT"} · {o.cliente_nombre||"—"}</div>
+            <span style={{ fontSize:9, fontWeight:700, padding:"2px 7px", borderRadius:9, background:`${OT_ESTADO_COLOR[o.estado]||C.textMuted}18`, color:OT_ESTADO_COLOR[o.estado]||C.textMuted, fontFamily:FONT_BODY, flexShrink:0, textTransform:"uppercase" }}>{o.estado||"—"}</span>
           </div>
         ))}
-        {cotRecientes.length===0 && <div style={{ fontFamily:FONT_BODY, fontSize:12, color:C.textDim }}>Sin cotizaciones</div>}
+        {ots.length===0 && <div style={{ fontFamily:FONT_BODY, fontSize:12, color:C.textDim }}>Sin OTs registradas</div>}
       </div>
     </div>
   );
