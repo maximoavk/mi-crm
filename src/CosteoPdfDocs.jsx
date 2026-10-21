@@ -1,6 +1,6 @@
 import React from "react";
 import { Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
-import { EMPRESA, EMPRESA_RUT, TITULAR } from "./shared/empresa.js";
+import { EMPRESA, EMPRESA_RUT, TITULAR, datosPago } from "./shared/empresa.js";
 
 export const fmt = (v) => "$" + Math.round(v || 0).toLocaleString("es-CL");
 
@@ -254,6 +254,10 @@ export function CosteoClienteDoc({ proyecto, fasesCalc, codigosPorFaseArr, total
             </View>
           </>
         )}
+        <View style={{ marginTop: 16, borderTopWidth: 1, borderTopColor: "#e2e8f0", paddingTop: 8 }} wrap={false}>
+          <Text style={{ fontSize: 8, fontWeight: 700, marginBottom: 3 }}>Datos de Pago</Text>
+          <Text style={{ fontSize: 7.5, color: "#334155" }}>{datosPago(sinIva ? "personal" : "empresa")}</Text>
+        </View>
         <View style={{ marginTop: 16, alignItems: "flex-end" }} wrap={false}>
           <Text style={{ fontSize: 8, fontWeight: 700 }}>Firmado digitalmente por</Text>
           <Text style={{ fontSize: 8, fontWeight: 700 }}>MAXIMO MANUEL HUDSON BLANCO</Text>
