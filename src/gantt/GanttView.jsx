@@ -20,8 +20,9 @@ import { partidaCobrado } from "../calculos.js";
 export function GanttView({ isMobile }) {
   const { C, mode } = useTheme();
   const [cotNum, setCotNum]       = useState("");
+  const [cotSerie, setCotSerie]   = useState("COT");
   const [searching, setSearching] = useState(false);
-  const [proyecto, setProyecto]   = useState(null); // { nombre, cotNum }
+  const [proyecto, setProyecto]   = useState(null); // { nombre, cotNum, serie }
   const [tasks, setTasks]         = useState([]);
   const [saving, setSaving]       = useState(false);
   const [ganttId, setGanttId]     = useState(null);
@@ -88,7 +89,7 @@ export function GanttView({ isMobile }) {
   };
 
   useEffect(() => {
-    supabase.from("gantt_proyectos").select("id,nombre,numero_cotizacion,fecha_inicio,fecha_fin")
+    supabase.from("gantt_proyectos").select("id,nombre,numero_cotizacion,serie,fecha_inicio,fecha_fin")
       .order("numero_cotizacion", { ascending: false })
       .then(({ data }) => setAllGantts(data || []));
   }, []);
@@ -104,8 +105,8 @@ export function GanttView({ isMobile }) {
 
   // Trae fases y partidas del Costeo vinculado a la cotización, para la
   // señal de cobro (💰) de cada fase del Gantt — no se usa para importar.
-  const cargarComercialDesdeCosteo = async (num) => {
-    const { data: cot } = await supabase.from("cotizaciones").select("id").eq("numero", Number(num)).single();
+  const cargarComercialDesdeCosteo = async (num, serie) => {
+    const { data: cot } = await supabase.from("cotizaciones").select("id").eq("numero", Number(num)).eq("serie", serie||"COT").maybeSingle();
     if (!cot) { setCosteoComercial(null); return; }
     const { data: costeo } = await supabase.from("costeos").select("fases,partidas").eq("cotizacion_id", cot.id).maybeSingle();
     setCosteoComercial(costeo || null);
@@ -236,23 +237,25 @@ export function GanttView({ isMobile }) {
   const reimportarDesdeVersion = async () => {
     if(!proyecto) return;
     if(!window.confirm("Esto reemplaza todas las fases y tareas actuales del Gantt por las de la versión que elijas. ¿Continuar?")) return;
-    const { data: cot } = await supabase.from("cotizaciones").select("*").eq("numero", Number(proyecto.cotNum)).single();
+    const { data: cot } = await supabase.from("cotizaciones").select("*").eq("numero", Number(proyecto.cotNum)).eq("serie", proyecto.serie||"COT").maybeSingle();
     if(cot) await offerVersionImport(cot);
-    else alert(`No se encontró la cotización N° ${proyecto.cotNum}`);
+    else alert(`No se encontró la cotización ${proyecto.serie||"COT"}-${proyecto.cotNum}`);
   };
 
-  // Cargar Gantt existente desde Supabase
-  const cargarGantt = async (num) => {
+  // Cargar Gantt existente desde Supabase. `serie` desambigua el número de
+  // cotización (COT y SIN llevan correlativos separados: puede haber un
+  // COT-83 y un SIN-83 a la vez).
+  const cargarGantt = async (num, serie = cotSerie) => {
     if (sinGuardar && !window.confirm("Hay cambios sin guardar en esta Gantt. ¿Cargar otra de todas formas?")) return;
     // Una Gantt nueva o reimportada queda "sin guardar" hasta que se guarde.
     setFirmaGuardada("");
     setSearching(true);
-    const { data: gantt } = await supabase.from("gantt_proyectos").select("*").eq("numero_cotizacion", Number(num)).single();
+    const { data: gantt } = await supabase.from("gantt_proyectos").select("*").eq("numero_cotizacion", Number(num)).eq("serie", serie).maybeSingle();
     setFaseScopeId(null);
-    cargarComercialDesdeCosteo(num);
+    cargarComercialDesdeCosteo(num, serie);
     if(gantt) {
       setGanttId(gantt.id);
-      setProyecto({ nombre: gantt.nombre, cotNum: num });
+      setProyecto({ nombre: gantt.nombre, cotNum: num, serie });
       setCalStart(gantt.fecha_inicio || today);
       setViewStart(gantt.fecha_inicio || today);
       setMonthMode(false);
@@ -271,27 +274,27 @@ export function GanttView({ isMobile }) {
         setSearching(false);
       } else {
         // Gantt guardado pero sin tareas (huérfano): reimportar fases/hitos desde el costeo vinculado
-        const { data: cot } = await supabase.from("cotizaciones").select("*").eq("numero", Number(num)).single();
+        const { data: cot } = await supabase.from("cotizaciones").select("*").eq("numero", Number(num)).eq("serie", serie).maybeSingle();
         if(cot) await offerVersionImport(cot); else setTasks([]);
         setSearching(false);
       }
     } else {
       // Nueva: buscar cotización para obtener nombre e importar fases del costeo
-      const { data: cot } = await supabase.from("cotizaciones").select("*").eq("numero", Number(num)).single();
+      const { data: cot } = await supabase.from("cotizaciones").select("*").eq("numero", Number(num)).eq("serie", serie).maybeSingle();
       if(cot) {
-        setProyecto({ nombre: cot.comentarios||cot.razon_social||`Proyecto Cot. ${num}`, cotNum: num });
+        setProyecto({ nombre: cot.comentarios||cot.razon_social||`Proyecto ${serie}-${num}`, cotNum: num, serie });
         setGanttId(null);
         await offerVersionImport(cot);
         setSearching(false);
       } else {
-        alert(`No se encontró la cotización N° ${num}`);
+        alert(`No se encontró la cotización ${serie}-${num}`);
         setSearching(false);
       }
     }
   };
 
   const eliminarGantt = async (g) => {
-    if(!window.confirm(`¿Eliminar la carta Gantt de "${g.nombre}" (Cot. N° ${g.numero_cotizacion})? Esta acción no se puede deshacer.`)) return;
+    if(!window.confirm(`¿Eliminar la carta Gantt de "${g.nombre}" (${g.serie||"COT"}-${g.numero_cotizacion})? Esta acción no se puede deshacer.`)) return;
     const { error: errTareas } = await supabase.from("gantt_tareas").delete().eq("gantt_id", g.id); if(errTareas) return;
     const { error: errGantt } = await supabase.from("gantt_proyectos").delete().eq("id", g.id); if(errGantt) return;
     setAllGantts(prev => prev.filter(x => x.id !== g.id));
@@ -304,7 +307,7 @@ export function GanttView({ isMobile }) {
     try {
       if(!gId) {
         const data = await must(supabase.from("gantt_proyectos").insert({
-          numero_cotizacion: Number(cotNum), nombre: proyecto.nombre,
+          numero_cotizacion: Number(cotNum), serie: proyecto.serie||"COT", nombre: proyecto.nombre,
           fecha_inicio: calStart, fecha_fin: addDays(calStart, calDays),
         }).select().single());
         gId = data.id;
@@ -563,6 +566,10 @@ export function GanttView({ isMobile }) {
         </div>
         <div style={{ display:"flex", gap:8, alignItems:"center", background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:"6px 12px" }}>
           <span style={{ fontSize:11, color:C.textMuted }}>Cot. N°</span>
+          <select value={cotSerie} onChange={e=>setCotSerie(e.target.value)} style={{...s, width:58}}>
+            <option value="COT">COT</option>
+            <option value="SIN">SIN</option>
+          </select>
           <input value={cotNum} onChange={e=>setCotNum(e.target.value)} onKeyDown={e=>e.key==="Enter"&&cargarGantt(cotNum)}
             placeholder="ej: 83" style={{...s, width:60}} />
           <button onClick={()=>cargarGantt(cotNum)} disabled={searching||!cotNum}
@@ -639,12 +646,12 @@ export function GanttView({ isMobile }) {
               </div>
               <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                 {allGantts.map(g => (
-                  <div key={g.id} onClick={() => { setCotNum(String(g.numero_cotizacion)); cargarGantt(String(g.numero_cotizacion)); }}
+                  <div key={g.id} onClick={() => { setCotNum(String(g.numero_cotizacion)); setCotSerie(g.serie||"COT"); cargarGantt(String(g.numero_cotizacion), g.serie||"COT"); }}
                     style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"12px 18px", cursor:"pointer", display:"flex", alignItems:"center", gap:14, transition:"border-color 0.15s" }}
                     onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent}
                     onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
                     <div style={{ width:40, height:40, borderRadius:8, background:`${C.accent}18`, border:`1px solid ${C.accent}33`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:C.accent }}>#{g.numero_cotizacion}</span>
+                      <span style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:C.accent }}>{g.serie||"COT"}-{g.numero_cotizacion}</span>
                     </div>
                     <div style={{ flex:1 }}>
                       <div style={{ fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, color:C.text, marginBottom:2 }}>{g.nombre}</div>

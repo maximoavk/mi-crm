@@ -373,6 +373,9 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
   const printCliente = async () => {
     const fases = (proyecto.fases || []).map(calcFase);
     const codigosPorFaseArr = fases.map((f, fi) => codigosPorFase(f.items, fi));
+    // Proyecto sin factura (serie SIN): ningún ítem aplica IVA, así que el PDF
+    // cliente no debe hablar de "c/IVA" en ningún total — son valores netos.
+    const sinIva = fases.every(f => (f.items||[]).every(it => !it.aplicaIVA));
     const totales = {
       ventaNeta: fases.reduce((s, f) => s + f.ventaNeta, 0),
       ventaBruta: fases.reduce((s, f) => s + f.ventaBruta, 0),
@@ -384,7 +387,7 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
     const [{ pdf }, { fetchImageAsDataUri, CosteoClienteDoc }] = await cargarPdfCosteo();
     let logoDataUri = null;
     try { logoDataUri = await fetchImageAsDataUri(LOGO_PRINT); } catch { /* el documento se genera igual, sin logo */ }
-    const blob = await pdf(<CosteoClienteDoc proyecto={proyecto} fasesCalc={fases} codigosPorFaseArr={codigosPorFaseArr} totales={totales} partidas={proyecto.partidas || []} logoDataUri={logoDataUri} />).toBlob();
+    const blob = await pdf(<CosteoClienteDoc proyecto={proyecto} fasesCalc={fases} codigosPorFaseArr={codigosPorFaseArr} totales={totales} partidas={proyecto.partidas || []} logoDataUri={logoDataUri} sinIva={sinIva} />).toBlob();
     const url = URL.createObjectURL(blob);
     setPdfPreviewUrl(url);
   };

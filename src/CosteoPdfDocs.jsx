@@ -40,7 +40,7 @@ export const styles = StyleSheet.create({
 
 const PDF_TYPE_ORDER = { "Equipos": 0, "Ferretería": 1, "Materiales": 1, "Mano de Obra / HH": 2, "Costos Indirectos": 3 };
 
-export function FaseBlockPDF({ fase, variant, codigoPorId }) {
+export function FaseBlockPDF({ fase, variant, codigoPorId, sinIva }) {
   const isInterno = variant === "interno";
   const sortedItems = [...(fase.items || [])].sort((a, b) => (PDF_TYPE_ORDER[a.tipo] ?? 9) - (PDF_TYPE_ORDER[b.tipo] ?? 9));
   const descColSpan = isInterno ? 6.9 : 5.5;
@@ -72,7 +72,7 @@ export function FaseBlockPDF({ fase, variant, codigoPorId }) {
         {isInterno && <Text style={[styles.th, { flex: 0.9, textAlign: "right" }]}>MARGEN $</Text>}
         <Text style={[styles.th, { flex: 0.9, textAlign: "right" }]}>VENTA NETA</Text>
         {!isInterno && <Text style={[styles.th, { flex: 0.9, textAlign: "right" }]}>IVA</Text>}
-        <Text style={[styles.th, { flex: 0.9, textAlign: "right" }]}>{isInterno ? "VENTA c/IVA" : "TOTAL c/IVA"}</Text>
+        <Text style={[styles.th, { flex: 0.9, textAlign: "right" }]}>{isInterno ? "VENTA c/IVA" : sinIva ? "TOTAL NETO" : "TOTAL c/IVA"}</Text>
       </View>
       {sortedItems.map((it) => {
         const cantLabel = it.tipo === "Mano de Obra / HH" ? `${(it.hh || 1) * (it.qty || 1)} HH` : String(it.qty ?? "");
@@ -174,7 +174,7 @@ export function CosteoInternoDoc({ proyecto, fasesCalc, codigosPorFaseArr, total
   );
 }
 
-export function CosteoClienteDoc({ proyecto, fasesCalc, codigosPorFaseArr, totales, partidas, logoDataUri }) {
+export function CosteoClienteDoc({ proyecto, fasesCalc, codigosPorFaseArr, totales, partidas, logoDataUri, sinIva }) {
   const tPartidas = (partidas || []).reduce((s, p) => s + Number(p.monto || 0), 0);
   const tAnticipo = (partidas || []).reduce((s, p) => s + (Number(p.monto || 0) * (Number(p.pctAnticipo) || 0)) / 100, 0);
   const tParcial = (partidas || []).reduce((s, p) => s + (Number(p.monto || 0) * (Number(p.pctParcial) || 0)) / 100, 0);
@@ -198,11 +198,18 @@ export function CosteoClienteDoc({ proyecto, fasesCalc, codigosPorFaseArr, total
           <Text style={{ fontSize: 8 }}>RUT: {proyecto.clienteRut || ""}</Text>
         </View>
         {fasesCalc.map((f, fi) => (
-          <FaseBlockPDF key={f.id} fase={f} variant="cliente" codigoPorId={codigosPorFaseArr[fi]} />
+          <FaseBlockPDF key={f.id} fase={f} variant="cliente" codigoPorId={codigosPorFaseArr[fi]} sinIva={sinIva} />
         ))}
         <View style={styles.cardsRow} wrap={false}>
           <View style={styles.card}><Text style={styles.cardLabel}>TOTAL NETO</Text><Text style={styles.cardValue}>{fmt(totales.ventaNeta)}</Text></View>
-          {totales.descuento > 0 ? (
+          {sinIva ? (
+            totales.descuento > 0 && (
+              <>
+                <View style={styles.card}><Text style={styles.cardLabel}>DESCUENTO</Text><Text style={styles.cardValue}>− {fmt(totales.descuento)}</Text></View>
+                <View style={[styles.card, { borderWidth: 2, borderColor: "#00C2FF" }]}><Text style={styles.cardLabel}>TOTAL FINAL</Text><Text style={styles.cardValue}>{fmt(totales.ventaNetaConDesc)}</Text></View>
+              </>
+            )
+          ) : totales.descuento > 0 ? (
             <>
               <View style={styles.card}><Text style={styles.cardLabel}>DESCUENTO</Text><Text style={styles.cardValue}>− {fmt(totales.descuento)}</Text></View>
               <View style={styles.card}><Text style={styles.cardLabel}>NETO C/DESC</Text><Text style={styles.cardValue}>{fmt(totales.ventaNetaConDesc)}</Text></View>
