@@ -10,6 +10,7 @@ import { printOp } from "./printOp.js";
 import { OpModal } from "./OpModal.jsx";
 import { fechaLocal } from "../shared/format.js";
 import { normalizarEquipos, avanceEquipos } from "./equipos.js";
+import SurveillanceCam from "~icons/icon-park-solid/surveillance-cameras-one";
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export function OperacionesView({ isMobile }) {
@@ -148,6 +149,7 @@ export function OperacionesView({ isMobile }) {
                 const est = ESTADO_OT_CFG[o.estado]||ESTADO_OT_CFG.pendiente;
                 const equiposOT = normalizarEquipos(o);
                 const pct = avanceEquipos(equiposOT).pct;
+                const esCCTV = equiposOT.length===1 && (equiposOT[0]?.equipo_tipo||"").includes("CCTV");
                 return (
                   <div key={o.id} onClick={()=>{ setEditOT(o); setShowOTModal(true); }}
                     style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${est.color}`, borderRadius:10, padding:"14px 18px", cursor:"pointer", display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>
@@ -161,8 +163,9 @@ export function OperacionesView({ isMobile }) {
                         {o.proveedor_nombre && <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>👤 {o.proveedor_nombre}</span>}
                         {o.cliente_nombre && <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>🏢 {o.cliente_nombre}</span>}
                         {o.fecha_programada && <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>📅 {new Date(o.fecha_programada+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short"})}</span>}
-                        <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>
-                          🔧 {equiposOT.length>1 ? `${equiposOT.length} equipos (${equiposOT.map(e=>e.nombre).join(", ")})` : (equiposOT[0]?.equipo_tipo||"—")}
+                        <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, display:"flex", alignItems:"center", gap:4 }}>
+                          {esCCTV ? <SurveillanceCam style={{ width:12, height:12, flexShrink:0 }} /> : "🔧"}
+                          {equiposOT.length>1 ? `${equiposOT.length} equipos (${equiposOT.map(e=>e.nombre).join(", ")})` : (equiposOT[0]?.equipo_tipo||"—")}
                         </span>
                       </div>
                     </div>
