@@ -10,7 +10,7 @@ import { printOp } from "./printOp.js";
 import { OpModal } from "./OpModal.jsx";
 import { fechaLocal } from "../shared/format.js";
 import { normalizarEquipos, avanceEquipos } from "./equipos.js";
-import SurveillanceCam from "~icons/icon-park-solid/surveillance-cameras-one";
+import SurveillanceCam from "~icons/bxs/cctv";
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export function OperacionesView({ isMobile }) {

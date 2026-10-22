@@ -374,7 +374,7 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
                       fontFamily:FONT_DISPLAY, fontSize:11, fontWeight: active?700:500,
                       whiteSpace:"nowrap", transition:"all 0.15s",
                     }}>
-                    <span style={{ fontSize:12 }}>{cat.icon}</span>
+                    {cat.Icon ? <cat.Icon style={{ width:13, height:13, flexShrink:0 }} /> : <span style={{ fontSize:12 }}>{cat.icon}</span>}
                     {cat.label}
                     <span style={{
                       fontSize:9, fontFamily:FONT,
@@ -403,7 +403,7 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
                     fontFamily:FONT_DISPLAY, fontSize:11, fontWeight: active?700:500,
                     transition:"all 0.15s",
                   }}>
-                  <span style={{ fontSize:12, flexShrink:0 }}>{cat.icon}</span>
+                  {cat.Icon ? <cat.Icon style={{ width:13, height:13, flexShrink:0 }} /> : <span style={{ fontSize:12, flexShrink:0 }}>{cat.icon}</span>}
                   <span style={{ flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{cat.label}</span>
                   <span style={{
                     fontSize:9, fontFamily:FONT, flexShrink:0,
