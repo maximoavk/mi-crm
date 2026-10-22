@@ -14,7 +14,8 @@ import { HistorialCambiosTab } from "./HistorialCambios.jsx";
 import { DesignProjectsPanel } from "../design/DesignProjectsPanel.jsx";
 import { PdfPreviewModal } from "../shared/ui.jsx";
 import { codigoProyecto, numeroParaCotizacion } from "./correlativo.js";
-import IconPlan from "~icons/icon-park-solid/plan";
+import IconCCTVPlan from "~icons/bxs/cctv";
+import IconNetworkTree from "~icons/icon-park-solid/network-tree";
 
 // La librería de PDF pesa ~1,5 MB: se carga recién al generar un PDF.
 const cargarPdfCosteo = () => Promise.all([import("@react-pdf/renderer"), import("../CosteoPdfDocs.jsx")]);
@@ -894,8 +895,9 @@ export function CosteoView({ contacts, openId, onOpenIdHandled, onOpenDesign, on
       <div style={{ display:"flex", gap:4, marginBottom:20, borderBottom:`1px solid ${C.border}` }}>
         {["costeo","partidas","historial","diseno"].map(t=>(
           <button key={t} onClick={()=>setPage(t)} style={{ padding:"8px 20px", background:"none", border:"none", borderBottom:page===t?`2px solid ${C.accent}`:"2px solid transparent", color:page===t?C.accent:C.textMuted, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:page===t?700:400, cursor:"pointer", marginBottom:-1, display:"inline-flex", alignItems:"center", gap:6 }}>
-            {t==="diseno" && <IconPlan style={{ width:14, height:14, flexShrink:0 }} />}
-            {t==="costeo"?"📊 Control de Costos":t==="partidas"?"💳 Partidas de Pago":t==="historial"?"🌳 Historial de Cambios":"Planos de Diseño"}
+            {t==="diseno" && <IconCCTVPlan style={{ width:14, height:14, flexShrink:0 }} />}
+            {t==="historial" && <IconNetworkTree style={{ width:14, height:14, flexShrink:0 }} />}
+            {t==="costeo"?"📊 Control de Costos":t==="partidas"?"💳 Partidas de Pago":t==="historial"?"Historial de Cambios":"Planos de Diseño"}
           </button>
         ))}
       </div>
