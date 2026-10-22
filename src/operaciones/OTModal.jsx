@@ -1,9 +1,11 @@
 // Modal para crear o editar una orden de trabajo (OT) con su checklist.
 import React, { useState } from "react";
 import { CHECKLIST_TEMPLATES, CHECKLIST_COMISIONAMIENTO, buildChecklist } from "./checklists.js";
+import { nuevoEquipo, normalizarEquipos, avanceChecklist, avanceEquipos } from "./equipos.js";
 import { supabase } from "../supabaseClient.js";
 import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
 import { useTheme } from "../shared/useTheme.js";
+import { TreeCaret } from "../shared/TreeCaret.jsx";
 import { hoyISO } from "../shared/format.js";
 
 // ─── OT MODAL ────────────────────────────────────────────────────────────────
@@ -30,7 +32,6 @@ export function OTModal({ ot, quotes, onClose, onSaved }) {
   const [form, setForm] = useState({
     actividad:        ot?.actividad||"",
     tipo_servicio:    ot?.tipo_servicio||"mantencion",
-    equipo_tipo:      ot?.equipo_tipo||Object.keys(CHECKLIST_TEMPLATES)[0],
     valor_servicio:   ot?.valor_servicio||"",
     fecha_programada: ot?.fecha_programada||hoyISO(),
     cliente_nombre:   ot?.cliente_nombre||"",
@@ -45,7 +46,11 @@ export function OTModal({ ot, quotes, onClose, onSaved }) {
     fecha_ultima_mantencion:   ot?.fecha_ultima_mantencion||"",
     fecha_proxima_mantencion:  ot?.fecha_proxima_mantencion||"",
   });
-  const [checklist, setChecklist] = useState(ot?.checklist||null);
+  const [equipos, setEquipos] = useState(()=>{
+    const norm = normalizarEquipos(ot);
+    return norm.length ? norm : [nuevoEquipo(Object.keys(CHECKLIST_TEMPLATES)[0], ot?.tipo_servicio||"mantencion", "Equipo 1")];
+  });
+  const [equipoCollapsed, setEquipoCollapsed] = useState({});
   const [historial, setHistorial] = useState([]);
   const [historialLoaded, setHistorialLoaded] = useState(false);
   const [materiales, setMateriales] = useState(ot?.materiales||[]);
@@ -82,13 +87,12 @@ export function OTModal({ ot, quotes, onClose, onSaved }) {
     }
   },[form.cotizacion_id]);
 
-  // Cargar historial de mantenciones del mismo cliente + equipo
+  // Cargar historial de mantenciones del mismo cliente (cualquiera de sus equipos)
   React.useEffect(()=>{
-    if(!form.cliente_nombre || !form.equipo_tipo) return;
+    if(!form.cliente_nombre) return;
     supabase.from("ordenes_trabajo")
-      .select("id,numero_ot,fecha_programada,fecha_ultima_mantencion,estado,checklist,observaciones,proveedor_nombre,valor_servicio")
+      .select("id,numero_ot,fecha_programada,fecha_ultima_mantencion,estado,checklist,equipos,observaciones,proveedor_nombre,valor_servicio")
       .eq("cliente_nombre", form.cliente_nombre)
-      .eq("equipo_tipo", form.equipo_tipo)
       .order("fecha_programada", { ascending: false })
       .limit(20)
       .then(({ data })=>{
@@ -100,24 +104,26 @@ export function OTModal({ ot, quotes, onClose, onSaved }) {
           ff("fecha_ultima_mantencion", prev[0].fecha_programada);
         }
       });
-  },[form.cliente_nombre, form.equipo_tipo]);
+  },[form.cliente_nombre]);
 
-  // Init checklist cuando cambia equipo_tipo
-  React.useEffect(()=>{
-    if(!ot?.checklist){
-      const tmpl = form.tipo_servicio==="comisionamiento"
-        ? CHECKLIST_COMISIONAMIENTO[form.equipo_tipo]
-        : CHECKLIST_TEMPLATES[form.equipo_tipo];
-      setChecklist(buildChecklist(tmpl||[]));
-    }
-  },[form.equipo_tipo, form.tipo_servicio]);
+  const setItem = (equipoId,sIdx,iIdx,field,val) =>
+    setEquipos(prev=>prev.map(e=>e.id!==equipoId?e:{...e,checklist:e.checklist.map((s,si)=>si!==sIdx?s:{...s,items:s.items.map((it,ii)=>ii!==iIdx?it:{...it,[field]:val})})}));
 
-  const setItem = (sIdx,iIdx,field,val) =>
-    setChecklist(prev=>prev.map((s,si)=>si!==sIdx?s:{...s,items:s.items.map((it,ii)=>ii!==iIdx?it:{...it,[field]:val})}));
+  const addEquipo = () => setEquipos(prev=>[...prev, nuevoEquipo(Object.keys(CHECKLIST_TEMPLATES)[0], form.tipo_servicio, `Equipo ${prev.length+1}`)]);
+  const removeEquipo = (id) => {
+    if(equipos.length<=1){ alert("La OT debe tener al menos un equipo."); return; }
+    if(!window.confirm("¿Eliminar este equipo y su checklist?")) return;
+    setEquipos(prev=>prev.filter(e=>e.id!==id));
+  };
+  const updateEquipo = (id,patch) => setEquipos(prev=>prev.map(e=>e.id===id?{...e,...patch}:e));
+  const cambiarTipoEquipo = (equipo, tipo) => {
+    const tieneProgreso = (equipo.checklist||[]).some(s=>(s.items||[]).some(it=>it.estado));
+    if(tieneProgreso && !window.confirm("Cambiar el tipo de equipo reinicia su checklist. ¿Continuar?")) return;
+    const tmpl = form.tipo_servicio==="comisionamiento" ? CHECKLIST_COMISIONAMIENTO[tipo] : CHECKLIST_TEMPLATES[tipo];
+    updateEquipo(equipo.id, { equipo_tipo: tipo, checklist: buildChecklist(tmpl||[]) });
+  };
 
-  const totalItems = (checklist||[]).reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado!=="na").length,0);
-  const doneItems  = (checklist||[]).reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado==="ok"||it.estado==="ok_c").length,0);
-  const pct = totalItems>0?Math.round(doneItems/totalItems*100):0;
+  const { total:totalItems, done:doneItems, pct } = avanceEquipos(equipos);
 
   // Resultados búsqueda COT
   const cotResults = React.useMemo(()=>{
@@ -198,7 +204,11 @@ export function OTModal({ ot, quotes, onClose, onSaved }) {
         ...form,
         valor_servicio: form.valor_servicio !== "" ? Number(form.valor_servicio) : null,
         cotizacion_id:  form.cotizacion_id || null,
-        checklist:      checklist||[],
+        equipos:        equipos,
+        // Espejo del primer equipo en las columnas viejas (equipo_tipo/checklist),
+        // por si algo fuera de este modal todavía las lee directamente.
+        equipo_tipo:    equipos[0]?.equipo_tipo || null,
+        checklist:      equipos[0]?.checklist || [],
         materiales:     materiales||[],
         firma_imagen:   firma.img||null,
         firma_nombre:   firma.nombre||null,
@@ -342,13 +352,6 @@ export function OTModal({ ot, quotes, onClose, onSaved }) {
                   <option value="emergencia">Emergencia</option>
                 </select>
               </div>
-              {/* Equipo */}
-              <div>
-                <label style={lbl}>Tipo de equipo (checklist)</label>
-                <select value={form.equipo_tipo} onChange={e=>ff("equipo_tipo",e.target.value)} style={inp}>
-                  {Object.keys(CHECKLIST_TEMPLATES).map(k=><option key={k} value={k}>{k}</option>)}
-                </select>
-              </div>
               {/* Código de servicio — mismo patrón que cotizador */}
               <div style={{ gridColumn:"1/-1" }}>
                 <label style={lbl}>Línea de servicio (Maestro de productos)</label>
@@ -483,42 +486,75 @@ export function OTModal({ ot, quotes, onClose, onSaved }) {
             <div>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
                 <div style={{ fontFamily:FONT, fontSize:12, color:C.textMuted }}>
-                  {doneItems}/{totalItems} ítems · {pct}% completado
+                  {doneItems}/{totalItems} ítems · {pct}% completado · {equipos.length} equipo{equipos.length!==1?"s":""}
                 </div>
                 <div style={{ height:8, width:200, background:C.border, borderRadius:4, overflow:"hidden" }}>
                   <div style={{ height:8, borderRadius:4, background:pct===100?C.green:TC, width:`${pct}%`, transition:"width 0.3s" }} />
                 </div>
               </div>
-              {(checklist||[]).map((sec,sIdx)=>(
-                <div key={sIdx} style={{ marginBottom:16 }}>
-                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:C.text, marginBottom:8, padding:"6px 10px", background:C.surface, borderRadius:6, borderLeft:`3px solid ${TC}` }}>
-                    {sec.seccion}
-                  </div>
-                  {(sec.items||[]).map((it,iIdx)=>(
-                    <div key={iIdx} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 10px", borderBottom:`1px solid ${C.border}11` }}>
-                      <div style={{ flex:1, fontFamily:FONT, fontSize:11, color:C.text }}>{it.label}</div>
-                      {[
-                        {k:"ok",   l:"✓ OK",   c:C.green},
-                        {k:"ok_c", l:"✓ Nota",  c:"#4CAF50"},
-                        {k:"desv", l:"⚠ Desv",  c:C.yellow},
-                        {k:"na",   l:"N/A",     c:C.textMuted},
-                      ].map(({k,l,c})=>(
-                        <button key={k} onClick={()=>setItem(sIdx,iIdx,"estado",it.estado===k?null:k)}
-                          style={{ padding:"2px 8px", borderRadius:5, fontFamily:FONT, fontSize:10, cursor:"pointer",
-                            background:it.estado===k?`${c}22`:"transparent", border:`1px solid ${it.estado===k?c:C.border}`,
-                            color:it.estado===k?c:C.textMuted }}>
-                          {l}
-                        </button>
-                      ))}
-                      {(it.estado==="ok_c"||it.estado==="desv") && (
-                        <input value={it.obs||""} onChange={e=>setItem(sIdx,iIdx,"obs",e.target.value)}
-                          placeholder={it.estado==="ok_c"?"Nota…":"Desviación…"}
-                          style={{ ...inp, width:160, padding:"2px 8px", fontSize:10 }} />
+
+              {equipos.map((eq,eqIdx)=>{
+                const eqAvance = avanceChecklist(eq.checklist);
+                const collapsed = !!equipoCollapsed[eq.id];
+                return (
+                  <div key={eq.id} style={{ marginBottom:16, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 12px", background:C.card, flexWrap:"wrap" }}>
+                      <TreeCaret collapsed={collapsed} onToggle={()=>setEquipoCollapsed(p=>({...p,[eq.id]:!p[eq.id]}))} color={TC} />
+                      <input value={eq.nombre} onChange={e=>updateEquipo(eq.id,{nombre:e.target.value})}
+                        placeholder={`Equipo ${eqIdx+1}`}
+                        style={{ ...inp, width:130, padding:"4px 8px", fontFamily:FONT_DISPLAY, fontWeight:700, fontSize:12 }} />
+                      <select value={eq.equipo_tipo} onChange={e=>cambiarTipoEquipo(eq,e.target.value)}
+                        style={{ ...inp, width:"auto", padding:"4px 8px", fontSize:11 }}>
+                        {Object.keys(CHECKLIST_TEMPLATES).map(k=><option key={k} value={k}>{k}</option>)}
+                      </select>
+                      <input value={eq.detalle} onChange={e=>updateEquipo(eq.id,{detalle:e.target.value})}
+                        placeholder="Detalle: motor antiguo Centurion, aportado por cliente…"
+                        style={{ ...inp, flex:1, minWidth:180, padding:"4px 8px", fontSize:11 }} />
+                      <span style={{ fontFamily:FONT, fontSize:10, color:eqAvance.pct===100?C.green:C.textMuted, flexShrink:0 }}>{eqAvance.pct}%</span>
+                      {equipos.length>1 && (
+                        <button onClick={()=>removeEquipo(eq.id)}
+                          style={{ background:"none", border:"none", color:C.red, cursor:"pointer", fontSize:16, lineHeight:1, flexShrink:0 }}>✕</button>
                       )}
                     </div>
-                  ))}
-                </div>
-              ))}
+                    {!collapsed && (eq.checklist||[]).map((sec,sIdx)=>(
+                      <div key={sIdx} style={{ padding:"10px 12px 0" }}>
+                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:C.text, marginBottom:8, padding:"6px 10px", background:C.surface, borderRadius:6, borderLeft:`3px solid ${TC}` }}>
+                          {sec.seccion}
+                        </div>
+                        {(sec.items||[]).map((it,iIdx)=>(
+                          <div key={iIdx} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 10px", borderBottom:`1px solid ${C.border}11` }}>
+                            <div style={{ flex:1, fontFamily:FONT, fontSize:11, color:C.text }}>{it.label}</div>
+                            {[
+                              {k:"ok",   l:"✓ OK",   c:C.green},
+                              {k:"ok_c", l:"✓ Nota",  c:"#4CAF50"},
+                              {k:"desv", l:"⚠ Desv",  c:C.yellow},
+                              {k:"na",   l:"N/A",     c:C.textMuted},
+                            ].map(({k,l,c})=>(
+                              <button key={k} onClick={()=>setItem(eq.id,sIdx,iIdx,"estado",it.estado===k?null:k)}
+                                style={{ padding:"2px 8px", borderRadius:5, fontFamily:FONT, fontSize:10, cursor:"pointer",
+                                  background:it.estado===k?`${c}22`:"transparent", border:`1px solid ${it.estado===k?c:C.border}`,
+                                  color:it.estado===k?c:C.textMuted }}>
+                                {l}
+                              </button>
+                            ))}
+                            {(it.estado==="ok_c"||it.estado==="desv") && (
+                              <input value={it.obs||""} onChange={e=>setItem(eq.id,sIdx,iIdx,"obs",e.target.value)}
+                                placeholder={it.estado==="ok_c"?"Nota…":"Desviación…"}
+                                style={{ ...inp, width:160, padding:"2px 8px", fontSize:10 }} />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                    {!collapsed && <div style={{ height:10 }} />}
+                  </div>
+                );
+              })}
+
+              <button onClick={addEquipo}
+                style={{ padding:"10px 16px", background:`${TC}11`, border:`1px dashed ${TC}55`, borderRadius:8, fontFamily:FONT_DISPLAY, fontSize:12, color:TC, cursor:"pointer", width:"100%" }}>
+                + Agregar portón / equipo
+              </button>
             </div>
           )}
 
@@ -588,6 +624,12 @@ export function OTModal({ ot, quotes, onClose, onSaved }) {
                   <div><label style={lbl}>Valor del servicio</label><div style={{ fontFamily:FONT_DISPLAY, fontSize:18, fontWeight:700, color:C.green }}>{form.valor_servicio ? fmtClp(form.valor_servicio) : "No definido"}</div></div>
                   <div><label style={lbl}>Tipo</label><div style={{ fontFamily:FONT, fontSize:12, color:C.text }}>{form.tipo_servicio}{form.codigo_servicio&&<span style={{ color:TC, fontSize:10 }}> · {form.codigo_servicio}</span>}</div></div>
                   <div><label style={lbl}>Avance checklist</label><div style={{ fontFamily:FONT_DISPLAY, fontSize:13, color:pct===100?C.green:C.yellow }}>{pct}%</div></div>
+                  <div style={{ gridColumn:"1/-1" }}>
+                    <label style={lbl}>Equipos atendidos ({equipos.length})</label>
+                    <div style={{ fontFamily:FONT, fontSize:11, color:C.text }}>
+                      {equipos.map(e=>`${e.nombre} (${e.equipo_tipo}${e.detalle?" · "+e.detalle:""})`).join(" · ")}
+                    </div>
+                  </div>
                   {materiales.length>0 && <div style={{ gridColumn:"1/-1" }}><label style={lbl}>Materiales entregados ({materiales.length})</label><div style={{ fontFamily:FONT, fontSize:11, color:C.text }}>{materiales.map(m=>`${m.nombre} ×${m.cantidad}`).join(" · ")}</div></div>}
                 </div>
               </div>
@@ -650,21 +692,18 @@ export function OTModal({ ot, quotes, onClose, onSaved }) {
                 <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:24, textAlign:"center" }}>
                   <div style={{ fontSize:28, marginBottom:8 }}>📋</div>
                   <div style={{ fontFamily:FONT, fontSize:13, color:C.textMuted }}>
-                    {form.cliente_nombre ? `Sin mantenciones previas registradas para ${form.cliente_nombre} · ${form.equipo_tipo}` : "Completa cliente y equipo para ver el historial"}
+                    {form.cliente_nombre ? `Sin mantenciones previas registradas para ${form.cliente_nombre}` : "Completa el cliente para ver el historial"}
                   </div>
                 </div>
               ) : (
                 <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
                   <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>
-                    {historial.length} mantención{historial.length!==1?"es":""} registrada{historial.length!==1?"s":""} · {form.equipo_tipo} · {form.cliente_nombre}
+                    {historial.length} mantención{historial.length!==1?"es":""} registrada{historial.length!==1?"s":""} · {form.cliente_nombre}
                   </div>
                   {historial.map((h,i)=>{
                     const eConf = ESTADO_OT[h.estado]||{ label:h.estado, color:C.textMuted };
-                    const hPct = h.checklist ? (() => {
-                      const items = h.checklist.flatMap(s=>s.items||[]).filter(it=>it.estado!=="na");
-                      const done  = items.filter(it=>it.estado==="ok"||it.estado==="ok_c");
-                      return items.length ? Math.round(done.length/items.length*100) : 0;
-                    })() : null;
+                    const hEquipos = normalizarEquipos(h);
+                    const hPct = hEquipos.length ? avanceEquipos(hEquipos).pct : null;
                     return (
                       <div key={h.id} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"12px 16px" }}>
                         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
@@ -676,6 +715,11 @@ export function OTModal({ ot, quotes, onClose, onSaved }) {
                             {h.fecha_programada ? new Date(h.fecha_programada+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"}) : "Sin fecha"}
                           </span>
                         </div>
+                        {hEquipos.length>0 && (
+                          <div style={{ fontFamily:FONT, fontSize:10, color:TC, marginBottom:6 }}>
+                            🔧 {hEquipos.map(e=>e.nombre).join(" · ")}
+                          </div>
+                        )}
                         <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
                           {h.proveedor_nombre && <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>👤 {h.proveedor_nombre}</span>}
                           {hPct !== null && (

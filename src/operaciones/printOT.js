@@ -1,5 +1,6 @@
 // ─── PDF OT ───────────────────────────────────────────────────────────────────
 import { EMPRESA, EMPRESA_RUT } from "../shared/empresa.js";
+import { normalizarEquipos, avanceChecklist, avanceEquipos } from "./equipos.js";
 
 export function printOT(ot, clienteMode=false, historial=[]) {
   const fecha = ot.fecha_programada
@@ -11,7 +12,8 @@ export function printOT(ot, clienteMode=false, historial=[]) {
   const fProxima = fmtFecha(ot.fecha_proxima_mantencion);
   const tipoLabel = { mantencion:"Checklist de Mantención", comisionamiento:"Informe de Comisionamiento", visita:"Visita Técnica", garantia:"Garantía", emergencia:"Emergencia" };
 
-  const checklistHtml = (ot.checklist||[]).map(sec=>`
+  const equipos = normalizarEquipos(ot);
+  const equipoSecHtml = (sec) => `
     <div class="sec">
       <div class="sec-title">${sec.seccion}</div>
       <div class="items-grid">
@@ -33,7 +35,18 @@ export function printOT(ot, clienteMode=false, historial=[]) {
         }).join("")}
       </div>
     </div>
-  `).join("");
+  `;
+
+  const checklistHtml = equipos.map((eq,i)=>{
+    const eqPct = avanceChecklist(eq.checklist).pct;
+    return `
+    <div class="equipo-block">
+      <div class="equipo-title">🔧 ${eq.nombre||`Equipo ${i+1}`} · ${eq.equipo_tipo||"—"}${eq.detalle?` — ${eq.detalle}`:""}
+        <span class="equipo-pct">${eqPct}%</span>
+      </div>
+      ${(eq.checklist||[]).map(equipoSecHtml).join("")}
+    </div>`;
+  }).join("");
 
   const materialesHtml = (ot.materiales||[]).length>0 ? `
     <div class="com-block" style="margin-bottom:5mm;">
@@ -57,9 +70,7 @@ export function printOT(ot, clienteMode=false, historial=[]) {
       <table class="com-table"><tr><td>Tipo</td><td><b>${ot.tipo_servicio||"—"}</b></td><td>Monto</td><td><b>${fmtClp(ot.valor_servicio)}</b></td></tr></table>
     </div>` : "";
 
-  const totalItems = (ot.checklist||[]).reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado!=="na").length,0);
-  const doneItems  = (ot.checklist||[]).reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado==="ok"||it.estado==="ok_c").length,0);
-  const pct = totalItems>0?Math.round(doneItems/totalItems*100):0;
+  const { pct } = avanceEquipos(equipos);
 
   const firmaHtml = ot.firma_imagen
     ? `<div class="firma-box"><div class="firma-label">Firma de conformidad del cliente</div><img src="${ot.firma_imagen}" style="max-width:200px;max-height:70px;display:block;margin:4px 0"/><div style="font-size:9px;color:#666">${ot.firma_nombre||""} · ${fecha}</div></div>`
@@ -68,9 +79,9 @@ export function printOT(ot, clienteMode=false, historial=[]) {
   // Construir log unificado: OTs del historial + registros manuales acumulados
   const logEntries = [];
   historial.forEach(h => {
-    const hItems = (h.checklist||[]).flatMap(s=>s.items||[]).filter(it=>it.estado!=="na");
-    const hDone  = hItems.filter(it=>it.estado==="ok"||it.estado==="ok_c");
-    const hPct   = hItems.length ? Math.round(hDone.length/hItems.length*100) : null;
+    const hEquipos = normalizarEquipos(h);
+    const hAvance  = avanceEquipos(hEquipos);
+    const hPct     = hAvance.total>0 ? hAvance.pct : null;
     if(h.fecha_programada) logEntries.push({ tipo:"ot", num:h.numero_ot||"—", prov:h.proveedor_nombre||"—", pct:hPct, fecha:h.fecha_programada, obs:h.observaciones||"" });
     if(h.fecha_ultima_mantencion && h.fecha_ultima_mantencion!==h.fecha_programada)
       logEntries.push({ tipo:"manual", num:"—", prov:"Registro manual", pct:null, fecha:h.fecha_ultima_mantencion, obs:"" });
@@ -99,6 +110,9 @@ export function printOT(ot, clienteMode=false, historial=[]) {
     .com-table{width:100%;font-size:10px;border-collapse:collapse;}
     .com-table td{padding:3px 6px;border-bottom:1px solid #dde8f8;}
     .com-table td:first-child,.com-table td:nth-child(3){color:#666;font-size:9px;width:22%;}
+    .equipo-block{margin-bottom:6mm;}
+    .equipo-title{font-size:11px;font-weight:700;color:#fff;background:#1e293b;padding:5px 10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;align-items:center;}
+    .equipo-pct{font-size:10px;font-weight:700;color:#93c5fd;}
     .sec{margin-bottom:5mm;}
     .sec-title{font-size:11px;font-weight:700;border-bottom:1.5px solid #1a1a1a;padding-bottom:2px;margin-bottom:3mm;}
     .items-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;}
@@ -144,7 +158,7 @@ export function printOT(ot, clienteMode=false, historial=[]) {
     <div class="meta-box"><div class="meta-label">Cliente</div><div class="meta-val">${ot.cliente_nombre||"—"}</div>${ot.cliente_rut?`<div class="meta-sub">RUT: ${ot.cliente_rut}</div>`:""}</div>
     <div class="meta-box"><div class="meta-label">Dirección / Lugar</div><div class="meta-val">${ot.lugar||"—"}</div></div>
     <div class="meta-box"><div class="meta-label">Proveedor / Subcontratista</div><div class="meta-val">${ot.proveedor_nombre||"—"}</div></div>
-    <div class="meta-box"><div class="meta-label">Equipo / Sistema</div><div class="meta-val">${ot.equipo_tipo||"—"}</div></div>
+    <div class="meta-box"><div class="meta-label">Equipo / Sistema</div><div class="meta-val">${equipos.length>1 ? `${equipos.length} equipos` : (equipos[0]?.equipo_tipo||"—")}</div>${equipos.length>1?`<div class="meta-sub">${equipos.map(e=>e.nombre).join(", ")}</div>`:""}</div>
   </div>
   ${clienteMode?"":servBlock}
   ${checklistHtml}
@@ -161,7 +175,7 @@ export function printOT(ot, clienteMode=false, historial=[]) {
   </div>
   <div class="mant-reg">
     <div class="mant-reg-title">
-      <span>📋 Registro de Mantenimiento · ${ot.equipo_tipo||"Equipo"} · ${ot.cliente_nombre||""}</span>
+      <span>📋 Registro de Mantenimiento · ${equipos.length>1?`${equipos.length} equipos`:(equipos[0]?.equipo_tipo||"Equipo")} · ${ot.cliente_nombre||""}</span>
       <span style="font-weight:400;font-size:8.5px;letter-spacing:0">${historial.length>0?historial.length+" mantención"+(historial.length!==1?"es":"")+" anterior"+(historial.length!==1?"es":""):"Sin historial previo"}</span>
     </div>
     <div class="mant-reg-dates">

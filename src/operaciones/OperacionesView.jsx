@@ -9,6 +9,7 @@ import { OTModal } from "./OTModal.jsx";
 import { printOp } from "./printOp.js";
 import { OpModal } from "./OpModal.jsx";
 import { fechaLocal } from "../shared/format.js";
+import { normalizarEquipos, avanceEquipos } from "./equipos.js";
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export function OperacionesView({ isMobile }) {
@@ -145,11 +146,8 @@ export function OperacionesView({ isMobile }) {
             <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
               {filteredOTs.map(o=>{
                 const est = ESTADO_OT_CFG[o.estado]||ESTADO_OT_CFG.pendiente;
-                const pct = (o.checklist||[]).length>0 ? (() => {
-                  const total=(o.checklist||[]).reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado!=="na").length,0);
-                  const done=(o.checklist||[]).reduce((s,sec)=>s+(sec.items||[]).filter(it=>it.estado==="ok"||it.estado==="ok_c").length,0);
-                  return total>0?Math.round(done/total*100):0;
-                })() : 0;
+                const equiposOT = normalizarEquipos(o);
+                const pct = avanceEquipos(equiposOT).pct;
                 return (
                   <div key={o.id} onClick={()=>{ setEditOT(o); setShowOTModal(true); }}
                     style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${est.color}`, borderRadius:10, padding:"14px 18px", cursor:"pointer", display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>
@@ -163,7 +161,9 @@ export function OperacionesView({ isMobile }) {
                         {o.proveedor_nombre && <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>👤 {o.proveedor_nombre}</span>}
                         {o.cliente_nombre && <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>🏢 {o.cliente_nombre}</span>}
                         {o.fecha_programada && <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>📅 {new Date(o.fecha_programada+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short"})}</span>}
-                        <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>🔧 {o.equipo_tipo}</span>
+                        <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>
+                          🔧 {equiposOT.length>1 ? `${equiposOT.length} equipos (${equiposOT.map(e=>e.nombre).join(", ")})` : (equiposOT[0]?.equipo_tipo||"—")}
+                        </span>
                       </div>
                     </div>
                     <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4, minWidth:100 }}>
@@ -172,10 +172,10 @@ export function OperacionesView({ isMobile }) {
                       {pct>0 && <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>Checklist {pct}%</span>}
                       {o.firma_imagen && <span style={{ fontFamily:FONT, fontSize:10, color:C.green }}>✓ Firmado</span>}
                     </div>
-                    <button onClick={async e=>{ e.stopPropagation(); const {data:hist}=await supabase.from("ordenes_trabajo").select("id,numero_ot,fecha_programada,fecha_ultima_mantencion,estado,checklist,observaciones,proveedor_nombre,valor_servicio").eq("cliente_nombre",o.cliente_nombre).eq("equipo_tipo",o.equipo_tipo).neq("id",o.id).order("fecha_programada",{ascending:false}).limit(10); printOT(o,false,hist||[]); }}
+                    <button onClick={async e=>{ e.stopPropagation(); const {data:hist}=await supabase.from("ordenes_trabajo").select("id,numero_ot,fecha_programada,fecha_ultima_mantencion,estado,checklist,equipos,observaciones,proveedor_nombre,valor_servicio").eq("cliente_nombre",o.cliente_nombre).neq("id",o.id).order("fecha_programada",{ascending:false}).limit(10); printOT(o,false,hist||[]); }}
                       title="PDF Técnico (con valor)"
                       style={{ background:"none", border:`1px solid ${C.accent}44`, borderRadius:6, color:C.accent, cursor:"pointer", padding:"4px 10px", fontSize:11, flexShrink:0 }}>🖨 Técnico</button>
-                    <button onClick={async e=>{ e.stopPropagation(); const {data:hist}=await supabase.from("ordenes_trabajo").select("id,numero_ot,fecha_programada,fecha_ultima_mantencion,estado,checklist,observaciones,proveedor_nombre,valor_servicio").eq("cliente_nombre",o.cliente_nombre).eq("equipo_tipo",o.equipo_tipo).neq("id",o.id).order("fecha_programada",{ascending:false}).limit(10); printOT(o,true,hist||[]); }}
+                    <button onClick={async e=>{ e.stopPropagation(); const {data:hist}=await supabase.from("ordenes_trabajo").select("id,numero_ot,fecha_programada,fecha_ultima_mantencion,estado,checklist,equipos,observaciones,proveedor_nombre,valor_servicio").eq("cliente_nombre",o.cliente_nombre).neq("id",o.id).order("fecha_programada",{ascending:false}).limit(10); printOT(o,true,hist||[]); }}
                       title="PDF Cliente (sin valor)"
                       style={{ background:"none", border:`1px solid ${C.green}44`, borderRadius:6, color:C.green, cursor:"pointer", padding:"4px 10px", fontSize:11, flexShrink:0 }}>🖨 Cliente</button>
                     <button onClick={async e=>{ e.stopPropagation(); if(!window.confirm("¿Eliminar esta OT?")) return; const {error}=await supabase.from("ordenes_trabajo").delete().eq("id",o.id); if(error){ alert("Error al eliminar: "+error.message); return; } setOts(prev=>prev.filter(x=>x.id!==o.id)); }}
