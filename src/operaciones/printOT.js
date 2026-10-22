@@ -105,16 +105,17 @@ export function printOT(ot, clienteMode=false, historial=[]) {
     .meta-label{font-size:8px;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:2px;font-weight:600;}
     .meta-val{font-size:11px;font-weight:700;color:#1a1a1a;}
     .meta-sub{font-size:9px;color:#555;margin-top:1px;}
-    .com-block{margin-bottom:5mm;padding:6px 10px;border:1.5px solid #3b82f6;border-radius:4px;background:#f0f7ff;}
+    .com-block{margin-bottom:5mm;padding:6px 10px;border:1.5px solid #3b82f6;border-radius:4px;background:#f0f7ff;break-inside:avoid;page-break-inside:avoid;}
     .com-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#3b82f6;margin-bottom:4px;}
     .com-table{width:100%;font-size:10px;border-collapse:collapse;}
     .com-table td{padding:3px 6px;border-bottom:1px solid #dde8f8;}
     .com-table td:first-child,.com-table td:nth-child(3){color:#666;font-size:9px;width:22%;}
     .equipo-block{margin-bottom:6mm;}
-    .equipo-title{font-size:11px;font-weight:700;color:#fff;background:#1e293b;padding:5px 10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;align-items:center;}
+    .equipo-block + .equipo-block{break-before:page;page-break-before:always;}
+    .equipo-title{font-size:11px;font-weight:700;color:#fff;background:#1e293b;padding:5px 10px;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;align-items:center;break-after:avoid;page-break-after:avoid;}
     .equipo-pct{font-size:10px;font-weight:700;color:#93c5fd;}
-    .sec{margin-bottom:5mm;}
-    .sec-title{font-size:11px;font-weight:700;border-bottom:1.5px solid #1a1a1a;padding-bottom:2px;margin-bottom:3mm;}
+    .sec{margin-bottom:5mm;break-inside:avoid;page-break-inside:avoid;}
+    .sec-title{font-size:11px;font-weight:700;border-bottom:1.5px solid #1a1a1a;padding-bottom:2px;margin-bottom:3mm;break-after:avoid;page-break-after:avoid;}
     .items-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;}
     .item{display:flex;align-items:flex-start;gap:5px;padding:3px 5px;border-radius:2px;font-size:10px;}
     .item.ok{background:#f0fdf4;}.item.obs{background:#fff7ed;}.item.na{background:#f8fafc;opacity:.6;}.item.pend{background:#fff;}
@@ -122,16 +123,18 @@ export function printOT(ot, clienteMode=false, historial=[]) {
     .item-body{flex:1;}
     .item-obs{font-size:8.5px;color:#b45309;margin-top:1px;font-style:italic;}
     .badge-obs{font-size:8px;font-weight:700;color:#b45309;background:#fef3c7;padding:1px 4px;border-radius:3px;flex-shrink:0;}
-    .footer-row{display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin-top:6mm;padding-top:4mm;border-top:1px solid #e2e8f0;}
+    .footer-row{display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin-top:6mm;padding-top:4mm;border-top:1px solid #e2e8f0;break-inside:avoid;page-break-inside:avoid;}
     .firma-box{border:1px solid #e2e8f0;border-radius:3px;padding:6px 10px;}
     .firma-label{font-size:8px;text-transform:uppercase;letter-spacing:.07em;color:#888;font-weight:600;margin-bottom:4px;}
     .tecnico-box{border:1px solid #e2e8f0;border-radius:3px;padding:6px 10px;}
-    .obs-cierre{margin:4mm 0;padding:5px 8px;border:1px solid #e2e8f0;border-radius:3px;font-size:10px;}
+    .obs-cierre{margin:4mm 0;padding:5px 8px;border:1px solid #e2e8f0;border-radius:3px;font-size:10px;break-inside:avoid;page-break-inside:avoid;}
     .foot{margin-top:6mm;border-top:1px solid #ccc;padding-top:3mm;font-size:8px;color:#999;text-align:center;}
     .hist-block{margin:5mm 0;border:1.5px solid #e2e8f0;border-radius:4px;overflow:hidden;}
     .hist-title{background:#1e293b;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:5px 10px;}
     .hist-row{display:grid;grid-template-columns:90px 1fr 70px 80px;gap:4px;padding:4px 10px;border-bottom:1px solid #f1f5f9;font-size:9.5px;align-items:center;}
     .hist-row:last-child{border-bottom:none;}
+    .hist-row.hist-head{break-after:avoid;page-break-after:avoid;}
+    .hist-entry{break-inside:avoid;page-break-inside:avoid;}
     .hist-head{background:#f8fafc;font-weight:700;font-size:8.5px;color:#64748b;text-transform:uppercase;}
     .hist-num{color:#3b82f6;font-weight:700;}
     .hist-obs{font-size:8.5px;color:#64748b;font-style:italic;padding:2px 10px 4px;background:#fafafa;}
@@ -140,8 +143,8 @@ export function printOT(ot, clienteMode=false, historial=[]) {
     .mant-dates{display:flex;gap:6mm;margin:4mm 0;}
     .mant-date-box{flex:1;border:1px solid #e2e8f0;border-radius:3px;padding:5px 8px;}
     .mant-reg{margin-top:5mm;border:1.5px solid #334155;border-radius:4px;overflow:hidden;}
-    .mant-reg-title{background:#1e293b;color:#fff;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:5px 10px;display:flex;justify-content:space-between;align-items:center;}
-    .mant-reg-dates{display:grid;grid-template-columns:1fr 1fr;gap:4mm;padding:6px 10px;background:#f8fafc;border-bottom:1px solid #e2e8f0;}
+    .mant-reg-title{background:#1e293b;color:#fff;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:5px 10px;display:flex;justify-content:space-between;align-items:center;break-after:avoid;page-break-after:avoid;}
+    .mant-reg-dates{display:grid;grid-template-columns:1fr 1fr;gap:4mm;padding:6px 10px;background:#f8fafc;border-bottom:1px solid #e2e8f0;break-inside:avoid;page-break-inside:avoid;break-before:avoid;page-break-before:avoid;break-after:avoid;page-break-after:avoid;}
     .mant-reg-lbl{font-size:7.5px;text-transform:uppercase;letter-spacing:.07em;color:#64748b;font-weight:600;margin-bottom:1px;}
     .mant-reg-val{font-size:10.5px;font-weight:700;color:#1a1a1a;}
     .mant-reg-val.no-data{color:#94a3b8;font-style:italic;font-weight:400;}
@@ -190,7 +193,7 @@ export function printOT(ot, clienteMode=false, historial=[]) {
     </div>
     ${logEntries.length>0?`
     <div class="hist-row hist-head" style="border-top:1px solid #e2e8f0"><span>N° OT</span><span>Proveedor / Origen</span><span>Checklist</span><span>Fecha</span></div>
-    ${logEntries.map(e=>`<div>
+    ${logEntries.map(e=>`<div class="hist-entry">
         <div class="hist-row${e.tipo==="manual"?" manual":""}">
           <span class="${e.tipo==="ot"?"hist-num":""}">${e.num}${e.tipo==="manual"?`<span class="hist-manual-badge">MANUAL</span>`:""}</span>
           <span>${e.prov}</span>
