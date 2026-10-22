@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>Documento con diagrama</title>
+
+  <!-- Mancha de fondo -->
+  <path d="M150 62 C215 40 250 92 310 82 C380 70 470 88 482 160 C492 220 430 238 432 280 C434 330 470 370 440 420 C405 478 330 460 285 440 C240 420 210 458 150 448 C80 436 40 395 52 340 C62 292 100 285 92 240 C84 190 40 165 62 118 C80 80 115 72 150 62 Z" fill="#ECEDEF"/>
+
+  <g stroke="#000" stroke-width="11" stroke-linejoin="round" stroke-linecap="round">
+    <!-- Hoja trasera -->
+    <rect x="122" y="100" width="232" height="278" rx="14" fill="#8E9195"/>
+
+    <!-- Hoja delantera con esquina doblada -->
+    <path d="M102 130 H312 Q324 130 324 142 V364 L278 410 H102 Q90 410 90 398 V142 Q90 130 102 130 Z" fill="#F4F9FB"/>
+    <path d="M324 364 H292 Q278 364 278 378 V410 Z" fill="#C9CCCF"/>
+
+    <!-- Bloque superior del diagrama -->
+    <rect x="140" y="184" width="134" height="55" rx="12" fill="#7B66D6"/>
+
+    <!-- Conectores -->
+    <path d="M172 239 V266 M240 239 V266" fill="none"/>
+    <path d="M162 258 L172 268 L182 258 M230 258 L240 268 L250 258" fill="none"/>
+
+    <!-- Hexágonos -->
+    <polygon points="172,280 196,294 196,322 172,336 148,322 148,294" fill="#EF7D9B"/>
+    <polygon points="242,280 266,294 266,322 242,336 218,322 218,294" fill="#F7576A"/>
+
+    <!-- Lápiz -->
+    <g transform="translate(284 268) rotate(-40.9)">
+      <path d="M0 0 L40 -19 H150 V19 H40 Z" fill="#3DD5F6"/>
+      <path d="M150 -19 H172 Q190 -19 190 0 Q190 19 172 19 H150 Z" fill="#F4F9FB"/>
+      <path d="M40 -19 V19" fill="none"/>
+    </g>
+  </g>
+</svg>

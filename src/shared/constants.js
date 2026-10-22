@@ -1,6 +1,6 @@
 // Catálogos fijos compartidos entre módulos (etapas, estados, rubros, categorías).
 import { COLORS } from "../theme.js";
-import IconCCTVEquipos from "~icons/bxs/cctv";
+import { IconCamaraCCTV } from "./icons/CustomIcons.jsx";
 import IconCCTVAccesorios from "~icons/icon-park-solid/hdmi-cable";
 
 export const STAGES = [
@@ -26,7 +26,7 @@ export const RUBRO_ICON = { "CCTV":"🎥", "Motores de Portones":"⚙️", "Cerc
 // ── CATEGORÍAS DE CATÁLOGO POLYGONOS ────────────────────────────────────────
 export const CATALOG_CATS = [
   { key:"todos",                         label:"Todos",               icon:"◈",  color:COLORS.textMuted },
-  { key:"CCTV Equipos",                  label:"CCTV Equipos",        icon:"📷", Icon:IconCCTVEquipos,    color:"#3b82f6" },
+  { key:"CCTV Equipos",                  label:"CCTV Equipos",        icon:"📷", Icon:IconCamaraCCTV,    color:"#3b82f6" },
   { key:"CCTV Accesorios",               label:"CCTV Accesorios",     icon:"🔩", Icon:IconCCTVAccesorios, color:"#60a5fa" },
   { key:"Control de Acceso",             label:"Control de Acceso",   icon:"🔐", color:"#a855f7" },
   { key:"Accesorios Control de Acceso",  label:"Acces. C. Acceso",    icon:"🔑", color:"#c084fc" },

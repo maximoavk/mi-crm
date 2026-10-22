@@ -10,7 +10,7 @@ import { printOp } from "./printOp.js";
 import { OpModal } from "./OpModal.jsx";
 import { fechaLocal } from "../shared/format.js";
 import { normalizarEquipos, avanceEquipos } from "./equipos.js";
-import SurveillanceCam from "~icons/bxs/cctv";
+import { IconCamaraCCTV as SurveillanceCam } from "../shared/icons/CustomIcons.jsx";
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export function OperacionesView({ isMobile }) {
@@ -164,7 +164,7 @@ export function OperacionesView({ isMobile }) {
                         {o.cliente_nombre && <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>🏢 {o.cliente_nombre}</span>}
                         {o.fecha_programada && <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>📅 {new Date(o.fecha_programada+"T12:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short"})}</span>}
                         <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, display:"flex", alignItems:"center", gap:4 }}>
-                          {esCCTV ? <SurveillanceCam style={{ width:12, height:12, flexShrink:0 }} /> : "🔧"}
+                          {esCCTV ? <SurveillanceCam style={{ width:18, height:18, flexShrink:0 }} /> : "🔧"}
                           {equiposOT.length>1 ? `${equiposOT.length} equipos (${equiposOT.map(e=>e.nombre).join(", ")})` : (equiposOT[0]?.equipo_tipo||"—")}
                         </span>
                       </div>
