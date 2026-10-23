@@ -1,6 +1,6 @@
 // ── CARTA GANTT: planificación por cotización, días hábiles y PDF ──────────
 import React, { useState, useEffect, useMemo } from "react";
-import { buildCalHeader, addDays, nextBusinessDay, endOfBusinessSpan, habilesEntre, fmtShort } from "./fechas.js";
+import { buildCalHeader, addDays, diffDays, nextBusinessDay, endOfBusinessSpan, habilesEntre, fmtShort } from "./fechas.js";
 import { supabase, must, replaceRows } from "../supabaseClient.js";
 import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
 import { useTheme } from "../shared/useTheme.js";
@@ -16,6 +16,7 @@ import { fechaLocal, hoyISO, fmt } from "../shared/format.js";
 import { EMPRESA_RUT, TITULAR } from "../shared/empresa.js";
 import { derivarGantt, avanceProyecto, atrasada, hijosPorFase, filasParaGuardar, cambiarFechasConEmpuje, empujarTrasFase, desplazar, numerarFilas, normalizarDependencias, predecesorasPosibles, aplicarDependencias, incumpleDependencia } from "./calculos.js";
 import { partidaCobrado } from "../calculos.js";
+import { diasMes } from "../crm/calendario.js";
 
 export function GanttView({ isMobile }) {
   const { C, mode } = useTheme();
@@ -33,6 +34,8 @@ export function GanttView({ isMobile }) {
   // riesgo de guardar una fecha de inicio de proyecto equivocada al navegar.
   const [viewStart, setViewStart] = useState(calStart);
   const [zoom, setZoom] = useState("dia"); // "dia" | "semana" | "mes" — ver ZOOM_LEVELS
+  const [vistaTab, setVistaTab] = useState("gantt"); // "gantt" | "lista" | "calendario"
+  const [calMesDate, setCalMesDate] = useState(hoyISO()); // mes mostrado en la pestaña Calendario
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
   // Fases y partidas de pago del Costeo vinculado — solo para cruzar avance
   // físico con plata cobrada (señal 💰), no se edita desde acá.
@@ -712,6 +715,18 @@ export function GanttView({ isMobile }) {
             )}
           </div>
 
+          {/* Pestañas: misma vista derivada (`vista`), tres formas de mirarla */}
+          <div style={{ display:"flex", gap:6, marginBottom:12 }}>
+            {[["gantt","📊 Gantt"],["lista","☰ Lista"],["calendario","🗓 Calendario"]].map(([k,label])=>(
+              <button key={k} onClick={()=>setVistaTab(k)}
+                style={{ padding:"6px 14px", borderRadius:6, fontFamily:FONT, fontSize:12, cursor:"pointer",
+                  background: vistaTab===k?C.accent:C.card, color: vistaTab===k?C.bg:C.textMuted,
+                  border:`1px solid ${vistaTab===k?C.accent:C.border}`, fontWeight: vistaTab===k?700:400 }}>
+                {label}
+              </button>
+            ))}
+          </div>
+
           {/* Controles de vista */}
           <div style={{ display:"flex", gap:10, marginBottom:12, alignItems:"center", flexWrap:"wrap" }}>
             <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>Inicio calendario:</span>
@@ -824,13 +839,19 @@ export function GanttView({ isMobile }) {
                 ]);
                 let logoDataUri = null;
                 try { logoDataUri = await fetchImageAsDataUri(LOGO_PRINT); } catch { /* el documento se genera igual, sin logo */ }
-                const blob = await pdf(<GanttDoc proyecto={proyecto} headerData={headerData} tasks={vistaPdf} monthPages={monthPages} numbersById={ganttMeta.numbers} phasePresupById={phasePresupById} totales={totales} logoDataUri={logoDataUri} />).toBlob();
+                // El PDF sale con la misma densidad (Día/Semana/Mes) que esté
+                // vigente en pantalla al momento de generarlo. Para Semana y
+                // Mes se necesita el calendario completo del rango (no por
+                // mes, como en Día) para agruparlo en semanas o meses.
+                const fullCalCols = zoom === "dia" ? null : buildCalHeader(minDate, diffDays(minDate, maxDate) + 1);
+                const blob = await pdf(<GanttDoc proyecto={proyecto} headerData={headerData} tasks={vistaPdf} monthPages={monthPages} fullCalCols={fullCalCols} zoom={zoom} numbersById={ganttMeta.numbers} phasePresupById={phasePresupById} totales={totales} logoDataUri={logoDataUri} />).toBlob();
                 const url = URL.createObjectURL(blob);
                 setPdfPreviewUrl(url);
               }} style={{ padding:"4px 14px", background:`${C.green}22`, border:`1px solid ${C.green}44`, borderRadius:5, color:C.green, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>🖨 PDF</button>
             </div>
           </div>
 
+          {vistaTab==="gantt" && (<>
           {/* TABLA GANTT */}
           <div style={{ overflowX:"auto", background:C.card, border:`1px solid ${C.border}`, borderRadius:10 }}>
             <table style={{ borderCollapse:"collapse", fontSize:11, fontFamily:FONT }}>
@@ -1100,6 +1121,109 @@ export function GanttView({ isMobile }) {
               </tbody>
             </table>
           </div>
+          </>)}
+
+          {/* ── PESTAÑA LISTA: misma `vista`, tabla simple sin barras ── */}
+          {vistaTab==="lista" && (
+            <div style={{ overflowX:"auto", background:C.card, border:`1px solid ${C.border}`, borderRadius:10 }}>
+              <table style={{ borderCollapse:"collapse", fontSize:12, fontFamily:FONT, width:"100%" }}>
+                <thead>
+                  <tr style={{ background:C.surface, borderBottom:`1px solid ${C.border}` }}>
+                    {["#","Descripción","Inicio","Fin","Avance %","Dependencia"].map(h=>(
+                      <th key={h} style={{ padding:"8px 10px", textAlign:h==="Descripción"?"left":"center", fontFamily:FONT, fontSize:10, color:C.textMuted, textTransform:"uppercase", borderRight:`1px solid ${C.border}` }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {vista.map((t,idx)=>{
+                    const isFase = t.tipo==="F";
+                    const parentFaseId = ganttMeta.childPhaseId[t.id];
+                    if(parentFaseId && collapsedPhases.has(parentFaseId)) return null;
+                    if(faseScopeId && t.id!==faseScopeId && parentFaseId!==faseScopeId) return null;
+                    const isCollapsed = isFase && collapsedPhases.has(t.id);
+                    const isLate = atrasada(t, today);
+                    const pct = Number(t.pctAvance)||0;
+                    return (
+                      <tr key={t.id} onClick={()=>setSelectedId(t.id)}
+                        style={{ borderBottom:`1px solid ${C.border}22`, background: isFase?`${GANTT_COLORS.fase}11`:"transparent", cursor:"default" }}>
+                        <td style={{ padding:"6px 10px", textAlign:"center", color:C.textMuted, fontSize:10, borderRight:`1px solid ${C.border}` }}>
+                          {ganttMeta.numbers[t.id]||idx+1}
+                        </td>
+                        <td style={{ padding:"6px 10px", borderRight:`1px solid ${C.border}` }}>
+                          <TreeNodeCell task={t} isFase={isFase} editing={false} selected={selectedId===t.id}
+                            collapsed={isCollapsed} hasChildren={(ganttMeta.phaseChildren[t.id]||[]).length>0}
+                            inPhase={!!parentFaseId}
+                            isLastChild={!!parentFaseId && (ganttMeta.phaseChildren[parentFaseId]||[]).slice(-1)[0]===t.id}
+                            onToggle={()=>toggleCollapse(t.id)} onAddChild={()=>addChildToFase(t.id)} />
+                        </td>
+                        <td style={{ padding:"6px 10px", textAlign:"center", fontFamily:"monospace", fontSize:11, color:C.textMuted, borderRight:`1px solid ${C.border}` }}>{fmtShort(t.inicio)}</td>
+                        <td style={{ padding:"6px 10px", textAlign:"center", fontFamily:"monospace", fontSize:11, color: isLate?GANTT_COLORS.late:C.textMuted, borderRight:`1px solid ${C.border}` }}>{fmtShort(t.fin)}</td>
+                        <td style={{ padding:"6px 10px", textAlign:"center", borderRight:`1px solid ${C.border}` }}>
+                          <span style={{ fontFamily:"monospace", fontSize:11, fontWeight:700, color: pct===100?C.green:isLate?GANTT_COLORS.late:C.accent }}>{pct}%</span>
+                        </td>
+                        <td style={{ padding:"6px 10px", textAlign:"center", fontFamily:"monospace", fontSize:10, color: t.depende?C.accent:C.textMuted, borderRight:`1px solid ${C.border}` }}>
+                          {(t.depende && ganttMeta.numbers[t.depende]) || "N/A"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* ── PESTAÑA CALENDARIO: mismas tareas/hitos, grilla mensual
+               (mismo patrón que la vista Mes de Tareas, `diasMes` en
+               src/crm/calendario.js) ── */}
+          {vistaTab==="calendario" && (
+            <div>
+              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:14 }}>
+                <button onClick={()=>{ const d=new Date(calMesDate+"T12:00"); d.setMonth(d.getMonth()-1); setCalMesDate(d.toISOString().slice(0,10)); }}
+                  style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:6, padding:"5px 10px", color:C.text, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>←</button>
+                <span style={{ fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:600, color:C.text, textTransform:"capitalize" }}>
+                  {new Date(calMesDate+"T12:00").toLocaleDateString("es-CL",{month:"long",year:"numeric"})}
+                </span>
+                <button onClick={()=>{ const d=new Date(calMesDate+"T12:00"); d.setMonth(d.getMonth()+1); setCalMesDate(d.toISOString().slice(0,10)); }}
+                  style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:6, padding:"5px 10px", color:C.text, cursor:"pointer", fontFamily:FONT, fontSize:12 }}>→</button>
+                <button onClick={()=>setCalMesDate(hoyISO())} style={{ background:C.accentDim, border:`1px solid ${C.accentGlow}`, borderRadius:6, padding:"5px 10px", color:C.accent, cursor:"pointer", fontFamily:FONT, fontSize:11 }}>Hoy</button>
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:1, background:C.border, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden" }}>
+                {["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"].map(d=>(
+                  <div key={d} style={{ background:C.surface, padding:"6px 8px", fontFamily:FONT, fontSize:9, color:C.textMuted, textTransform:"uppercase", textAlign:"center" }}>{d}</div>
+                ))}
+                {diasMes(calMesDate).map(({date,inMonth})=>{
+                  const isToday = date===hoyISO();
+                  // Eventos del día: hitos en su fecha, inicio y fin de tareas/fases
+                  const eventos = [];
+                  vista.forEach(t=>{
+                    if(!t.inicio) return;
+                    const color = t.tipo==="H"?GANTT_COLORS.hito:t.tipo==="F"?GANTT_COLORS.fase:GANTT_COLORS.tarea;
+                    if(t.tipo==="H" && t.inicio===date) eventos.push({ id:t.id+"-h", label:`🎯 ${t.nombre}`, color });
+                    else {
+                      if(t.inicio===date) eventos.push({ id:t.id+"-i", label:`▶ ${t.nombre}`, color });
+                      if(t.fin && t.fin===date && t.fin!==t.inicio) eventos.push({ id:t.id+"-f", label:`■ ${t.nombre}`, color });
+                    }
+                  });
+                  return (
+                    <div key={date} style={{ background:C.card, minHeight:78, padding:"4px 5px", opacity:inMonth?1:0.4 }}>
+                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:isToday?700:400, color:isToday?C.accent:C.text, marginBottom:3 }}>
+                        {isToday ? <span style={{ background:C.accentDim, borderRadius:4, padding:"0 5px" }}>{new Date(date+"T12:00").getDate()}</span> : new Date(date+"T12:00").getDate()}
+                      </div>
+                      <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
+                        {eventos.slice(0,3).map(ev=>(
+                          <div key={ev.id} onClick={()=>setSelectedId(ev.id.split("-")[0])}
+                            style={{ background:`${ev.color}18`, borderLeft:`2px solid ${ev.color}`, borderRadius:3, padding:"1px 4px", cursor:"pointer", fontSize:9, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", fontFamily:FONT, color:C.text }}>
+                            {ev.label}
+                          </div>
+                        ))}
+                        {eventos.length>3 && <div style={{ fontFamily:FONT, fontSize:9, color:C.textDim }}>+{eventos.length-3} más</div>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* RESUMEN KPIs */}
           <div style={{ display:"flex", gap:12, marginTop:16, flexWrap:"wrap" }}>
@@ -1118,9 +1242,11 @@ export function GanttView({ isMobile }) {
               </div>
             ))}
           </div>
-          <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginTop:8 }}>
-            💡 Doble clic en una fila para editar · Arrastra una barra para moverla o estira sus bordes para cambiar la duración (con "Empuje en cadena", lo que viene después y lo que depende de ella se corre) · Columna Dep.: la actividad empieza después de que termine su predecesora, con flecha en el calendario · Enter en el campo cotización para cargar
-          </div>
+          {vistaTab==="gantt" && (
+            <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, marginTop:8 }}>
+              💡 Doble clic en una fila para editar · Arrastra una barra para moverla o estira sus bordes para cambiar la duración (con "Empuje en cadena", lo que viene después y lo que depende de ella se corre) · Columna Dep.: la actividad empieza después de que termine su predecesora, con flecha en el calendario · Enter en el campo cotización para cargar
+            </div>
+          )}
         </>
       )}
       <PdfPreviewModal url={pdfPreviewUrl} onClose={() => { URL.revokeObjectURL(pdfPreviewUrl); setPdfPreviewUrl(null); }} />
