@@ -4,7 +4,7 @@ import { buildCalHeader, addDays, nextBusinessDay, endOfBusinessSpan, habilesEnt
 import { supabase, must, replaceRows } from "../supabaseClient.js";
 import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
 import { useTheme } from "../shared/useTheme.js";
-import { GANTT_COLORS, TIPO_LABEL, ROL_OPTS } from "./constants.js";
+import { GANTT_COLORS, TIPO_LABEL, ROL_OPTS, ZOOM_LEVELS } from "./constants.js";
 import { LOGO_B64, LOGO_PRINT } from "../shared/assets.js";
 import { CalendarPicker } from "./CalendarPicker.jsx";
 import { GanttBar } from "./GanttBar.jsx";
@@ -32,8 +32,7 @@ export function GanttView({ isMobile }) {
   // en gantt_proyectos.fecha_inicio) para poder paginar por mes sin correr el
   // riesgo de guardar una fecha de inicio de proyecto equivocada al navegar.
   const [viewStart, setViewStart] = useState(calStart);
-  const [monthMode, setMonthMode] = useState(false);
-  const [calDays, setCalDays]     = useState(15);
+  const [zoom, setZoom] = useState("dia"); // "dia" | "semana" | "mes" — ver ZOOM_LEVELS
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
   // Fases y partidas de pago del Costeo vinculado — solo para cruzar avance
   // físico con plata cobrada (señal 💰), no se edita desde acá.
@@ -68,25 +67,12 @@ export function GanttView({ isMobile }) {
   // se corre los mismos días. Se recuerda en este navegador.
   const [cadena, setCadena] = useState(() => { try { return localStorage.getItem("gantt.cadena") !== "0"; } catch { return true; } });
   const cambiarCadena = (v) => { setCadena(v); try { localStorage.setItem("gantt.cadena", v ? "1" : "0"); } catch { /* sin almacenamiento */ } };
-  const cellW = 28;
+  const { cellW, calDays } = ZOOM_LEVELS[zoom];
   const today = hoyISO();
   const calCols = buildCalHeader(viewStart, calDays);
-
-  // Vista por mes: pagina la ventana visible mes a mes (sin tocar la fecha
-  // oficial de inicio del proyecto), para no tener que scrollear tanto hacia
-  // la derecha en proyectos largos.
-  const setMonthView = (baseDateStr) => {
-    const d = new Date(baseDateStr+"T00:00");
-    const y = d.getFullYear(), m = d.getMonth();
-    setViewStart(`${y}-${String(m+1).padStart(2,"0")}-01`);
-    setCalDays(new Date(y, m+1, 0).getDate());
-    setMonthMode(true);
-  };
-  const shiftMonthView = (delta) => {
-    const d = new Date(viewStart+"T00:00");
-    d.setMonth(d.getMonth()+delta);
-    setMonthView(d.toISOString().slice(0,10));
-  };
+  // Las celdas muy angostas (zoom Mes) no tienen espacio para "L 23"; a esa
+  // escala el agrupador de meses de la cabecera ya ubica cada día igual.
+  const mostrarEtiquetaDia = cellW >= 16;
 
   useEffect(() => {
     supabase.from("gantt_proyectos").select("id,nombre,numero_cotizacion,serie,fecha_inicio,fecha_fin")
@@ -258,7 +244,6 @@ export function GanttView({ isMobile }) {
       setProyecto({ nombre: gantt.nombre, cotNum: num, serie });
       setCalStart(gantt.fecha_inicio || today);
       setViewStart(gantt.fecha_inicio || today);
-      setMonthMode(false);
       const { data: rows } = await supabase.from("gantt_tareas").select("*").eq("gantt_id", gantt.id).order("orden");
       if((rows||[]).length > 0) {
         // Las Gantt guardadas antes llevan en "Dep." el número de la fila: se pasa al id.
@@ -306,9 +291,10 @@ export function GanttView({ isMobile }) {
     let gId = ganttId;
     try {
       if(!gId) {
+        // fecha_fin es solo un valor inicial editable; no depende del zoom de pantalla.
         const data = await must(supabase.from("gantt_proyectos").insert({
           numero_cotizacion: Number(cotNum), serie: proyecto.serie||"COT", nombre: proyecto.nombre,
-          fecha_inicio: calStart, fecha_fin: addDays(calStart, calDays),
+          fecha_inicio: calStart, fecha_fin: addDays(calStart, 15),
         }).select().single());
         gId = data.id;
         setGanttId(gId);
@@ -735,26 +721,12 @@ export function GanttView({ isMobile }) {
               if(delta !== 0) setTasks(prev => prev.map(t => desplazar(t, delta)));
               setCalStart(v);
               setViewStart(v);
-              setMonthMode(false);
             }} />
             <span style={{ fontFamily:FONT, fontSize:11, color:C.textMuted }}>Vista:</span>
-            {[{d:5,l:"5d"},{d:7,l:"7d"},{d:15,l:"15d"},{d:30,l:"30d"},{d:60,l:"60d"}].map(({d,l})=>(
-              <button key={d} onClick={()=>{ setMonthMode(false); setCalDays(d); }}
-                style={{ padding:"3px 10px", background: (!monthMode&&calDays===d)?C.accent:"transparent", border:`1px solid ${(!monthMode&&calDays===d)?C.accent:C.border}`, borderRadius:5, color: (!monthMode&&calDays===d)?C.bg:C.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>{l}</button>
+            {Object.entries(ZOOM_LEVELS).map(([k,{label}])=>(
+              <button key={k} onClick={()=>setZoom(k)}
+                style={{ padding:"3px 10px", background: zoom===k?C.accent:"transparent", border:`1px solid ${zoom===k?C.accent:C.border}`, borderRadius:5, color: zoom===k?C.bg:C.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>{label}</button>
             ))}
-            <button onClick={()=>setMonthView(viewStart)}
-              style={{ padding:"3px 10px", background: monthMode?C.accent:"transparent", border:`1px solid ${monthMode?C.accent:C.border}`, borderRadius:5, color: monthMode?C.bg:C.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" }}>
-              Mes
-            </button>
-            {monthMode && (
-              <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-                <button onClick={()=>shiftMonthView(-1)} title="Mes anterior" style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:5, color:C.textMuted, cursor:"pointer", padding:"3px 8px", fontSize:11 }}>◀</button>
-                <span style={{ fontFamily:FONT_DISPLAY, fontSize:11, fontWeight:700, color:C.text, textTransform:"capitalize", minWidth:110, textAlign:"center" }}>
-                  {new Date(viewStart+"T00:00").toLocaleDateString("es-CL",{month:"long",year:"numeric"})}
-                </span>
-                <button onClick={()=>shiftMonthView(1)} title="Mes siguiente" style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:5, color:C.textMuted, cursor:"pointer", padding:"3px 8px", fontSize:11 }}>▶</button>
-              </div>
-            )}
             {/* Navegación: ir a hoy / al inicio del proyecto, y contraer/expandir todas las fases */}
             {(() => {
               const btn = { padding:"3px 10px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:5, color:C.textMuted, fontFamily:FONT, fontSize:11, cursor:"pointer" };
@@ -768,10 +740,10 @@ export function GanttView({ isMobile }) {
                   ⛓ Empuje en cadena: {cadena ? "Sí" : "No"}
                 </button>
                 <button title="Mover la vista a la fecha de hoy" style={btn}
-                  onClick={()=>{ setMonthMode(false); setViewStart(addDays(today, -2)); }}>Hoy</button>
+                  onClick={()=>setViewStart(addDays(today, -2))}>Hoy</button>
                 {inicios.length > 0 && (
                   <button title="Mover la vista al inicio de la primera actividad" style={btn}
-                    onClick={()=>{ setMonthMode(false); setViewStart(inicios.reduce((a,b)=>a<b?a:b)); }}>⇤ Inicio</button>
+                    onClick={()=>setViewStart(inicios.reduce((a,b)=>a<b?a:b))}>⇤ Inicio</button>
                 )}
                 {fasesConHijos.length > 0 && (
                   <button style={btn} onClick={()=>setCollapsedPhases(todoContraido ? new Set() : new Set(fasesConHijos))}>
@@ -889,8 +861,7 @@ export function GanttView({ isMobile }) {
                       borderRight:`1px solid ${C.border}22`, borderBottom:`1px solid ${C.border}`,
                       color: c.date===today ? C.accent : c.isWeekend ? C.textMuted : C.textMuted,
                       fontSize:9, fontWeight: c.date===today?"700":"400" }}>
-                      <div>{c.dow}</div>
-                      <div>{c.day}</div>
+                      {mostrarEtiquetaDia && <><div>{c.dow}</div><div>{c.day}</div></>}
                     </th>
                   ))}
                 </tr>

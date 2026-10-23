@@ -17,11 +17,12 @@ export function FlechaDependencia({ pred, tarea, dy, calStart, calDays, cellW, i
 
   const ys = ALTO_FILA / 2;
   const yp = ys + dy;
-  const hayEspacio = x1 >= x0 + 8;
-  const ymid = dy < 0 ? ys - ALTO_FILA / 2 : ys + ALTO_FILA / 2;
-  const d = hayEspacio
-    ? `M${x0},${yp} H${x0 + 5} V${ys} H${x1}`
-    : `M${x0},${yp} H${x0 + 4} V${ymid} H${x1 - 6} V${ys} H${x1}`;
+  // Curva bezier tipo "hilo": los puntos de control se cruzan cuando las
+  // barras están lejos, lo que produce la S característica; se aplanan
+  // solos cuando están cerca o cuando la sucesora empieza antes de tiempo.
+  const mx1 = Math.max(x0 + 10, x1 - 10);
+  const mx2 = Math.min(x0 + 10, x1 - 10);
+  const d = `M${x0},${yp} C${mx1},${yp} ${mx2},${ys} ${x1},${ys}`;
   const color = incumple ? C.red : C.accent;
 
   return (
