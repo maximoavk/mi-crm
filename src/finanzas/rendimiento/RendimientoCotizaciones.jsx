@@ -200,7 +200,7 @@ export function RendimientoCotizaciones({ isMobile }) {
       supabase.from("pedidos").select("id, nombre, numero_factura, quote_ids, cliente")
         .eq("tipo","pf").order("created_at", { ascending:false }),
       supabase.from("suppliers").select("id, nombre, rut").order("nombre"),
-      supabase.from("products").select("id, codigo, nombre, precio, tipo").order("nombre"),
+      supabase.from("products").select("id, codigo, nombre, precio, tipo, proveedor").order("nombre"),
       supabase.from("cot_service_lines").select("linea_negocio, subtotal_neto").not("linea_negocio","is",null),
       supabase.from("facturas_recibidas").select("linea_negocio, monto_neto").not("linea_negocio","is",null),
     ]);

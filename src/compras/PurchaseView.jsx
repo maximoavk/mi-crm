@@ -81,7 +81,6 @@ export function PurchaseView({ autoNew, onAutoNewHandled }) {
 
   // Formulario OC
   const [ocForm, setOcForm]   = useState({ cotizacion_id:"", supplier_id:"", estado:"PENDIENTE", notas:"" });
-  const [sinSearch, setSinSearch] = useState("");
   const [lines, setLines]     = useState([]);
   const [savingOC, setSavingOC] = useState(false);
 
@@ -91,10 +90,14 @@ export function PurchaseView({ autoNew, onAutoNewHandled }) {
     const cot = quotes.find(q => q.id === cotizacion_id);
     if (!cot) return;
 
-    // quote_id es texto en la BD — usar el id como string
+    // quote_id es texto en la BD — usar el id como string. Sin join
+    // relacional a products: no hay FK entre quote_lines.product_id y
+    // products.id (product_id es texto), así que el embed `products(...)`
+    // de PostgREST devolvía 400 siempre y esto no cargaba nunca ninguna
+    // línea. Se resuelve el producto a mano contra el `products` ya cargado.
     const { data: qlines } = await supabase
       .from("quote_lines")
-      .select("*, products(id, codigo, nombre, tipo)")
+      .select("*")
       .eq("quote_id", cot.id.toString())
       .neq("tipo_linea", "hito")
       .order("orden");
@@ -102,12 +105,14 @@ export function PurchaseView({ autoNew, onAutoNewHandled }) {
     if (!qlines?.length) return;
 
     // Solo líneas de tipo producto
-    const productoLines = qlines.filter(ql =>
-      ql.products?.tipo === "producto" || (!ql.products && ql.product_id)
-    );
+    const productoLines = qlines.filter(ql => {
+      const prod = products.find(p => String(p.id) === String(ql.product_id));
+      return prod ? prod.tipo === "producto" : !!ql.product_id;
+    });
     if (!productoLines.length) return;
 
     const newLines = productoLines.map(ql => {
+      const prod = products.find(p => String(p.id) === String(ql.product_id));
       const precioNeto = Math.round(Number(ql.precio_unitario || 0));
       const pp = productPrices.find(p => p.product_id === ql.product_id);
       const precioFinal = pp?.precio_bruto
@@ -119,7 +124,7 @@ export function PurchaseView({ autoNew, onAutoNewHandled }) {
         supplier_price_id: pp?.id || "",
         cantidad:          Number(ql.cantidad || 1),
         precio_unitario:   precioFinal,
-        _search:           ql.products?.nombre || ql.descripcion || "",
+        _search:           prod?.nombre || ql.descripcion || "",
         _fromCot:          true,
       };
     });
@@ -138,7 +143,7 @@ export function PurchaseView({ autoNew, onAutoNewHandled }) {
       supabase.from("purchase_orders").select("*, suppliers(id,nombre,rut,email,telefono), cotizaciones(id,numero,nombre_cliente)").order("created_at", { ascending:false }),
       supabase.from("cotizaciones").select("id,numero,serie,nombre_cliente,razon_social,total").order("numero", { ascending:false }),
       supabase.from("suppliers").select("*").order("nombre"),
-      supabase.from("products").select("id,codigo,nombre,descripcion,unidad,categoria").order("codigo"),
+      supabase.from("products").select("id,codigo,nombre,descripcion,unidad,categoria,tipo").order("codigo"),
       supabase.from("product_prices").select("*, suppliers(id,nombre)").order("es_preferido", { ascending:false }),
     ]);
     // Cargar líneas de cada OC
@@ -835,57 +840,31 @@ export function PurchaseView({ autoNew, onAutoNewHandled }) {
                 </select>
               </div>
               <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                {/* COT dropdown */}
+                {/* Cotización de referencia: un solo selector con ambas series
+                    (COT venta con IVA, SIN sin IVA) — antes eran dos controles
+                    separados (dropdown COT + buscador SIN con coincidencia de
+                    texto que fallaba si se escribía "SIN-63" en vez de "63"). */}
                 <div>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Cotización COT referencia</div>
-                  <select value={quotes.filter(q=>q.serie==="COT"||!q.serie).some(q=>q.id===ocForm.cotizacion_id) ? ocForm.cotizacion_id : ""}
+                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Cotización de referencia</div>
+                  <select value={quotes.some(q=>q.id===ocForm.cotizacion_id) ? ocForm.cotizacion_id : ""}
                     onChange={e => {
                       const newCotId = e.target.value;
-                      setSinSearch("");
                       setOcForm(p=>({...p, cotizacion_id: newCotId}));
                       if (newCotId && !editingOC) loadCotLines(newCotId);
                     }}
-                    style={{ width:"100%", background:C.bg, border:`1px solid ${(quotes.filter(q=>q.serie==="COT"||!q.serie).some(q=>q.id===ocForm.cotizacion_id))?C.green+"55":C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:C.text, outline:"none", boxSizing:"border-box" }}>
+                    style={{ width:"100%", background:C.bg, border:`1px solid ${quotes.some(q=>q.id===ocForm.cotizacion_id)?C.green+"55":C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:C.text, outline:"none", boxSizing:"border-box" }}>
                     <option value="">— Sin cotización —</option>
-                    {quotes.filter(q=>q.serie==="COT"||!q.serie).map(q=><option key={q.id} value={q.id}>COT-{q.numero} · {q.nombre_cliente||q.razon_social||"Sin nombre"}</option>)}
+                    <optgroup label="COT · venta con IVA">
+                      {quotes.filter(q=>q.serie==="COT"||!q.serie).map(q=><option key={q.id} value={q.id}>COT-{q.numero} · {q.nombre_cliente||q.razon_social||"Sin nombre"}</option>)}
+                    </optgroup>
+                    <optgroup label="SIN · sin IVA">
+                      {quotes.filter(q=>q.serie==="SIN").map(q=><option key={q.id} value={q.id}>SIN-{q.numero} · {q.nombre_cliente||q.razon_social||"Sin nombre"}</option>)}
+                    </optgroup>
                   </select>
-                </div>
-                {/* SIN search */}
-                <div>
-                  <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Buscar cotización SIN</div>
-                  <input value={sinSearch} onChange={e=>setSinSearch(e.target.value)}
-                    placeholder="Número o nombre de cliente..."
-                    style={{ width:"100%", background:C.bg, border:`1px solid ${quotes.filter(q=>q.serie==="SIN").some(q=>q.id===ocForm.cotizacion_id)?C.green+"55":C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:C.text, outline:"none", boxSizing:"border-box" }} />
-                  {sinSearch.trim().length > 0 && (() => {
-                    const term = sinSearch.trim().toLowerCase();
-                    const hits = quotes.filter(q=>q.serie==="SIN" && (
-                      String(q.numero).includes(term) ||
-                      (q.nombre_cliente||"").toLowerCase().includes(term) ||
-                      (q.razon_social||"").toLowerCase().includes(term)
-                    ));
-                    return (
-                      <div style={{ border:`1px solid ${C.border}`, borderRadius:6, marginTop:4, overflow:"hidden", maxHeight:180, overflowY:"auto" }}>
-                        {hits.length===0 && <div style={{ padding:"10px 12px", fontFamily:FONT, fontSize:12, color:C.textMuted }}>Sin resultados</div>}
-                        {hits.map(q=>(
-                          <div key={q.id} onClick={()=>{
-                            setOcForm(p=>({...p, cotizacion_id:q.id}));
-                            setSinSearch(`SIN-${q.numero} · ${q.nombre_cliente||q.razon_social||"Sin nombre"}`);
-                            if (!editingOC) loadCotLines(q.id);
-                          }}
-                          style={{ padding:"9px 12px", fontFamily:FONT, fontSize:12, color:C.text, background:ocForm.cotizacion_id===q.id?`${C.green}22`:C.card, cursor:"pointer", borderBottom:`1px solid ${C.border}` }}>
-                            <span style={{ color:C.accent, fontWeight:700 }}>SIN-{q.numero}</span> · {q.nombre_cliente||q.razon_social||"Sin nombre"}
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                  {quotes.filter(q=>q.serie==="SIN").some(q=>q.id===ocForm.cotizacion_id) && (
-                    <div style={{ marginTop:4, fontFamily:FONT, fontSize:10, color:C.green }}>✓ SIN enlazada</div>
-                  )}
                 </div>
                 {ocForm.cotizacion_id && !editingOC && (
                   <div style={{ fontFamily:FONT, fontSize:10, color:C.green }}>
-                    ✓ Líneas de producto pre-cargadas desde la COT
+                    ✓ Líneas de producto pre-cargadas desde la cotización
                   </div>
                 )}
               </div>

@@ -35,12 +35,20 @@ export function ModalServicio({ cotizacion, suppliers, products, onClose, onSave
   useEffect(() => {
     const load = async () => {
       setLoadingLines(true);
-      const { data: qlines } = await supabase
+      // Sin embed relacional a products: quote_lines.product_id no tiene FK a
+      // products.id (es texto), así que `products(...)` siempre devolvía 400
+      // y esta lista de líneas pendientes nunca cargaba nada. Se resuelve el
+      // producto a mano contra `products` (prop ya cargado).
+      const { data: qlinesRaw } = await supabase
         .from("quote_lines")
-        .select("id, codigo, descripcion, cantidad, precio_unitario, subtotal, product_id, products(id, codigo, nombre, tipo, proveedor)")
+        .select("id, codigo, descripcion, cantidad, precio_unitario, subtotal, product_id")
         .eq("quote_id", cotizacion.cotizacion_id.toString())
         .neq("tipo_linea", "hito")
         .order("orden");
+      const qlines = (qlinesRaw||[]).map(ql => ({
+        ...ql,
+        products: products.find(p => String(p.id) === String(ql.product_id)) || null,
+      }));
 
       // Filtrar por tipo según modo
       const filtered = (qlines||[]).filter(ql => {
@@ -66,7 +74,7 @@ export function ModalServicio({ cotizacion, suppliers, products, onClose, onSave
       setLoadingLines(false);
     };
     load();
-  }, [cotizacion.cotizacion_id, esModoProd]);
+  }, [cotizacion.cotizacion_id, esModoProd, products]);
 
   const [precioVentaCot, setPrecioVentaCot] = useState(0); // precio de venta de la COT (referencia)
 
