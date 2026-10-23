@@ -22,8 +22,11 @@ export function TreeNodeCell({ task, isFase, editing, selected, collapsed, hasCh
       transition:"background 120ms",
     }}>
       <span style={{
-        fontWeight: isFase ? 700 : 400, fontSize: isFase ? 12 : 11,
-        color: selected ? MINT : isFase ? C.text : C.textMuted,
+        fontWeight: isFase || selected ? 700 : 400, fontSize: isFase ? 12 : 11,
+        // El nodo seleccionado usa el color de texto normal del tema (no el
+        // acento MINT): a color completo se lee bien sobre el fondo teñido
+        // tanto en modo claro como oscuro — MINT sobre MINT se perdía.
+        color: selected ? C.text : isFase ? C.text : C.textMuted,
         whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
       }}>{task.nombre}</span>
       {selected && isFase && (

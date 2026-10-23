@@ -47,6 +47,7 @@ export function GanttView({ isMobile }) {
   const [dragOverId, setDragOverId] = useState(null);
   const [collapsedPhases, setCollapsedPhases] = useState(new Set());
   const [selectedId, setSelectedId] = useState(null); // fila seleccionada (árbol)
+  const [hoverCol, setHoverCol] = useState(null); // índice de día bajo el mouse — resalta la columna
   const dragFromHandle = React.useRef(false);
   // Limpiar estado drag si termina fuera de la tabla
   useEffect(() => {
@@ -853,7 +854,7 @@ export function GanttView({ isMobile }) {
 
           {vistaTab==="gantt" && (<>
           {/* TABLA GANTT */}
-          <div style={{ overflowX:"auto", background:C.card, border:`1px solid ${C.border}`, borderRadius:10 }}>
+          <div onMouseLeave={()=>setHoverCol(null)} style={{ overflowX:"auto", background:C.card, border:`1px solid ${C.border}`, borderRadius:10 }}>
             <table style={{ borderCollapse:"collapse", fontSize:11, fontFamily:FONT }}>
               <thead>
                 {/* Fila meses */}
@@ -877,8 +878,8 @@ export function GanttView({ isMobile }) {
                   ))}
                   {/* Días */}
                   {calCols.map((c,i)=>(
-                    <th key={i} style={{ width:cellW, minWidth:cellW, maxWidth:cellW, padding:"2px 0", textAlign:"center",
-                      background: c.date===today ? `${C.accent}33` : c.isWeekend ? `${C.border}44` : "transparent",
+                    <th key={i} onMouseEnter={()=>setHoverCol(i)} style={{ width:cellW, minWidth:cellW, maxWidth:cellW, padding:"2px 0", textAlign:"center",
+                      background: c.date===today ? `${C.accent}33` : i===hoverCol ? `${C.textMuted}3d` : c.isWeekend ? `${C.border}44` : "transparent",
                       borderRight:`1px solid ${C.border}22`, borderBottom:`1px solid ${C.border}`,
                       color: c.date===today ? C.accent : c.isWeekend ? C.textMuted : C.textMuted,
                       fontSize:9, fontWeight: c.date===today?"700":"400" }}>
@@ -1101,8 +1102,8 @@ export function GanttView({ isMobile }) {
                       </td>
                       {/* Barras Gantt */}
                       {calCols.map((c,ci)=>(
-                        <td key={ci} style={{ width:cellW, minWidth:cellW, maxWidth:cellW, padding:0, position:"relative", height:32,
-                          background: c.date===today?`${C.accent}18`:c.isWeekend?`${C.border}22`:"transparent",
+                        <td key={ci} onMouseEnter={()=>setHoverCol(ci)} style={{ width:cellW, minWidth:cellW, maxWidth:cellW, padding:0, position:"relative", height:32,
+                          background: c.date===today?`${C.accent}18`:ci===hoverCol?`${C.textMuted}26`:c.isWeekend?`${C.border}22`:"transparent",
                           borderRight:`1px solid ${C.border}11` }}>
                           {ci===0 && t.depende && filaVisible[t.depende] !== undefined && (
                             <FlechaDependencia pred={vistaPorId[t.depende]} tarea={t} dy={(filaVisible[t.depende]-idxVisible)*32}
