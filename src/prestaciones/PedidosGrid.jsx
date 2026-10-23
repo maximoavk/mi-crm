@@ -7,6 +7,7 @@ import { useTheme } from "../shared/useTheme.js";
 import { Badge } from "../shared/ui.jsx";
 import { printResumenPedido } from "./printResumenPedido.js";
 import { fmtDate } from "../shared/format.js";
+import { txPagado, compensarPool } from "./calculos.js";
 
 // ── PEDIDOS GRID (CP + PF unificado) ─────────────────────────────────────────
 export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditPedido, onDeletePedido, onNuevoDoc, onEditDoc, onReprintDoc, onDeleteDoc, onRegistrarFactura }) {
@@ -20,9 +21,6 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
     return isPF ? Math.round(neto*1.19) : neto;
   };
   const fmt = v => "$"+Math.round(v).toLocaleString("es-CL");
-
-  // Suma SOLO las transacciones bancarias reales del documento
-  const txPagado = doc => (doc.transacciones||[]).reduce((s,t)=>s+Number(t.monto||0),0);
 
   const MiniBar = ({pct,color,h=4}) => (
     <div style={{ height:h, background:"#1F2535", borderRadius:99, overflow:"hidden", flex:1 }}>
@@ -45,15 +43,8 @@ export function PedidosGrid({ pedidos, quotes, docs, isPF, AC, docLabel, onEditP
     const pedidoTotal  = cotData.reduce((s,c)=>s+c.qTotal,0);
     const pedidoPagado = cotData.reduce((s,c)=>s+c.qPagado,0);  // ← transacciones reales
 
-    // Compensación global: pool distribuido en orden
-    let pool = pedidoPagado;
-    const cotCompensated = cotData.map(c=>{
-      const efectivo = Math.min(pool, c.qTotal);
-      pool = Math.max(0, pool - c.qTotal);
-      const saldo = Math.max(0, c.qTotal - efectivo);
-      const pct   = c.qTotal>0 ? Math.min((efectivo/c.qTotal)*100,100) : 0;
-      return { ...c, efectivo, saldo, pct };
-    });
+    // Compensación global: pool distribuido en orden (ver calculos.js)
+    const cotCompensated = compensarPool(cotData, "qTotal", "qPagado");
 
     const pedidoSaldo = Math.max(0, pedidoTotal - pedidoPagado);
     const pedidoPct   = pedidoTotal>0 ? Math.min((pedidoPagado/pedidoTotal)*100,100) : 0;

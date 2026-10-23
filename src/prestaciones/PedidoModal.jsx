@@ -3,6 +3,7 @@ import { useState } from "react";
 import { TreeCaret } from "../shared/TreeCaret.jsx";
 import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
 import { useTheme } from "../shared/useTheme.js";
+import { txPagado, compensarPool } from "./calculos.js";
 // ── PEDIDO MODAL ─────────────────────────────────────────────────────────────
 export function PedidoModal({ pedido, quotes, docs, isPF, onSave, onClose, onEditDoc, onReprintDoc, onDeleteDoc, onNuevoDoc }) {
   const { C } = useTheme();
@@ -45,18 +46,18 @@ export function PedidoModal({ pedido, quotes, docs, isPF, onSave, onClose, onEdi
     return isPF ? Math.round(neto*1.19) : neto;
   };
 
-  // Suma solo transacciones bancarias reales
-  const txPagado = doc => (doc.transacciones||[]).reduce((s,t)=>s+Number(t.monto||0),0);
-
-  // Calcula totales por COT para el tab pagos
-  const cotDataModal = selQuotes.map(q => {
+  // Calcula totales por COT para el tab pagos — mismo reparto por pool que
+  // usa la grilla (ver calculos.js): antes este modal sumaba el pagado de
+  // cada COT por separado, sin compensar el sobrepago de una con el saldo
+  // de otra, así que podía mostrar un % distinto al de la grilla para el
+  // mismo pedido.
+  const cotDataRaw = selQuotes.map(q => {
     const qTotal  = (q.lines||[]).reduce((s,l)=>s+lineSubtotal(l),0);
     const qDocs   = (docs||[]).filter(d=>(d.quote_ids||[]).includes(q.id));
     const qPagado = qDocs.reduce((s,d)=>s+txPagado(d),0);  // ← transacciones reales
-    const pct     = qTotal>0 ? Math.min((qPagado/qTotal)*100,100) : 0;
-    const saldo   = Math.max(0, qTotal-qPagado);
-    return { q, qTotal, qDocs, qPagado, pct, saldo };
+    return { q, qTotal, qDocs, qPagado };
   });
+  const cotDataModal = compensarPool(cotDataRaw, "qTotal", "qPagado");
   const totalPedido  = cotDataModal.reduce((s,c)=>s+c.qTotal,0);
   const totalPagado  = cotDataModal.reduce((s,c)=>s+c.qPagado,0);
   const totalPct     = totalPedido>0 ? Math.min((totalPagado/totalPedido)*100,100) : 0;
@@ -171,7 +172,7 @@ export function PedidoModal({ pedido, quotes, docs, isPF, onSave, onClose, onEdi
               )}
 
               {/* Una fila por COT */}
-              {cotDataModal.map(({ q, qTotal, qDocs, qPagado, pct, saldo }) => {
+              {cotDataModal.map(({ q, qTotal, qDocs, efectivo, pct, saldo }) => {
                 const isOpen = !!openCots[q.id];
                 const qPaid  = saldo<=0 && qTotal>0;
                 return (
@@ -191,7 +192,7 @@ export function PedidoModal({ pedido, quotes, docs, isPF, onSave, onClose, onEdi
                         <span style={{ fontFamily:FONT, fontSize:10, color:qPaid?C.green:AC, minWidth:30, textAlign:"right" }}>{pct.toFixed(0)}%</span>
                       </div>
                       <div style={{ textAlign:"right", flexShrink:0 }}>
-                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:qPaid?C.green:C.text }}>{fmt(qPagado)}</div>
+                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:qPaid?C.green:C.text }}>{fmt(efectivo)}</div>
                         <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted }}>de {fmt(qTotal)}</div>
                       </div>
                       <div style={{ fontFamily:FONT, fontSize:9, padding:"2px 8px", borderRadius:4, background:qPaid?`${C.green}22`:`${C.yellow}22`, color:qPaid?C.green:C.yellow, flexShrink:0 }}>

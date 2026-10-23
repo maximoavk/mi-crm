@@ -7,7 +7,7 @@ import { fmt, hoyISO } from "../shared/format.js";
 import { DeclararCambioPanel } from "./DeclararCambioPanel.jsx";
 import { EMPRESA_RUT } from "../shared/empresa.js";
 
-export function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, onSaved }) {
+export function NuevoPrestacionModal({ quotes, existing, allDocs, tab, preselectedQuoteId, onClose, onSaved }) {
   const { C } = useTheme();
   const isPF     = tab==="pf";
   const isReprint= !!(existing?._reprint);
@@ -15,7 +15,13 @@ export function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, 
   const prefix   = isPF ? "PF" : "CP";
 
   const emptyTx = () => ({ id:Date.now()+Math.random(), fecha:hoyISO(), codigo:"", monto:"" });
-  const [selectedQuoteIds, setSelectedQuoteIds] = useState(existing?.quote_ids||[]);
+  // Al abrir "+ Nuevo" desde la tarjeta de una cotización puntual, se
+  // preselecciona esa cotización (antes se ignoraba esta prop y el modal
+  // abría con la lista completa sin nada marcado — fácil perder de vista
+  // cuál cotización ya tenía comprobante y crear uno de más por error).
+  const [selectedQuoteIds, setSelectedQuoteIds] = useState(
+    existing?.quote_ids || (preselectedQuoteId ? [preselectedQuoteId] : [])
+  );
   const [selectedLineKeys, setSelectedLineKeys] = useState(null);
   const [transacciones, setTransacciones]       = useState(
     existing?.transacciones?.length>0 ? existing.transacciones.map(t=>({...t,id:t.id||Date.now()+Math.random()})) : [emptyTx()]
@@ -215,13 +221,16 @@ export function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, 
     </div>
     <div class="cf"></div>
     <div class="stitle">${isPF?"Sistema de emisión — CON IVA":"Sistema de emisión"}</div>
-    <table class="it"><thead><tr><th>Lín.</th><th>Servicio</th><th>Descripción</th><th class="c">Ctd.</th><th class="r">P. Unit. Neto</th><th class="r">Subtotal Neto</th></tr></thead>
+    <table class="it"><thead><tr><th>Lín.</th><th>Servicio</th><th>Descripción</th><th class="c">Ctd.</th><th class="r">P. Unit.${isPF?" Neto":""}</th><th class="r">Subtotal${isPF?" Neto":""}</th></tr></thead>
     <tbody>
     ${allLines.map((l,i)=>{
       const qty=Number(l.qty||l.quantity||l.cantidad||1);
       const disc=Number(l.discount||l.descuento||0);
-      const neto=lsubNeto(l);
-      // P. Unit. Neto: neto por unidad (sin IVA, con descuento)
+      // En Pre-Factura (con IVA) se muestra el neto por línea (lsubNeto, puede
+      // dividir por 1.19 si la cotización es "costeo viejo" sin el flag
+      // hasIva). En Pedido (sin IVA) no hay neto que calcular — es el mismo
+      // monto que se cobra, por eso usa lsub (nunca divide para CP).
+      const neto=isPF?lsubNeto(l):lsub(l);
       const unitNetoDisc = qty>0 ? Math.round(neto/qty) : neto;
       return `<tr><td>${i+1}</td><td style="font-size:9px">${l.code||l.codigo||"—"}</td><td>${l.description||l.descripcion||"—"}</td><td class="c">${qty}</td><td class="r">${unitNetoDisc.toLocaleString("es-CL")}</td><td class="r">${neto.toLocaleString("es-CL")}</td></tr>`;
     }).join("")}
@@ -326,13 +335,25 @@ export function NuevoPrestacionModal({ quotes, existing, allDocs, tab, onClose, 
             ?<div style={{padding:"12px 14px",background:`${C.yellow}10`,border:`1px solid ${C.yellow}30`,borderRadius:8,fontFamily:FONT,fontSize:12,color:C.yellow}}>⚠ No hay cotizaciones {isPF?"con":"sin"} IVA.</div>
             :(
             <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:180,overflowY:"auto"}}>
-              {displayQuotes.map(q=>{const sel=selectedQuoteIds.includes(q.id);return(
+              {displayQuotes.map(q=>{
+                const sel=selectedQuoteIds.includes(q.id);
+                // Comprobantes que YA existen para esta cotización (excluyendo
+                // el que se está editando/reimprimiendo): se avisa acá para no
+                // crear uno de más por error sin darse cuenta de los que ya hay.
+                const existingDocs = (allDocs||[]).filter(d=>d.id!==existing?.id && (d.quote_ids||[]).includes(q.id));
+                const existingPagado = existingDocs.reduce((s,d)=>s+Number(d.monto_pagado||0),0);
+                return(
                 <label key={q.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",background:sel?`${C.green}12`:C.bg,border:`1px solid ${sel?C.green:C.border}`,borderRadius:8,cursor:"pointer"}}>
                   <input type="checkbox" checked={sel} onChange={()=>toggleQuote(q.id)} style={{accentColor:C.green,width:15,height:15,flexShrink:0}} />
                   <div style={{flex:1,minWidth:0}}>
                     <span style={{fontFamily:FONT_DISPLAY,fontSize:12,fontWeight:700,color:C.text}}>COT °{q.number}</span>
                     <span style={{fontFamily:FONT,fontSize:11,color:C.textMuted,marginLeft:8}}>{q.clientCompany||q.clientName}</span>
                     {isPF && q.clientRut && <span style={{fontFamily:FONT,fontSize:10,color:C.textMuted,marginLeft:6}}>{q.clientRut}</span>}
+                    {existingDocs.length>0 && (
+                      <div style={{fontFamily:FONT,fontSize:9,color:C.yellow,marginTop:2}}>
+                        ⚠ Ya tiene {existingDocs.length} comprobante{existingDocs.length>1?"s":""} · {fmt(existingPagado)} registrado{existingDocs.length>1?"s":""}
+                      </div>
+                    )}
                   </div>
                   <div style={{textAlign:"right",flexShrink:0}}>
                     {isPF && <div style={{fontFamily:FONT,fontSize:9,color:C.textMuted}}>Neto: {fmt(Math.round(q.total/1.19))}</div>}
