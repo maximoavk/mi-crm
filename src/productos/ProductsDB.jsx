@@ -440,7 +440,7 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
                   {/* Categoría con badge de color */}
                   <td style={{ padding:"6px 7px", whiteSpace:"nowrap" }}>
                     {catDef ? (
-                      <span style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 8px", borderRadius:4, fontSize:10, fontFamily:FONT, background:C.border+"55", color:C.text, border:`1px solid ${C.border}` }}>
+                      <span style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 8px", borderRadius:4, fontSize:10, fontFamily:FONT, background:C.bg, color:C.textMuted }}>
                         {catDef.Icon ? <catDef.Icon style={{ width:12, height:12, flexShrink:0 }} /> : <span>{catDef.icon}</span>}{catDef.label}
                       </span>
                     ) : p.category ? (
