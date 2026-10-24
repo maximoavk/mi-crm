@@ -15,6 +15,7 @@ import { PdfPreviewModal } from "../shared/ui.jsx";
 import { fechaLocal, hoyISO, fmt } from "../shared/format.js";
 import { EMPRESA_RUT, TITULAR } from "../shared/empresa.js";
 import { derivarGantt, avanceProyecto, atrasada, hijosPorFase, filasParaGuardar, cambiarFechasConEmpuje, empujarTrasFase, desplazar, numerarFilas, normalizarDependencias, predecesorasPosibles, aplicarDependencias, incumpleDependencia } from "./calculos.js";
+import { calcularSyncGantt } from "./syncTareas.js";
 import { partidaCobrado } from "../calculos.js";
 import { diasMes } from "../crm/calendario.js";
 
@@ -289,6 +290,22 @@ export function GanttView({ isMobile }) {
     setAllGantts(prev => prev.filter(x => x.id !== g.id));
   };
 
+  // Refleja en el calendario de Tareas de Operaciones las filas Tarea/Hito de
+  // esta Gantt (unidireccional, Gantt manda). `filas` ya trae los ids finales
+  // (post-guardado). Ver src/gantt/syncTareas.js para el cálculo del diff.
+  const sincronizarTareasOperaciones = async (filas, proy) => {
+    const tareasExistentes = await must(supabase.from("task")
+      .select("id,gantt_tarea_id,titulo,fecha_inicio,fecha_limite,hora_inicio,hora_fin,categoria,estado,completada,notas,cotizacion")
+      .eq("gantt_proyecto_id", proy.id));
+    const { crear, actualizar, eliminar } = calcularSyncGantt(filas, tareasExistentes, proy);
+    if (crear.length) await must(supabase.from("task").insert(crear));
+    for (const t of actualizar) {
+      const { id, ...campos } = t;
+      await must(supabase.from("task").update(campos).eq("id", id));
+    }
+    if (eliminar.length) await must(supabase.from("task").delete().in("id", eliminar));
+  };
+
   const saveGantt = async () => {
     if(!proyecto) return;
     setSaving(true);
@@ -330,8 +347,15 @@ export function GanttView({ isMobile }) {
     setCollapsedPhases(prev => new Set([...prev].map(id => ids[id] || id)));
     setSelectedId(prev => (prev && ids[prev]) || prev);
     setEditRow(prev => (prev && ids[prev]) || prev);
-    setSaving(false);
     setFirmaGuardada(JSON.stringify({ nombre: proyecto?.nombre, calStart, tasks: guardadas }));
+    try {
+      await sincronizarTareasOperaciones(guardadas, { ...proyecto, id: gId });
+    } catch (e) {
+      setSaving(false);
+      alert("✅ Gantt guardada, pero no se pudo sincronizar con Tareas de Operaciones: " + e.message);
+      return;
+    }
+    setSaving(false);
     alert("✅ Gantt guardada");
   };
 
