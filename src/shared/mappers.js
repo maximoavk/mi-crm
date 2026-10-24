@@ -86,6 +86,7 @@ export const mapProduct = (r) => ({
   updatedAt: r.precio_actualizado || "",
   skuProveedor: r.sku_proveedor || "",
   fichaUrl: r.ficha_tecnica_url || "",
+  nuevoHasta: r.nuevo_hasta || "",
 });
 
 export const mapProductToDb = (f) => ({

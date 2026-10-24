@@ -6,7 +6,8 @@ import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../theme.js";
 import { useTheme } from "../shared/useTheme.js";
 import { AddBtn, Loader, Modal, Input, Select } from "../shared/ui.jsx";
 import { CATALOG_CATS } from "../shared/constants.js";
-import { fmt, hoyISO } from "../shared/format.js";
+import { fmt, hoyISO, fmtFecha } from "../shared/format.js";
+import { esNuevo } from "./nuevo.js";
 import { TraerFichasModal } from "./TraerFichasModal.jsx";
 import { fichasDeProducto } from "./traerFichas.js";
 import { cargarFuentesFichas } from "./fuentesFichas.js";
@@ -426,7 +427,13 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
                 const catDef = CATALOG_CATS.find(c=>c.key===p.category);
                 return (
                 <tr key={p.id} style={{ borderBottom:`1px solid ${C.border}` }}>
-                  <td style={{ padding:"6px 7px", color:C.accent, fontWeight:600 }}>{p.code}</td>
+                  <td style={{ padding:"6px 7px", color:C.accent, fontWeight:600, whiteSpace:"nowrap" }}>
+                    {p.code}
+                    {esNuevo(p.nuevoHasta, hoyISO()) && (
+                      <span title={`Producto nuevo en el maestro (hasta el ${fmtFecha(p.nuevoHasta)})`}
+                        style={{ marginLeft:5, padding:"0 4px", borderRadius:3, background:C.accent, color:"#fff", fontSize:8, fontWeight:700, letterSpacing:"0.06em", verticalAlign:"middle", lineHeight:"13px", display:"inline-block" }}>NEW</span>
+                    )}
+                  </td>
                   {/* SKU Proveedor */}
                   <td style={{ padding:"6px 7px", color:C.textMuted, fontSize:10, fontFamily:"monospace", whiteSpace:"nowrap" }} title={p.skuProveedor}>
                     {p.skuProveedor ? (
