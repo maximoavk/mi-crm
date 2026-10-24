@@ -359,9 +359,9 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
                     style={{
                       display:"flex", alignItems:"center", gap:5,
                       padding:"6px 12px", borderRadius:999, cursor:"pointer",
-                      background: active ? "linear-gradient(120deg,#AC3AB322,#2954EC22)" : C.card,
-                      border:`1px solid ${active ? "#AC3AB355" : C.border}`,
-                      color: active ? C.text : C.textMuted,
+                      background: active ? `${C.accent}18` : C.card,
+                      border:`1px solid ${active ? C.accent+"55" : C.border}`,
+                      color: active ? C.accent : C.textMuted,
                       fontFamily:FONT_DISPLAY, fontSize:11, fontWeight: active?700:500,
                       whiteSpace:"nowrap", transition:"all 0.15s",
                     }}>
@@ -369,7 +369,7 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
                     {cat.label}
                     <span style={{
                       fontSize:9, fontFamily:FONT,
-                      background: active ? "#AC3AB333" : C.border,
+                      background: active ? `${C.accent}33` : C.border,
                       color: active ? C.text : C.textMuted,
                       borderRadius:10, padding:"1px 6px", marginLeft:2,
                     }}>{count}</span>
@@ -388,9 +388,9 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
                   style={{
                     display:"flex", alignItems:"center", gap:6, width:"100%", textAlign:"left",
                     padding:"6px 9px", borderRadius:999, cursor:"pointer",
-                    background: active ? "linear-gradient(120deg,#AC3AB322,#2954EC22)" : C.card,
-                    border:`1px solid ${active ? "#AC3AB355" : C.border}`,
-                    color: active ? C.text : C.textMuted,
+                    background: active ? `${C.accent}18` : C.card,
+                    border:`1px solid ${active ? C.accent+"55" : C.border}`,
+                    color: active ? C.accent : C.textMuted,
                     fontFamily:FONT_DISPLAY, fontSize:11, fontWeight: active?700:500,
                     transition:"all 0.15s",
                   }}>
@@ -398,7 +398,7 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
                   <span style={{ flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{cat.label}</span>
                   <span style={{
                     fontSize:9, fontFamily:FONT, flexShrink:0,
-                    background: active ? "#AC3AB333" : C.border,
+                    background: active ? `${C.accent}33` : C.border,
                     color: active ? C.text : C.textMuted,
                     borderRadius:10, padding:"1px 5px",
                   }}>{count}</span>
@@ -440,8 +440,8 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
                   {/* Categoría con badge de color */}
                   <td style={{ padding:"6px 7px", whiteSpace:"nowrap" }}>
                     {catDef ? (
-                      <span style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 8px", borderRadius:4, fontSize:10, fontFamily:FONT, background:catDef.color+"22", color:catDef.color, border:`1px solid ${catDef.color}44` }}>
-                        <span>{catDef.icon}</span>{catDef.label}
+                      <span style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 8px", borderRadius:4, fontSize:10, fontFamily:FONT, background:C.border+"55", color:C.text, border:`1px solid ${C.border}` }}>
+                        {catDef.Icon ? <catDef.Icon style={{ width:12, height:12, flexShrink:0 }} /> : <span>{catDef.icon}</span>}{catDef.label}
                       </span>
                     ) : p.category ? (
                       <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted }}>{p.category}</span>
