@@ -61,8 +61,11 @@ export function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMob
 
   const openEdit = (d) => { setEditingId(d.id); setForm({ title:d.title, company:d.company, contactId:d.contactId||"", rut:d.rut||"", value:String(d.value), stage:d.stage, probability:String(d.probability), closeDate:d.closeDate||"", quoteNumber:d.quoteNumber||"", serie:d.serie||"COT", pctAnticipo:d.pctAnticipo||50 }); setQuoteFound(null); setQuoteBusqueda(""); setShowModal(true); };
   const toggleCollapse = (id) => setCollapsed(p=>({...p,[id]:!p[id]}));
-  const allCollapsed = Object.values(collapsed).filter(Boolean).length >= deals.length/2;
-  const toggleAll = () => { const n={}; deals.forEach(d=>{n[d.id]=!allCollapsed;}); setCollapsed(n); };
+  // Todo parte colapsado (meses y cards); Expandir/Comprimir abre o cierra
+  // ambos niveles a la vez.
+  const [allOpen, setAllOpen] = useState(false);
+  const allCollapsed = !allOpen;
+  const toggleAll = () => { const n={}; deals.forEach(d=>{n[d.id]=allOpen;}); setCollapsed(n); setMonthOverride({}); setAllOpen(!allOpen); };
 
   const buscarCotizacion = async () => {
     if(!quoteBusqueda) return;
@@ -400,10 +403,9 @@ export function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMob
           <div style={{ width:20, height:20, borderRadius:"50%", background:accentColor+"22", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT, fontSize:10, color:accentColor, fontWeight:700 }}>{stageDeals.length}</div>
         </div>
         <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
-          {monthGroups.map((group, gi) => {
+          {monthGroups.map((group) => {
             const groupKey = `${laneKey}:${stage.key}:${group.key}`;
-            const isOldest = gi===0 && group.key!=="sin-fecha";
-            const isOpen = monthOverride[groupKey] !== undefined ? monthOverride[groupKey] : isOldest;
+            const isOpen = monthOverride[groupKey] !== undefined ? monthOverride[groupKey] : allOpen;
             const groupTotal = group.deals.reduce((s,d)=>s+Number(d.value),0);
             return (
               <div key={group.key}>
