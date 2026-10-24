@@ -235,18 +235,9 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
     if (!priceForm.supplier_id || !priceForm.precio_bruto) return;
     setSavingPrice(true);
     const dbData = { product_id: editingId, supplier_id: priceForm.supplier_id, precio_bruto: Number(priceForm.precio_bruto), url: priceForm.url||null, sku_proveedor: priceForm.sku_proveedor||null, es_preferido: priceForm.es_preferido||false, actualizado: hoyISO() };
-    if (editingPriceId) {
-      // Respaldar el precio anterior en el histórico antes de sobrescribirlo
-      const anterior = productPrices.find(pp=>pp.id===editingPriceId);
-      if (anterior && Number(anterior.precio_bruto) !== Number(priceForm.precio_bruto)) {
-        await supabase.from("product_price_history").insert({
-          product_price_id: editingPriceId, product_id: editingId, supplier_id: anterior.supplier_id,
-          precio_bruto: anterior.precio_bruto, sku_proveedor: anterior.sku_proveedor||null, url: anterior.url||null,
-          fecha: anterior.actualizado || hoyISO(),
-        });
-      }
-      await supabase.from("product_prices").update(dbData).eq("id", editingPriceId);
-    }
+    // El precio anterior pasa solo al histórico: lo hace el trigger
+    // trg_registrar_cambio_precio (2026-10-23_historial_precios_automatico.sql).
+    if (editingPriceId) await supabase.from("product_prices").update(dbData).eq("id", editingPriceId);
     else await supabase.from("product_prices").insert(dbData);
     if (priceForm.es_preferido) {
       await supabase.from("product_prices").update({ es_preferido: false }).eq("product_id", editingId).neq("supplier_id", priceForm.supplier_id);
