@@ -7,7 +7,9 @@
 -- Fuentes (todas públicas, sin credenciales):
 --   Smart Secure -> Shopify, ficha en <url>.js, precio en centavos de peso (CLP) con IVA
 --   Primtech     -> WooCommerce, /wp-json/wc/store/v1/products?slug=..., precio en pesos
---   VideoVision  -> Shopify en DÓLARES (precio con IVA); se convierte con tipo_cambio_diario.
+--   IAI Tech     -> sitio propio (iaitechvdm.cl), la ficha trae "finalPrice" (CLP con IVA), "sku" y
+--                   disponibilidad; el SKU coincide con el del maestro, así que actualiza como Smart Secure.
+--   VideoVision  -> Shopify en DÓLARES (precio con IVA); se convierte con la tasa CLP del portal.
 --                   Solo informa: la convención del maestro para este proveedor es distinta
 --                   (ver notas en la nota de Obsidian). Nunca actualiza solo.
 --
@@ -131,7 +133,7 @@ begin
            pp.sku_proveedor, pp.url, pp.es_preferido
     from public.product_prices pp
     join public.suppliers s on s.id = pp.supplier_id
-    where s.nombre in ('Smart Secure', 'PRIMTECH', 'VideoVision')
+    where s.nombre in ('Smart Secure', 'PRIMTECH', 'VideoVision', 'IAI Tech')
       and (p_proveedor is null or s.nombre = p_proveedor)
     order by s.nombre, pp.id
   loop
@@ -146,6 +148,20 @@ begin
         est := 'otro_dominio'; det := split_part(split_part(u, '//', 2), '/', 1);
       elsif r.prov = 'PRIMTECH' and u !~ '^https://(www\.)?primtech\.cl/producto/' then
         est := 'otro_dominio'; det := split_part(split_part(u, '//', 2), '/', 1);
+      elsif r.prov = 'IAI Tech' and u !~ '^https://(www\.)?iaitechvdm\.cl/product/' then
+        est := 'otro_dominio'; det := split_part(split_part(u, '//', 2), '/', 1);
+      elsif r.prov = 'IAI Tech' then
+        -- Sitio propio: la ficha trae el precio final con IVA ("finalPrice"), el SKU y la disponibilidad.
+        resp := public._http_get_reintento(u);
+        if resp.status = 404 then
+          est := 'no_encontrado';
+        elsif resp.status <> 200 then
+          est := 'error'; det := 'HTTP ' || resp.status;
+        else
+          web   := (regexp_match(resp.content, '"finalPrice":"([0-9.]+)"'))[1]::numeric;
+          sku_w := (regexp_match(resp.content, '"sku":\s*"([^"]+)"'))[1];
+          disp  := resp.content like '%schema.org/InStock%';
+        end if;
       elsif r.prov = 'PRIMTECH' then
         slug := regexp_replace(u, '^https://(www\.)?primtech\.cl/producto/([^/]+)/?$', '\2');
         resp := public._http_get_reintento('https://primtech.cl/wp-json/wc/store/v1/products?slug=' || slug);
@@ -201,7 +217,7 @@ begin
         else
           var := round((web - r.precio_bruto) / nullif(r.precio_bruto, 0) * 100, 2);
           exacto := coalesce(trim(r.sku_proveedor), '') <> ''
-                    and lower(trim(r.sku_proveedor)) = lower(trim(coalesce(sku_w, '')));
+                    and regexp_replace(lower(trim(r.sku_proveedor)), '^sku:\s*', '') = lower(trim(coalesce(sku_w, '')));
           if abs(web - r.precio_bruto) < 1 then
             est := 'igual';
           elsif r.prov = 'VideoVision' then
@@ -267,6 +283,7 @@ select cron.unschedule(jobid) from cron.job where jobname like 'monitor-precios-
 select cron.schedule('monitor-precios-smartsecure', '0 12 * * 1',  $$select public.monitorear_precios_proveedores(true, 'Smart Secure')$$);
 select cron.schedule('monitor-precios-primtech',    '10 12 * * 1', $$select public.monitorear_precios_proveedores(true, 'PRIMTECH')$$);
 select cron.schedule('monitor-precios-videovision', '20 12 * * 1', $$select public.monitorear_precios_proveedores(true, 'VideoVision')$$);
+select cron.schedule('monitor-precios-iaitech',     '30 12 * * 1', $$select public.monitorear_precios_proveedores(true, 'IAI Tech')$$);
 
 -- ---------------------------------------------------------------------------------
 -- Uso manual (en el SQL Editor):
