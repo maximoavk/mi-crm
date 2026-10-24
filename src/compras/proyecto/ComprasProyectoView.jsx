@@ -13,7 +13,7 @@ import { OC_ESTADOS } from "../ocEstados.js";
 import { cobradoCotizacion, codigoCot, porComprar, resumenProyecto, totalOC, pagadoOC, margenProyecto } from "./calculos.js";
 import { MargenProyecto } from "./MargenProyecto.jsx";
 import { cargarTodo, borrarPago } from "./datos.js";
-import { campo } from "./estilos.js";
+import { campoBase } from "./estilos.js";
 import { GenerarOCModal } from "./GenerarOCModal.jsx";
 import { PagarOCModal } from "./PagarOCModal.jsx";
 import { CrearProductoModal } from "./CrearProductoModal.jsx";
@@ -23,6 +23,7 @@ const mismoId = (a, b) => a != null && b != null && String(a) === String(b);
 
 export function ComprasProyectoView({ isMobile }) {
   const { C, theme } = useTheme();
+  const campo = { ...campoBase, background:C.bg, border:`1px solid ${C.border}`, color:C.text };
   const tarjeta = { background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:16 };
   const tituloSeccion = { fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:700, color:C.text };
   const th = { fontFamily:FONT, fontSize:10, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", textAlign:"left", padding:"0 8px 8px", fontWeight:400 };

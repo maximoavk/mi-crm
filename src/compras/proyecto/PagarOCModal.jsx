@@ -5,7 +5,7 @@ import { FONT_BODY as FONT, FONT_NUM } from "../../theme.js";
 import { useTheme } from "../../shared/useTheme.js";
 import { fmt, hoyISO } from "../../shared/format.js";
 import { Ventana } from "../../shared/Ventana.jsx";
-import { campo, etiqueta } from "./estilos.js";
+import { campoBase, etiquetaBase } from "./estilos.js";
 import { evaluarPago } from "./calculos.js";
 import { registrarPago } from "./datos.js";
 
@@ -23,6 +23,8 @@ function cuentaInicial(cuentas) {
 
 export function PagarOCModal({ oc, total, pagado, saldoDisponible, codigo, cuentas = [], onClose, onPaid }) {
   const { C } = useTheme();
+  const campo = { ...campoBase, background:C.bg, border:`1px solid ${C.border}`, color:C.text };
+  const etiqueta = { ...etiquetaBase, color:C.textMuted };
   const pendiente = Math.max(0, total - pagado);
   const [form, setForm] = useState({ monto: pendiente || "", fecha: hoyISO(), metodo: "Transferencia", referencia: "" });
   const [marcarPagada, setMarcarPagada] = useState(true);

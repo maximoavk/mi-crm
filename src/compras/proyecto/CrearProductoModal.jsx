@@ -7,12 +7,14 @@ import { fmt, hoyISO } from "../../shared/format.js";
 import { mapProductToDb } from "../../shared/mappers.js";
 import { CATALOG_CATS } from "../../shared/constants.js";
 import { Ventana } from "../../shared/Ventana.jsx";
-import { campo, etiqueta } from "./estilos.js";
+import { campoBase, etiquetaBase } from "./estilos.js";
 import { sugerirCodigo } from "./calculos.js";
 import { crearProductoDesdeCosteo } from "./datos.js";
 
 export function CrearProductoModal({ item, costeoId, productos, suppliers, onClose, onCreated }) {
   const { C } = useTheme();
+  const campo = { ...campoBase, background:C.bg, border:`1px solid ${C.border}`, color:C.text };
+  const etiqueta = { ...etiquetaBase, color:C.textMuted };
   const [form, setForm] = useState({
     code: "", name: item.descripcion, description: item.modelo || "", category: "", unit: "un",
     supplier_id: "", precio: item.costoBruto || "", fichaUrl: item.datasheet_url || "",

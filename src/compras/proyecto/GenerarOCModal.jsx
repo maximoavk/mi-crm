@@ -6,7 +6,7 @@ import { FONT_BODY as FONT, FONT_DISPLAY, FONT_NUM } from "../../theme.js";
 import { useTheme } from "../../shared/useTheme.js";
 import { fmt } from "../../shared/format.js";
 import { Ventana } from "../../shared/Ventana.jsx";
-import { campo, etiqueta } from "./estilos.js";
+import { campoBase, etiquetaBase } from "./estilos.js";
 import { crearOCs } from "./datos.js";
 
 // Proveedor y precio sugeridos para un producto: el precio preferido del
@@ -21,6 +21,8 @@ function sugerencia(item, prices) {
 
 export function GenerarOCModal({ quote, codigo, items, suppliers, prices, saldoProyectado, onClose, onCreated }) {
   const { C } = useTheme();
+  const campo = { ...campoBase, background:C.bg, border:`1px solid ${C.border}`, color:C.text };
+  const etiqueta = { ...etiquetaBase, color:C.textMuted };
   const [filas, setFilas] = useState(() => items.map(it => ({
     productId: it.productId, descripcion: it.descripcion, modelo: it.modelo,
     qty: it.pendiente || 1, ...sugerencia(it, prices),
