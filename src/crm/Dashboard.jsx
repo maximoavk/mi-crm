@@ -441,6 +441,20 @@ export function Dashboard({ deals, tasks, setTasks, isMobile, navigate }) {
           <div style={{ fontFamily:"'Space Grotesk', sans-serif", fontSize:22, fontWeight:700, color:C.text }}>Dashboard</div>
         </div>
 
+        {/* En móvil no hay panel flotante: los accesos van en una grilla 3×2 */}
+        {isMobile && (
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:8 }}>
+            {QUICK_ACTIONS.map(qa => (
+              <button key={qa.label} onClick={()=>navigate(qa.view, { autoNew: qa.autoNew })}
+                style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:5, minWidth:0, padding:"10px 4px", borderRadius:12,
+                  background:C.yellow, border:"1px solid rgba(255,255,255,0.15)", boxShadow:"0 2px 10px #00000022", cursor:"pointer" }}>
+                <qa.Icon size={18} color="#fff" strokeWidth={2} />
+                <span style={{ fontFamily:FONT_BODY, fontSize:11, fontWeight:600, color:"#fff", maxWidth:"100%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{qa.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {actividadHoyCard}
 
         <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 320px", gap:16, alignItems:"start" }}>

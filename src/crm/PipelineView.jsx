@@ -246,9 +246,12 @@ export function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMob
       return len>0 ? { key:s.key, color:s.color, dash:`${len} ${circ-len}`, rot } : null;
     }).filter(Boolean);
     return (
-      <div key={m.key} onMouseEnter={()=>setHoverMonth(m.key)} onMouseLeave={()=>setHoverMonth(null)}
-        style={{ position:"relative", display:"flex", flexDirection:"column", alignItems:"center", gap:4, padding:6, borderRadius:8, cursor:"default", background:isHover?C.border:"transparent", transition:"background 0.15s" }}>
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform:isHover?"scale(1.35)":"scale(1)", transition:"transform 0.18s ease" }}>
+      <div key={m.key}
+        {...(isMobile
+          ? { onClick:()=>setHoverMonth(k=>k===m.key?null:m.key), role:"button", "aria-pressed":isHover }
+          : { onMouseEnter:()=>setHoverMonth(m.key), onMouseLeave:()=>setHoverMonth(null) })}
+        style={{ position:"relative", display:"flex", flexDirection:"column", alignItems:"center", gap:4, padding:6, borderRadius:8, cursor:isMobile?"pointer":"default", flexShrink:0, background:isHover?C.border:"transparent", transition:"background 0.15s" }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform:isHover&&!isMobile?"scale(1.35)":"scale(1)", transition:"transform 0.18s ease" }}>
           <circle cx={cx} cy={cy} r={r} fill="none" stroke={C.border} strokeWidth={sw} />
           {segs.map(seg=>(
             <circle key={seg.key} cx={cx} cy={cy} r={r} fill="none" stroke={seg.color} strokeWidth={sw}
@@ -256,7 +259,7 @@ export function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMob
           ))}
         </svg>
         <span style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, textTransform:"uppercase" }}>{m.shortLabel}</span>
-        {isHover && (
+        {isHover && !isMobile && (
           <div style={{ position:"absolute", bottom:"100%", left:"50%", transform:"translateX(-50%) translateY(-6px)", background:C.bg, border:`1px solid ${C.border}`, borderRadius:7, padding:"8px 10px", width:150, zIndex:10, boxShadow:"0 8px 20px #00000066" }}>
             {STAGES.filter(s=>m[s.key]>0).map(s=>(
               <div key={s.key} style={{ display:"flex", alignItems:"center", gap:5, fontFamily:FONT, fontSize:9, color:C.text, marginBottom:3 }}>
@@ -427,6 +430,53 @@ export function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMob
     );
   };
 
+  // ── Panel resumen mensual (dona COT+SIN por mes) — al pie en escritorio;
+  // en móvil va arriba de las etapas (al pie quedaba bajo una lista muy larga),
+  // las donas se deslizan hacia el lado y al tocar un mes se ve su detalle abajo.
+  const mesSel = isMobile ? monthlyStats.find(m=>m.key===hoverMonth) : null;
+  const resumenPanel = monthlyStats.length>0 && (
+        <div style={{ marginTop:isMobile?0:28, marginBottom:isMobile?20:0, background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:14 }}>
+          <button onClick={()=>setResumenOpen(o=>!o)} style={{ width:"100%", display:"flex", alignItems:"center", gap:6, background:"none", border:"none", cursor:"pointer", padding:0, marginBottom:resumenOpen?12:0 }}>
+            <TreeCaret collapsed={!resumenOpen} color={C.textMuted} />
+            <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>
+              Resumen por mes{resumenYears.length===1 && ` · ${resumenYears[0]}`}
+            </span>
+          </button>
+          {resumenOpen && (
+            <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+              {monthlyByYear.map(({year, months})=>(
+                <div key={year} className={isMobile?"no-scrollbar":undefined}
+                  style={isMobile
+                    ? { display:"flex", gap:4, alignItems:"flex-start", overflowX:"auto", margin:"0 -14px", padding:"0 14px", WebkitOverflowScrolling:"touch" }
+                    : { display:"flex", flexWrap:"wrap", gap:18, alignItems:"flex-start" }}>
+                  {resumenYears.length>1 && (
+                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:C.text, writingMode:"vertical-rl", padding:"4px 2px", flexShrink:0 }}>{year}</div>
+                  )}
+                  {months.map(renderMonthDonut)}
+                </div>
+              ))}
+              {isMobile && (mesSel ? (
+                <div style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 12px" }}>
+                  <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:C.text, marginBottom:6 }}>{mesSel.label.charAt(0).toUpperCase()+mesSel.label.slice(1)}</div>
+                  {STAGES.filter(st=>mesSel[st.key]>0).map(st=>(
+                    <div key={st.key} style={{ display:"flex", alignItems:"center", gap:6, fontFamily:FONT, fontSize:11, color:C.text, marginBottom:3 }}>
+                      <span style={{ width:7, height:7, borderRadius:"50%", background:st.color, flexShrink:0 }} />
+                      <span style={{ flex:1 }}>{st.label}</span>
+                      <span style={{ fontFamily:FONT_NUM }}>{fmt(mesSel[st.key])}</span>
+                    </div>
+                  ))}
+                  <div style={{ display:"flex", fontFamily:FONT_NUM, fontSize:12, fontWeight:700, color:C.text, marginTop:4, paddingTop:5, borderTop:`1px dashed ${C.border}` }}>
+                    <span style={{ flex:1 }}>Total</span>{fmt(mesSel.total)}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontFamily:FONT, fontSize:10, color:C.textDim }}>Toca un mes para ver el detalle</div>
+              ))}
+            </div>
+          )}
+        </div>
+  );
+
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:20, flexWrap:"wrap", gap:10 }}>
@@ -438,6 +488,8 @@ export function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMob
           <button onClick={toggleAll} style={{ padding:"8px 14px", background:C.card, border:`1px solid ${C.border}`, borderRadius:7, color:C.textMuted, fontFamily:FONT_DISPLAY, fontSize:12, cursor:"pointer" }}>{allCollapsed?"⊞ Expandir":"⊟ Comprimir"}</button>
         </div>
       </div>
+
+      {isMobile && resumenPanel}
 
       <div>
         {/* ── LANE COT — Con factura / IVA ── */}
@@ -465,29 +517,7 @@ export function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMob
         </div>
       </div>
 
-      {/* ── Panel resumen mensual (dona COT+SIN por mes) — al pie, ancho completo ── */}
-      {!isMobile && monthlyStats.length>0 && (
-        <div style={{ marginTop:28, background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:14 }}>
-          <button onClick={()=>setResumenOpen(o=>!o)} style={{ width:"100%", display:"flex", alignItems:"center", gap:6, background:"none", border:"none", cursor:"pointer", padding:0, marginBottom:resumenOpen?12:0 }}>
-            <TreeCaret collapsed={!resumenOpen} color={C.textMuted} />
-            <span style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>
-              Resumen por mes{resumenYears.length===1 && ` · ${resumenYears[0]}`}
-            </span>
-          </button>
-          {resumenOpen && (
-            <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-              {monthlyByYear.map(({year, months})=>(
-                <div key={year} style={{ display:"flex", flexWrap:"wrap", gap:18, alignItems:"flex-start" }}>
-                  {resumenYears.length>1 && (
-                    <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:C.text, writingMode:"vertical-rl", padding:"4px 2px" }}>{year}</div>
-                  )}
-                  {months.map(renderMonthDonut)}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {!isMobile && resumenPanel}
       {rejectModal && (
         <Modal title="Motivo de rechazo" onClose={()=>setRejectModal(null)} onSubmit={confirmReject} theme={theme}>
           <Select label="Causa" value={rejectReason} onChange={e=>setRejectReason(e.target.value)} theme={theme}>
