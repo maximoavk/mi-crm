@@ -45,8 +45,25 @@ export const Select = ({ label, children, theme, ...props }) => {
   );
 };
 
-export const Modal = ({ title, onClose, onSubmit, children, theme }) => {
+// fullScreen (solo móvil): ocupa toda la pantalla, con botón "Volver" arriba
+// en vez de la ✕ y los botones fijos al pie.
+export const Modal = ({ title, onClose, onSubmit, children, theme, fullScreen }) => {
   const { colors:C, fontDisplay } = theme || DEFAULT_THEME;
+  if (fullScreen) return (
+    <div style={{ position:"fixed", inset:0, background:C.surface, zIndex:200, display:"flex", flexDirection:"column" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 16px", borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
+        <button onClick={onClose} aria-label="Volver" style={{ display:"flex", alignItems:"center", gap:6, background:"none", border:`1px solid ${C.border}`, borderRadius:8, padding:"7px 12px", color:C.text, fontFamily:fontDisplay, fontSize:13, fontWeight:600, cursor:"pointer" }}>
+          <span style={{ fontSize:16, lineHeight:1 }}>←</span>Volver
+        </button>
+        <div style={{ flex:1, minWidth:0, fontFamily:fontDisplay, fontSize:16, fontWeight:700, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{title}</div>
+      </div>
+      <div style={{ flex:1, overflowY:"auto", padding:16 }}>{children}</div>
+      <div style={{ display:"flex", gap:10, padding:"12px 16px", paddingBottom:"calc(12px + env(safe-area-inset-bottom))", borderTop:`1px solid ${C.border}`, flexShrink:0 }}>
+        <button onClick={onClose} style={{ flex:1, padding:"11px 0", background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, color:C.textMuted, fontFamily:fontDisplay, fontSize:13, cursor:"pointer" }}>Cancelar</button>
+        <button onClick={onSubmit} style={{ flex:2, padding:"11px 0", background:C.accent, border:"none", borderRadius:6, color:C===COLORS?C.bg:"#fff", fontFamily:fontDisplay, fontSize:13, fontWeight:700, cursor:"pointer" }}>Guardar</button>
+      </div>
+    </div>
+  );
   return (
     <div style={{ position:"fixed", inset:0, background:"#000A", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
       <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, padding:24, width:"100%", maxWidth:480, maxHeight:"85vh", overflowY:"auto" }}>
@@ -64,10 +81,10 @@ export const Modal = ({ title, onClose, onSubmit, children, theme }) => {
   );
 };
 
-export const AddBtn = ({ onClick, label, theme }) => {
+export const AddBtn = ({ onClick, label, theme, style }) => {
   const { colors:C, fontDisplay } = theme || DEFAULT_THEME;
   return (
-    <button onClick={onClick} style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 18px", background:C.accent, border:"none", borderRadius:7, color:C===COLORS?C.bg:"#fff", fontFamily:fontDisplay, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+    <button onClick={onClick} style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, padding:"9px 18px", background:C.accent, border:"none", borderRadius:7, color:C===COLORS?C.bg:"#fff", fontFamily:fontDisplay, fontSize:13, fontWeight:700, cursor:"pointer", ...style }}>
       <span style={{ fontSize:18, lineHeight:1 }}>+</span>{label}
     </button>
   );

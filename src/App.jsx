@@ -1,12 +1,12 @@
 import { useState, useEffect, lazy, Suspense } from "react";
-import { LogOut } from "lucide-react";
+import { LogOut, MoreHorizontal } from "lucide-react";
 import { COLORS, FONT, FONT_DISPLAY, SIDEBAR, COLORS_LIGHT, FONT_BODY } from "./theme.js";
 import { supabase } from "./supabaseClient.js";
 import { LOGO_B64 } from "./shared/assets.js";
 import { useIsMobile } from "./shared/useIsMobile.js";
 import { useTheme } from "./shared/useTheme.js";
 import { mapContact, mapDeal, mapTask } from "./shared/mappers.js";
-import { NAV_GROUPS, NAV } from "./layout/nav.js";
+import { NAV_GROUPS, NAV, NAV_MOBILE_MAIN } from "./layout/nav.js";
 import { LoginScreen } from "./auth/LoginScreen.jsx";
 import { NavGroup } from "./layout/NavGroup.jsx";
 
@@ -73,6 +73,7 @@ export default function CRM() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [masOpen, setMasOpen] = useState(false); // hoja "Más" de la barra inferior (móvil)
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [userRole, setUserRole] = useState(null); // "admin" | "colaborador" | "prueba" | "sin_acceso"
@@ -134,7 +135,7 @@ export default function CRM() {
   },[userId]);
 
   const navigate = (key, opts) => {
-    setView(key); setMenuOpen(false); setVolverACosteo(null); setAutoNew(!!opts?.autoNew);
+    setView(key); setMenuOpen(false); setMasOpen(false); setVolverACosteo(null); setAutoNew(!!opts?.autoNew);
     if (opts?.openCosteoId) setOpenCosteoId(opts.openCosteoId);
   };
   const logout = () => supabase.auth.signOut();
@@ -274,7 +275,7 @@ export default function CRM() {
         </aside>
       )}
 
-      <main style={{ flex:1, overflowY:"auto", paddingBottom:isMobile?80:0, background: LIGHT_VIEWS.has(view) ? theme.colors.bg : COLORS.bg }}>
+      <main style={{ flex:1, overflowY:"auto", paddingBottom:isMobile?"calc(96px + env(safe-area-inset-bottom))":0, background: LIGHT_VIEWS.has(view) ? theme.colors.bg : COLORS.bg }}>
         {/* Dashboard maneja su propio layout a pantalla completa (fondo claro,
             panel de accesos directos flotante) — las demás vistas usan el
             contenedor estándar con ancho máximo y padding. */}
@@ -315,18 +316,47 @@ export default function CRM() {
         )}
       </main>
 
+      {isMobile && masOpen && (
+        <div onClick={()=>setMasOpen(false)} style={{ position:"fixed", inset:0, background:"#0008", zIndex:160 }}>
+          <div onClick={e=>e.stopPropagation()} style={{ position:"absolute", left:0, right:0, bottom:0, maxHeight:"75vh", overflowY:"auto", background:SIDEBAR.bg, borderTop:`1px solid ${SIDEBAR.border}`, borderRadius:"16px 16px 0 0", padding:"8px 12px", paddingBottom:"calc(16px + env(safe-area-inset-bottom))" }}>
+            <div style={{ width:40, height:4, borderRadius:2, background:SIDEBAR.border, margin:"4px auto 10px" }} />
+            {NAV_GROUPS.map(g=>{
+              const items = (g.single ? [g] : g.children).filter(n=>!NAV_MOBILE_MAIN.includes(n.key));
+              if(!items.length) return null;
+              return (
+                <div key={g.key} style={{ marginBottom:8 }}>
+                  {!g.single && <div style={{ fontFamily:FONT, fontSize:10, color:SIDEBAR.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", padding:"6px 8px 4px" }}>{g.label}</div>}
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+                    {items.map(n=>{
+                      const active=view===n.key;
+                      return (
+                        <button key={n.key} onClick={()=>navigate(n.key)} style={{ display:"flex", alignItems:"center", gap:10, padding:"11px 12px", borderRadius:10, background:active?SIDEBAR.accentDim:SIDEBAR.activeBg, border:`1px solid ${active?SIDEBAR.accentGlow:SIDEBAR.border}`, cursor:"pointer", color:active?SIDEBAR.accent:SIDEBAR.text, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:active?600:400, textAlign:"left", minWidth:0 }}>
+                          <n.Icon size={16} style={{ flexShrink:0 }} /><span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{n.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {isMobile && (
-        <nav style={{ position:"fixed", bottom:0, left:0, right:0, background:SIDEBAR.bg, borderTop:`1px solid ${SIDEBAR.border}`, display:"flex", zIndex:150, paddingBottom:"env(safe-area-inset-bottom)" }}>
-          {NAV.map(n=>{
-            const active=view===n.key;
+        <nav style={{ position:"fixed", bottom:0, left:0, right:0, background:SIDEBAR.bg, borderTop:`1px solid ${SIDEBAR.border}`, display:"flex", zIndex:170, paddingBottom:"env(safe-area-inset-bottom)" }}>
+          {[...NAV_MOBILE_MAIN.map(k=>NAV.find(n=>n.key===k)), { key:"__mas", label:"Más", Icon:MoreHorizontal }].map(n=>{
+            const isMas = n.key==="__mas";
+            const active = isMas ? (masOpen || !NAV_MOBILE_MAIN.includes(view)) : (view===n.key && !masOpen);
             return (
-              <button key={n.key} onClick={()=>navigate(n.key)} title={n.label} aria-label={n.label}
-                style={{ flex:1, padding:"10px 2px", background:"transparent", border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                <div style={{ width:34, height:34, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center",
+              <button key={n.key} onClick={()=>isMas ? setMasOpen(p=>!p) : navigate(n.key)} title={n.label} aria-label={n.label}
+                style={{ flex:1, minWidth:0, padding:"8px 2px 6px", background:"transparent", border:"none", borderRadius:0, cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
+                <div style={{ width:34, height:30, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center",
                   background: active?SIDEBAR.accent:SIDEBAR.activeBg,
                   border: active?"none":`1px solid ${SIDEBAR.border}` }}>
                   <n.Icon size={17} color={active?"#fff":SIDEBAR.textMuted} strokeWidth={active?2.5:1.8} />
                 </div>
+                <span style={{ fontFamily:FONT_DISPLAY, fontSize:10, color:active?SIDEBAR.text:SIDEBAR.textMuted, fontWeight:active?600:400, maxWidth:"100%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{n.label}</span>
               </button>
             );
           })}

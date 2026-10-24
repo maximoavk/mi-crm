@@ -277,22 +277,28 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
           <div style={{ fontFamily:FONT, fontSize:11, color:C.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Catálogo · Maestros</div>
           <div style={{ fontFamily:FONT_DISPLAY, fontSize:22, fontWeight:700, color:C.text }}>Base de Productos y Servicios</div>
         </div>
-        <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
-          <div style={{ position:"relative" }}>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Código, nombre…" style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 14px 8px 32px", fontFamily:FONT, fontSize:12, color:C.text, outline:"none", width:180 }} />
+        {/* En móvil: buscador a todo el ancho y los dos botones principales en
+            una fila 50/50 (order los reacomoda sin duplicar los botones). */}
+        <div style={isMobile
+          ? { display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, width:"100%" }
+          : { display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+          <div style={{ position:"relative", ...(isMobile && { gridColumn:"1 / -1" }) }}>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Código, nombre…" style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:6, padding:isMobile?"11px 14px 11px 34px":"8px 14px 8px 32px", fontFamily:FONT, fontSize:isMobile?16:12, color:C.text, outline:"none", width:isMobile?"100%":180, boxSizing:"border-box" }} />
             <span style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", fontSize:12, color:C.textMuted }}>🔍</span>
           </div>
           <button onClick={()=>setShowTraerFichas(true)} title="Trae al maestro los enlaces a ficha técnica ya escritos en Costeos y cotizaciones"
-            style={{ padding:"9px 14px", background:`${C.accent}14`, border:`1px solid ${C.accent}66`, borderRadius:7, color:C.accent, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
+            style={{ padding:"9px 14px", background:`${C.accent}14`, border:`1px solid ${C.accent}66`, borderRadius:7, color:C.accent, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap",
+              ...(isMobile && { padding:"10px 8px", minWidth:0, overflow:"hidden", textOverflow:"ellipsis" }) }}>
             📎 Traer fichas técnicas
           </button>
           {duplicateGroups.length > 0 && (
             <button onClick={()=>setShowDupes(v=>!v)} title="Códigos usados por más de un producto"
-              style={{ padding:"9px 14px", background:showDupes?C.red:`${C.red}14`, border:`1px solid ${C.red}66`, borderRadius:7, color:showDupes?C.bg:C.red, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
+              style={{ padding:"9px 14px", background:showDupes?C.red:`${C.red}14`, border:`1px solid ${C.red}66`, borderRadius:7, color:showDupes?C.bg:C.red, fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap",
+                ...(isMobile && { gridColumn:"1 / -1", order:1 }) }}>
               ⚠ Duplicados ({duplicateGroups.length})
             </button>
           )}
-          <AddBtn onClick={openNew} label="Nuevo ítem" theme={theme} />
+          <AddBtn onClick={openNew} label="Nuevo ítem" theme={theme} style={isMobile ? { padding:"10px 8px", minWidth:0 } : undefined} />
         </div>
       </div>
 
@@ -347,11 +353,15 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
           }} />
       )}
 
-      <div style={{ display:"flex", gap:10, alignItems:"flex-start" }}>
+      {/* En móvil, chips arriba y lista abajo (columna): en fila, los chips
+          (width:100%) dejaban la lista (flex:1, base 0) con 0 px de ancho. */}
+      <div style={{ display:"flex", flexDirection:isMobile?"column":"row", gap:10, alignItems:isMobile?"stretch":"flex-start" }}>
         {/* ── FILTROS DE CATEGORÍA ── */}
         {isMobile ? (
-          <div style={{ overflowX:"auto", marginBottom:16, paddingBottom:4, width:"100%" }}>
-            <div style={{ display:"flex", gap:6, minWidth:"max-content" }}>
+          // Margen negativo + padding = el scroll llega al borde de la pantalla
+          // sin que el primer/último chip quede cortado.
+          <div className="no-scrollbar" style={{ overflowX:"auto", margin:"0 -16px 6px", padding:"0 16px 4px", WebkitOverflowScrolling:"touch" }}>
+            <div style={{ display:"flex", gap:6, width:"max-content", paddingRight:16 }}>
               {CATALOG_CATS.map(cat => {
                 const active = filterType === cat.key;
                 const count = cat.key==="todos" ? products.length : products.filter(p=>p.category===cat.key).length;
@@ -410,7 +420,33 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
         )}
 
       <div style={{ flex:1, minWidth:0 }}>
-      {loading ? <Loader /> : (
+      {loading ? <Loader /> : isMobile ? (
+        <div style={{ display:"flex", flexDirection:"column", gap:8, paddingBottom:24 }}>
+          {filtered.map(p => {
+            const catDef = CATALOG_CATS.find(c=>c.key===p.category);
+            return (
+              <button key={p.id} onClick={()=>openEdit(p)}
+                style={{ display:"block", width:"100%", textAlign:"left", background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"12px 14px", cursor:"pointer", color:C.text }}>
+                <div style={{ display:"flex", alignItems:"baseline", gap:8, minWidth:0 }}>
+                  <span style={{ fontFamily:FONT, fontSize:12, fontWeight:600, color:C.accent, whiteSpace:"nowrap", flexShrink:0 }}>{p.code}</span>
+                  {esNuevo(p.nuevoHasta, hoyISO()) && (
+                    <span style={{ padding:"0 4px", borderRadius:3, background:C.accent, color:"#fff", fontFamily:FONT, fontSize:8, fontWeight:700, letterSpacing:"0.06em", lineHeight:"13px", flexShrink:0 }}>NEW</span>
+                  )}
+                  <span style={{ flex:1, minWidth:0, fontFamily:FONT_DISPLAY, fontSize:14, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</span>
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:8, minWidth:0 }}>
+                  <span style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 8px", borderRadius:4, fontFamily:FONT, fontSize:10, background:C.bg, color:C.textMuted, whiteSpace:"nowrap", flexShrink:0, maxWidth:"45%", overflow:"hidden" }}>
+                    {catDef ? <>{catDef.Icon ? <catDef.Icon style={{ width:12, height:12, flexShrink:0 }} /> : <span>{catDef.icon}</span>}{catDef.label}</> : (p.category || "—")}
+                  </span>
+                  <span style={{ flex:1, minWidth:0, fontFamily:FONT, fontSize:11, color:C.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.provider || "—"}</span>
+                  <span style={{ fontFamily:FONT_NUM, fontSize:13, fontWeight:700, color:C.text, whiteSpace:"nowrap", flexShrink:0 }}>{fmt(p.price)}</span>
+                </div>
+              </button>
+            );
+          })}
+          {filtered.length===0 && <div style={{ textAlign:"center", padding:40, fontFamily:FONT, color:C.textMuted }}>Sin productos. ¡Agrega el primero!</div>}
+        </div>
+      ) : (
         <div style={{ overflowX:"auto" }}>
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12, fontFamily:FONT }}>
             <thead>
@@ -488,7 +524,7 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
       </div>
 
       {showModal && (
-        <Modal title={editingId?"Editar Ítem":"Nuevo Ítem"} onClose={()=>{ setShowModal(false); setEditingId(null); setProductPrices([]); setShowPriceForm(false); onVolver?.(); }} onSubmit={save} theme={theme}>
+        <Modal title={editingId?"Editar Ítem":"Nuevo Ítem"} onClose={()=>{ setShowModal(false); setEditingId(null); setProductPrices([]); setShowPriceForm(false); onVolver?.(); }} onSubmit={save} theme={theme} fullScreen={isMobile}>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
             <div>
               <Input label="Código *" value={form.code} onChange={e=>f("code",e.target.value)} placeholder="Ej: ECAM-001" theme={theme} />
@@ -779,6 +815,13 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
               </div>
             )}
           </div>
+
+          {isMobile && editingId && (
+            <button onClick={async()=>{ if(!window.confirm(`¿Eliminar "${form.name}" del maestro?`)) return; await del(editingId); setShowModal(false); setEditingId(null); setProductPrices([]); }}
+              style={{ width:"100%", marginTop:16, padding:"10px 0", background:"none", border:`1px solid ${C.red}66`, borderRadius:6, color:C.red, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, cursor:"pointer" }}>
+              Eliminar ítem
+            </button>
+          )}
         </Modal>
       )}
     </div>

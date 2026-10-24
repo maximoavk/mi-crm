@@ -63,3 +63,6 @@ export const NAV_GROUPS = [
 
 // Helper: all nav keys flat
 export const NAV = NAV_GROUPS.flatMap(g=>g.single?[{key:g.key,label:g.label,Icon:g.Icon}]:(g.children||[]));
+
+// Barra inferior en móvil: estos 5 accesos fijos; el resto va en "Más".
+export const NAV_MOBILE_MAIN = ["dashboard", "pipeline", "quotes", "products", "tasks"];
