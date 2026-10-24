@@ -108,6 +108,15 @@ export function PipelineView({ deals, setDeals, contacts, tasks, setTasks, isMob
     const updates = { etapa: stage };
     if(stage==="rechazado"){ updates.motivo_rechazo = motivo||null; updates.fecha_rechazo = new Date().toISOString(); }
     await supabase.from("deals").update(updates).eq("id", id);
+    // Al pasar un deal a Cerrado, su cotización vinculada pasa a aprobada —
+    // sincroniza en la dirección contraria a QuoteEditor.jsx (que ya mueve
+    // el deal a Cerrado cuando la cotización se marca aprobada). Antes solo
+    // existía esa dirección: mover el deal en el Pipeline no aprobaba la
+    // cotización, así que quedaban desincronizados.
+    if(stage==="cerrado"){
+      const deal = deals.find(d=>d.id===id);
+      if(deal?.quoteId) await supabase.from("cotizaciones").update({ estado:"aprobada" }).eq("id", deal.quoteId);
+    }
     setDeals(deals.map(d=>d.id===id?{...d, stage, ...(stage==="rechazado"?{motivoRechazo:motivo||"", fechaRechazo:updates.fecha_rechazo}:{})}:d));
   };
 
