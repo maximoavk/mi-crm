@@ -318,7 +318,7 @@ export default function CRM() {
 
       {isMobile && masOpen && (
         <div onClick={()=>setMasOpen(false)} style={{ position:"fixed", inset:0, background:"#0008", zIndex:160 }}>
-          <div onClick={e=>e.stopPropagation()} style={{ position:"absolute", left:0, right:0, bottom:0, maxHeight:"75vh", overflowY:"auto", background:SIDEBAR.bg, borderTop:`1px solid ${SIDEBAR.border}`, borderRadius:"16px 16px 0 0", padding:"8px 12px", paddingBottom:"calc(16px + env(safe-area-inset-bottom))" }}>
+          <div onClick={e=>e.stopPropagation()} style={{ position:"absolute", left:0, right:0, bottom:0, maxHeight:"75vh", overflowY:"auto", overscrollBehavior:"contain", WebkitOverflowScrolling:"touch", background:SIDEBAR.bg, borderTop:`1px solid ${SIDEBAR.border}`, borderRadius:"16px 16px 0 0", padding:"8px 12px", paddingBottom:"calc(16px + env(safe-area-inset-bottom))" }}>
             <div style={{ width:40, height:4, borderRadius:2, background:SIDEBAR.border, margin:"4px auto 10px" }} />
             {NAV_GROUPS.map(g=>{
               const items = (g.single ? [g] : g.children).filter(n=>!NAV_MOBILE_MAIN.includes(n.key));
@@ -343,14 +343,16 @@ export default function CRM() {
         </div>
       )}
 
+      {/* Si los accesos no caben (teléfonos angostos) la barra se desliza
+          hacia el lado, sin tener que girar el teléfono. */}
       {isMobile && (
-        <nav style={{ position:"fixed", bottom:0, left:0, right:0, background:SIDEBAR.bg, borderTop:`1px solid ${SIDEBAR.border}`, display:"flex", zIndex:170, paddingBottom:"env(safe-area-inset-bottom)" }}>
+        <nav className="no-scrollbar" style={{ position:"fixed", bottom:0, left:0, right:0, background:SIDEBAR.bg, borderTop:`1px solid ${SIDEBAR.border}`, display:"flex", overflowX:"auto", overscrollBehaviorX:"contain", WebkitOverflowScrolling:"touch", zIndex:170, paddingBottom:"env(safe-area-inset-bottom)" }}>
           {[...NAV_MOBILE_MAIN.map(k=>NAV.find(n=>n.key===k)), { key:"__mas", label:"Más", Icon:MoreHorizontal }].map(n=>{
             const isMas = n.key==="__mas";
             const active = isMas ? (masOpen || !NAV_MOBILE_MAIN.includes(view)) : (view===n.key && !masOpen);
             return (
               <button key={n.key} onClick={()=>isMas ? setMasOpen(p=>!p) : navigate(n.key)} title={n.label} aria-label={n.label}
-                style={{ flex:1, minWidth:0, padding:"8px 2px 6px", background:"transparent", border:"none", borderRadius:0, cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
+                style={{ flex:"1 0 64px", padding:"8px 2px 6px", background:"transparent", border:"none", borderRadius:0, cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
                 <div style={{ width:34, height:30, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center",
                   background: active?SIDEBAR.accent:SIDEBAR.activeBg,
                   border: active?"none":`1px solid ${SIDEBAR.border}` }}>
