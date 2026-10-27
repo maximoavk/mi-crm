@@ -933,6 +933,49 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
                 </div>
               </div>
 
+              {/* ── Termómetro de renta ─────────────────────────────────── */}
+              {(() => {
+                const costoNeto   = Number(form.price) > 0 ? Math.round(Number(form.price) / 1.19) : 0;
+                const webNeto     = Number(webForm.precio_web_neto);
+                if (!costoNeto || !webNeto) return null;
+                const rentaNeta   = webNeto - costoNeto;
+                const rentaPct    = Math.round(rentaNeta / costoNeto * 100);
+                const barWidth    = Math.min(Math.max(rentaPct, 0), 100); // 0-100% capped at 100% markup
+                const color       = rentaPct <= 0 ? C.red : rentaPct < 15 ? "#f59e0b" : rentaPct < 30 ? "#84cc16" : C.green;
+                return (
+                  <div style={{ background:C.surface, border:`1px solid ${color}33`, borderRadius:8, padding:"10px 12px", marginBottom:12 }}>
+                    {/* Cabecera */}
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+                      <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.07em" }}>
+                        📊 Renta sobre costo neto
+                      </div>
+                      <span style={{ fontFamily:FONT, fontSize:11, fontWeight:700, color, background:color+"18", border:`1px solid ${color}44`, borderRadius:3, padding:"2px 7px" }}>
+                        {rentaPct > 0 ? "+" : ""}{rentaPct}% renta
+                      </span>
+                    </div>
+                    {/* Barra termómetro */}
+                    <div style={{ height:8, background:C.bg, borderRadius:4, overflow:"hidden", marginBottom:8 }}>
+                      <div style={{ width:`${barWidth}%`, height:"100%", background:color, borderRadius:4, transition:"width 0.3s, background 0.3s" }} />
+                    </div>
+                    {/* Detalle numérico */}
+                    <div style={{ display:"flex", gap:16 }}>
+                      <div>
+                        <div style={{ fontFamily:FONT, fontSize:8, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.06em" }}>Costo neto</div>
+                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:C.textMuted }}>{fmt(costoNeto)}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontFamily:FONT, fontSize:8, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.06em" }}>Renta neta</div>
+                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color }}>{rentaNeta >= 0 ? "+" : ""}{fmt(rentaNeta)}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontFamily:FONT, fontSize:8, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.06em" }}>Precio web neto</div>
+                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:C.text }}>{fmt(webNeto)}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               <button onClick={saveWebPrice} disabled={savingWeb}
                 style={{ width:"100%", padding:"9px", background: savingWeb?"#94a3b8":"#2563eb", color:"#fff", border:"none", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:savingWeb?"default":"pointer" }}>
                 {savingWeb ? "Guardando…" : "💾 Guardar precios web"}
