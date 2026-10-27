@@ -65,6 +65,12 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
   const [openHistoryId, setOpenHistoryId] = useState(null);
   const [showComparar, setShowComparar] = useState(false);
 
+  // ── Precios Web ─────────────────────────────────────────────────────────────
+  const [webForm, setWebForm] = useState({ precio_web_neto:"", precio_oferta_neto:"", flete_estimado:"", stock_status:"en-stock" });
+  const [webPriceData, setWebPriceData] = useState(null);
+  const [savingWeb, setSavingWeb] = useState(false);
+  const fw = (k, v) => setWebForm(p => ({ ...p, [k]: v }));
+
   // Solo al entrar a la pantalla (incluye abrir el producto de openProductId)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(()=>{ loadProducts(); loadSuppliers(); },[]);
@@ -95,6 +101,39 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
     setProductPrices(data||[]);
   };
 
+  const loadWebPrice = async (productId) => {
+    const { data } = await supabase.from("precios_web").select("*").eq("producto_id", productId).maybeSingle();
+    setWebPriceData(data || null);
+    if (data) {
+      setWebForm({
+        precio_web_neto:    data.precio_web    ? String(Math.round(data.precio_web    / 1.19)) : "",
+        precio_oferta_neto: data.precio_oferta ? String(Math.round(data.precio_oferta / 1.19)) : "",
+        flete_estimado:     data.flete_estimado ? String(data.flete_estimado) : "",
+        stock_status:       data.stock_status || "en-stock",
+      });
+    } else {
+      setWebForm({ precio_web_neto:"", precio_oferta_neto:"", flete_estimado:"", stock_status:"en-stock" });
+    }
+  };
+
+  const saveWebPrice = async () => {
+    if (!editingId) return;
+    setSavingWeb(true);
+    const netoWeb    = Number(webForm.precio_web_neto);
+    const netoOferta = Number(webForm.precio_oferta_neto);
+    const flete      = Number(webForm.flete_estimado);
+    const row = {
+      producto_id:    editingId,
+      precio_web:     netoWeb    > 0 ? Math.round(netoWeb    * 1.19) : null,
+      precio_oferta:  netoOferta > 0 ? Math.round(netoOferta * 1.19) : null,
+      flete_estimado: flete      > 0 ? flete : null,
+      stock_status:   webForm.stock_status || "en-stock",
+    };
+    const { error } = await supabase.from("precios_web").upsert(row, { onConflict: "producto_id" });
+    if (!error) await loadWebPrice(editingId);
+    setSavingWeb(false);
+  };
+
   const filtered = products.filter(p => {
     const q = search.toLowerCase();
     const matchCat = filterType==="todos" || p.category===filterType;
@@ -112,6 +151,7 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
     setEditingId(p.id); setShowPriceForm(false); setOpenHistoryId(null); setShowComparar(false); setPriceHistory({});
     setForm({ code:p.code, name:p.name, description:p.description||"", price:String(p.price), unit:p.unit, category:p.category, provider:p.provider, type:p.type, url:p.url||"", updatedAt:p.updatedAt||"", skuProveedor:p.skuProveedor||"", fichaUrl:p.fichaUrl||"" });
     loadProductPrices(p.id);
+    loadWebPrice(p.id);
     cargarFuentes();
     setShowModal(true);
   };
@@ -821,6 +861,86 @@ export function ProductsDB({ isMobile, openProductId, onOpenHandled, onVolver, a
               style={{ width:"100%", marginTop:16, padding:"10px 0", background:"none", border:`1px solid ${C.red}66`, borderRadius:6, color:C.red, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:600, cursor:"pointer" }}>
               Eliminar ítem
             </button>
+          )}
+
+          {/* ── PANEL PRECIOS WEB ──────────────────────────────────────────── */}
+          {editingId && (
+            <div style={{ background:C.bg, border:`1.5px solid #2563eb33`, borderRadius:10, padding:"14px", marginTop:10 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+                <div style={{ fontFamily:FONT, fontSize:10, color:"#2563eb", letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600 }}>
+                  🌐 Precios Web (Catálogo público)
+                </div>
+                {webPriceData?.updated_at && (
+                  <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted }}>
+                    Actualizado {fmtFecha(webPriceData.updated_at.slice(0,10))}
+                  </div>
+                )}
+              </div>
+
+              {/* Precio Web Neto → Bruto */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
+                <div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>Precio Web Neto</div>
+                  <input type="number" value={webForm.precio_web_neto} onChange={e=>fw("precio_web_neto",e.target.value)} placeholder="0"
+                    style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:C.text, outline:"none", boxSizing:"border-box" }} />
+                  {Number(webForm.precio_web_neto) > 0 && (
+                    <div style={{ marginTop:4, display:"flex", gap:12 }}>
+                      <div>
+                        <div style={{ fontFamily:FONT, fontSize:8, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.06em" }}>IVA (19%)</div>
+                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:"#ef4444" }}>
+                          {fmt(Math.round(Number(webForm.precio_web_neto) * 0.19))}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontFamily:FONT, fontSize:8, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.06em" }}>Bruto cliente</div>
+                        <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:"#2563eb" }}>
+                          {fmt(Math.round(Number(webForm.precio_web_neto) * 1.19))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>Precio Oferta Neto</div>
+                  <input type="number" value={webForm.precio_oferta_neto} onChange={e=>fw("precio_oferta_neto",e.target.value)} placeholder="0 (sin oferta)"
+                    style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:C.text, outline:"none", boxSizing:"border-box" }} />
+                  {Number(webForm.precio_oferta_neto) > 0 && (
+                    <div style={{ marginTop:4 }}>
+                      <div style={{ fontFamily:FONT, fontSize:8, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.06em" }}>Bruto oferta</div>
+                      <div style={{ fontFamily:FONT_DISPLAY, fontSize:12, fontWeight:700, color:"#dc2626" }}>
+                        {fmt(Math.round(Number(webForm.precio_oferta_neto) * 1.19))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Flete + Stock */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
+                <div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>Flete estimado (CLP)</div>
+                  <input type="number" value={webForm.flete_estimado} onChange={e=>fw("flete_estimado",e.target.value)} placeholder="0 (no aplica)"
+                    style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:13, color:C.text, outline:"none", boxSizing:"border-box" }} />
+                </div>
+                <div>
+                  <div style={{ fontFamily:FONT, fontSize:10, color:C.textMuted, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:5 }}>Stock en catálogo</div>
+                  <select value={webForm.stock_status} onChange={e=>fw("stock_status",e.target.value)}
+                    style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"9px 12px", fontFamily:FONT, fontSize:12, color:C.text, outline:"none", boxSizing:"border-box" }}>
+                    <option value="en-stock">🟢 En stock</option>
+                    <option value="pocas-unidades">🟡 Pocas unidades</option>
+                    <option value="sin-stock">🔴 Sin stock</option>
+                  </select>
+                </div>
+              </div>
+
+              <button onClick={saveWebPrice} disabled={savingWeb}
+                style={{ width:"100%", padding:"9px", background: savingWeb?"#94a3b8":"#2563eb", color:"#fff", border:"none", borderRadius:7, fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:700, cursor:savingWeb?"default":"pointer" }}>
+                {savingWeb ? "Guardando…" : "💾 Guardar precios web"}
+              </button>
+              <div style={{ fontFamily:FONT, fontSize:9, color:C.textMuted, marginTop:5, textAlign:"center" }}>
+                Los valores se reflejan de inmediato en el catálogo público
+              </div>
+            </div>
           )}
         </Modal>
       )}
