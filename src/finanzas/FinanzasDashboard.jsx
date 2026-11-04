@@ -9,6 +9,7 @@ import { GastosGenerales } from "./GastosGenerales.jsx";
 import { EstadoResultados } from "./EstadoResultados.jsx";
 import { CajaView } from "./CajaView.jsx";
 import { fmtClp, fmtFecha } from "../shared/format.js";
+import { Tabs } from "../shared/Tabs.jsx";
 
 export function FinanzasDashboard({ isMobile }) {
   const { C, theme } = useTheme();
@@ -76,24 +77,20 @@ export function FinanzasDashboard({ isMobile }) {
       </SecTitle>
 
       {/* Tabs */}
-      <div style={{ display:"flex", gap:4, marginBottom:24,
-        borderBottom:`1px solid ${C.border}`, paddingBottom:0 }}>
-        {[
-          { key:"rendimiento",       label:"Rendimiento por COT"   },
-          { key:"gastos",            label:"Gastos Generales"       },
-          { key:"f29",               label:"F29 — IVA mensual"      },
-          { key:"estado_resultados", label:"Estado de Resultados"   },
-          { key:"caja",              label:"Cuentas / Caja"         },
-        ].map(t => (
-          <button key={t.key} onClick={()=>setTabFin(t.key)}
-            style={{ padding:"9px 20px", background:"transparent", border:"none",
-              borderBottom:`2px solid ${tabFin===t.key?C.accent:"transparent"}`,
-              color:tabFin===t.key?C.accent:C.textMuted,
-              fontFamily:FONT_DISPLAY, fontSize:13, fontWeight:tabFin===t.key?700:400,
-              cursor:"pointer", transition:"all 0.15s", marginBottom:-1 }}>
-            {t.label}
-          </button>
-        ))}
+      <div style={{ marginBottom:24, overflowX:"auto" }}>
+        <Tabs
+          tabs={[
+            { key:"rendimiento",       label:"Rendimiento por COT"  },
+            { key:"gastos",            label:"Gastos Generales"      },
+            { key:"f29",               label:"F29 — IVA mensual"     },
+            { key:"estado_resultados", label:"Estado de Resultados"  },
+            { key:"caja",              label:"Cuentas / Caja"        },
+          ]}
+          value={tabFin}
+          onChange={setTabFin}
+          variant="underline"
+          theme={theme}
+        />
       </div>
 
       {/* Selector mes/año — compartido entre F29 y Estado de Resultados */}

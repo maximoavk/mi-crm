@@ -9,6 +9,10 @@ import { isOverdue, fmt, fmtDate, hoyISO, fechaISO } from "../shared/format.js";
 import { supabase } from "../supabaseClient.js";
 import { LIGHT_THEME, FONT_BODY, FONT_NUM } from "../theme.js";
 import { useTheme } from "../shared/useTheme.js";
+import { KpiCard } from "../shared/KpiCard.jsx";
+import { Tabs } from "../shared/Tabs.jsx";
+import { DayGrid } from "../shared/DayGrid.jsx";
+import { tasksToGridCells } from "../shared/dayGridUtils.js";
 
 // ── Panel de accesos directos — flotante, colapsado (solo ícono), se
 // expande con un pop-out + efecto glass al pasar el mouse.
@@ -39,16 +43,6 @@ const AccesoDirecto = ({ qa, onClick, theme=LIGHT_THEME }) => {
   );
 };
 
-const KpiCard = ({ label, value, sub, accentColor, valueColor, theme=LIGHT_THEME }) => {
-  const C = theme.colors;
-  return (
-    <div style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`3px solid ${accentColor}`, borderRadius:12, padding:"14px 16px" }}>
-      <div style={{ fontFamily:FONT_BODY, fontSize:9, fontWeight:600, color:C.textDim, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>{label}</div>
-      <div style={{ fontFamily:FONT_NUM, fontSize:20, fontWeight:600, color:valueColor||C.text }}>{value}</div>
-      {sub && <div style={{ fontFamily:FONT_BODY, fontSize:10, color:C.textDim, marginTop:3 }}>{sub}</div>}
-    </div>
-  );
-};
 
 const SectionTitle = ({ children, sub, theme=LIGHT_THEME }) => {
   const C = theme.colors;
@@ -304,7 +298,7 @@ export function Dashboard({ deals, tasks, setTasks, isMobile, navigate }) {
 
   const sideCol = (
     <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-      <KpiCard theme={theme} label="Pipeline esperado" value={fmt(pipeline)} sub="ponderado por probabilidad" accentColor={C.accent} valueColor={C.accent} />
+      <KpiCard theme={theme} label="Pipeline esperado" value={fmt(pipeline)} trendLabel="ponderado por probabilidad" accentColor={C.accent} />
 
       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
         <SectionTitle theme={theme} sub={pctVencidas===null ? "% rechazadas por vencimiento: sin datos aún" : `${pctVencidas}% rechazadas por vencimiento`}>Pipeline por estado</SectionTitle>
@@ -376,15 +370,14 @@ export function Dashboard({ deals, tasks, setTasks, isMobile, navigate }) {
           <div style={{ fontFamily:FONT_BODY, fontSize:13, fontWeight:700, color:C.text }}>Actividades</div>
           <div style={{ fontFamily:FONT_BODY, fontSize:10, color:C.textDim, marginTop:2 }}>seguimiento del ciclo comercial</div>
         </div>
-        <div style={{ display:"flex", gap:2, padding:3, background:C.bg, borderRadius:8 }}>
-          {[["dia","Día"],["semana","Semana"],["mes","Mes"]].map(([key,label])=>(
-            <button key={key} onClick={()=>setPeriodo(key)}
-              style={{ padding:"6px 14px", borderRadius:6, border:"none", cursor:"pointer",
-                background: periodo===key?C.accent:"transparent",
-                color: periodo===key?"#fff":C.textMuted,
-                fontFamily:FONT_BODY, fontSize:11, fontWeight:600 }}>{label}</button>
-          ))}
-        </div>
+        <Tabs
+          tabs={[{ key:"dia", label:"Día" }, { key:"semana", label:"Semana" }, { key:"mes", label:"Mes" }]}
+          value={periodo}
+          onChange={setPeriodo}
+          variant="segmented"
+          size="sm"
+          theme={theme}
+        />
       </div>
 
       <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
@@ -414,17 +407,36 @@ export function Dashboard({ deals, tasks, setTasks, isMobile, navigate }) {
                     <div style={{ fontFamily:FONT_BODY, fontSize:12, fontWeight:600, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", textDecoration:t.done?"line-through":"none" }}>{t.title}</div>
                     <div style={{ fontFamily:FONT_BODY, fontSize:10, color:C.textDim }}>{t.company}</div>
                   </div>
-                  <span style={{ fontSize:9, fontWeight:700, padding:"3px 9px", borderRadius:9, background:`${estado.color}18`, color:estado.color, fontFamily:FONT_BODY, flexShrink:0, textTransform:"uppercase" }}>{estado.label}</span>
+                  <span style={{ display:"inline-flex", alignItems:"center", gap:4, fontSize:9, fontWeight:700, padding:"3px 9px", borderRadius:9, background:`${estado.color}18`, color:estado.color, fontFamily:FONT_BODY, flexShrink:0, textTransform:"uppercase" }}>
+                <span style={{ width:5, height:5, borderRadius:"50%", background:estado.color, flexShrink:0,
+                  animation: !t.done && !isOverdue(t.dueDate) ? "badge-pulse 1.6s ease-in-out infinite" : "none" }} />
+                {estado.label}
+              </span>
                 </div>
               );
             })}
           </div>
         )
+      ) : periodo === "mes" ? (
+        <DayGrid
+          cells={tasksToGridCells(tasks, mesBase.getFullYear(), mesBase.getMonth() + 1)}
+          color={C.accent}
+          theme={theme}
+          showMonthLabel={false}
+        />
       ) : (
-        <div style={{ display:"flex", gap:14, alignItems:"flex-end", height:120 }}>
+        <div style={{ display:"flex", gap:10, alignItems:"flex-end", height:100 }}>
           {chartData.map(d=>(
-            <div key={d.label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
-              <div style={{ width:"100%", maxWidth:36, height:Math.max(4,(d.count/chartMax)*90), borderRadius:4, background:d.activo?C.accent:C.border }} />
+            <div key={d.label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:5 }}>
+              <span style={{ fontFamily:FONT_BODY, fontSize:10, fontWeight:600, color:d.activo?C.accent:C.textDim }}>{d.count||""}</span>
+              <div style={{
+                width:"100%", maxWidth:32,
+                height: Math.max(4,(d.count/chartMax)*72),
+                borderRadius:"4px 4px 2px 2px",
+                background: d.activo ? C.accent : C.border,
+                opacity: d.activo ? 1 : 0.6,
+                transition:"height 0.3s ease",
+              }} />
               <span style={{ fontFamily:FONT_BODY, fontSize:10, fontWeight:d.activo?700:500, color:d.activo?C.accent:C.textMuted }}>{d.label}</span>
             </div>
           ))}
@@ -435,6 +447,7 @@ export function Dashboard({ deals, tasks, setTasks, isMobile, navigate }) {
 
   return (
     <div style={{ minHeight:"100%", background:C.bg, padding:isMobile?16:32, boxSizing:"border-box", fontFamily:FONT_BODY }}>
+      <style>{`@keyframes badge-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }`}</style>
       <div style={{ maxWidth:1400, margin:"0 auto", display:"flex", flexDirection:"column", gap:10, paddingRight: isMobile?0:52 }}>
         <div>
           <div style={{ fontFamily:FONT_BODY, fontSize:10, fontWeight:600, color:C.textDim, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>Vista general</div>

@@ -7,10 +7,55 @@ import { FONT, COLORS, FONT_DISPLAY } from "../theme.js";
 const DEFAULT_THEME = { colors: COLORS, font: FONT, fontDisplay: FONT_DISPLAY };
 
 // ── COMMON UI ───────────────────────────────────────────────────────────────
-export const Badge = ({ color, children, theme }) => {
-  const { font } = theme || DEFAULT_THEME;
+// Badge con soporte para dot indicator y animación pulse.
+// Props:
+//   color     string   — color hex directo (modo legado, sigue funcionando)
+//   variant   "success"|"warning"|"danger"|"info"|"default"  — alternativa a color
+//   dot       true | "pulse"  — punto de color antes del texto
+//   size      "sm" | "md" (default)
+//   children  ReactNode
+//   theme     { colors, font }
+const BADGE_VARIANT_COLORS = {
+  success:     "#00E5A0",
+  warning:     "#FFB800",
+  danger:      "#FF4D6A",
+  destructive: "#FF4D6A",
+  info:        "#00C2FF",
+};
+
+export const Badge = ({ color: colorProp, variant, dot, size = "md", children, theme }) => {
+  const { font, colors: C } = theme || DEFAULT_THEME;
+  const color = colorProp || BADGE_VARIANT_COLORS[variant] || (C?.accent ?? "#00C2FF");
+  const pad = size === "sm" ? "1px 7px" : "2px 10px";
+  const fs  = size === "sm" ? 10 : 11;
+
   return (
-    <span style={{ display:"inline-block", padding:"2px 10px", borderRadius:4, fontSize:11, fontFamily:font, fontWeight:600, letterSpacing:"0.06em", background:color+"22", color, border:`1px solid ${color}44`, textTransform:"uppercase" }}>{children}</span>
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 5,
+      padding: pad, borderRadius: 4,
+      fontSize: fs, fontFamily: font, fontWeight: 600,
+      letterSpacing: "0.06em", textTransform: "uppercase",
+      background: color + "22", color, border: `1px solid ${color}44`,
+    }}>
+      {dot && (
+        <span style={{
+          width: 5, height: 5, borderRadius: "50%",
+          background: color, flexShrink: 0,
+          animation: dot === "pulse"
+            ? "badge-pulse 1.6s ease-in-out infinite"
+            : "none",
+        }} />
+      )}
+      {children}
+      {dot === "pulse" && (
+        <style>{`
+          @keyframes badge-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%       { opacity: 0.4; transform: scale(0.7); }
+          }
+        `}</style>
+      )}
+    </span>
   );
 };
 
